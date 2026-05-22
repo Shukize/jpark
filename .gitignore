@@ -1,0 +1,8 @@
+# OS / editor cruft
+Thumbs.db
+ehthumbs.db
+desktop.ini
+.DS_Store
+*.swp
+.vs/
+node_modules/

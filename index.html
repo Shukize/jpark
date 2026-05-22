@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>J Park Hotel · Chonburi</title>
+<meta name="description" content="J Park Hotel — a Japanese-inspired garden hotel in Chonburi, Thailand. Onsen, Tsubaki dining, tropical pool, and the new Midnight Coffee Club." />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230c5b58'/%3E%3Ctext x='16' y='22' font-family='Georgia,serif' font-size='17' fill='%23d4af37' text-anchor='middle'%3EJ%3C/text%3E%3C/svg%3E" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Noto+Sans+Thai:wght@300;400;500;600;700&family=Noto+Serif+Thai:wght@400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="assets/css/style.css" />
+</head>
+<body>
+
+<!-- ====== TOP / NAV ====== -->
+<header class="site-header" id="siteHeader">
+  <div class="nav-inner">
+    <a href="#home" class="brand" aria-label="J Park Hotel">
+      <span class="brand-mark">J</span>
+      <span class="brand-text">
+        <span class="brand-name">J PARK</span>
+        <span class="brand-sub" data-i18n="brand.sub">HOTEL · CHONBURI</span>
+      </span>
+    </a>
+
+    <nav class="nav-links" id="navLinks">
+      <a href="#coffee" data-i18n="nav.coffee">Midnight Coffee Club</a>
+      <a href="#about" data-i18n="nav.about">About</a>
+      <a href="#rooms" data-i18n="nav.rooms">Rooms</a>
+      <a href="#facilities" data-i18n="nav.facilities">Facilities</a>
+      <a href="#dining" data-i18n="nav.dining">Dining</a>
+      <a href="#gallery" data-i18n="nav.gallery">Gallery</a>
+      <a href="#contact" data-i18n="nav.contact">Contact</a>
+    </nav>
+
+    <div class="nav-actions">
+      <div class="lang-switch" id="langSwitch">
+        <button class="lang-btn" id="langBtn" aria-haspopup="true" aria-expanded="false">
+          <span class="globe" aria-hidden="true">&#127760;</span>
+          <span id="langCurrent">ไทย</span>
+          <span class="caret" aria-hidden="true">&#9662;</span>
+        </button>
+        <ul class="lang-menu" id="langMenu" role="menu">
+          <li><button data-lang="th" role="menuitem">ไทย</button></li>
+          <li><button data-lang="en" role="menuitem">English</button></li>
+          <li><button data-lang="ja" role="menuitem">日本語</button></li>
+          <li><button data-lang="zh-Hans" role="menuitem">简体中文</button></li>
+          <li><button data-lang="zh-Hant" role="menuitem">繁體中文</button></li>
+        </ul>
+      </div>
+      <a href="#contact" class="btn btn-book" data-i18n="nav.book">Book Now</a>
+      <button class="hamburger" id="hamburger" aria-label="Menu"><span></span><span></span><span></span></button>
+    </div>
+  </div>
+</header>
+
+<!-- ====== HERO ====== -->
+<section class="hero" id="home">
+  <div class="hero-media">
+    <img src="images/48cd9718-cece-4c80-adcd-dd637ed35d00.jpg" alt="J Park Hotel pool and gardens" />
+    <div class="hero-scrim"></div>
+  </div>
+  <div class="hero-content reveal">
+    <p class="eyebrow light" data-i18n="hero.eyebrow">Japanese-inspired garden hotel · Chonburi</p>
+    <h1 class="hero-title" data-i18n="hero.title">A quiet garden, a warm welcome</h1>
+    <p class="hero-lede" data-i18n="hero.lede">Tropical calm meets Japanese hospitality — onsen, fine dining, and serene suites a short drive from Amata Nakorn.</p>
+    <div class="hero-cta">
+      <a href="#rooms" class="btn btn-solid" data-i18n="hero.ctaRooms">Explore Rooms</a>
+      <a href="#coffee" class="btn btn-ghost" data-i18n="hero.ctaCoffee">Midnight Coffee Club</a>
+    </div>
+  </div>
+  <a href="#coffee" class="scroll-cue" aria-label="Scroll down"><span></span></a>
+</section>
+
+<!-- ====== MIDNIGHT COFFEE CLUB (featured, auto-scrolling) ====== -->
+<section class="coffee" id="coffee">
+  <div class="coffee-carousel" id="coffeeCarousel" aria-label="Midnight Coffee Club gallery">
+    <!-- slides injected by JS -->
+  </div>
+  <div class="coffee-overlay"></div>
+
+  <div class="coffee-content">
+    <span class="grand-badge">
+      <span class="pulse"></span>
+      <span data-i18n="coffee.badge">Grand Opening</span>
+    </span>
+    <p class="eyebrow light" data-i18n="coffee.eyebrow">Now open at J Park</p>
+    <h2 class="coffee-title">
+      <span data-i18n="coffee.title1">Midnight</span>
+      <span class="serif-accent" data-i18n="coffee.title2">Coffee Club</span>
+    </h2>
+    <p class="coffee-tag" data-i18n="coffee.tagline">Coffee by daylight · Cocktails by midnight</p>
+    <p class="coffee-lede" data-i18n="coffee.lede">A sun-drenched café of bamboo, teak and peacock blue — single-origin brews and fresh pastries through the day, easing into signature cocktails and low light after dark.</p>
+
+    <div class="coffee-hours">
+      <div class="hour-card">
+        <span class="hour-icon">&#9728;</span>
+        <strong data-i18n="coffee.day">Café · Daytime</strong>
+        <span data-i18n="coffee.dayHours">07:00 – 17:00</span>
+      </div>
+      <div class="hour-card">
+        <span class="hour-icon">&#127864;</span>
+        <strong data-i18n="coffee.night">Bar · Evening &amp; Late Night</strong>
+        <span data-i18n="coffee.nightHours">17:00 – 00:00</span>
+      </div>
+    </div>
+
+    <a href="#contact" class="btn btn-solid gold" data-i18n="coffee.cta">Visit the Club</a>
+  </div>
+
+  <div class="carousel-dots" id="carouselDots" aria-hidden="true"></div>
+</section>
+
+<!-- ====== ABOUT ====== -->
+<section class="about section" id="about">
+  <div class="about-grid">
+    <div class="about-images reveal">
+      <img class="about-img-main" src="images/383fb6a3-fc47-4029-bfe5-2bd90e2f9345.jpg" alt="J Park Hotel lobby lounge" />
+      <img class="about-img-sub" src="images/843e2617-637f-4337-8f46-69ff1e5b6979.jpg" alt="Garden walkway with bougainvillea" />
+    </div>
+    <div class="about-text reveal">
+      <p class="eyebrow" data-i18n="about.eyebrow">Welcome to J Park</p>
+      <h2 class="section-title" data-i18n="about.title">Where Japan meets the Thai tropics</h2>
+      <p data-i18n="about.p1">Set among flowering gardens and shaded courtyards in Na Pa, Chonburi, J Park Hotel blends the calm of a Japanese ryokan with the warmth of Thai hospitality. Spacious, apartment-style suites make it as comfortable for a single night as for a long stay.</p>
+      <p data-i18n="about.p2">Soak in our traditional onsen, dine on authentic Japanese cuisine at Tsubaki, swim beneath the palms, then unwind at the brand-new Midnight Coffee Club. Just minutes from Amata Nakorn and within easy reach of Bangsaen Beach and Bangkok.</p>
+      <ul class="about-stats">
+        <li><strong data-i18n="about.stat1n">5</strong><span data-i18n="about.stat1l">Garden buildings</span></li>
+        <li><strong data-i18n="about.stat2n">24h</strong><span data-i18n="about.stat2l">Front desk</span></li>
+        <li><strong data-i18n="about.stat3n">5 km</strong><span data-i18n="about.stat3l">to Amata Nakorn</span></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ====== ROOMS ====== -->
+<section class="rooms section alt" id="rooms">
+  <div class="section-head reveal">
+    <p class="eyebrow" data-i18n="rooms.eyebrow">Stay with us</p>
+    <h2 class="section-title" data-i18n="rooms.title">Rooms &amp; Suites</h2>
+    <p class="section-lede" data-i18n="rooms.lede">Three room styles, each with quiet garden or city views, plush bedding and a calming, minimalist palette.</p>
+  </div>
+
+  <div class="room-grid">
+    <article class="room-card reveal">
+      <div class="room-img"><img src="images/Studio/8033675f-22d4-40d5-8629-566ef499612f.jpg" alt="Studio Room" loading="lazy" /></div>
+      <div class="room-body">
+        <span class="room-size" data-i18n="rooms.studioSize">37 m²</span>
+        <h3 data-i18n="rooms.studioName">Studio Room</h3>
+        <p data-i18n="rooms.studioDesc">A bright, minimalist retreat with a king bed, work nook and garden views — perfect for the solo traveller or short stay.</p>
+      </div>
+    </article>
+
+    <article class="room-card reveal">
+      <div class="room-img"><img src="images/Grand%20Deluxe/9fa48cad-503d-4bf9-8296-7a90ce34bbd2.jpg" alt="Grand Deluxe Room" loading="lazy" /></div>
+      <div class="room-body">
+        <span class="room-size" data-i18n="rooms.deluxeSize">54 m²</span>
+        <h3 data-i18n="rooms.deluxeName">Grand Deluxe</h3>
+        <p data-i18n="rooms.deluxeDesc">A spacious apartment-style suite with a separate living area, kitchenette and a marble bathroom with deep soaking tub.</p>
+      </div>
+    </article>
+
+    <article class="room-card reveal">
+      <div class="room-img"><img src="images/Grand%20Deluxe/fab7da35-ac57-4ebd-b0a4-ae2981d17c9d.jpg" alt="Grand Suite" loading="lazy" /></div>
+      <div class="room-body">
+        <span class="room-size" data-i18n="rooms.suiteSize">75–78 m²</span>
+        <h3 data-i18n="rooms.suiteName">Grand Suite</h3>
+        <p data-i18n="rooms.suiteDesc">Our largest residence — full living and dining space, premium finishes and twin vanities, made for families and long stays.</p>
+      </div>
+    </article>
+  </div>
+</section>
+
+<!-- ====== FACILITIES ====== -->
+<section class="facilities section" id="facilities">
+  <div class="section-head reveal">
+    <p class="eyebrow" data-i18n="fac.eyebrow">Time to unwind</p>
+    <h2 class="section-title" data-i18n="fac.title">Facilities &amp; Wellness</h2>
+  </div>
+
+  <div class="fac-grid">
+    <article class="fac-card large reveal" style="background-image:url('images/c3ac1733-933b-49de-aa10-7185a21dbe5f.jpg')">
+      <div class="fac-card-text">
+        <h3 data-i18n="fac.poolName">Tropical Pool</h3>
+        <p data-i18n="fac.poolDesc">A palm-fringed outdoor pool and sun terrace, framed by blossoming gardens.</p>
+      </div>
+    </article>
+    <article class="fac-card reveal" style="background-image:url('images/ea770736-fe38-4c3e-b072-4928f8a2fad9.jpg')">
+      <div class="fac-card-text">
+        <h3 data-i18n="fac.onsenName">Japanese Onsen</h3>
+        <p data-i18n="fac.onsenDesc">Soak away the day in our traditional hot-spring bath.</p>
+      </div>
+    </article>
+    <article class="fac-card reveal" style="background-image:url('images/Gym/0c3d1ad4-6fd3-4082-8cbd-a08f1a11dc0e.jpg')">
+      <div class="fac-card-text">
+        <h3 data-i18n="fac.gymName">Fitness Centre</h3>
+        <p data-i18n="fac.gymDesc">A fully-equipped gym with cardio, free weights and machines.</p>
+      </div>
+    </article>
+    <article class="fac-card reveal" style="background-image:url('images/3d6be05f-7084-4d60-915c-e76e587675b3.jpg')">
+      <div class="fac-card-text">
+        <h3 data-i18n="fac.gardenName">Gardens &amp; Halls</h3>
+        <p data-i18n="fac.gardenDesc">Lush walking gardens, J Park Hall and event spaces for every occasion.</p>
+      </div>
+    </article>
+  </div>
+</section>
+
+<!-- ====== DINING ====== -->
+<section class="dining section alt" id="dining">
+  <div class="section-head reveal">
+    <p class="eyebrow" data-i18n="dining.eyebrow">Eat &amp; drink</p>
+    <h2 class="section-title" data-i18n="dining.title">Dining at J Park</h2>
+  </div>
+
+  <div class="dining-grid">
+    <article class="dining-card reveal">
+      <div class="dining-img"><img src="images/ef6ec731-7bc6-4d8c-a10d-dcb7131d7470.jpg" alt="Tsubaki Japanese restaurant" loading="lazy" /></div>
+      <div class="dining-body">
+        <h3 data-i18n="dining.tsubakiName">Tsubaki · Japanese Restaurant</h3>
+        <p data-i18n="dining.tsubakiDesc">Authentic Japanese cuisine — sushi, sashimi and warming donburi — in a serene setting.</p>
+      </div>
+    </article>
+    <article class="dining-card reveal">
+      <div class="dining-img"><img src="images/45c09cb7-8ba5-4ba0-bc3c-42837ef10bf2.jpg" alt="All-day dining courtyard" loading="lazy" /></div>
+      <div class="dining-body">
+        <h3 data-i18n="dining.allDayName">All-Day Dining</h3>
+        <p data-i18n="dining.allDayDesc">A light-filled garden courtyard for breakfast buffets and all-day Thai and international favourites.</p>
+      </div>
+    </article>
+    <article class="dining-card reveal">
+      <div class="dining-img"><img src="images/New%20Midnight%20Coffee%20Club/587f2a86-cbf1-4cac-9e69-9279d2478323.jpg" alt="Midnight Coffee Club" loading="lazy" /></div>
+      <div class="dining-body">
+        <h3 data-i18n="dining.coffeeName">Midnight Coffee Club</h3>
+        <p data-i18n="dining.coffeeDesc">Specialty coffee and pastries by day, signature cocktails by night. Now open.</p>
+      </div>
+    </article>
+  </div>
+</section>
+
+<!-- ====== GALLERY ====== -->
+<section class="gallery section" id="gallery">
+  <div class="section-head reveal">
+    <p class="eyebrow" data-i18n="gallery.eyebrow">A closer look</p>
+    <h2 class="section-title" data-i18n="gallery.title">Gallery</h2>
+  </div>
+  <div class="gallery-grid" id="galleryGrid"><!-- injected by JS --></div>
+</section>
+
+<!-- ====== CONTACT / LOCATION ====== -->
+<section class="contact section alt" id="contact">
+  <div class="contact-grid">
+    <div class="contact-info reveal">
+      <p class="eyebrow" data-i18n="contact.eyebrow">Visit &amp; reservations</p>
+      <h2 class="section-title" data-i18n="contact.title">Find us in Chonburi</h2>
+      <p class="contact-lede" data-i18n="contact.lede">We would be delighted to welcome you. Reach out to reserve a room, a table, or your spot at the Midnight Coffee Club.</p>
+
+      <ul class="contact-list">
+        <li>
+          <span class="ci-label" data-i18n="contact.addrLabel">Address</span>
+          <span class="ci-value" data-i18n="contact.addrValue">88 Thanon Sukprayun, Na Pa, Mueang Chonburi District, Chon Buri 20000, Thailand</span>
+        </li>
+        <li>
+          <span class="ci-label" data-i18n="contact.phoneLabel">Phone</span>
+          <span class="ci-value"><a href="tel:+6638053888">+66 (0)38 053 888</a></span>
+        </li>
+        <li>
+          <span class="ci-label" data-i18n="contact.emailLabel">Email</span>
+          <span class="ci-value"><a href="mailto:info@jparkhotel.com">info@jparkhotel.com</a></span>
+        </li>
+        <li>
+          <span class="ci-label" data-i18n="contact.hoursLabel">Reception</span>
+          <span class="ci-value" data-i18n="contact.hoursValue">Open 24 hours</span>
+        </li>
+      </ul>
+
+      <div class="contact-cta">
+        <a href="tel:+6638053888" class="btn btn-solid" data-i18n="contact.callBtn">Call to Book</a>
+        <a href="https://maps.google.com/?q=J+Park+Hotel+Chonburi" target="_blank" rel="noopener" class="btn btn-ghost dark" data-i18n="contact.mapBtn">Open in Maps</a>
+      </div>
+    </div>
+
+    <div class="contact-map reveal">
+      <iframe
+        title="J Park Hotel map"
+        src="https://www.google.com/maps?q=J%20Park%20Hotel%20Chonburi&output=embed"
+        loading="lazy"
+        referrerpolicy="no-referrer-when-downgrade"></iframe>
+    </div>
+  </div>
+</section>
+
+<!-- ====== FOOTER ====== -->
+<footer class="site-footer">
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <span class="brand-mark">J</span>
+      <div>
+        <span class="brand-name">J PARK HOTEL</span>
+        <span class="brand-sub" data-i18n="footer.tag">Garden hospitality · Chonburi, Thailand</span>
+      </div>
+    </div>
+    <nav class="footer-links">
+      <a href="#coffee" data-i18n="nav.coffee">Midnight Coffee Club</a>
+      <a href="#rooms" data-i18n="nav.rooms">Rooms</a>
+      <a href="#facilities" data-i18n="nav.facilities">Facilities</a>
+      <a href="#dining" data-i18n="nav.dining">Dining</a>
+      <a href="#contact" data-i18n="nav.contact">Contact</a>
+    </nav>
+    <p class="footer-copy">© <span id="year"></span> J Park Hotel. <span data-i18n="footer.rights">All rights reserved.</span></p>
+  </div>
+</footer>
+
+<script src="assets/js/i18n.js"></script>
+<script src="assets/js/main.js"></script>
+</body>
+</html>
