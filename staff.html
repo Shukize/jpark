@@ -61,9 +61,10 @@
       <span class="ni-label" data-i18n="staff.nav.chat">Live Chat</span>
       <span class="ni-count" id="countChat"></span>
     </button>
-    <button class="nav-item" data-panel="company">
-      <span class="ni-ico" aria-hidden="true">📢</span>
-      <span class="ni-label" data-i18n="staff.nav.company">Messages › Company</span>
+    <button class="nav-item" data-panel="messages">
+      <span class="ni-ico" aria-hidden="true">✉️</span>
+      <span class="ni-label" data-i18n="staff.nav.company">Messages</span>
+      <span class="ni-count" id="countMessages"></span>
     </button>
     <button class="nav-item admin-only" data-panel="site">
       <span class="ni-ico" aria-hidden="true">🛠️</span>
@@ -80,10 +81,17 @@
         <select id="staffLang" aria-label="Language"></select>
       </div>
       <div class="ds-user">
-        <b id="dsUserName">—</b>
-        <span id="dsUserRole" class="muted"></span>
+        <div class="ds-avatar-wrap" id="dsAvatarWrap" title="Change profile photo">
+          <div class="ds-avatar" id="dsAvatar"></div>
+          <span class="ds-avatar-edit" aria-hidden="true">✎</span>
+        </div>
+        <div class="ds-user-info">
+          <b id="dsUserName">—</b>
+          <span id="dsUserRole" class="muted"></span>
+        </div>
       </div>
       <button class="btn-signout-side" id="dsSignout" data-i18n="staff.signout">Sign out</button>
+      <a href="index.html" class="btn-home-side" data-i18n="staff.login.back">← Back to website</a>
     </div>
   </aside>
 
@@ -107,15 +115,34 @@
       </div>
     </section>
 
-    <!-- company messages -->
-    <section class="dash-panel" id="panel-company">
-      <h2 data-i18n="staff.company.title">Company messages</h2>
-      <p class="panel-lede" data-i18n="staff.company.lede">Internal board for staff and administrators.</p>
-      <div class="company-feed" id="companyFeed"></div>
-      <form class="company-compose" id="companyForm">
-        <textarea id="companyInput" data-i18n-attr="placeholder:staff.company.placeholder" placeholder="Write a message…"></textarea>
-        <button type="submit" class="btn btn-solid" data-i18n="staff.company.post">Post</button>
-      </form>
+    <!-- messages — Gmail-style internal messaging -->
+    <section class="dash-panel" id="panel-messages">
+      <div class="msg-shell">
+        <nav class="msg-sidebar" id="msgSidebar">
+          <button class="msg-compose-btn" id="msgComposeBtn">
+            <span class="mcb-ico">✏️</span>
+            <span>Compose</span>
+          </button>
+          <button class="msg-nav-item active" data-view="inbox">
+            <span class="mni-ico">📥</span>
+            <span class="mni-label">Inbox</span>
+            <span class="mni-badge" id="msgInboxBadge" style="display:none"></span>
+          </button>
+          <button class="msg-nav-item" data-view="sent">
+            <span class="mni-ico">📤</span>
+            <span class="mni-label">Sent</span>
+          </button>
+          <button class="msg-nav-item" data-view="announcements">
+            <span class="mni-ico">📢</span>
+            <span class="mni-label">Announcements</span>
+            <span class="mni-badge" id="msgAnnBadge" style="display:none"></span>
+          </button>
+        </nav>
+        <main class="msg-main" id="msgMain">
+          <div class="msg-list-area" id="msgListArea"></div>
+          <div class="msg-detail" id="msgDetail"></div>
+        </main>
+      </div>
     </section>
 
     <!-- site editor (admin) -->
@@ -191,6 +218,40 @@
 </div>
 
 <div class="toast-wrap" id="toastWrap" aria-live="polite"></div>
+
+<!-- ============ COMPOSE MODAL ============ -->
+<div class="msg-compose-modal" id="msgComposeModal" role="dialog" aria-label="New Message">
+  <div class="msg-compose-box" id="msgComposeBox">
+    <div class="msg-compose-head">
+      <span class="mch-title">New Message</span>
+      <button class="mch-btn" id="msgComposeClose" title="Close">✕</button>
+    </div>
+    <div class="msg-compose-fields">
+      <div class="msg-compose-row" id="msgToRow" style="position:relative">
+        <span class="mcr-label">To</span>
+        <div class="msg-compose-to-tags" id="msgToTags">
+          <input type="text" class="msg-to-input" id="msgToInput" placeholder="Add recipients…" autocomplete="off" />
+        </div>
+        <div class="msg-to-dropdown" id="msgToDropdown"></div>
+      </div>
+      <div class="msg-compose-row">
+        <span class="mcr-label">Subject</span>
+        <input type="text" id="msgSubjectInput" class="msg-subject-input" placeholder="Subject" />
+      </div>
+    </div>
+    <textarea class="msg-compose-body" id="msgBodyInput" placeholder="Write your message here…"></textarea>
+    <div class="msg-compose-footer">
+      <button class="msg-send-btn" id="msgSendBtn">
+        <span class="msb-ico">&#9658;</span>
+        Send
+      </button>
+      <span class="mf-limit" id="msgToLimit"></span>
+      <button class="msg-discard-btn" id="msgDiscardBtn" title="Discard draft">🗑</button>
+    </div>
+  </div>
+</div>
+
+<input type="file" id="avatarInput" accept="image/*" style="display:none" />
 
 <script src="assets/js/store.js"></script>
 <script src="assets/js/util.js"></script>

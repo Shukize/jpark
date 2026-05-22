@@ -148,6 +148,7 @@
       // keep newly added seed tables in sync for older saves
       if (!read("menu")) write("menu", SEED_MENU);
       if (!read("concierge")) write("concierge", SEED_CONCIERGE);
+      if (!read("messages")) write("messages", []);
       return;
     }
     write("bookings", SEED_BOOKINGS);
@@ -162,6 +163,16 @@
         text: "Welcome to the staff board. Post shift notes and guest follow-ups here.",
         createdAt: Date.now() - 86400000 }
     ]);
+    write("messages", [
+      { id: "ms1", fromId: "u_admin", fromName: "Hotel Admin", fromRole: "admin",
+        subject: "Welcome to J Park Messaging",
+        body: "Welcome to the new internal messaging system. Use this space for private team communications and company-wide announcements.\n\nAll staff can send private messages to up to 10 colleagues at a time. Administrators can also broadcast announcements to everyone.\n\nBest regards,\nHotel Administration",
+        to: "all", toNames: "Everyone", createdAt: Date.now() - 86400000 * 2, readBy: [] },
+      { id: "ms2", fromId: "u_admin", fromName: "Hotel Admin", fromRole: "admin",
+        subject: "Holiday Coverage — Please Confirm Availability",
+        body: "Good morning team,\n\nPlease confirm your availability for the upcoming Songkran holiday period (April 13–15).\n\nReply to this message with your preferred shifts. We will post the final schedule at least one week in advance.\n\nThank you for your continued dedication.\n\nHotel Administration",
+        to: ["u_staff"], toNames: ["Front Desk"], createdAt: Date.now() - 3600000 * 3, readBy: [] }
+    ]);
     write("announcements", []);
     write("content", {});
     write("seeded", true);
@@ -173,7 +184,7 @@
       .filter((k) => k.indexOf(NS) === 0)
       .forEach((k) => localStorage.removeItem(k));
     seed();
-    ["bookings","staff","menu","concierge","requests","orders","chats","company","announcements","content"]
+    ["bookings","staff","menu","concierge","requests","orders","chats","company","messages","announcements","content"]
       .forEach((t) => emit(t, read(t)));
   }
 
