@@ -41,7 +41,6 @@
       <a href="#rooms" data-i18n="nav.rooms">Rooms</a>
       <a href="#facilities" data-i18n="nav.facilities">Facilities</a>
       <a href="#dining" data-i18n="nav.dining">Dining</a>
-      <a href="#concierge" data-i18n="nav.concierge">Concierge</a>
       <a href="#gallery" data-i18n="nav.gallery">Gallery</a>
       <a href="#contact" data-i18n="nav.contact">Contact</a>
     </nav>
@@ -174,7 +173,7 @@
         </div>
         <p class="form-error" id="gateError"></p>
         <button type="submit" class="btn btn-solid" data-i18n="gate.submit">Enter portal</button>
-        <p class="gate-demo" data-i18n="gate.demoHint">Demo: Smith / 101 · Tanaka / 204 · Chen / 312</p>
+        <p class="gate-demo" data-i18n="gate.demoHint">Test logins: Robinson / 101 · Miyamoto / 204 · Chen / 312</p>
       </form>
     </div>
 
@@ -318,15 +317,7 @@
   </div>
 </section>
 
-<!-- ====== LOCAL CONCIERGE ====== -->
-<section class="concierge section" id="concierge">
-  <div class="section-head reveal">
-    <p class="eyebrow" data-i18n="conc.eyebrow">Explore Chonburi</p>
-    <h2 class="section-title" data-i18n="conc.title">Local Concierge</h2>
-    <p class="section-lede" data-i18n="conc.lede">Curated experiences near J Park. Tap a card to ask a question or request a booking.</p>
-  </div>
-  <div class="conc-grid reveal" id="concGrid"><!-- injected by JS --></div>
-</section>
+<!-- LOCAL CONCIERGE — temporarily hidden; see README to re-enable -->
 
 <!-- ====== GALLERY ====== -->
 <section class="gallery section" id="gallery">
@@ -395,7 +386,6 @@
       <a href="#services" data-i18n="nav.services">Guest Services</a>
       <a href="#rooms" data-i18n="nav.rooms">Rooms</a>
       <a href="#facilities" data-i18n="nav.facilities">Facilities</a>
-      <a href="#concierge" data-i18n="nav.concierge">Concierge</a>
       <a href="#contact" data-i18n="nav.contact">Contact</a>
       <a href="staff.html" data-i18n="footer.staff">Staff Login</a>
     </nav>
@@ -411,6 +401,8 @@
 </div>
 
 <div class="toast-wrap" id="toastWrap" aria-live="polite"></div>
+
+<button class="view-toggle" id="viewToggle" aria-label="Switch view">📱 Mobile</button>
 
 <script src="assets/js/store.js"></script>
 <script src="assets/js/util.js"></script>

@@ -35,7 +35,7 @@
       "gate.welcome": "Welcome",
       "gate.roomLabel": "Room",
       "gate.signout": "Sign out",
-      "gate.demoHint": "Demo: Smith / 101 · Tanaka / 204 · Chen / 312",
+      "gate.demoHint": "Test logins: Robinson / 101 · Miyamoto / 204 · Chen / 312",
 
       "matrix.title": "Quick Service Requests",
       "matrix.lede": "Tap an item and we'll take care of it. Watch the status update live below.",
@@ -248,7 +248,7 @@
       "gate.welcome": "ยินดีต้อนรับ",
       "gate.roomLabel": "ห้อง",
       "gate.signout": "ออกจากระบบ",
-      "gate.demoHint": "เดโม: Smith / 101 · Tanaka / 204 · Chen / 312",
+      "gate.demoHint": "ทดสอบ: Robinson / 101 · Miyamoto / 204 · Chen / 312",
 
       "matrix.title": "คำขอบริการด่วน",
       "matrix.lede": "แตะที่รายการแล้วเราจะจัดการให้ ติดตามสถานะแบบเรียลไทม์ด้านล่าง",
@@ -461,7 +461,7 @@
       "gate.welcome": "ようこそ",
       "gate.roomLabel": "部屋",
       "gate.signout": "ログアウト",
-      "gate.demoHint": "デモ：Smith / 101 · Tanaka / 204 · Chen / 312",
+      "gate.demoHint": "テストログイン：Robinson / 101 · Miyamoto / 204 · Chen / 312",
 
       "matrix.title": "クイックサービスリクエスト",
       "matrix.lede": "項目をタップするだけで対応します。下で進捗をリアルタイムに確認できます。",
@@ -674,7 +674,7 @@
       "gate.welcome": "欢迎",
       "gate.roomLabel": "房间",
       "gate.signout": "退出",
-      "gate.demoHint": "演示：Smith / 101 · Tanaka / 204 · Chen / 312",
+      "gate.demoHint": "测试登录：Robinson / 101 · Miyamoto / 204 · Chen / 312",
 
       "matrix.title": "快捷服务请求",
       "matrix.lede": "轻点项目，我们即刻为您处理。可在下方实时查看状态。",
@@ -887,7 +887,7 @@
       "gate.welcome": "歡迎",
       "gate.roomLabel": "房間",
       "gate.signout": "登出",
-      "gate.demoHint": "示範：Smith / 101 · Tanaka / 204 · Chen / 312",
+      "gate.demoHint": "測試登入：Robinson / 101 · Miyamoto / 204 · Chen / 312",
 
       "matrix.title": "快捷服務請求",
       "matrix.lede": "輕點項目，我們即刻為您處理。可在下方即時查看狀態。",

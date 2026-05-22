@@ -106,8 +106,8 @@
      Demo seed data
      ============================================================ */
   const SEED_BOOKINGS = [
-    { id: "bk1", ref: "JP-1001", lastName: "smith",     room: "101" },
-    { id: "bk2", ref: "JP-1002", lastName: "tanaka",    room: "204" },
+    { id: "bk1", ref: "JP-1001", lastName: "robinson",  room: "101" },
+    { id: "bk2", ref: "JP-1002", lastName: "miyamoto",  room: "204" },
     { id: "bk3", ref: "JP-1003", lastName: "chen",      room: "312" },
     { id: "bk4", ref: "JP-1004", lastName: "suksawat",  room: "508" }
   ];

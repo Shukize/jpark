@@ -161,6 +161,34 @@
     if (y) y.textContent = new Date().getFullYear();
   }
 
+  /* ---------- Mobile / Desktop view toggle ---------- */
+  function initViewToggle() {
+    const btn = document.getElementById("viewToggle");
+    if (!btn) return;
+
+    const KEY = "jpark.view";
+    const isMobileDevice = window.matchMedia("(max-width: 767px)").matches;
+    const saved = localStorage.getItem(KEY);
+
+    // default: mobile view on small screens, desktop on large
+    let mobileView = saved !== null ? saved === "mobile" : isMobileDevice;
+
+    function apply() {
+      document.body.classList.toggle("mobile-view", mobileView);
+      btn.textContent = mobileView ? "🖥 Desktop" : "📱 Mobile";
+      btn.setAttribute("aria-label", mobileView ? "Switch to desktop view" : "Switch to mobile view");
+      btn.title = btn.getAttribute("aria-label");
+    }
+
+    btn.addEventListener("click", () => {
+      mobileView = !mobileView;
+      localStorage.setItem(KEY, mobileView ? "mobile" : "desktop");
+      apply();
+    });
+
+    apply();
+  }
+
   document.addEventListener("DOMContentLoaded", () => {
     initHeader();
     initMenu();
@@ -168,5 +196,6 @@
     initGallery();
     initReveal();
     initYear();
+    initViewToggle();
   });
 })();
