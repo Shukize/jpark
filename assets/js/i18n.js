@@ -439,6 +439,30 @@ const I18N = {
 
 const SUPPORTED = ["th", "en", "ja", "zh-Hans", "zh-Hant"];
 
+let CURRENT_LANG = "th";
+
+/* Merge additional translation strings (used by feature modules).
+   Shape: { th:{...}, en:{...}, ja:{...}, "zh-Hans":{...}, "zh-Hant":{...} } */
+function registerI18n(extra) {
+  Object.keys(extra || {}).forEach((lang) => {
+    if (!I18N[lang]) I18N[lang] = {};
+    Object.assign(I18N[lang], extra[lang]);
+  });
+}
+
+/* Translate a single key for the current language, with sensible
+   fallbacks (current -> en -> th -> the key itself). */
+function t(key, lang) {
+  const L = lang || CURRENT_LANG;
+  const order = [L, "en", "th"];
+  for (const l of order) {
+    if (I18N[l] && I18N[l][key] !== undefined) return I18N[l][key];
+  }
+  return key;
+}
+
+function getLang() { return CURRENT_LANG; }
+
 function normaliseLang(raw) {
   if (!raw) return null;
   const l = raw.toLowerCase();
@@ -473,14 +497,22 @@ function detectLang() {
 
 function applyLang(lang) {
   if (!SUPPORTED.includes(lang)) lang = "th";
-  const dict = I18N[lang];
+  CURRENT_LANG = lang;
 
   document.documentElement.setAttribute("lang", lang);
   document.documentElement.setAttribute("data-lang", lang);
 
+  // Element text content
   document.querySelectorAll("[data-i18n]").forEach((el) => {
-    const key = el.getAttribute("data-i18n");
-    if (dict[key] !== undefined) el.textContent = dict[key];
+    const v = t(el.getAttribute("data-i18n"), lang);
+    if (v !== undefined) el.textContent = v;
+  });
+  // Attribute translations, e.g. data-i18n-attr="placeholder:chat.input"
+  document.querySelectorAll("[data-i18n-attr]").forEach((el) => {
+    el.getAttribute("data-i18n-attr").split(",").forEach((pair) => {
+      const [attr, key] = pair.split(":").map((s) => s.trim());
+      if (attr && key) el.setAttribute(attr, t(key, lang));
+    });
   });
 
   const current = document.getElementById("langCurrent");
@@ -491,7 +523,16 @@ function applyLang(lang) {
   });
 
   localStorage.setItem("jpark.lang", lang);
+
+  // Let feature modules re-render their dynamic content.
+  document.dispatchEvent(new CustomEvent("jpark:langchange", { detail: { lang } }));
 }
+
+window.JPark = window.JPark || {};
+window.JPark.i18n = {
+  t, applyLang, getLang, registerI18n,
+  SUPPORTED, LANG_NAMES, detectLang
+};
 
 document.addEventListener("DOMContentLoaded", () => {
   applyLang(detectLang());

@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Staff Console · J Park Hotel</title>
+<meta name="robots" content="noindex" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230c5b58'/%3E%3Ctext x='16' y='22' font-family='Georgia,serif' font-size='17' fill='%23d4af37' text-anchor='middle'%3EJ%3C/text%3E%3C/svg%3E" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Noto+Sans+Thai:wght@300;400;500;600;700&family=Noto+Serif+Thai:wght@400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="assets/css/style.css" />
+<link rel="stylesheet" href="assets/css/app.css" />
+</head>
+<body class="staff-body">
+
+<!-- ============ LOGIN ============ -->
+<div class="login-wrap" id="loginView">
+  <form class="login-card" id="loginForm" novalidate>
+    <span class="brand-mark">J</span>
+    <h1 data-i18n="staff.login.title">Staff Login</h1>
+    <p class="login-sub" data-i18n="staff.login.sub">J Park Hotel · Team portal</p>
+
+    <div class="field">
+      <label for="loginUser" data-i18n="staff.login.user">Username</label>
+      <input type="text" id="loginUser" autocomplete="username" />
+    </div>
+    <div class="field">
+      <label for="loginPass" data-i18n="staff.login.pass">Password</label>
+      <input type="password" id="loginPass" autocomplete="current-password" />
+    </div>
+    <p class="form-error" id="loginError"></p>
+    <button type="submit" class="btn btn-solid" data-i18n="staff.login.submit">Sign in</button>
+
+    <div class="field" style="margin-top:18px">
+      <select id="staffLangLogin" aria-label="Language"></select>
+    </div>
+    <p class="login-demo" data-i18n="staff.login.demo">Demo — admin / admin123 · staff / staff123</p>
+    <a class="login-back" href="index.html" data-i18n="staff.login.back">← Back to website</a>
+  </form>
+</div>
+
+<!-- ============ DASHBOARD ============ -->
+<div class="dash" id="dashView">
+  <aside class="dash-side">
+    <div class="ds-brand">
+      <span class="brand-mark">J</span>
+      <div>
+        <div class="ds-name">J Park</div>
+        <div class="ds-role" id="dsRoleLabel">Team</div>
+      </div>
+    </div>
+
+    <button class="nav-item active" data-panel="requests">
+      <span class="ni-ico" aria-hidden="true">🛎️</span>
+      <span class="ni-label" data-i18n="staff.nav.requests">Requests</span>
+      <span class="ni-count" id="countRequests"></span>
+    </button>
+    <button class="nav-item" data-panel="chat">
+      <span class="ni-ico" aria-hidden="true">💬</span>
+      <span class="ni-label" data-i18n="staff.nav.chat">Live Chat</span>
+      <span class="ni-count" id="countChat"></span>
+    </button>
+    <button class="nav-item" data-panel="company">
+      <span class="ni-ico" aria-hidden="true">📢</span>
+      <span class="ni-label" data-i18n="staff.nav.company">Messages › Company</span>
+    </button>
+    <button class="nav-item admin-only" data-panel="site">
+      <span class="ni-ico" aria-hidden="true">🛠️</span>
+      <span class="ni-label" data-i18n="staff.nav.site">Site Editor</span>
+    </button>
+    <button class="nav-item admin-only" data-panel="team">
+      <span class="ni-ico" aria-hidden="true">👥</span>
+      <span class="ni-label" data-i18n="staff.nav.team">Staff</span>
+    </button>
+
+    <div class="ds-spacer"></div>
+    <div class="ds-foot">
+      <div class="field" style="margin-bottom:10px">
+        <select id="staffLang" aria-label="Language"></select>
+      </div>
+      <div class="ds-user">
+        <b id="dsUserName">—</b>
+        <span id="dsUserRole" class="muted"></span>
+      </div>
+      <button class="btn-signout-side" id="dsSignout" data-i18n="staff.signout">Sign out</button>
+    </div>
+  </aside>
+
+  <main class="dash-main">
+    <!-- requests -->
+    <section class="dash-panel show" id="panel-requests">
+      <h2 data-i18n="staff.requests.title">Guest requests</h2>
+      <p class="panel-lede" data-i18n="matrix.lede"></p>
+      <div class="req-filters" id="reqFilters"></div>
+      <div class="staff-list" id="reqList"></div>
+    </section>
+
+    <!-- live chat -->
+    <section class="dash-panel" id="panel-chat">
+      <h2 data-i18n="staff.chat.title">Live guest chats</h2>
+      <div class="chat-console">
+        <div class="cc-threads" id="chatThreads"></div>
+        <div class="cc-conv" id="chatConv">
+          <div class="cc-conv-empty" id="chatConvEmpty" data-i18n="staff.chat.none">Select a conversation.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- company messages -->
+    <section class="dash-panel" id="panel-company">
+      <h2 data-i18n="staff.company.title">Company messages</h2>
+      <p class="panel-lede" data-i18n="staff.company.lede">Internal board for staff and administrators.</p>
+      <div class="company-feed" id="companyFeed"></div>
+      <form class="company-compose" id="companyForm">
+        <textarea id="companyInput" data-i18n-attr="placeholder:staff.company.placeholder" placeholder="Write a message…"></textarea>
+        <button type="submit" class="btn btn-solid" data-i18n="staff.company.post">Post</button>
+      </form>
+    </section>
+
+    <!-- site editor (admin) -->
+    <section class="dash-panel" id="panel-site">
+      <h2 data-i18n="staff.site.title">Site Editor</h2>
+      <p class="panel-lede" data-i18n="staff.site.lede">Changes appear on the public website immediately.</p>
+
+      <div class="editor-card">
+        <h3 data-i18n="hero.title">Hero</h3>
+        <div class="field">
+          <label data-i18n="staff.site.heroTitle">Hero heading</label>
+          <input type="text" id="edHeroTitle" />
+        </div>
+        <div class="field">
+          <label data-i18n="staff.site.heroLede">Hero subtext</label>
+          <textarea id="edHeroLede"></textarea>
+        </div>
+        <div class="field">
+          <label data-i18n="staff.site.heroImg">Hero image URL</label>
+          <input type="text" id="edHeroImg" placeholder="images/..." />
+        </div>
+        <button class="btn btn-solid" id="edSaveHero" data-i18n="staff.site.save">Save changes</button>
+        <button class="btn btn-ghost dark" id="edResetHero" data-i18n="staff.site.reset" style="margin-left:8px">Reset</button>
+      </div>
+
+      <div class="editor-card">
+        <h3 data-i18n="staff.site.ann">Announcements banner</h3>
+        <div class="ann-edit-list" id="annEditList"></div>
+        <form id="annForm" class="company-compose">
+          <input type="text" id="annInput" data-i18n-attr="placeholder:staff.site.annPh" placeholder="Announcement text…" />
+          <button type="submit" class="btn btn-solid" data-i18n="staff.site.annAdd">Add</button>
+        </form>
+      </div>
+
+      <div class="editor-card">
+        <h3 data-i18n="staff.site.sections">Show / hide sections</h3>
+        <div class="section-toggles" id="sectionToggles"></div>
+      </div>
+
+      <div class="editor-card">
+        <h3 data-i18n="staff.danger">Reset all demo data</h3>
+        <button class="btn-danger" id="edResetAll" data-i18n="staff.danger">Reset all demo data</button>
+      </div>
+    </section>
+
+    <!-- staff management (admin) -->
+    <section class="dash-panel" id="panel-team">
+      <h2 data-i18n="staff.team.title">Staff management</h2>
+      <p class="panel-lede" data-i18n="staff.team.lede">Add team members and control access.</p>
+
+      <div class="team-card">
+        <h3 data-i18n="staff.team.add">Add staff member</h3>
+        <form id="teamForm">
+          <div class="field"><label data-i18n="staff.team.name">Full name</label><input type="text" id="tmName" /></div>
+          <div class="field"><label data-i18n="staff.team.username">Username</label><input type="text" id="tmUser" /></div>
+          <div class="field"><label data-i18n="staff.team.password">Password</label><input type="text" id="tmPass" /></div>
+          <div class="field"><label data-i18n="staff.team.role">Role</label>
+            <select id="tmRole">
+              <option value="staff" data-i18n="staff.role.staff">Staff</option>
+              <option value="admin" data-i18n="staff.role.admin">Administrator</option>
+            </select>
+          </div>
+          <p class="form-error" id="teamError"></p>
+          <button type="submit" class="btn btn-solid" data-i18n="staff.team.add">Add staff member</button>
+        </form>
+      </div>
+
+      <div class="team-card">
+        <div id="teamList"></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div class="toast-wrap" id="toastWrap" aria-live="polite"></div>
+
+<script src="assets/js/store.js"></script>
+<script src="assets/js/util.js"></script>
+<script src="assets/js/i18n.js"></script>
+<script src="assets/js/i18n-app.js"></script>
+<script src="assets/js/staff.js"></script>
+</body>
+</html>
