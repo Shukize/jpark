@@ -444,27 +444,26 @@ body.staff-body { background: #eef1ef; }
    ============================================================ */
 .view-toggle {
   position: fixed;
-  bottom: 22px;
-  right: 18px;
+  bottom: 18px;
+  left: 16px;
   z-index: 1400;
   background: var(--teal-deep);
   color: var(--ivory);
   border: none;
   border-radius: 999px;
-  padding: 9px 16px;
+  padding: 5px 11px;
   font-family: var(--sans);
-  font-size: 0.78rem;
+  font-size: 0.7rem;
   font-weight: 600;
   letter-spacing: .03em;
   cursor: pointer;
-  box-shadow: 0 4px 18px -4px rgba(0,0,0,.35);
+  box-shadow: 0 3px 12px -3px rgba(0,0,0,.35);
   transition: background .2s, transform .15s;
   white-space: nowrap;
+  opacity: 0.82;
 }
-.view-toggle:hover { background: var(--teal); transform: translateY(-2px); }
-/* hide while admin-bar is visible so they don't overlap */
-.admin-bar.show ~ * .view-toggle,
-body:has(.admin-bar.show) .view-toggle { bottom: 62px; }
+.view-toggle:hover { background: var(--teal); transform: translateY(-1px); opacity: 1; }
+body:has(.admin-bar.show) .view-toggle { bottom: 56px; }
 
 /* ============================================================
    MOBILE VIEW — body.mobile-view overrides
