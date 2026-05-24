@@ -118,6 +118,7 @@
 
   function render() {
     const conv = getConv();
+    const cur = I.getLang();
     body.innerHTML = '<p class="chat-langnote">' + U.escapeHtml(t("chat.langNote")) + "</p>";
     if (conv) {
       conv.messages.forEach((m) => {
@@ -128,8 +129,10 @@
         } else {
           div.innerHTML = '<span class="msg-from">' + U.escapeHtml(fromLabel(m.from)) + "</span>";
           const span = document.createElement("span");
-          span.textContent = m.text;
           div.appendChild(span);
+          // Already in the viewer's language → show as-is; otherwise auto-translate.
+          if (m.lang && m.lang === cur) span.textContent = m.text;
+          else JPark.translate.fill(span, m.text, div);
         }
         body.appendChild(div);
       });

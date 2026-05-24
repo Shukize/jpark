@@ -358,6 +358,79 @@ h1, h2, h3 { font-weight: 500; line-height: 1.12; letter-spacing: 0.01em; }
 .reveal { opacity: 0; transform: translateY(34px); transition: opacity .9s var(--ease), transform .9s var(--ease); }
 .reveal.in { opacity: 1; transform: none; }
 
+/* ---------------- landing intro ---------------- */
+body.intro-active { overflow: hidden; }
+
+.intro {
+  position: fixed; inset: 0; z-index: 100000;
+  display: grid; place-content: center; place-items: center;
+  text-align: center; padding: 24px;
+  background: radial-gradient(125% 125% at 50% 28%, var(--teal-soft) 0%, var(--teal) 40%, var(--teal-deep) 100%);
+  overflow: hidden; cursor: pointer;
+  opacity: 1; transition: opacity 1s var(--ease);
+}
+.intro.is-done { opacity: 0; pointer-events: none; }
+.intro.is-hidden { display: none; }
+
+.intro-inner { position: relative; z-index: 3; }
+
+.intro-title {
+  font-family: var(--serif); font-weight: 500;
+  color: var(--ivory);
+  font-size: clamp(2.6rem, 9vw, 6.6rem);
+  letter-spacing: 0.04em; line-height: 1.05; margin: 0;
+  text-shadow: 0 6px 44px rgba(0,0,0,0.35);
+  opacity: 0; transform: translateX(-90px);
+  animation: introTitleIn 1.5s var(--ease) 0.25s forwards;
+}
+@keyframes introTitleIn {
+  0%   { opacity: 0; transform: translateX(-90px); filter: blur(7px); letter-spacing: 0.22em; }
+  55%  { opacity: 1; filter: blur(0); }
+  100% { opacity: 1; transform: translateX(0); letter-spacing: 0.04em; }
+}
+
+.intro-sub-wrap { position: relative; height: 3em; margin-top: 18px; display: grid; place-items: center; }
+.intro-sub {
+  position: relative; z-index: 3;
+  font-family: var(--serif);
+  font-size: clamp(1.1rem, 3.2vw, 2rem);
+  letter-spacing: 0.55em; text-indent: 0.55em; text-transform: uppercase;
+  color: var(--gold-light);
+  opacity: 0;
+  animation: introSubIn 1.6s var(--ease) 1.3s forwards;
+}
+@keyframes introSubIn {
+  0%   { opacity: 0; transform: translateY(8px) scale(0.97); filter: blur(5px); }
+  100% { opacity: 1; transform: none; filter: blur(0); }
+}
+
+/* lake-ripple rings behind "Chonburi" */
+.intro-ripple { position: absolute; left: 50%; top: 50%; width: 36px; height: 36px;
+  margin: -18px 0 0 -18px; border: 1.5px solid rgba(224,193,120,0.5); border-radius: 50%;
+  opacity: 0; transform: scale(0.3); animation: introRipple 3s ease-out 1.35s infinite; }
+.intro-ripple.r2 { animation-delay: 2.0s; }
+.intro-ripple.r3 { animation-delay: 2.6s; }
+@keyframes introRipple {
+  0%   { opacity: 0; transform: scale(0.3); }
+  12%  { opacity: 0.55; }
+  100% { opacity: 0; transform: scale(8); }
+}
+
+/* wind-blown leaves drifting across the screen */
+.intro-leaves { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
+.leaf {
+  position: absolute; top: 0; left: 0; width: 14px; height: 14px;
+  background: linear-gradient(135deg, var(--gold-light), var(--teal-soft));
+  border-radius: 0 100% 0 100%; opacity: 0;
+  animation: leafBlow var(--dur, 6s) linear var(--delay, 0s) forwards;
+}
+@keyframes leafBlow {
+  0%   { opacity: 0; transform: translate(-12vw, -12vh) rotate(0deg); }
+  10%  { opacity: 0.85; }
+  88%  { opacity: 0.85; }
+  100% { opacity: 0; transform: translate(112vw, 64vh) rotate(680deg); }
+}
+
 /* ---------------- responsive ---------------- */
 @media (max-width: 960px) {
   .nav-links { display: none; }

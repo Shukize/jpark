@@ -247,6 +247,12 @@ body.has-banner .site-header { } /* header stays fixed; banner scrolls above */
 .msg.guest { align-self: flex-end; background: var(--teal); color: var(--ivory); border-bottom-right-radius: 5px; }
 .msg .msg-from { display: block; font-size: 0.68rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; opacity: .7; margin-bottom: 3px; }
 .msg.staff .msg-from { color: var(--terracotta); }
+
+/* "Translated from X" note (live chat bubbles + internal messages) */
+.tr-note { display: block; margin-top: 5px; font-size: 0.66rem; font-style: italic; letter-spacing: .02em; opacity: .68; }
+.tr-note::before { content: "\1F310"; font-style: normal; margin-right: 4px; opacity: .8; }
+.msg.guest .tr-note { color: rgba(247,242,232,0.85); }
+.msg-tr-note { margin: 10px 0 0; color: var(--terracotta); opacity: .85; }
 .msg.system { align-self: center; background: transparent; color: var(--ink-soft); font-size: 0.8rem; font-style: italic; text-align: center; max-width: 100%; }
 
 .chat-quick { display: flex; flex-wrap: wrap; gap: 7px; padding: 0 16px 10px; }

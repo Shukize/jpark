@@ -6,6 +6,7 @@
    ============================================================ */
 (function () {
   "use strict";
+  const J = window.JPark;
   const S = window.JPark.store;
   const I = window.JPark.i18n;
   const U = window.JPark.util;
@@ -221,6 +222,7 @@
     convEl.innerHTML = html;
 
     const bodyEl = document.getElementById("ccBody");
+    const cur = I.getLang();
     conv.messages.forEach((m) => {
       const div = document.createElement("div");
       div.className = "msg " + m.from;
@@ -228,7 +230,9 @@
       else {
         div.innerHTML = '<span class="msg-from">' +
           esc(m.from === "guest" ? (conv.guestName || t("chat.you")) : m.from === "staff" ? (m.staffName || t("chat.staff")) : t("chat.bot")) + "</span>";
-        const span = document.createElement("span"); span.textContent = m.text; div.appendChild(span);
+        const span = document.createElement("span"); div.appendChild(span);
+        if (m.lang && m.lang === cur) span.textContent = m.text;
+        else J.translate.fill(span, m.text, div);
       }
       bodyEl.appendChild(div);
     });
@@ -333,6 +337,20 @@
     return d.toLocaleDateString([], { month: "short", day: "numeric" });
   }
 
+  /* Silently translate `original` into the current UI language and drop it
+     into `el` (no "translated from" note — used for compact list rows). */
+  function maybeTranslateInto(el, original, srcLang) {
+    if (!el || !original || !original.trim()) return;
+    const cur = I.getLang();
+    if (srcLang && srcLang === cur) return;
+    J.translate.text(original, cur).then((res) => {
+      if (!el.isConnected) return;
+      if (res.src && res.src !== cur && res.text && res.text !== original) {
+        el.textContent = res.text;
+      }
+    });
+  }
+
   function renderMessages() {
     const counts = getMsgUnreadCount();
     const inboxBadge = document.getElementById("msgInboxBadge");
@@ -407,6 +425,8 @@
           '<span class="mr-preview">' + esc((m.body || "").replace(/\n/g, " ").slice(0, 100)) + "</span>" +
         "</div>" +
         '<div class="mr-time">' + esc(formatMsgTime(m.createdAt)) + "</div>";
+      maybeTranslateInto(row.querySelector(".mr-subject"), m.subject || "", m.lang);
+      maybeTranslateInto(row.querySelector(".mr-preview"), (m.body || "").replace(/\n/g, " ").slice(0, 100), m.lang);
       row.addEventListener("click", () => {
         msgPrevView = msgView;
         msgDetailId = m.id;
@@ -430,7 +450,7 @@
 
     detailArea.innerHTML =
       '<button class="msg-detail-back" id="msgDetailBack">← Back</button>' +
-      '<div class="msg-detail-subject">' + esc(m.subject || "(no subject)") + "</div>" +
+      '<div class="msg-detail-subject"></div>' +
       '<div class="msg-detail-meta">' +
         '<div class="' + avatarClass + '">' + makeAvatarHtml(m.fromName, m.fromId) + "</div>" +
         '<div class="mda-info">' +
@@ -440,7 +460,31 @@
         "</div>" +
         '<div class="mda-time">' + esc(new Date(m.createdAt).toLocaleString()) + "</div>" +
       "</div>" +
-      '<div class="msg-detail-body">' + esc(m.body || "") + "</div>";
+      '<div class="tr-note msg-tr-note" style="display:none"></div>' +
+      '<div class="msg-detail-body"></div>';
+
+    // Subject + body: show original immediately, then auto-translate to the
+    // reader's language with a single "translated from X" note.
+    const subjEl = detailArea.querySelector(".msg-detail-subject");
+    const bodyEl = detailArea.querySelector(".msg-detail-body");
+    const noteEl = detailArea.querySelector(".msg-tr-note");
+    subjEl.textContent = m.subject || "(no subject)";
+    bodyEl.textContent = m.body || "";
+    const cur = I.getLang();
+    if (!m.lang || m.lang !== cur) {
+      J.translate.text(m.subject || "", cur).then((res) => {
+        if (subjEl.isConnected && res.src && res.src !== cur && res.text && res.text !== (m.subject || "")) {
+          subjEl.textContent = res.text;
+        }
+      });
+      J.translate.text(m.body || "", cur).then((res) => {
+        if (bodyEl.isConnected && res.src && res.src !== cur && res.text && res.text !== (m.body || "")) {
+          bodyEl.textContent = res.text;
+          noteEl.textContent = t("tr.from") + " " + J.translate.langName(res.src);
+          noteEl.style.display = "";
+        }
+      });
+    }
 
     document.getElementById("msgDetailBack").addEventListener("click", () => {
       msgView = msgPrevView;
@@ -574,7 +618,7 @@
     if (!body) { U.toast("Please write a message.", "error"); return; }
     const msg = {
       fromId: session.id, fromName: session.name, fromRole: session.role,
-      subject, body,
+      subject, body, lang: I.getLang(),
       to: msgToAllSelected ? "all" : msgToRecipients.map((r) => r.id),
       toNames: msgToAllSelected ? "Everyone" : msgToRecipients.map((r) => r.name),
       readBy: [session.id]

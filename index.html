@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>J Park Hotel · Chonburi</title>
-<meta name="description" content="J Park Hotel — a Japanese-inspired garden hotel in Chonburi, Thailand. Onsen, Tsubaki dining, tropical pool, and the new Midnight Coffee Club." />
+<meta name="description" content="J Park Hotel — a Japanese-inspired hotel in Chonburi, Thailand. Onsen, Tsubaki dining, tropical pool, and the new Midnight Coffee Club." />
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230c5b58'/%3E%3Ctext x='16' y='22' font-family='Georgia,serif' font-size='17' fill='%23d4af37' text-anchor='middle'%3EJ%3C/text%3E%3C/svg%3E" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -13,6 +13,54 @@
 <link rel="stylesheet" href="assets/css/app.css" />
 </head>
 <body>
+
+<!-- ====== LANDING INTRO (first visit per session) ====== -->
+<div class="intro" id="introScreen" aria-hidden="true">
+  <div class="intro-leaves"></div>
+  <div class="intro-inner">
+    <h1 class="intro-title">J Park Hotel</h1>
+    <div class="intro-sub-wrap">
+      <span class="intro-ripple r1"></span>
+      <span class="intro-ripple r2"></span>
+      <span class="intro-ripple r3"></span>
+      <div class="intro-sub">Chonburi</div>
+    </div>
+  </div>
+</div>
+<script>
+(function () {
+  var intro = document.getElementById("introScreen");
+  if (!intro) return;
+  var reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var seen = false;
+  try { seen = sessionStorage.getItem("jpark.introSeen") === "1"; } catch (e) {}
+  if (seen) { intro.classList.add("is-hidden"); return; }
+  document.body.classList.add("intro-active");
+
+  var layer = intro.querySelector(".intro-leaves");
+  if (layer && !reduce) {
+    for (var i = 0; i < 11; i++) {
+      var leaf = document.createElement("span");
+      leaf.className = "leaf";
+      var dur = (5 + Math.random() * 4).toFixed(2);
+      var delay = (Math.random() * 2.4).toFixed(2);
+      var top = (Math.random() * 72).toFixed(0);
+      var size = (9 + Math.random() * 13).toFixed(0);
+      leaf.style.cssText = "--dur:" + dur + "s;--delay:" + delay + "s;top:" + top + "%;width:" + size + "px;height:" + size + "px;";
+      layer.appendChild(leaf);
+    }
+  }
+
+  function finish() {
+    intro.classList.add("is-done");
+    document.body.classList.remove("intro-active");
+    try { sessionStorage.setItem("jpark.introSeen", "1"); } catch (e) {}
+    setTimeout(function () { intro.classList.add("is-hidden"); }, 1000);
+  }
+  var timer = setTimeout(finish, reduce ? 300 : 4200);
+  intro.addEventListener("click", function () { clearTimeout(timer); finish(); });
+})();
+</script>
 
 <!-- ====== ANNOUNCEMENT BANNER (admin-managed) ====== -->
 <div class="ann-banner" id="annBanner" role="status">
@@ -69,12 +117,12 @@
 <!-- ====== HERO ====== -->
 <section class="hero" id="home">
   <div class="hero-media">
-    <img src="images/48cd9718-cece-4c80-adcd-dd637ed35d00.jpg" alt="J Park Hotel pool and gardens" />
+    <img src="images/48cd9718-cece-4c80-adcd-dd637ed35d00.jpg" alt="J Park Hotel pool and terrace" />
     <div class="hero-scrim"></div>
   </div>
   <div class="hero-content reveal">
-    <p class="eyebrow light" data-i18n="hero.eyebrow">Japanese-inspired garden hotel · Chonburi</p>
-    <h1 class="hero-title" data-i18n="hero.title">A quiet garden, a warm welcome</h1>
+    <p class="eyebrow light" data-i18n="hero.eyebrow">Japanese-inspired hotel · Chonburi</p>
+    <h1 class="hero-title" data-i18n="hero.title">A serene retreat, a warm welcome</h1>
     <p class="hero-lede" data-i18n="hero.lede">Tropical calm meets Japanese hospitality — onsen, fine dining, and serene suites a short drive from Amata Nakorn.</p>
     <div class="hero-cta">
       <a href="#rooms" class="btn btn-solid" data-i18n="hero.ctaRooms">Explore Rooms</a>
@@ -128,15 +176,15 @@
   <div class="about-grid">
     <div class="about-images reveal">
       <img class="about-img-main" src="images/383fb6a3-fc47-4029-bfe5-2bd90e2f9345.jpg" alt="J Park Hotel lobby lounge" />
-      <img class="about-img-sub" src="images/843e2617-637f-4337-8f46-69ff1e5b6979.jpg" alt="Garden walkway with bougainvillea" />
+      <img class="about-img-sub" src="images/843e2617-637f-4337-8f46-69ff1e5b6979.jpg" alt="J Park Hotel walkway" />
     </div>
     <div class="about-text reveal">
       <p class="eyebrow" data-i18n="about.eyebrow">Welcome to J Park</p>
       <h2 class="section-title" data-i18n="about.title">Where Japan meets the Thai tropics</h2>
-      <p data-i18n="about.p1">Set among flowering gardens and shaded courtyards in Na Pa, Chonburi, J Park Hotel blends the calm of a Japanese ryokan with the warmth of Thai hospitality. Spacious, apartment-style suites make it as comfortable for a single night as for a long stay.</p>
+      <p data-i18n="about.p1">Set in Na Pa, Chonburi, J Park Hotel blends the calm of a Japanese ryokan with the warmth of Thai hospitality. Spacious, apartment-style suites make it as comfortable for a single night as for a long stay.</p>
       <p data-i18n="about.p2">Soak in our traditional onsen, dine on authentic Japanese cuisine at Tsubaki, swim beneath the palms, then unwind at the brand-new Midnight Coffee Club. Just minutes from Amata Nakorn and within easy reach of Bangsaen Beach and Bangkok.</p>
       <ul class="about-stats">
-        <li><strong data-i18n="about.stat1n">5</strong><span data-i18n="about.stat1l">Garden buildings</span></li>
+        <li><strong data-i18n="about.stat1n">5</strong><span data-i18n="about.stat1l">Guest buildings</span></li>
         <li><strong data-i18n="about.stat2n">24h</strong><span data-i18n="about.stat2l">Front desk</span></li>
         <li><strong data-i18n="about.stat3n">5 km</strong><span data-i18n="about.stat3l">to Amata Nakorn</span></li>
       </ul>
@@ -217,34 +265,88 @@
   <div class="section-head reveal">
     <p class="eyebrow" data-i18n="rooms.eyebrow">Stay with us</p>
     <h2 class="section-title" data-i18n="rooms.title">Rooms &amp; Suites</h2>
-    <p class="section-lede" data-i18n="rooms.lede">Three room styles, each with quiet garden or city views, plush bedding and a calming, minimalist palette.</p>
+    <p class="section-lede" data-i18n="rooms.lede">Nine room and suite styles — from a smart single to a two-bedroom residence — each with plush bedding, contemporary calm and quiet city views.</p>
   </div>
 
   <div class="room-grid">
     <article class="room-card reveal">
-      <div class="room-img"><img src="images/Studio/8033675f-22d4-40d5-8629-566ef499612f.jpg" alt="Studio Room" loading="lazy" /></div>
+      <div class="room-img"><img src="images/Standard%20Single/room_01.jpg" data-i18n-attr="alt:rooms.singleName" alt="Standard Single" loading="lazy" /></div>
       <div class="room-body">
-        <span class="room-size" data-i18n="rooms.studioSize">37 m²</span>
+        <span class="room-size" data-i18n="rooms.singleSize">24 m²</span>
+        <h3 data-i18n="rooms.singleName">Standard Single</h3>
+        <p data-i18n="rooms.singleDesc">A smart, light-filled single with a cosy bed, work desk and rainfall shower — ideal for the solo business traveller.</p>
+      </div>
+    </article>
+
+    <article class="room-card reveal">
+      <div class="room-img"><img src="images/Superior%20Room/room_01.jpg" data-i18n-attr="alt:rooms.superiorName" alt="Superior Room" loading="lazy" /></div>
+      <div class="room-body">
+        <span class="room-size" data-i18n="rooms.superiorSize">32 m²</span>
+        <h3 data-i18n="rooms.superiorName">Superior Room</h3>
+        <p data-i18n="rooms.superiorDesc">A refined room with a plush queen bed, lounge seating and a sleek bathroom, dressed in a warm, contemporary palette.</p>
+      </div>
+    </article>
+
+    <article class="room-card reveal">
+      <div class="room-img"><img src="images/Deluxe%20Twin%20Room/room_01.jpg" data-i18n-attr="alt:rooms.deluxeTwinName" alt="Deluxe Twin Room" loading="lazy" /></div>
+      <div class="room-body">
+        <span class="room-size" data-i18n="rooms.deluxeTwinSize">34 m²</span>
+        <h3 data-i18n="rooms.deluxeTwinName">Deluxe Twin Room</h3>
+        <p data-i18n="rooms.deluxeTwinDesc">Two comfortable single beds, a relaxed sitting corner and city views — perfect for friends or colleagues travelling together.</p>
+      </div>
+    </article>
+
+    <article class="room-card reveal">
+      <div class="room-img"><img src="images/Prestige%20Twin%20Room/room_01.jpg" data-i18n-attr="alt:rooms.prestigeName" alt="Prestige Twin Room" loading="lazy" /></div>
+      <div class="room-body">
+        <span class="room-size" data-i18n="rooms.prestigeSize">36 m²</span>
+        <h3 data-i18n="rooms.prestigeName">Prestige Twin Room</h3>
+        <p data-i18n="rooms.prestigeDesc">An elevated twin with premium bedding, a spacious work area and upgraded amenities for a longer, easier stay.</p>
+      </div>
+    </article>
+
+    <article class="room-card reveal">
+      <div class="room-img"><img src="images/Studio%20Room/room_01.jpg" data-i18n-attr="alt:rooms.studioName" alt="Studio Room" loading="lazy" /></div>
+      <div class="room-body">
+        <span class="room-size" data-i18n="rooms.studioSize">38 m²</span>
         <h3 data-i18n="rooms.studioName">Studio Room</h3>
-        <p data-i18n="rooms.studioDesc">A bright, minimalist retreat with a king bed, work nook and garden views — perfect for the solo traveller or short stay.</p>
+        <p data-i18n="rooms.studioDesc">A bright apartment-style studio with a king bed, kitchenette and living nook — designed for comfortable extended stays.</p>
       </div>
     </article>
 
     <article class="room-card reveal">
-      <div class="room-img"><img src="images/Grand%20Deluxe/9fa48cad-503d-4bf9-8296-7a90ce34bbd2.jpg" alt="Grand Deluxe Room" loading="lazy" /></div>
+      <div class="room-img"><img src="images/Studio%20Double%20Room/room_01.jpg" data-i18n-attr="alt:rooms.studioDoubleName" alt="Studio Double Room" loading="lazy" /></div>
       <div class="room-body">
-        <span class="room-size" data-i18n="rooms.deluxeSize">54 m²</span>
-        <h3 data-i18n="rooms.deluxeName">Grand Deluxe</h3>
-        <p data-i18n="rooms.deluxeDesc">A spacious apartment-style suite with a separate living area, kitchenette and a marble bathroom with deep soaking tub.</p>
+        <span class="room-size" data-i18n="rooms.studioDoubleSize">42 m²</span>
+        <h3 data-i18n="rooms.studioDoubleName">Studio Double Room</h3>
+        <p data-i18n="rooms.studioDoubleDesc">A generous studio with a king bed and a separate double daybed, a full kitchenette and ample room to spread out.</p>
       </div>
     </article>
 
     <article class="room-card reveal">
-      <div class="room-img"><img src="images/Grand%20Deluxe/fab7da35-ac57-4ebd-b0a4-ae2981d17c9d.jpg" alt="Grand Suite" loading="lazy" /></div>
+      <div class="room-img"><img src="images/Corner%20Suite/room_01.jpg" data-i18n-attr="alt:rooms.cornerName" alt="Corner Suite" loading="lazy" /></div>
       <div class="room-body">
-        <span class="room-size" data-i18n="rooms.suiteSize">75–78 m²</span>
-        <h3 data-i18n="rooms.suiteName">Grand Suite</h3>
-        <p data-i18n="rooms.suiteDesc">Our largest residence — full living and dining space, premium finishes and twin vanities, made for families and long stays.</p>
+        <span class="room-size" data-i18n="rooms.cornerSize">52 m²</span>
+        <h3 data-i18n="rooms.cornerName">Corner Suite</h3>
+        <p data-i18n="rooms.cornerDesc">A wraparound corner retreat with a separate living room, dual-aspect windows and a deep-soaking marble bathroom.</p>
+      </div>
+    </article>
+
+    <article class="room-card reveal">
+      <div class="room-img"><img src="images/Grand%20Suite%20Room/room_01.jpg" data-i18n-attr="alt:rooms.grandSuiteName" alt="Grand Suite Room" loading="lazy" /></div>
+      <div class="room-body">
+        <span class="room-size" data-i18n="rooms.grandSuiteSize">75 m²</span>
+        <h3 data-i18n="rooms.grandSuiteName">Grand Suite</h3>
+        <p data-i18n="rooms.grandSuiteDesc">An expansive one-bedroom residence with full living and dining areas, a kitchen and premium finishes throughout.</p>
+      </div>
+    </article>
+
+    <article class="room-card reveal">
+      <div class="room-img"><img src="images/Grand%20Suite%20Two%20Bedrooms/room_01.jpg" data-i18n-attr="alt:rooms.grandTwoName" alt="Grand Suite — Two Bedrooms" loading="lazy" /></div>
+      <div class="room-body">
+        <span class="room-size" data-i18n="rooms.grandTwoSize">95 m²</span>
+        <h3 data-i18n="rooms.grandTwoName">Grand Suite · Two Bedrooms</h3>
+        <p data-i18n="rooms.grandTwoDesc">Our flagship two-bedroom residence — two bedrooms, a large living and dining space and twin bathrooms, made for families and long stays.</p>
       </div>
     </article>
   </div>
@@ -261,7 +363,7 @@
     <article class="fac-card large reveal" style="background-image:url('images/c3ac1733-933b-49de-aa10-7185a21dbe5f.jpg')">
       <div class="fac-card-text">
         <h3 data-i18n="fac.poolName">Tropical Pool</h3>
-        <p data-i18n="fac.poolDesc">A palm-fringed outdoor pool and sun terrace, framed by blossoming gardens.</p>
+        <p data-i18n="fac.poolDesc">A palm-fringed outdoor pool and sun terrace for sun-soaked afternoons.</p>
       </div>
     </article>
     <article class="fac-card reveal" style="background-image:url('images/ea770736-fe38-4c3e-b072-4928f8a2fad9.jpg')">
@@ -278,8 +380,8 @@
     </article>
     <article class="fac-card reveal" style="background-image:url('images/3d6be05f-7084-4d60-915c-e76e587675b3.jpg')">
       <div class="fac-card-text">
-        <h3 data-i18n="fac.gardenName">Gardens &amp; Halls</h3>
-        <p data-i18n="fac.gardenDesc">Lush walking gardens, J Park Hall and event spaces for every occasion.</p>
+        <h3 data-i18n="fac.gardenName">Halls &amp; Events</h3>
+        <p data-i18n="fac.gardenDesc">J Park Hall and versatile event spaces for celebrations, meetings and gatherings.</p>
       </div>
     </article>
   </div>
@@ -304,7 +406,7 @@
       <div class="dining-img"><img src="images/45c09cb7-8ba5-4ba0-bc3c-42837ef10bf2.jpg" alt="All-day dining courtyard" loading="lazy" /></div>
       <div class="dining-body">
         <h3 data-i18n="dining.allDayName">All-Day Dining</h3>
-        <p data-i18n="dining.allDayDesc">A light-filled garden courtyard for breakfast buffets and all-day Thai and international favourites.</p>
+        <p data-i18n="dining.allDayDesc">A light-filled courtyard for breakfast buffets and all-day Thai and international favourites.</p>
       </div>
     </article>
     <article class="dining-card reveal">
@@ -378,7 +480,7 @@
       <span class="brand-mark">J</span>
       <div>
         <span class="brand-name">J PARK HOTEL</span>
-        <span class="brand-sub" data-i18n="footer.tag">Garden hospitality · Chonburi, Thailand</span>
+        <span class="brand-sub" data-i18n="footer.tag">Japanese-inspired hospitality · Chonburi, Thailand</span>
       </div>
     </div>
     <nav class="footer-links">
@@ -408,6 +510,7 @@
 <script src="assets/js/util.js"></script>
 <script src="assets/js/i18n.js"></script>
 <script src="assets/js/i18n-app.js"></script>
+<script src="assets/js/translate.js"></script>
 <script src="assets/js/main.js"></script>
 <script src="assets/js/cms.js"></script>
 <script src="assets/js/guest.js"></script>
