@@ -209,6 +209,14 @@
       if (!read("concierge")) write("concierge", SEED_CONCIERGE);
       if (!read("messages")) write("messages", []);
       if (!read("guestBookings")) write("guestBookings", SEED_GUEST_BOOKINGS);
+      // sync seed bookings so renames/updates to seed data take effect
+      var bks = list("bookings"); var dirty = false;
+      SEED_BOOKINGS.forEach(function(sb) {
+        var i = bks.findIndex(function(b) { return b.id === sb.id; });
+        if (i < 0) { bks.push(sb); dirty = true; }
+        else if (JSON.stringify(bks[i]) !== JSON.stringify(sb)) { bks[i] = sb; dirty = true; }
+      });
+      if (dirty) write("bookings", bks);
       return;
     }
     write("bookings", SEED_BOOKINGS);
