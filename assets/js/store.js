@@ -194,12 +194,12 @@
   ];
 
   const SEED_CONCIERGE = [
-    { id: "c1", key: "conc.item.bangsaen",  img: "images/c3ac1733-933b-49de-aa10-7185a21dbe5f.jpg" },
+    { id: "c1", key: "conc.item.bangsaen",  img: "images/Tropical Pool/c3ac1733-933b-49de-aa10-7185a21dbe5f.jpg" },
     { id: "c2", key: "conc.item.market",    img: "images/843e2617-637f-4337-8f46-69ff1e5b6979.jpg" },
     { id: "c3", key: "conc.item.temple",    img: "images/3d6be05f-7084-4d60-915c-e76e587675b3.jpg" },
     { id: "c4", key: "conc.item.spa",       img: "images/ea770736-fe38-4c3e-b072-4928f8a2fad9.jpg" },
     { id: "c5", key: "conc.item.golf",      img: "images/9f43d60e-e1b0-4ea0-b8b2-82792fbd44eb.jpg" },
-    { id: "c6", key: "conc.item.airport",   img: "images/ce70057e-42f0-4b44-9f67-18598f22ff3a.jpg" }
+    { id: "c6", key: "conc.item.airport",   img: "images/Tropical Pool/ce70057e-42f0-4b44-9f67-18598f22ff3a.jpg" }
   ];
 
   function seed() {

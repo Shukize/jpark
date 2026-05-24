@@ -72,20 +72,19 @@
   }
 
   /* ---------- Gallery data + image sets ---------- */
-  const GALLERY_IMAGES = [
-    { src: "images/c917232b-159a-4fdc-bc20-12e806f5304b.jpg", tall: true },
-    { src: "images/45c09cb7-8ba5-4ba0-bc3c-42837ef10bf2.jpg" },
-    { src: "images/ffcc842a-2003-4239-ae74-0e6c0b10f883.jpg" },
-    { src: "images/New Midnight Coffee Club/9fc27bb2-ce97-4825-84b4-e3c2152c5628.jpg" },
-    { src: "images/ea770736-fe38-4c3e-b072-4928f8a2fad9.jpg", tall: true },
-    { src: "images/843e2617-637f-4337-8f46-69ff1e5b6979.jpg" },
-    { src: "images/Grand Deluxe/9fa48cad-503d-4bf9-8296-7a90ce34bbd2.jpg" },
-    { src: "images/9f43d60e-e1b0-4ea0-b8b2-82792fbd44eb.jpg" },
-    { src: "images/New Midnight Coffee Club/587f2a86-cbf1-4cac-9e69-9279d2478323.jpg", tall: true },
-    { src: "images/ce70057e-42f0-4b44-9f67-18598f22ff3a.jpg" },
-    { src: "images/c3ac1733-933b-49de-aa10-7185a21dbe5f.jpg" },
-    { src: "images/Studio/0f2b3d73-e4ac-4a7c-93fb-6743b4e91cce.jpg" }
+  // Six hand-picked previews shown before the gallery is expanded.
+  const GALLERY_PREVIEW = [
+    "images/Tropical Pool/c917232b-159a-4fdc-bc20-12e806f5304b.jpg",
+    "images/45c09cb7-8ba5-4ba0-bc3c-42837ef10bf2.jpg",
+    "images/New Midnight Coffee Club/587f2a86-cbf1-4cac-9e69-9279d2478323.jpg",
+    "images/ea770736-fe38-4c3e-b072-4928f8a2fad9.jpg",
+    "images/Grand Deluxe/9fa48cad-503d-4bf9-8296-7a90ce34bbd2.jpg",
+    "images/Tropical Pool/ce70057e-42f0-4b44-9f67-18598f22ff3a.jpg"
   ];
+
+  // Every image/video in /images, grouped by the folder it belongs to.
+  // Built only when the guest expands the gallery, so mobile data is saved.
+  const GALLERY_MEDIA = [{"title":"The Hotel","items":[{"src":"images/383fb6a3-fc47-4029-bfe5-2bd90e2f9345.jpg","video":false},{"src":"images/3d6be05f-7084-4d60-915c-e76e587675b3.jpg","video":false},{"src":"images/45c09cb7-8ba5-4ba0-bc3c-42837ef10bf2.jpg","video":false},{"src":"images/843e2617-637f-4337-8f46-69ff1e5b6979.jpg","video":false},{"src":"images/99bc74a1-d4e8-452e-ae2c-e8988164daff.jpg","video":false},{"src":"images/9f43d60e-e1b0-4ea0-b8b2-82792fbd44eb.jpg","video":false},{"src":"images/a5606bc9-316e-4fde-b5d6-7fb06163a540.jpg","video":false},{"src":"images/ea770736-fe38-4c3e-b072-4928f8a2fad9.jpg","video":false},{"src":"images/ef6ec731-7bc6-4d8c-a10d-dcb7131d7470.jpg","video":false}]},{"title":"Tropical Pool","items":[{"src":"images/Tropical Pool/1b23ab2d-a3d1-474c-8944-4c7159f6d91b.jpg","video":false},{"src":"images/Tropical Pool/48cd9718-cece-4c80-adcd-dd637ed35d00.jpg","video":false},{"src":"images/Tropical Pool/c3ac1733-933b-49de-aa10-7185a21dbe5f.jpg","video":false},{"src":"images/Tropical Pool/c917232b-159a-4fdc-bc20-12e806f5304b.jpg","video":false},{"src":"images/Tropical Pool/ce70057e-42f0-4b44-9f67-18598f22ff3a.jpg","video":false},{"src":"images/Tropical Pool/ffcc842a-2003-4239-ae74-0e6c0b10f883.jpg","video":false}]},{"title":"Midnight Coffee Club","items":[{"src":"images/New Midnight Coffee Club/1f9bc02c-f503-4ff5-a257-6257bad9dbb4.jpg","video":false},{"src":"images/New Midnight Coffee Club/3f2b3f47-b2ab-42ef-aae2-03638f1d26da.jpg","video":false},{"src":"images/New Midnight Coffee Club/509915eb-4ebd-4367-9df2-ca4a1920edb1.jpg","video":false},{"src":"images/New Midnight Coffee Club/533e41e3-da93-4733-b004-9d2ea6f73b93.jpg","video":false},{"src":"images/New Midnight Coffee Club/587f2a86-cbf1-4cac-9e69-9279d2478323.jpg","video":false},{"src":"images/New Midnight Coffee Club/71ef2776-f865-424b-9c49-8b8d6408996a.jpg","video":false},{"src":"images/New Midnight Coffee Club/7e5103f1-38cf-450e-b738-a600fe093b33.jpg","video":false},{"src":"images/New Midnight Coffee Club/9fc27bb2-ce97-4825-84b4-e3c2152c5628.jpg","video":false},{"src":"images/New Midnight Coffee Club/AQMO2Yp5iRyBptY78NauYmUhWpjBmJ505TFv58UgnadIpoKd2ArgatitpLERHy-KosjXlwOK-fxyCEI_RuvawqXBgFr4djH0nXBYt_xhgslo6Q.mp4","video":true},{"src":"images/New Midnight Coffee Club/b85f1406-83f2-4969-84c6-11299dfdb391.jpg","video":false},{"src":"images/New Midnight Coffee Club/c8bd675b-dd6b-43d6-bd81-6ea00f044752.jpg","video":false},{"src":"images/New Midnight Coffee Club/e46b8210-aa80-4e70-9752-ebc89b40d507.jpg","video":false},{"src":"images/New Midnight Coffee Club/f930c440-b85d-46c2-a6d5-fea5ee506ac9.jpg","video":false},{"src":"images/New Midnight Coffee Club/fa048e34-5d56-40df-b74b-09ddae38e76c.jpg","video":false},{"src":"images/New Midnight Coffee Club/fb6f70a5-a689-40b7-941f-acd406adebe4.jpg","video":false}]},{"title":"All-Day Dining","items":[{"src":"images/All-Day Dining/AQNCEA_f6EzQkXbwrB13jzd_QMJ4uE_ArgwVV0jb8eP8HtklQMgoYlGzdnKJONHWmf9VZnG8YqM8Ns1E1XjFRgw8BJaQMTIGqPYFLdzVf06rzQ.mp4","video":true},{"src":"images/All-Day Dining/AQPkivRrWjvIibm-ObjYFA89UdoAliPhHGYELTbwWeI8TebF7soa_9BjgijiFFEoJG4YESEMEz468duj0wSBv77oBeIvhd42N9lzCGFFaIK8tQ.mp4","video":true}]},{"title":"Meeting & Banquet Rooms","items":[{"src":"images/Meeting and Banquet Rooms/494571715_1234993728633902_7937100202759146009_n.jpg","video":false},{"src":"images/Meeting and Banquet Rooms/494917326_1234993825300559_3003474501674880900_n.jpg","video":false},{"src":"images/Meeting and Banquet Rooms/494918097_1244121301054478_8305459958581942758_n.jpg","video":false},{"src":"images/Meeting and Banquet Rooms/495059787_1234993685300573_808848194837634403_n.jpg","video":false},{"src":"images/Meeting and Banquet Rooms/495071384_1244122731054335_7597308853160764089_n.jpg","video":false},{"src":"images/Meeting and Banquet Rooms/496253973_1244252684374673_7569938748860271089_n.jpg","video":false},{"src":"images/Meeting and Banquet Rooms/497496305_1244252934374648_7353825412616371042_n.jpg","video":false},{"src":"images/Meeting and Banquet Rooms/588040708_1422177456582194_470984224392519007_n.jpg","video":false},{"src":"images/Meeting and Banquet Rooms/683901474_1558444972955441_2309987664278666191_n.jpg","video":false},{"src":"images/Meeting and Banquet Rooms/687469820_1558444129622192_160825424360902258_n.jpg","video":false},{"src":"images/Meeting and Banquet Rooms/687999904_1558427726290499_7320805987719867448_n.jpg","video":false},{"src":"images/Meeting and Banquet Rooms/AQM1GlMUG1VPn2W3_GoLJgXiKyz-GI7UgQOK_LlqgTjo1DDIoMkFYNqgC1lAFEUf0ysj7JGbiP_T-PB84vS-qiCCPTrRNOQeeZ0d2-jDjn1bIQ.mp4","video":true}]},{"title":"Fitness Centre","items":[{"src":"images/Gym/0c3d1ad4-6fd3-4082-8cbd-a08f1a11dc0e.jpg","video":false},{"src":"images/Gym/43e19389-7794-4262-a062-ef37f608b52a.jpg","video":false},{"src":"images/Gym/b111922d-8527-4860-b485-2ab4cee5f3a9.jpg","video":false},{"src":"images/Gym/e2bb66fc-6cac-45ec-8316-ae1e71d90a0a.jpg","video":false}]},{"title":"Standard Single","items":[{"src":"images/Standard Single/room_01.jpg","video":false},{"src":"images/Standard Single/room_02.jpg","video":false},{"src":"images/Standard Single/room_03.jpg","video":false},{"src":"images/Standard Single/room_04.jpg","video":false},{"src":"images/Standard Single/room_05.jpg","video":false},{"src":"images/Standard Single/room_06.jpg","video":false},{"src":"images/Standard Single/room_07.jpg","video":false},{"src":"images/Standard Single/room_08.jpg","video":false},{"src":"images/Standard Single/room_09.jpg","video":false}]},{"title":"Superior Room","items":[{"src":"images/Superior Room/room_01.jpg","video":false},{"src":"images/Superior Room/room_02.jpg","video":false},{"src":"images/Superior Room/room_03.jpg","video":false},{"src":"images/Superior Room/room_04.jpg","video":false},{"src":"images/Superior Room/room_05.jpg","video":false},{"src":"images/Superior Room/room_06.jpg","video":false},{"src":"images/Superior Room/room_07.jpg","video":false},{"src":"images/Superior Room/room_08.jpg","video":false},{"src":"images/Superior Room/room_09.jpg","video":false},{"src":"images/Superior Room/room_10.jpg","video":false},{"src":"images/Superior Room/room_11.jpg","video":false},{"src":"images/Superior Room/room_12.jpg","video":false},{"src":"images/Superior Room/room_13.jpg","video":false},{"src":"images/Superior Room/room_14.jpg","video":false},{"src":"images/Superior Room/room_15.jpg","video":false},{"src":"images/Superior Room/room_16.jpg","video":false},{"src":"images/Superior Room/room_17.jpg","video":false}]},{"title":"Prestige Twin Room","items":[{"src":"images/Prestige Twin Room/room_01.jpg","video":false},{"src":"images/Prestige Twin Room/room_02.jpg","video":false},{"src":"images/Prestige Twin Room/room_03.jpg","video":false},{"src":"images/Prestige Twin Room/room_04.jpg","video":false},{"src":"images/Prestige Twin Room/room_05.jpg","video":false},{"src":"images/Prestige Twin Room/room_06.jpg","video":false},{"src":"images/Prestige Twin Room/room_07.jpg","video":false},{"src":"images/Prestige Twin Room/room_08.jpg","video":false},{"src":"images/Prestige Twin Room/room_09.jpg","video":false}]},{"title":"Studio Room","items":[{"src":"images/Studio Room/room_01.jpg","video":false},{"src":"images/Studio Room/room_02.jpg","video":false},{"src":"images/Studio Room/room_03.jpg","video":false},{"src":"images/Studio Room/room_04.jpg","video":false},{"src":"images/Studio Room/room_05.jpg","video":false},{"src":"images/Studio Room/room_06.jpg","video":false},{"src":"images/Studio Room/room_07.jpg","video":false},{"src":"images/Studio Room/room_08.jpg","video":false},{"src":"images/Studio Room/room_09.jpg","video":false},{"src":"images/Studio Room/room_10.jpg","video":false},{"src":"images/Studio Room/room_11.jpg","video":false},{"src":"images/Studio Room/room_12.jpg","video":false},{"src":"images/Studio Room/room_13.jpg","video":false}]},{"title":"Studio Double Room","items":[{"src":"images/Studio Double Room/room_01.jpg","video":false},{"src":"images/Studio Double Room/room_02.jpg","video":false},{"src":"images/Studio Double Room/room_03.jpg","video":false},{"src":"images/Studio Double Room/room_04.jpg","video":false},{"src":"images/Studio Double Room/room_05.jpg","video":false},{"src":"images/Studio Double Room/room_06.jpg","video":false},{"src":"images/Studio Double Room/room_07.jpg","video":false},{"src":"images/Studio Double Room/room_08.jpg","video":false},{"src":"images/Studio Double Room/room_09.jpg","video":false},{"src":"images/Studio Double Room/room_10.jpg","video":false},{"src":"images/Studio Double Room/room_11.jpg","video":false}]},{"title":"Corner Suite","items":[{"src":"images/Corner Suite/room_01.jpg","video":false},{"src":"images/Corner Suite/room_02.jpg","video":false},{"src":"images/Corner Suite/room_03.jpg","video":false},{"src":"images/Corner Suite/room_04.jpg","video":false},{"src":"images/Corner Suite/room_05.jpg","video":false},{"src":"images/Corner Suite/room_06.jpg","video":false},{"src":"images/Corner Suite/room_07.jpg","video":false},{"src":"images/Corner Suite/room_08.jpg","video":false},{"src":"images/Corner Suite/room_09.jpg","video":false},{"src":"images/Corner Suite/room_10.jpg","video":false},{"src":"images/Corner Suite/room_11.jpg","video":false}]},{"title":"Grand Suite","items":[{"src":"images/Grand Suite Room/room_01.jpg","video":false},{"src":"images/Grand Suite Room/room_02.jpg","video":false},{"src":"images/Grand Suite Room/room_03.jpg","video":false},{"src":"images/Grand Suite Room/room_04.jpg","video":false},{"src":"images/Grand Suite Room/room_05.jpg","video":false},{"src":"images/Grand Suite Room/room_06.jpg","video":false},{"src":"images/Grand Suite Room/room_07.jpg","video":false},{"src":"images/Grand Suite Room/room_08.jpg","video":false},{"src":"images/Grand Suite Room/room_09.jpg","video":false},{"src":"images/Grand Suite Room/room_10.jpg","video":false},{"src":"images/Grand Suite Room/room_11.jpg","video":false},{"src":"images/Grand Suite Room/room_12.jpg","video":false},{"src":"images/Grand Suite Room/room_13.jpg","video":false},{"src":"images/Grand Suite Room/room_14.jpg","video":false},{"src":"images/Grand Suite Room/room_15.jpg","video":false},{"src":"images/Grand Suite Room/room_16.jpg","video":false},{"src":"images/Grand Suite Room/room_17.jpg","video":false},{"src":"images/Grand Suite Room/room_18.jpg","video":false}]},{"title":"Grand Suite · Two Bedrooms","items":[{"src":"images/Grand Suite Two Bedrooms/room_01.jpg","video":false},{"src":"images/Grand Suite Two Bedrooms/room_02.jpg","video":false},{"src":"images/Grand Suite Two Bedrooms/room_03.jpg","video":false},{"src":"images/Grand Suite Two Bedrooms/room_04.jpg","video":false},{"src":"images/Grand Suite Two Bedrooms/room_05.jpg","video":false},{"src":"images/Grand Suite Two Bedrooms/room_06.jpg","video":false},{"src":"images/Grand Suite Two Bedrooms/room_07.jpg","video":false},{"src":"images/Grand Suite Two Bedrooms/room_08.jpg","video":false},{"src":"images/Grand Suite Two Bedrooms/room_09.jpg","video":false},{"src":"images/Grand Suite Two Bedrooms/room_10.jpg","video":false},{"src":"images/Grand Suite Two Bedrooms/room_11.jpg","video":false},{"src":"images/Grand Suite Two Bedrooms/room_12.jpg","video":false},{"src":"images/Grand Suite Two Bedrooms/room_13.jpg","video":false},{"src":"images/Grand Suite Two Bedrooms/room_14.jpg","video":false},{"src":"images/Grand Suite Two Bedrooms/room_15.jpg","video":false},{"src":"images/Grand Suite Two Bedrooms/room_16.jpg","video":false},{"src":"images/Grand Suite Two Bedrooms/room_17.jpg","video":false}]},{"title":"Grand Deluxe","items":[{"src":"images/Grand Deluxe/3681be26-a5d5-4925-9971-d67732ffda4a.jpg","video":false},{"src":"images/Grand Deluxe/47e0d242-3c99-4ed0-b48a-91e3c4e711ba.jpg","video":false},{"src":"images/Grand Deluxe/4a573607-d6c4-45ed-bb23-e83cf4ad6359.jpg","video":false},{"src":"images/Grand Deluxe/9fa48cad-503d-4bf9-8296-7a90ce34bbd2.jpg","video":false},{"src":"images/Grand Deluxe/c67619ac-3646-462b-8dc7-58e1e6bf73b5.jpg","video":false},{"src":"images/Grand Deluxe/fab7da35-ac57-4ebd-b0a4-ae2981d17c9d.jpg","video":false}]},{"title":"Studio","items":[{"src":"images/Studio/0f2b3d73-e4ac-4a7c-93fb-6743b4e91cce.jpg","video":false},{"src":"images/Studio/8033675f-22d4-40d5-8629-566ef499612f.jpg","video":false}]},{"title":"Deluxe Twin Room","items":[{"src":"images/Deluxe Twin Room/room_01.jpg","video":false},{"src":"images/Deluxe Twin Room/room_02.jpg","video":false},{"src":"images/Deluxe Twin Room/room_03.jpg","video":false},{"src":"images/Deluxe Twin Room/room_04.jpg","video":false},{"src":"images/Deluxe Twin Room/room_05.jpg","video":false},{"src":"images/Deluxe Twin Room/room_06.jpg","video":false},{"src":"images/Deluxe Twin Room/room_07.jpg","video":false},{"src":"images/Deluxe Twin Room/room_08.jpg","video":false},{"src":"images/Deluxe Twin Room/room_09.jpg","video":false},{"src":"images/Deluxe Twin Room/room_10.jpg","video":false},{"src":"images/Deluxe Twin Room/room_11.jpg","video":false}]}];
 
   // room folder -> photo count (files are room_01.jpg … room_NN.jpg)
   const ROOM_COUNTS = {
@@ -108,9 +107,18 @@
     "images/Gym/e2bb66fc-6cac-45ec-8316-ae1e71d90a0a.jpg"
   ];
 
+  const TROPICAL_POOL_IMAGES = [
+    "images/Tropical Pool/c917232b-159a-4fdc-bc20-12e806f5304b.jpg",
+    "images/Tropical Pool/c3ac1733-933b-49de-aa10-7185a21dbe5f.jpg",
+    "images/Tropical Pool/48cd9718-cece-4c80-adcd-dd637ed35d00.jpg",
+    "images/Tropical Pool/1b23ab2d-a3d1-474c-8944-4c7159f6d91b.jpg",
+    "images/Tropical Pool/ce70057e-42f0-4b44-9f67-18598f22ff3a.jpg",
+    "images/Tropical Pool/ffcc842a-2003-4239-ae74-0e6c0b10f883.jpg"
+  ];
+
   // named image sets for facility / dining cards
   const LB_SETS = {
-    "fac-pool":  ["images/c3ac1733-933b-49de-aa10-7185a21dbe5f.jpg"],
+    "fac-pool":  TROPICAL_POOL_IMAGES,
     "fac-onsen": ["images/ea770736-fe38-4c3e-b072-4928f8a2fad9.jpg"],
     "fac-gym":   GYM_IMAGES,
     "dining-tsubaki": ["images/ef6ec731-7bc6-4d8c-a10d-dcb7131d7470.jpg"],
@@ -209,19 +217,124 @@
     window.__openLightbox = (src) => LB.open([src], 0);
   }
 
+  // A quick "J Park Hotel" fade-in over drifting leaves, then fade out.
+  function playLeafIntro(done) {
+    const reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const ov = document.createElement("div");
+    ov.className = "gintro";
+    const leaves = document.createElement("div");
+    leaves.className = "gintro-leaves";
+    if (!reduce) {
+      for (let i = 0; i < 9; i++) {
+        const leaf = document.createElement("span");
+        leaf.className = "leaf";
+        const dur = (1.4 + Math.random() * 0.9).toFixed(2);
+        const delay = (Math.random() * 0.4).toFixed(2);
+        const top = (Math.random() * 78).toFixed(0);
+        const size = (9 + Math.random() * 12).toFixed(0);
+        leaf.style.cssText = "--dur:" + dur + "s;--delay:" + delay + "s;top:" + top + "%;width:" + size + "px;height:" + size + "px;";
+        leaves.appendChild(leaf);
+      }
+    }
+    ov.appendChild(leaves);
+    const title = document.createElement("h2");
+    title.className = "gintro-title";
+    title.textContent = "J Park Hotel";
+    ov.appendChild(title);
+    document.body.appendChild(ov);
+    requestAnimationFrame(() => ov.classList.add("show"));
+    const hold = reduce ? 200 : 1000;
+    setTimeout(() => {
+      ov.classList.remove("show");
+      if (typeof done === "function") done();
+      setTimeout(() => ov.remove(), 600);
+    }, hold);
+  }
+
+  // Map a media item ({src, video}) to a lightbox entry (string or {localVideo}).
+  function lbEntry(it) { return it.video ? { localVideo: it.src } : it.src; }
+
+  function buildFullGallery(host) {
+    GALLERY_MEDIA.forEach((cat) => {
+      const lbList = cat.items.map(lbEntry);
+      const block = document.createElement("div");
+      block.className = "gcat reveal in";
+      const h = document.createElement("h3");
+      h.className = "gcat-title";
+      h.innerHTML = cat.title + ' <span class="gcat-count">' + cat.items.length + "</span>";
+      block.appendChild(h);
+      const grid = document.createElement("div");
+      grid.className = "gcat-grid";
+      cat.items.forEach((it, i) => {
+        const fig = document.createElement("figure");
+        fig.className = "gthumb" + (it.video ? " is-video" : "");
+        if (it.video) {
+          const v = document.createElement("video");
+          v.src = enc(it.src) + "#t=0.5";
+          v.muted = true; v.preload = "metadata"; v.playsInline = true;
+          v.setAttribute("playsinline", "");
+          fig.appendChild(v);
+          const badge = document.createElement("span");
+          badge.className = "gthumb-play";
+          badge.innerHTML = '<span class="play-tri"></span>';
+          fig.appendChild(badge);
+        } else {
+          const img = document.createElement("img");
+          img.src = enc(it.src);
+          img.alt = cat.title;
+          img.loading = "lazy";
+          fig.appendChild(img);
+        }
+        fig.addEventListener("click", () => LB.open(lbList, i));
+        grid.appendChild(fig);
+      });
+      block.appendChild(grid);
+      host.appendChild(block);
+    });
+  }
+
   function initGallery() {
     const grid = document.getElementById("galleryGrid");
     if (!grid) return;
-    GALLERY_IMAGES.forEach((item, i) => {
+
+    // initial six previews
+    GALLERY_PREVIEW.forEach((src, i) => {
       const fig = document.createElement("figure");
-      if (item.tall) fig.classList.add("tall");
       const img = document.createElement("img");
-      img.src = enc(item.src);
+      img.src = enc(src);
       img.alt = "J Park Hotel";
       img.loading = "lazy";
       fig.appendChild(img);
-      fig.addEventListener("click", () => LB.open(GALLERY_IMAGES.map((g) => g.src), i));
+      fig.addEventListener("click", () => LB.open(GALLERY_PREVIEW, i));
       grid.appendChild(fig);
+    });
+
+    const I = window.JPark && window.JPark.i18n;
+    const wrap = document.createElement("div");
+    wrap.className = "gallery-more-wrap";
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "gallery-more";
+    btn.setAttribute("data-i18n", "gallery.more");
+    btn.textContent = I ? I.t("gallery.more") : "More pictures and videos…";
+    wrap.appendChild(btn);
+
+    const full = document.createElement("div");
+    full.className = "gallery-full";
+
+    grid.parentNode.appendChild(wrap);
+    grid.parentNode.appendChild(full);
+
+    let built = false;
+    btn.addEventListener("click", () => {
+      if (built) return;
+      built = true;
+      btn.disabled = true;
+      playLeafIntro(() => {
+        buildFullGallery(full);
+        full.classList.add("show");
+        wrap.remove();
+      });
     });
   }
 
@@ -333,9 +446,15 @@
       wrap.appendChild(v);
       card.appendChild(wrap);
       card.classList.add("playing");
-      const cleanup = () => { wrap.remove(); card.classList.remove("playing"); playing = false; };
-      v.addEventListener("ended", cleanup);
-      v.addEventListener("error", cleanup);
+      // when the clip ends, swap the cover for the next section image
+      const onEnded = () => {
+        card.style.backgroundImage = "url('" + enc(BANQUET_IMAGES[0]) + "')";
+        wrap.remove();
+        card.classList.remove("playing");
+      };
+      const onError = () => { wrap.remove(); card.classList.remove("playing"); playing = false; };
+      v.addEventListener("ended", onEnded);
+      v.addEventListener("error", onError);
       const p = v.play(); if (p && p.catch) p.catch(() => {});
     }
     onceInView(card, startCover, 0.4);
@@ -378,7 +497,7 @@
     ]);
   }
 
-  // Midnight Coffee Club: play the local clip for 4 seconds over the carousel.
+  // Midnight Coffee Club: play the local clip for 8 seconds over the carousel.
   // A local mp4 is used here (reliable autoplay) rather than the reel embed.
   const COFFEE_VIDEO_FILE =
     "images/New Midnight Coffee Club/AQMO2Yp5iRyBptY78NauYmUhWpjBmJ505TFv58UgnadIpoKd2ArgatitpLERHy-KosjXlwOK-fxyCEI_RuvawqXBgFr4djH0nXBYt_xhgslo6Q.mp4";
@@ -402,9 +521,22 @@
         overlay.classList.remove("show");
         try { v.pause(); } catch (_) {}
         setTimeout(() => overlay.remove(), 700);
-      }, 4000);
+      }, 8000);
     }
     onceInView(section, start, 0.35);
+  }
+
+  // Midnight Coffee Club: click the imagery to open the video + photos in the
+  // shared lightbox (same prev/next experience as the other sections).
+  function initCoffeeLightbox() {
+    const section = document.getElementById("coffee");
+    if (!section) return;
+    const set = [{ localVideo: COFFEE_VIDEO_FILE }].concat(COFFEE_IMAGES);
+    section.classList.add("coffee-clickable");
+    section.addEventListener("click", (e) => {
+      if (e.target.closest("a, button")) return; // let real controls work
+      LB.open(set, 0);
+    });
   }
 
   /* ---------- Header scroll state ---------- */
@@ -487,6 +619,7 @@
     initBanquetVideo();
     initAllDayVideo();
     initCoffeeVideo();
+    initCoffeeLightbox();
     initReveal();
     initYear();
     initViewToggle();
