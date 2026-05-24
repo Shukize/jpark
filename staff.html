@@ -51,29 +51,31 @@
       </div>
     </div>
 
-    <button class="nav-item active" data-panel="requests">
-      <span class="ni-ico" aria-hidden="true">🛎️</span>
-      <span class="ni-label" data-i18n="staff.nav.requests">Requests</span>
-      <span class="ni-count" id="countRequests"></span>
-    </button>
-    <button class="nav-item" data-panel="chat">
-      <span class="ni-ico" aria-hidden="true">💬</span>
-      <span class="ni-label" data-i18n="staff.nav.chat">Live Chat</span>
-      <span class="ni-count" id="countChat"></span>
-    </button>
-    <button class="nav-item" data-panel="messages">
-      <span class="ni-ico" aria-hidden="true">✉️</span>
-      <span class="ni-label" data-i18n="staff.nav.company">Messages</span>
-      <span class="ni-count" id="countMessages"></span>
-    </button>
-    <button class="nav-item admin-only" data-panel="site">
-      <span class="ni-ico" aria-hidden="true">🛠️</span>
-      <span class="ni-label" data-i18n="staff.nav.site">Site Editor</span>
-    </button>
-    <button class="nav-item admin-only" data-panel="team">
-      <span class="ni-ico" aria-hidden="true">👥</span>
-      <span class="ni-label" data-i18n="staff.nav.team">Staff</span>
-    </button>
+    <nav class="ds-nav">
+      <button class="nav-item active" data-panel="requests">
+        <span class="ni-ico" aria-hidden="true">🛎️</span>
+        <span class="ni-label" data-i18n="staff.nav.requests">Requests</span>
+        <span class="ni-count" id="countRequests"></span>
+      </button>
+      <button class="nav-item" data-panel="chat">
+        <span class="ni-ico" aria-hidden="true">💬</span>
+        <span class="ni-label" data-i18n="staff.nav.chat">Live Chat</span>
+        <span class="ni-count" id="countChat"></span>
+      </button>
+      <button class="nav-item" data-panel="messages">
+        <span class="ni-ico" aria-hidden="true">✉️</span>
+        <span class="ni-label" data-i18n="staff.nav.company">Messages</span>
+        <span class="ni-count" id="countMessages"></span>
+      </button>
+      <button class="nav-item admin-only" data-panel="site">
+        <span class="ni-ico" aria-hidden="true">🛠️</span>
+        <span class="ni-label" data-i18n="staff.nav.site">Site Editor</span>
+      </button>
+      <button class="nav-item admin-only" data-panel="team">
+        <span class="ni-ico" aria-hidden="true">👥</span>
+        <span class="ni-label" data-i18n="staff.nav.team">Staff</span>
+      </button>
+    </nav>
 
     <div class="ds-spacer"></div>
     <div class="ds-foot">
@@ -121,20 +123,25 @@
         <nav class="msg-sidebar" id="msgSidebar">
           <button class="msg-compose-btn" id="msgComposeBtn">
             <span class="mcb-ico">✏️</span>
-            <span>Compose</span>
+            <span data-i18n="msg.compose">Compose</span>
           </button>
           <button class="msg-nav-item active" data-view="inbox">
             <span class="mni-ico">📥</span>
-            <span class="mni-label">Inbox</span>
+            <span class="mni-label" data-i18n="msg.inbox">Inbox</span>
             <span class="mni-badge" id="msgInboxBadge" style="display:none"></span>
+          </button>
+          <button class="msg-nav-item" data-view="bookings">
+            <span class="mni-ico">🛎️</span>
+            <span class="mni-label" data-i18n="msg.bookings">Guest Booking</span>
+            <span class="mni-badge" id="msgBookingBadge" style="display:none"></span>
           </button>
           <button class="msg-nav-item" data-view="sent">
             <span class="mni-ico">📤</span>
-            <span class="mni-label">Sent</span>
+            <span class="mni-label" data-i18n="msg.sent">Sent</span>
           </button>
           <button class="msg-nav-item" data-view="announcements">
             <span class="mni-ico">📢</span>
-            <span class="mni-label">Announcements</span>
+            <span class="mni-label" data-i18n="msg.announcements">Announcements</span>
             <span class="mni-badge" id="msgAnnBadge" style="display:none"></span>
           </button>
         </nav>
@@ -258,6 +265,7 @@
 <script src="assets/js/i18n.js"></script>
 <script src="assets/js/i18n-app.js"></script>
 <script src="assets/js/translate.js"></script>
+<script src="assets/js/bookings.js"></script>
 <script src="assets/js/staff.js"></script>
 </body>
 </html>

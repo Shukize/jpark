@@ -27,11 +27,13 @@
   let reqFilter = "all";
   let selectedThread = null;
   let seenReq = null;
+  let seenBookings = null;
   let lastChatUnread = 0;
 
   // Messages state
   let msgView = "inbox";
   let msgDetailId = null;
+  let msgDetailKind = "message"; // "message" | "booking"
   let msgPrevView = "inbox";
   let msgToRecipients = [];
   let msgToAllSelected = false;
@@ -76,6 +78,7 @@
     document.getElementById("dsRoleLabel").textContent = t(isAdmin() ? "staff.role.admin" : "staff.role.staff");
 
     seenReq = new Set(S.list("requests").map((r) => r.id));
+    seenBookings = new Set(S.list("guestBookings").map((b) => b.id));
     lastChatUnread = totalChatUnread();
 
     renderAvatarInSidebar();
@@ -310,10 +313,36 @@
   function isUnread(m) {
     return !m.readBy || !m.readBy.includes(session.id);
   }
+
+  /* Guest bookings forwarded in from OTA channels (Agoda, Booking.com…).
+     Every staff member and admin sees the same inbox; "read" is tracked
+     per user via readBy, exactly like internal messages. */
+  function getBookingMsgs() {
+    return S.list("guestBookings").slice().sort((a, b) => b.createdAt - a.createdAt);
+  }
+  function isBookingUnread(b) {
+    return !b.readBy || !session || !b.readBy.includes(session.id);
+  }
+  function getBookingUnreadCount() {
+    return getBookingMsgs().filter(isBookingUnread).length;
+  }
+  function markBookingRead(id) {
+    const all = S.list("guestBookings");
+    const i = all.findIndex((b) => b.id === id);
+    if (i < 0) return;
+    const readBy = all[i].readBy ? all[i].readBy.slice() : [];
+    if (!readBy.includes(session.id)) {
+      readBy.push(session.id);
+      all[i] = Object.assign({}, all[i], { readBy });
+      S.write("guestBookings", all);
+    }
+  }
+
   function getMsgUnreadCount() {
     const inboxUnread = getInboxMsgs().filter(isUnread).length;
     const annUnread = getAnnouncementMsgs().filter((m) => m.fromId !== session.id && isUnread(m)).length;
-    return { inboxUnread, annUnread, total: inboxUnread + annUnread };
+    const bookingUnread = getBookingUnreadCount();
+    return { inboxUnread, annUnread, bookingUnread, total: inboxUnread + annUnread + bookingUnread };
   }
   function markMsgRead(id) {
     const all = getAllMsgs();
@@ -351,27 +380,31 @@
     });
   }
 
+  function setNavBadge(id, n) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = n || "";
+    el.style.display = n ? "" : "none";
+  }
+
   function renderMessages() {
     const counts = getMsgUnreadCount();
-    const inboxBadge = document.getElementById("msgInboxBadge");
-    const annBadge = document.getElementById("msgAnnBadge");
-    if (inboxBadge) {
-      inboxBadge.textContent = counts.inboxUnread || "";
-      inboxBadge.style.display = counts.inboxUnread ? "" : "none";
-    }
-    if (annBadge) {
-      annBadge.textContent = counts.annUnread || "";
-      annBadge.style.display = counts.annUnread ? "" : "none";
-    }
+    setNavBadge("msgInboxBadge", counts.inboxUnread);
+    setNavBadge("msgAnnBadge", counts.annUnread);
+    setNavBadge("msgBookingBadge", counts.bookingUnread);
+
+    // While viewing a detail, keep the list it came from highlighted.
+    const activeView = msgView === "detail" ? msgPrevView : msgView;
     document.querySelectorAll("#msgSidebar .msg-nav-item").forEach((b) => {
-      b.classList.toggle("active", b.dataset.view === msgView);
+      b.classList.toggle("active", b.dataset.view === activeView);
     });
     const listArea = document.getElementById("msgListArea");
     const detailArea = document.getElementById("msgDetail");
     if (msgView === "detail" && msgDetailId) {
       listArea.classList.add("hidden");
       detailArea.classList.add("show");
-      renderMsgDetail(msgDetailId);
+      if (msgDetailKind === "booking") renderBookingDetail(msgDetailId);
+      else renderMsgDetail(msgDetailId);
     } else {
       listArea.classList.remove("hidden");
       detailArea.classList.remove("show");
@@ -380,26 +413,32 @@
     }
   }
 
+  const MSG_VIEW_META = {
+    inbox:         { ico: "📥", header: "msg.inbox",         emptySub: "msg.empty.inbox" },
+    bookings:      { ico: "🛎️", header: "msg.bookings",      emptySub: "msg.empty.bookings" },
+    sent:          { ico: "📤", header: "msg.sent",          emptySub: "msg.empty.sent" },
+    announcements: { ico: "📢", header: "msg.announcements", emptySub: "msg.empty.ann" }
+  };
+
   function renderMsgList() {
+    if (msgView === "bookings") { renderBookingList(); return; }
+
     const listArea = document.getElementById("msgListArea");
+    const meta = MSG_VIEW_META[msgView] || MSG_VIEW_META.inbox;
     let msgs = [];
-    let headerText = "Inbox";
-    if (msgView === "inbox") { msgs = getInboxMsgs(); headerText = "Inbox"; }
-    else if (msgView === "sent") { msgs = getSentMsgs(); headerText = "Sent"; }
-    else if (msgView === "announcements") { msgs = getAnnouncementMsgs(); headerText = "Announcements"; }
+    if (msgView === "inbox") msgs = getInboxMsgs();
+    else if (msgView === "sent") msgs = getSentMsgs();
+    else if (msgView === "announcements") msgs = getAnnouncementMsgs();
 
     const countLabel = msgs.length ? '<span class="mlh-count">' + msgs.length + "</span>" : "";
-    listArea.innerHTML = '<div class="msg-list-header">' + esc(headerText) + countLabel + "</div>";
+    listArea.innerHTML = '<div class="msg-list-header">' + esc(t(meta.header)) + countLabel + "</div>";
 
     if (!msgs.length) {
-      const icons = { inbox: "📥", sent: "📤", announcements: "📢" };
       listArea.innerHTML +=
         '<div class="msg-empty">' +
-        '<div class="me-ico">' + (icons[msgView] || "✉️") + "</div>" +
-        '<div class="me-title">Nothing here yet</div>' +
-        '<div class="me-sub">' + (msgView === "inbox" ? "Messages sent to you will appear here." :
-          msgView === "sent" ? "Your sent messages will appear here." :
-          "Company announcements from administrators will appear here.") + "</div>" +
+        '<div class="me-ico">' + meta.ico + "</div>" +
+        '<div class="me-title">' + esc(t("msg.empty.title")) + "</div>" +
+        '<div class="me-sub">' + esc(t(meta.emptySub)) + "</div>" +
         "</div>";
       return;
     }
@@ -430,6 +469,7 @@
       row.addEventListener("click", () => {
         msgPrevView = msgView;
         msgDetailId = m.id;
+        msgDetailKind = "message";
         msgView = "detail";
         markMsgRead(m.id);
         renderMessages();
@@ -489,6 +529,131 @@
     document.getElementById("msgDetailBack").addEventListener("click", () => {
       msgView = msgPrevView;
       msgDetailId = null;
+      renderMessages();
+    });
+  }
+
+  /* ====================  GUEST BOOKINGS  ==================== */
+  function bookingDateRange(b) {
+    return (b.checkIn || "?") + " → " + (b.checkOut || "?");
+  }
+  function bkStatusLabel(s) {
+    if (!s) return "";
+    const k = "msg.bk.status." + s;
+    const v = t(k);
+    return v === k ? (s.charAt(0).toUpperCase() + s.slice(1)) : v;
+  }
+
+  function renderBookingList() {
+    const listArea = document.getElementById("msgListArea");
+    const bookings = getBookingMsgs();
+    const countLabel = bookings.length ? '<span class="mlh-count">' + bookings.length + "</span>" : "";
+    listArea.innerHTML = '<div class="msg-list-header">' + esc(t("msg.bookings")) + countLabel + "</div>";
+
+    if (!bookings.length) {
+      listArea.innerHTML +=
+        '<div class="msg-empty">' +
+        '<div class="me-ico">🛎️</div>' +
+        '<div class="me-title">' + esc(t("msg.empty.title")) + "</div>" +
+        '<div class="me-sub">' + esc(t("msg.empty.bookings")) + "</div>" +
+        "</div>";
+      return;
+    }
+
+    bookings.forEach((b) => {
+      const unread = isBookingUnread(b);
+      const row = document.createElement("div");
+      row.className = "msg-row booking channel-" + b.channel + (unread ? " unread" : " read");
+      row.dataset.id = b.id;
+      const initial = (b.channelName || "?").charAt(0).toUpperCase();
+      const preview = (b.room ? b.room + " · " : "") + bookingDateRange(b) + " · " + b.ref;
+      row.innerHTML =
+        '<div class="mr-avatar bk-avatar"><span>' + esc(initial) + "</span></div>" +
+        '<div class="mr-sender">' + esc(b.channelName) + "</div>" +
+        '<div class="mr-subject-preview">' +
+          '<span class="mr-subject">' + esc(b.guestName) + "</span>" +
+          '<span class="mr-sep">—</span>' +
+          '<span class="mr-preview">' + esc(preview) + "</span>" +
+        "</div>" +
+        '<div class="mr-time">' + esc(formatMsgTime(b.createdAt)) + "</div>";
+      row.addEventListener("click", () => {
+        msgPrevView = "bookings";
+        msgDetailId = b.id;
+        msgDetailKind = "booking";
+        msgView = "detail";
+        markBookingRead(b.id);
+        renderMessages();
+      });
+      listArea.appendChild(row);
+    });
+  }
+
+  function bookingField(labelKey, value) {
+    if (value == null || value === "") return "";
+    return '<div class="bkd-row"><span class="bkd-label">' + esc(t(labelKey)) + "</span>" +
+      '<span class="bkd-value">' + esc(value) + "</span></div>";
+  }
+
+  function renderBookingDetail(id) {
+    const b = getBookingMsgs().find((x) => x.id === id);
+    const detailArea = document.getElementById("msgDetail");
+    if (!b) { detailArea.innerHTML = ""; return; }
+
+    const totalStr = b.total != null ? (b.currency || "THB") + " " + Number(b.total).toLocaleString() : "";
+    const initial = (b.channelName || "?").charAt(0).toUpperCase();
+    const recipientName = session ? session.name : "";
+
+    let fields = "";
+    fields += bookingField("msg.bk.guest", b.guestName);
+    fields += bookingField("msg.bk.email", b.guestEmail);
+    fields += bookingField("msg.bk.phone", b.guestPhone);
+    fields += bookingField("msg.bk.ref", b.ref);
+    fields += bookingField("msg.bk.room", b.room);
+    fields += bookingField("msg.bk.checkin", b.checkIn);
+    fields += bookingField("msg.bk.checkout", b.checkOut);
+    fields += bookingField("msg.bk.nights", b.nights);
+    fields += bookingField("msg.bk.adults", b.adults);
+    if (b.children) fields += bookingField("msg.bk.children", b.children);
+    fields += bookingField("msg.bk.total", totalStr);
+    fields += bookingField("msg.bk.statusLabel", bkStatusLabel(b.status));
+
+    detailArea.innerHTML =
+      '<button class="msg-detail-back" id="msgDetailBack">← ' + esc(t("msg.back")) + "</button>" +
+      '<div class="msg-detail-subject">' + esc(t("msg.bk.subject") + " · " + b.channelName) + "</div>" +
+      '<div class="msg-detail-meta">' +
+        '<div class="mda-avatar bk-avatar channel-' + esc(b.channel) + '"><span>' + esc(initial) + "</span></div>" +
+        '<div class="mda-info">' +
+          '<div class="mda-from">' + esc(b.channelName) +
+            ' <span class="mda-email">&lt;' + esc(b.channelEmail || "") + "&gt;</span></div>" +
+          '<div class="mda-to">' + esc(t("msg.bk.to")) + " <b>" + esc(recipientName) + "</b></div>" +
+        "</div>" +
+        '<div class="mda-time">' + esc(new Date(b.createdAt).toLocaleString()) + "</div>" +
+      "</div>" +
+      '<div class="bk-detail-grid">' + fields + "</div>" +
+      '<div class="bk-confirm-label">' + esc(t("msg.bk.confirmation")) + "</div>" +
+      '<div class="tr-note msg-tr-note" style="display:none"></div>' +
+      '<div class="msg-detail-body bk-confirm-body"></div>';
+
+    // Confirmation body: show the original text, then auto-translate it into
+    // the reader's language with a single "translated from X" note.
+    const bodyEl = detailArea.querySelector(".bk-confirm-body");
+    const noteEl = detailArea.querySelector(".msg-tr-note");
+    bodyEl.textContent = b.confirmation || "";
+    const cur = I.getLang();
+    if (b.confirmation && (!b.lang || b.lang !== cur)) {
+      J.translate.text(b.confirmation, cur).then((res) => {
+        if (bodyEl.isConnected && res.src && res.src !== cur && res.text && res.text !== b.confirmation) {
+          bodyEl.textContent = res.text;
+          noteEl.textContent = t("tr.from") + " " + J.translate.langName(res.src);
+          noteEl.style.display = "";
+        }
+      });
+    }
+
+    document.getElementById("msgDetailBack").addEventListener("click", () => {
+      msgView = msgPrevView;
+      msgDetailId = null;
+      msgDetailKind = "message";
       renderMessages();
     });
   }
@@ -791,6 +956,18 @@
     if (panel === "chat") renderChat();
     updateBadges();
   }
+  function onBookingsChange() {
+    if (seenBookings) {
+      S.list("guestBookings").forEach((b) => {
+        if (!seenBookings.has(b.id)) {
+          seenBookings.add(b.id);
+          notify(t("staff.notif.booking") + " · " + (b.channelName || "") + " · " + (b.guestName || ""));
+        }
+      });
+    }
+    if (panel === "messages") renderMessages();
+    updateBadges();
+  }
   function onStaffChange() {
     // if our own account was suspended/removed elsewhere, log out
     if (!validSession(session)) { setSession(null); showLogin(); return; }
@@ -899,6 +1076,7 @@
       S.resetAll();
       if (!validSession(session)) { setSession(null); showLogin(); return; }
       seenReq = new Set(S.list("requests").map((r) => r.id));
+      seenBookings = new Set(S.list("guestBookings").map((b) => b.id));
       renderPanel();
       updateBadges();
       U.toast(t("staff.site.saved"), "success");
@@ -911,6 +1089,7 @@
     S.on("requests", onRequestsChange);
     S.on("chats", onChatsChange);
     S.on("messages", () => { updateBadges(); if (panel === "messages") renderMessages(); });
+    S.on("guestBookings", onBookingsChange);
     S.on("staff", onStaffChange);
     S.on("announcements", () => { if (panel === "site") renderSite(); });
     S.on("content", () => { if (panel === "site") renderSite(); });

@@ -134,6 +134,65 @@
     { id: "m12", cat: "dessert",  key: "menu.item.cake",     price: 220 }
   ];
 
+  /* Guest bookings arriving from external OTA channels (Agoda, Booking.com,
+     Airbnb, Trip.com …). On a real deployment these are pushed in by a small
+     bridge — an email-forwarding rule or channel-manager webhook — that calls
+     JPark.bookings.ingest(). These seeds make the "Guest Booking" inbox live
+     for the demo. `confirmation` is the free-text body that gets auto-
+     translated into each staff member's language; `lang` marks its source. */
+  const SEED_GUEST_BOOKINGS = [
+    {
+      id: "gb1", ref: "AGD-849217643", channel: "agoda", channelName: "Agoda",
+      guestName: "Daniel Robinson", guestEmail: "d.robinson@gmail.com", guestPhone: "+44 7700 900812",
+      room: "Deluxe Twin", checkIn: "2026-06-02", checkOut: "2026-06-03", nights: 1,
+      adults: 2, children: 0, total: 1850, currency: "THB", status: "confirmed", lang: "en",
+      confirmation:
+        "Dear J Park Hotel, a new reservation has been confirmed through Agoda.\n\n" +
+        "Booking ID: 849217643\nGuest: Daniel Robinson\nRoom: Deluxe Twin (1 room)\n" +
+        "Check-in: 02 June 2026 (from 14:00)\nCheck-out: 03 June 2026 (until 12:00)\n" +
+        "Guests: 2 adults\nTotal paid by guest: THB 1,850 (prepaid online)\n\n" +
+        "Guest note: Arriving late around 23:00, please hold the room. A high floor would be appreciated.",
+      readBy: [], createdAt: Date.now() - 1000 * 60 * 26
+    },
+    {
+      id: "gb2", ref: "BDC-7741920358", channel: "booking", channelName: "Booking.com",
+      guestName: "Yuki Miyamoto", guestEmail: "yuki.miyamoto@example.jp", guestPhone: "+81 90-1234-5678",
+      room: "Studio Double", checkIn: "2026-06-05", checkOut: "2026-06-08", nights: 3,
+      adults: 2, children: 1, total: 7350, currency: "THB", status: "confirmed", lang: "ja",
+      confirmation:
+        "J Park Hotel 御中\n\nBooking.com 経由で新しいご予約が確定しました。\n\n" +
+        "予約番号: 7741920358\nお客様: Yuki Miyamoto 様\n客室: スタジオ ダブル（1室）\n" +
+        "チェックイン: 2026年6月5日\nチェックアウト: 2026年6月8日\n" +
+        "ご宿泊人数: 大人2名、子供1名\n合計: THB 7,350\n\n" +
+        "ご要望: ベビーベッドを1台お願いします。静かなお部屋を希望します。",
+      readBy: [], createdAt: Date.now() - 1000 * 60 * 60 * 3
+    },
+    {
+      id: "gb3", ref: "ABNB-HMQT4E9XZ2", channel: "airbnb", channelName: "Airbnb",
+      guestName: "Wei Chen", guestEmail: "wei.chen@example.com", guestPhone: "+86 138 0013 8000",
+      room: "Grand Suite", checkIn: "2026-06-10", checkOut: "2026-06-14", nights: 4,
+      adults: 2, children: 0, total: 14200, currency: "THB", status: "confirmed", lang: "zh-Hans",
+      confirmation:
+        "您好，J Park Hotel：\n\n您在 Airbnb 上收到一笔新的预订。\n\n" +
+        "确认码: HMQT4E9XZ2\n房客: Wei Chen\n房型: 豪华套房（Grand Suite）\n" +
+        "入住: 2026年6月10日\n退房: 2026年6月14日\n人数: 2位成人\n总额: THB 14,200\n\n" +
+        "房客留言: 我们大约下午3点到达，希望能提前办理入住。需要机场接送服务。",
+      readBy: [], createdAt: Date.now() - 1000 * 60 * 60 * 20
+    },
+    {
+      id: "gb4", ref: "TRIP-7609475118", channel: "trip", channelName: "Trip.com",
+      guestName: "Somchai Suksawat", guestEmail: "somchai.s@example.co.th", guestPhone: "+66 81 234 5678",
+      room: "Superior Room", checkIn: "2026-06-12", checkOut: "2026-06-13", nights: 1,
+      adults: 1, children: 0, total: 1490, currency: "THB", status: "confirmed", lang: "th",
+      confirmation:
+        "เรียน โรงแรม J Park\n\nมีการจองใหม่ผ่าน Trip.com ได้รับการยืนยันแล้ว\n\n" +
+        "หมายเลขการจอง: 7609475118\nผู้เข้าพัก: สมชาย สุขสวัสดิ์\nห้อง: ห้องซูพีเรียร์ (1 ห้อง)\n" +
+        "เช็คอิน: 12 มิถุนายน 2569\nเช็คเอาท์: 13 มิถุนายน 2569\nจำนวน: ผู้ใหญ่ 1 ท่าน\n" +
+        "ยอดรวม: THB 1,490\n\nหมายเหตุจากผู้เข้าพัก: ขอเตียงเสริมและที่จอดรถครับ",
+      readBy: [], createdAt: Date.now() - 1000 * 60 * 60 * 30
+    }
+  ];
+
   const SEED_CONCIERGE = [
     { id: "c1", key: "conc.item.bangsaen",  img: "images/c3ac1733-933b-49de-aa10-7185a21dbe5f.jpg" },
     { id: "c2", key: "conc.item.market",    img: "images/843e2617-637f-4337-8f46-69ff1e5b6979.jpg" },
@@ -149,12 +208,14 @@
       if (!read("menu")) write("menu", SEED_MENU);
       if (!read("concierge")) write("concierge", SEED_CONCIERGE);
       if (!read("messages")) write("messages", []);
+      if (!read("guestBookings")) write("guestBookings", SEED_GUEST_BOOKINGS);
       return;
     }
     write("bookings", SEED_BOOKINGS);
     write("staff", SEED_STAFF);
     write("menu", SEED_MENU);
     write("concierge", SEED_CONCIERGE);
+    write("guestBookings", SEED_GUEST_BOOKINGS);
     write("requests", []);
     write("orders", []);
     write("chats", []);
@@ -184,7 +245,7 @@
       .filter((k) => k.indexOf(NS) === 0)
       .forEach((k) => localStorage.removeItem(k));
     seed();
-    ["bookings","staff","menu","concierge","requests","orders","chats","company","messages","announcements","content"]
+    ["bookings","staff","menu","concierge","requests","orders","chats","company","messages","announcements","content","guestBookings"]
       .forEach((t) => emit(t, read(t)));
   }
 
