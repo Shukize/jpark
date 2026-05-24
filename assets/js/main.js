@@ -142,7 +142,17 @@
     function show(dir) {
       const item = items[idx];
       vid.innerHTML = "";
-      if (item && typeof item === "object" && item.video) {
+      if (item && typeof item === "object" && item.localVideo) {
+        img.style.display = "none";
+        vid.style.display = "";
+        const v = document.createElement("video");
+        v.src = enc(item.localVideo);
+        v.controls = true; v.autoplay = true; v.muted = true;
+        v.playsInline = true; v.setAttribute("playsinline", "");
+        v.style.cssText = "width:100%;height:100%;object-fit:contain;background:#000;";
+        vid.appendChild(v);
+        const p = v.play(); if (p && p.catch) p.catch(() => {});
+      } else if (item && typeof item === "object" && item.video) {
         img.style.display = "none";
         vid.style.display = "";
         vid.appendChild(fbVideoFrame(item.video, { autoplay: true, mute: true }));
@@ -303,26 +313,48 @@
     "images/Meeting and Banquet Rooms/687999904_1558427726290499_7320805987719867448_n.jpg"
   ];
 
-  // Meeting & Banquet Rooms: clicking the cover opens the lightbox — the video
-  // plays first, then you can arrow through the uploaded photos. If the reel
-  // won't embed, the photos still work.
+  // Meeting & Banquet Rooms: local clip plays as cover on scroll; click opens lightbox
+  // with the video followed by the uploaded photos.
+  const BANQUET_VIDEO_FILE =
+    "images/Meeting and Banquet Rooms/AQM1GlMUG1VPn2W3_GoLJgXiKyz-GI7UgQOK_LlqgTjo1DDIoMkFYNqgC1lAFEUf0ysj7JGbiP_T-PB84vS-qiCCPTrRNOQeeZ0d2-jDjn1bIQ.mp4";
   function initBanquetVideo() {
     const card = document.querySelector('.fac-card[data-video="banquet"]');
     if (!card) return;
-    bindOpener(card, () => [{ video: FB_VIDEOS.banquet }].concat(BANQUET_IMAGES));
+    let playing = false;
+    function startCover() {
+      if (playing) return;
+      playing = true;
+      const wrap = document.createElement("div");
+      wrap.className = "card-video-wrap";
+      const v = document.createElement("video");
+      v.src = enc(BANQUET_VIDEO_FILE);
+      v.muted = true; v.autoplay = true; v.loop = false; v.preload = "auto";
+      v.playsInline = true; v.setAttribute("playsinline", "");
+      wrap.appendChild(v);
+      card.appendChild(wrap);
+      card.classList.add("playing");
+      const cleanup = () => { wrap.remove(); card.classList.remove("playing"); playing = false; };
+      v.addEventListener("ended", cleanup);
+      v.addEventListener("error", cleanup);
+      const p = v.play(); if (p && p.catch) p.catch(() => {});
+    }
+    onceInView(card, startCover, 0.4);
+    bindOpener(card, () => [{ localVideo: BANQUET_VIDEO_FILE }].concat(BANQUET_IMAGES));
   }
 
   // All-Day Dining: the local clip replaces the cover when the card scrolls
-  // into view; when the clip ends, the cover image returns. Click to replay.
+  // into view; when the clip ends, the cover image returns. Click opens lightbox with both videos.
   const ALLDAY_VIDEO_FILE =
     "images/All-Day Dining/AQNCEA_f6EzQkXbwrB13jzd_QMJ4uE_ArgwVV0jb8eP8HtklQMgoYlGzdnKJONHWmf9VZnG8YqM8Ns1E1XjFRgw8BJaQMTIGqPYFLdzVf06rzQ.mp4";
+  const ALLDAY_VIDEO_FILE_2 =
+    "images/All-Day Dining/AQPkivRrWjvIibm-ObjYFA89UdoAliPhHGYELTbwWeI8TebF7soa_9BjgijiFFEoJG4YESEMEz468duj0wSBv77oBeIvhd42N9lzCGFFaIK8tQ.mp4";
   function initAllDayVideo() {
     const card = document.querySelector('.dining-card[data-video="allday"]');
     if (!card) return;
     const imgWrap = card.querySelector(".dining-img");
     if (!imgWrap) return;
     let playing = false;
-    function start() {
+    function startCover() {
       if (playing) return;
       playing = true;
       const wrap = document.createElement("div");
@@ -339,8 +371,11 @@
       v.addEventListener("error", cleanup);
       const p = v.play(); if (p && p.catch) p.catch(() => {});
     }
-    onceInView(card, start, 0.4);
-    card.addEventListener("click", start);
+    onceInView(card, startCover, 0.4);
+    bindOpener(card, () => [
+      { localVideo: ALLDAY_VIDEO_FILE },
+      { localVideo: ALLDAY_VIDEO_FILE_2 }
+    ]);
   }
 
   // Midnight Coffee Club: play the local clip for 4 seconds over the carousel.
