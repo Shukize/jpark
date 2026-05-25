@@ -325,7 +325,7 @@ h1, h2, h3 { font-weight: 500; line-height: 1.12; letter-spacing: 0.01em; }
 .dining-img img { width: 100%; height: 100%; object-fit: cover; transition: transform .8s var(--ease); }
 .dining-card:hover .dining-img img { transform: scale(1.07); }
 .dining-body { padding: 24px 24px 28px; }
-.dining-body h3 { font-family: var(--serif); font-size: 1.45rem; color: var(--teal-deep); }
+.dining-body h3 { font-family: var(--serif); font-size: 1.45rem; color: var(--teal-deep); display: flex; align-items: center; }
 .dining-body p { color: var(--ink-soft); font-size: 0.95rem; margin-top: 10px; }
 
 /* ---------------- gallery ---------------- */
@@ -752,12 +752,10 @@ body.mobile-view .gcat-grid > .gthumb { flex-basis: calc((100% - 20px) / 3); }
 /* Tsubaki card: logo badge + circular Facebook button */
 .tsubaki-card .dining-img { position: relative; }
 .tsubaki-logo {
-  position: absolute; top: 12px; left: 12px; z-index: 3;
-  width: clamp(62px, 22%, 90px); height: auto; padding: 7px 9px;
-  background: rgba(255,255,255,0.93); border-radius: 12px;
-  box-shadow: 0 6px 18px rgba(7,40,39,0.28);
+  display: inline-block; height: 26px; width: auto;
+  object-fit: contain; vertical-align: middle;
+  margin-right: 7px; opacity: 0.75;
 }
-.dining-card:hover .tsubaki-logo { transform: none; } /* don't ride the image zoom */
 .tsubaki-fb {
   position: absolute; right: 12px; bottom: 12px; z-index: 3;
   width: 44px; height: 44px; border-radius: 50%;
