@@ -375,10 +375,26 @@ body.lb-open { overflow: hidden; }
   0%   { opacity: 0; transform: translateX(-7%) scale(0.86); }
   100% { opacity: 1; transform: translateX(0) scale(1); }
 }
-.lightbox img.anim-next { animation: lbNext .5s var(--ease); }
-.lightbox img.anim-prev { animation: lbPrev .5s var(--ease); }
-.lb-video { width: min(92vw, 1080px); max-height: 88vh; aspect-ratio: 16 / 9; background: #000; border-radius: 10px; overflow: hidden; box-shadow: 0 30px 80px rgba(0,0,0,0.55); }
-.lb-video .fb-vid-frame { width: 100%; height: 100%; border: 0; }
+.lightbox img.anim-next { animation: lbNext .42s var(--ease); }
+.lightbox img.anim-prev { animation: lbPrev .42s var(--ease); }
+
+/* Video stage: the <video> sizes to its own aspect (bounded by the viewport),
+   so portrait phone clips fill tall and clean with no letterboxing, while
+   landscape clips fill wide. The Facebook reel iframe keeps a fixed 16/9 box. */
+.lb-video {
+  display: flex; align-items: center; justify-content: center;
+  max-width: 92vw; max-height: 88vh; background: transparent;
+}
+.lb-video video {
+  max-width: 92vw; max-height: 88vh; width: auto; height: auto;
+  border-radius: 10px; background: #000;
+  box-shadow: 0 30px 80px rgba(0,0,0,0.55);
+}
+.lb-video.is-portrait video { height: 88vh; }
+.lb-video .fb-vid-frame {
+  width: min(92vw, 1080px); aspect-ratio: 16 / 9; max-height: 88vh;
+  border: 0; border-radius: 10px; background: #000;
+}
 
 /* ---------------- contact ---------------- */
 .contact-grid { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(34px, 5vw, 64px); align-items: stretch; }
@@ -569,15 +585,25 @@ body.intro-active { overflow: hidden; }
 }
 .card-video-close:hover { background: var(--terracotta); }
 
-/* Midnight Coffee Club: 4-second video over the carousel */
+/* Midnight Coffee Club: intro video over the carousel, tinted to match the
+   section's teal/green palette so it blends into the imagery as it fades out. */
 .coffee-video {
-  position: absolute; inset: 0; z-index: 1; background: #000;
-  opacity: 0; transition: opacity .6s var(--ease); overflow: hidden;
+  position: absolute; inset: 0; z-index: 1; background: var(--teal-deep);
+  opacity: 0; transition: opacity 1.1s var(--ease); overflow: hidden;
 }
 .coffee-video.show { opacity: 1; }
 .coffee-video video {
   position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
   width: 100%; height: 100%; object-fit: cover;
+}
+/* green tint that matches the section overlay, so the hand-off to the carousel
+   images is seamless and on-theme */
+.coffee-video::after {
+  content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  background:
+    linear-gradient(90deg, rgba(7,40,39,0.55) 0%, rgba(12,91,88,0.32) 45%, rgba(12,91,88,0.18) 100%),
+    linear-gradient(180deg, rgba(12,91,88,0.30), rgba(7,40,39,0.50));
+  mix-blend-mode: multiply;
 }
 .coffee-video .fb-vid-frame {
   position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
@@ -618,6 +644,7 @@ body.intro-active { overflow: hidden; }
 .gallery-more:disabled { opacity: .5; cursor: default; }
 
 .gallery-full { opacity: 0; }
+.gallery-full:not(.show) { display: none; }
 .gallery-full.show { opacity: 1; transition: opacity .8s var(--ease); }
 .gcat { margin-top: 48px; }
 .gcat:first-child { margin-top: 24px; }
@@ -667,10 +694,79 @@ body.intro-active { overflow: hidden; }
 }
 .gintro.show .gintro-title { opacity: 1; transform: none; }
 
-@media (max-width: 960px) { .gcat-grid { grid-template-columns: repeat(3, 1fr); } }
-@media (max-width: 620px) { .gcat-grid { grid-template-columns: repeat(2, 1fr); } }
 body.mobile-view .gallery-grid { grid-template-columns: repeat(2, 1fr); }
-body.mobile-view .gcat-grid { grid-template-columns: repeat(2, 1fr); }
+
+/* ---- Expanded gallery: compact horizontal rows + jump menu ---- */
+/* Each section becomes a single horizontally-scrolling row of smaller (~60%)
+   thumbnails — about 8 fit on desktop, scroll right to reveal the rest. */
+.gcat-grid {
+  display: flex; gap: 10px; grid-template-columns: none;
+  overflow-x: auto; overflow-y: hidden;
+  scroll-snap-type: x proximity; padding-bottom: 12px;
+  scrollbar-width: thin; scrollbar-color: var(--teal) rgba(12,91,88,0.12);
+}
+.gcat-grid > .gthumb {
+  flex: 0 0 calc((100% - 70px) / 8); /* ~8 across desktop */
+  scroll-snap-align: start;
+}
+.gcat-grid::-webkit-scrollbar { height: 8px; }
+.gcat-grid::-webkit-scrollbar-thumb { background: var(--teal); border-radius: 999px; }
+.gcat-grid::-webkit-scrollbar-track { background: rgba(12,91,88,0.12); border-radius: 999px; }
+@media (max-width: 1024px) { .gcat-grid > .gthumb { flex-basis: calc((100% - 50px) / 6); } }
+@media (max-width: 760px)  { .gcat-grid > .gthumb { flex-basis: calc((100% - 30px) / 4); } }
+@media (max-width: 520px)  { .gcat-grid > .gthumb { flex-basis: calc((100% - 20px) / 3); } }
+body.mobile-view .gcat-grid > .gthumb { flex-basis: calc((100% - 20px) / 3); }
+
+/* toolbar shown only once the gallery is expanded */
+.gallery-tools { display: none; }
+.gallery-expanded .gallery-grid,
+.gallery-expanded .gallery-more-wrap { display: none; }
+.gallery-expanded .gallery-tools {
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 14px; margin-top: 26px;
+  position: sticky; top: 70px; z-index: 30;
+  padding: 12px 14px; border-radius: 14px;
+  background: rgba(247,242,232,0.96); backdrop-filter: blur(6px);
+  border: 1px solid var(--line);
+  box-shadow: 0 12px 30px -18px rgba(7,61,59,0.5);
+}
+.gallery-jump {
+  font-family: var(--serif); font-size: 1rem; color: var(--teal-deep);
+  background-color: var(--paper); border: 1.5px solid var(--teal);
+  border-radius: 999px; padding: 10px 40px 10px 18px; cursor: pointer;
+  max-width: min(70vw, 360px);
+  appearance: none; -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath fill='%230c5b58' d='M1 1l5 5 5-5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 16px center; background-size: 12px;
+}
+.gallery-jump:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+.gallery-collapse {
+  font-family: var(--serif); font-size: .98rem; letter-spacing: .03em;
+  color: var(--teal-deep); background: transparent;
+  border: 1.5px solid var(--teal); border-radius: 999px;
+  padding: 10px 26px; cursor: pointer;
+  transition: background .35s var(--ease), color .35s var(--ease), transform .35s var(--ease);
+}
+.gallery-collapse:hover { background: var(--teal); color: var(--ivory); transform: translateY(-2px); }
+
+/* Tsubaki card: logo badge + circular Facebook button */
+.tsubaki-card .dining-img { position: relative; }
+.tsubaki-logo {
+  position: absolute; top: 12px; left: 12px; z-index: 3;
+  width: clamp(62px, 22%, 90px); height: auto; padding: 7px 9px;
+  background: rgba(255,255,255,0.93); border-radius: 12px;
+  box-shadow: 0 6px 18px rgba(7,40,39,0.28);
+}
+.dining-card:hover .tsubaki-logo { transform: none; } /* don't ride the image zoom */
+.tsubaki-fb {
+  position: absolute; right: 12px; bottom: 12px; z-index: 3;
+  width: 44px; height: 44px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: #1877f2; color: #fff;
+  box-shadow: 0 6px 18px rgba(7,40,39,0.35);
+  transition: background .3s var(--ease), transform .3s var(--ease);
+}
+.tsubaki-fb:hover { background: #0f63d6; transform: scale(1.1); }
 
 /* Midnight Coffee Club: the imagery is clickable to open the lightbox */
 .coffee-clickable .coffee-carousel,
