@@ -1315,17 +1315,28 @@
         const file = avatarInput.files[0];
         if (!file) return;
         if (file.size > 2 * 1024 * 1024) {
-          U.toast("Image too large — please use a file under 2 MB.", "error"); return;
+          U.toast("Image too large — please use a file under 2 MB.", "error");
+          avatarInput.value = "";
+          return;
         }
         const reader = new FileReader();
         reader.onload = (e) => {
-          setAvatarDataUrl(session.id, e.target.result);
+          avatarInput.value = "";
+          try {
+            setAvatarDataUrl(session.id, e.target.result);
+          } catch (_) {
+            U.toast("Could not save photo — storage full.", "error");
+            return;
+          }
           renderAvatarInSidebar();
           U.toast("Profile photo updated!", "success");
           if (panel === "messages") renderMessages();
         };
+        reader.onerror = () => {
+          avatarInput.value = "";
+          U.toast("Failed to read image. Please try again.", "error");
+        };
         reader.readAsDataURL(file);
-        avatarInput.value = "";
       });
     }
 
