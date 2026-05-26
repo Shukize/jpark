@@ -198,6 +198,27 @@
   ci.min = todayISO();
   co.min = addDay(todayISO(), 1);
 
+  // --- Desktop calendar fix -------------------------------------------------
+  // A native <input type="date"> only opens its calendar on desktop when the
+  // little picker icon is clicked. Here that icon is invisible (the input is an
+  // opacity:0 overlay), so on desktop clicking the field did nothing while on
+  // mobile a tap opens the picker natively. showPicker() forces the calendar
+  // open from any click / keyboard activation, so the whole field is clickable.
+  function openPicker(inp) {
+    if (typeof inp.showPicker === 'function') {
+      try { inp.showPicker(); } catch (e) { /* needs user gesture / unsupported */ }
+    }
+  }
+  [ci, co].forEach(function (inp) {
+    inp.addEventListener('click', function () { openPicker(inp); });
+    inp.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowDown') {
+        e.preventDefault();
+        openPicker(inp);
+      }
+    });
+  });
+
   ci.addEventListener('change', function () {
     if (!this.value) return;
     ciVal.textContent = fmtDate(this.value);

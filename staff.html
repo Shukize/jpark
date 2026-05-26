@@ -157,24 +157,70 @@
       <h2 data-i18n="staff.site.title">Site Editor</h2>
       <p class="panel-lede" data-i18n="staff.site.lede">Changes appear on the public website immediately.</p>
 
-      <div class="editor-card">
-        <h3 data-i18n="hero.title">Hero</h3>
-        <div class="field">
-          <label data-i18n="staff.site.heroTitle">Hero heading</label>
-          <input type="text" id="edHeroTitle" />
+      <!-- Tutorial / how-to guide -->
+      <div class="editor-card guide-card" id="guideCard">
+        <div class="guide-head">
+          <h3 data-i18n="staff.guide.title">How to use the Site Editor</h3>
+          <button type="button" class="guide-toggle" id="guideToggle" data-i18n="staff.guide.hide">Hide guide</button>
         </div>
-        <div class="field">
-          <label data-i18n="staff.site.heroLede">Hero subtext</label>
-          <textarea id="edHeroLede"></textarea>
+        <div class="guide-body" id="guideBody">
+          <p class="guide-intro" data-i18n="staff.guide.intro">Anything you change here updates the live public website right away — across every page and in the language you pick. Nothing is permanent: every field has its own Reset, and you can undo all of your edits at the bottom of this page.</p>
+          <ol class="guide-steps">
+            <li><b data-i18n="staff.guide.s1t">Pick the language</b><span data-i18n="staff.guide.s1b">Use “Editing language” to choose which language you are editing. Each language is stored separately — editing English does not change Thai.</span></li>
+            <li><b data-i18n="staff.guide.s2t">Find the text</b><span data-i18n="staff.guide.s2b">Scroll the grouped sections (Hero, Rooms, Dining…) or type in the search box to jump straight to any words shown on the site.</span></li>
+            <li><b data-i18n="staff.guide.s3t">Edit and it saves itself</b><span data-i18n="staff.guide.s3b">Click a field, change the words, then click away. It saves automatically and a green “Saved” appears. Press Reset on a field to restore the original.</span></li>
+            <li><b data-i18n="staff.guide.s4t">Swap photos</b><span data-i18n="staff.guide.s4b">In “Photos &amp; images”, upload a picture from your computer or paste an image link to replace the hero and about photos.</span></li>
+            <li><b data-i18n="staff.guide.s5t">Change colours</b><span data-i18n="staff.guide.s5b">In “Colours &amp; theme”, pick new brand colours. The whole site restyles instantly.</span></li>
+            <li><b data-i18n="staff.guide.s6t">Show, hide &amp; announce</b><span data-i18n="staff.guide.s6b">Hide a whole section with one tick, or post an announcement banner that appears across the top of the site.</span></li>
+          </ol>
+          <div class="guide-tip">
+            <b data-i18n="staff.guide.tipTitle">Good to know</b>
+            <ul>
+              <li data-i18n="staff.guide.tip1">Open the website in a second tab and keep it beside this one — your edits appear there live as you type.</li>
+              <li data-i18n="staff.guide.tip2">A field left exactly as the original stores nothing — only your real changes are kept.</li>
+              <li data-i18n="staff.guide.tip3">Remember to repeat important edits for each language your guests use.</li>
+            </ul>
+          </div>
+          <a href="index.html" target="_blank" rel="noopener" class="btn btn-ghost dark" data-i18n="staff.guide.openSite">Open the website ↗</a>
         </div>
-        <div class="field">
-          <label data-i18n="staff.site.heroImg">Hero image URL</label>
-          <input type="text" id="edHeroImg" placeholder="images/..." />
-        </div>
-        <button class="btn btn-solid" id="edSaveHero" data-i18n="staff.site.save">Save changes</button>
-        <button class="btn btn-ghost dark" id="edResetHero" data-i18n="staff.site.reset" style="margin-left:8px">Reset</button>
       </div>
 
+      <!-- Toolbar: editing language + search -->
+      <div class="editor-card">
+        <div class="ed-toolbar">
+          <div class="field ed-lang-field">
+            <label for="edLangSel" data-i18n="staff.site.editLangLabel">Editing language</label>
+            <select id="edLangSel"></select>
+          </div>
+          <div class="field ed-search-field">
+            <label for="edSearch" data-i18n="staff.site.searchLabel">Find text on the site</label>
+            <input type="search" id="edSearch" data-i18n-attr="placeholder:staff.site.searchPh" placeholder="Search all text…" />
+          </div>
+        </div>
+        <p class="ed-hint" data-i18n="staff.site.editLangHint">Each language is edited separately. Choose a language, edit its words, and only that language changes on the site.</p>
+      </div>
+
+      <!-- Website text — auto-generated, grouped editable fields -->
+      <div class="editor-card">
+        <h3 data-i18n="staff.site.content">Website text</h3>
+        <div id="edContentGroups"></div>
+        <p class="ed-nomatch" id="edNoMatch" hidden data-i18n="staff.site.noMatch">No text matches your search.</p>
+      </div>
+
+      <!-- Photos & images -->
+      <div class="editor-card">
+        <h3 data-i18n="staff.site.images">Photos &amp; images</h3>
+        <div class="ed-images" id="edImages"></div>
+      </div>
+
+      <!-- Colours & theme -->
+      <div class="editor-card">
+        <h3 data-i18n="staff.site.theme">Colours &amp; theme</h3>
+        <div class="ed-colors" id="edColors"></div>
+        <button class="btn btn-ghost dark" id="edResetTheme" data-i18n="staff.site.resetTheme">Reset colours</button>
+      </div>
+
+      <!-- Announcements banner -->
       <div class="editor-card">
         <h3 data-i18n="staff.site.ann">Announcements banner</h3>
         <div class="ann-edit-list" id="annEditList"></div>
@@ -184,11 +230,20 @@
         </form>
       </div>
 
+      <!-- Show / hide sections -->
       <div class="editor-card">
         <h3 data-i18n="staff.site.sections">Show / hide sections</h3>
         <div class="section-toggles" id="sectionToggles"></div>
       </div>
 
+      <!-- Undo all edits -->
+      <div class="editor-card">
+        <h3 data-i18n="staff.site.resetEdits">Undo all my edits</h3>
+        <p class="ed-hint" data-i18n="staff.site.resetEditsHint">Restores all original text, photos and colours. Your demo data (requests, messages, bookings) is kept.</p>
+        <button class="btn btn-ghost dark" id="edResetEdits" data-i18n="staff.site.resetEdits">Undo all my edits</button>
+      </div>
+
+      <!-- Danger: reset all demo data -->
       <div class="editor-card">
         <h3 data-i18n="staff.danger">Reset all demo data</h3>
         <button class="btn-danger" id="edResetAll" data-i18n="staff.danger">Reset all demo data</button>

@@ -422,6 +422,73 @@ body.staff-body { background: #eef1ef; }
 .section-toggles label { display: flex; align-items: center; gap: 10px; font-size: 0.92rem; cursor: pointer; text-transform: none; letter-spacing: 0; color: var(--ink); font-weight: 500; }
 .section-toggles input { width: 18px; height: 18px; accent-color: var(--teal); }
 
+/* ---------- Site Editor: tutorial / guide ---------- */
+.guide-card { background: linear-gradient(180deg, #fff, #fbf6ec); border-color: var(--gold-light); }
+.guide-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 6px; }
+.guide-head h3 { margin-bottom: 0; }
+.guide-toggle { border: 1.5px solid var(--teal); background: none; color: var(--teal); border-radius: 999px; padding: 6px 16px; font-family: var(--sans); font-size: 0.78rem; font-weight: 600; cursor: pointer; white-space: nowrap; transition: background .2s, color .2s; }
+.guide-toggle:hover { background: var(--teal); color: var(--ivory); }
+.guide-intro { color: var(--ink-soft); font-size: 0.92rem; line-height: 1.6; margin: 8px 0 16px; }
+.guide-steps { list-style: none; counter-reset: gstep; display: flex; flex-direction: column; gap: 12px; margin-bottom: 18px; }
+.guide-steps li { counter-increment: gstep; position: relative; padding-left: 44px; min-height: 30px; }
+.guide-steps li::before { content: counter(gstep); position: absolute; left: 0; top: 0; width: 30px; height: 30px; border-radius: 50%; background: var(--teal); color: var(--ivory); font-weight: 700; font-size: 0.92rem; display: flex; align-items: center; justify-content: center; }
+.guide-steps li b { display: block; color: var(--teal-deep); font-size: 0.98rem; margin-bottom: 2px; }
+.guide-steps li span { display: block; color: var(--ink-soft); font-size: 0.9rem; line-height: 1.55; }
+.guide-tip { background: var(--paper); border-left: 3px solid var(--gold); border-radius: 0 12px 12px 0; padding: 14px 18px; margin-bottom: 18px; }
+.guide-tip b { color: var(--teal-deep); display: block; margin-bottom: 6px; }
+.guide-tip ul { margin: 0; padding-left: 18px; color: var(--ink-soft); font-size: 0.88rem; line-height: 1.6; }
+
+/* ---------- Site Editor: toolbar ---------- */
+.ed-toolbar { display: flex; gap: 16px; flex-wrap: wrap; }
+.ed-toolbar .field { flex: 1; min-width: 220px; margin-bottom: 8px; }
+.ed-hint { color: var(--ink-soft); font-size: 0.84rem; line-height: 1.5; margin-top: 4px; }
+.ed-nomatch { color: var(--ink-soft); font-style: italic; padding: 8px 2px; }
+
+/* ---------- Site Editor: grouped text fields ---------- */
+.ed-group { border: 1px solid var(--line); border-radius: 12px; margin-bottom: 12px; overflow: hidden; }
+.ed-group > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 10px; padding: 14px 18px; font-weight: 600; color: var(--teal-deep); background: var(--paper); user-select: none; }
+.ed-group > summary::-webkit-details-marker { display: none; }
+.ed-group > summary::after { content: "▸"; margin-left: auto; transition: transform .2s; color: var(--ink-soft); }
+.ed-group[open] > summary::after { transform: rotate(90deg); }
+.ed-grp-title { font-size: 1rem; }
+.ed-grp-count { font-size: 0.72rem; font-weight: 700; background: var(--sand); color: var(--ink-soft); border-radius: 999px; padding: 2px 9px; }
+.ed-field { padding: 14px 18px; border-top: 1px solid var(--line); }
+.ed-field.is-edited { background: #fffaf0; box-shadow: inset 3px 0 0 var(--gold); }
+.ed-field-head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+.ed-field-key { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.7rem; color: var(--ink-soft); opacity: 0.7; }
+.ed-field-status { font-size: 0.74rem; font-weight: 700; }
+.ed-field-status.saved { color: #1d7a3a; }
+.ed-field-input { width: 100%; font-family: var(--sans); font-size: 0.95rem; color: var(--ink); padding: 10px 12px; border: 1.5px solid var(--line); border-radius: 10px; background: #fff; transition: border-color .2s, box-shadow .2s; }
+textarea.ed-field-input { resize: vertical; line-height: 1.5; }
+.ed-field-input:focus { outline: none; border-color: var(--teal-soft); box-shadow: 0 0 0 3px rgba(19,125,120,0.14); }
+.ed-field-reset { margin-top: 8px; border: 1px solid var(--line); background: #fff; color: var(--terracotta-d); border-radius: 8px; padding: 5px 12px; font-size: 0.76rem; font-weight: 600; font-family: var(--sans); cursor: pointer; }
+.ed-field-reset:hover { background: var(--paper); }
+
+/* ---------- Site Editor: images ---------- */
+.ed-images { display: flex; flex-direction: column; gap: 16px; }
+.ed-img { display: flex; gap: 16px; align-items: flex-start; }
+.ed-img-thumb { width: 120px; height: 80px; flex-shrink: 0; border-radius: 10px; overflow: hidden; background: var(--paper); border: 1px solid var(--line); }
+.ed-img-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ed-img-thumb.empty { display: flex; align-items: center; justify-content: center; }
+.ed-img-thumb.empty::after { content: "🖼"; font-size: 1.6rem; opacity: 0.4; }
+.ed-img-body { flex: 1; min-width: 0; }
+.ed-img-label { font-size: 0.82rem; font-weight: 600; color: var(--ink-soft); display: block; margin-bottom: 6px; }
+.ed-img-url { width: 100%; font-family: var(--sans); font-size: 0.9rem; padding: 9px 12px; border: 1.5px solid var(--line); border-radius: 10px; background: #fff; margin-bottom: 8px; }
+.ed-img-url:focus { outline: none; border-color: var(--teal-soft); box-shadow: 0 0 0 3px rgba(19,125,120,0.14); }
+.ed-img-actions { display: flex; gap: 8px; align-items: center; }
+.ed-img-upload { padding: 7px 16px; font-size: 0.78rem; }
+
+/* ---------- Site Editor: colours ---------- */
+.ed-colors { display: flex; flex-wrap: wrap; gap: 18px; margin-bottom: 16px; }
+.ed-color { display: flex; align-items: center; gap: 10px; font-size: 0.9rem; font-weight: 500; color: var(--ink); cursor: pointer; }
+.ed-color input[type="color"] { width: 46px; height: 36px; border: 1.5px solid var(--line); border-radius: 10px; background: #fff; cursor: pointer; padding: 2px; }
+
+@media (max-width: 760px) {
+  .ed-toolbar { flex-direction: column; }
+  .ed-img { flex-direction: column; }
+  .ed-img-thumb { width: 100%; height: 140px; }
+}
+
 .team-row { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
 .team-row .tr-name { font-weight: 600; min-width: 130px; }
 .team-row .tr-role { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; padding: 3px 10px; border-radius: 999px; }

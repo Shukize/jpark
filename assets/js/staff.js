@@ -22,9 +22,42 @@
   ];
   const REQ_FILTERS = ["all", "pending", "progress", "done"];
 
+  /* ---- Site Editor configuration ----
+     Groups every public-site translation key (by prefix) into friendly,
+     collapsible sections so an admin can edit any words on the site. */
+  const EDIT_GROUPS = [
+    { title: "staff.site.grpBrand",    prefixes: ["brand.", "nav."] },
+    { title: "staff.site.grpHero",     prefixes: ["hero."] },
+    { title: "nav.about",              prefixes: ["about."] },
+    { title: "nav.rooms",              prefixes: ["rooms."] },
+    { title: "nav.facilities",         prefixes: ["fac."] },
+    { title: "nav.dining",             prefixes: ["dining.", "menu."] },
+    { title: "nav.coffee",             prefixes: ["coffee."] },
+    { title: "nav.gallery",            prefixes: ["gallery."] },
+    { title: "staff.site.grpServices", prefixes: ["services.", "matrix.", "rs.", "gate.", "track."] },
+    { title: "nav.concierge",          prefixes: ["conc."] },
+    { title: "nav.contact",            prefixes: ["contact."] },
+    { title: "staff.site.grpFooter",   prefixes: ["footer."] }
+  ];
+  // Single-slot images the admin can replace (selectors live in cms.js).
+  const IMAGE_SLOTS = [
+    { key: "heroImg",   label: "staff.site.imgHero" },
+    { key: "aboutMain", label: "staff.site.imgAboutMain" },
+    { key: "aboutSub",  label: "staff.site.imgAboutSub" }
+  ];
+  // Brand colours -> CSS variables (defaults mirror style.css :root).
+  const THEME_COLORS = [
+    { key: "teal",       label: "staff.site.colPrimary", def: "#0c5b58" },
+    { key: "terracotta", label: "staff.site.colAccent",  def: "#b8552e" },
+    { key: "gold",       label: "staff.site.colGold",    def: "#c9a24b" }
+  ];
+  const GUIDE_HIDDEN_KEY = "jpark.guideHidden";
+
   let session = null;
   let panel = "requests";
   let reqFilter = "all";
+  let edLang = null;     // which language the Site Editor is editing
+  let edSearchQ = "";    // current Site Editor search filter
   let selectedThread = null;
   let seenReq = null;
   let seenBookings = null;
@@ -797,30 +830,299 @@
   /* ====================  SITE EDITOR (admin)  ==================== */
   function renderSite() {
     if (!isAdmin()) return;
+    if (!edLang) edLang = I.getLang();
+    renderGuideState();
+    renderEditLang();
+    renderContentGroups();
+    renderImages();
+    renderColors();
+    renderAnnouncements();
+    renderSectionToggles();
+  }
+
+  /* ---- tutorial guide show/hide (persisted) ---- */
+  function renderGuideState() {
+    const body = document.getElementById("guideBody");
+    const btn = document.getElementById("guideToggle");
+    if (!body || !btn) return;
+    const hidden = localStorage.getItem(GUIDE_HIDDEN_KEY) === "1";
+    body.style.display = hidden ? "none" : "";
+    btn.textContent = t(hidden ? "staff.guide.show" : "staff.guide.hide");
+  }
+  function toggleGuide() {
+    const hidden = localStorage.getItem(GUIDE_HIDDEN_KEY) === "1";
+    localStorage.setItem(GUIDE_HIDDEN_KEY, hidden ? "0" : "1");
+    renderGuideState();
+  }
+
+  /* ---- editing-language selector ---- */
+  function renderEditLang() {
+    const sel = document.getElementById("edLangSel");
+    if (!sel) return;
+    sel.innerHTML = "";
+    I.SUPPORTED.forEach((l) => {
+      const o = document.createElement("option");
+      o.value = l;
+      o.textContent = I.LANG_NAMES[l] || l;
+      if (l === edLang) o.selected = true;
+      sel.appendChild(o);
+    });
+  }
+
+  /* ---- content overrides store helpers ---- */
+  function getOverride(lang, key) {
     const c = S.read("content", {}) || {};
-    document.getElementById("edHeroTitle").value = c.heroTitle || "";
-    document.getElementById("edHeroLede").value = c.heroLede || "";
-    document.getElementById("edHeroImg").value = c.heroImg || "";
+    return (c.overrides && c.overrides[lang] && c.overrides[lang][key] != null)
+      ? c.overrides[lang][key] : null;
+  }
+  function setOverride(lang, key, val) {
+    const c = S.read("content", {}) || {};
+    c.overrides = c.overrides || {};
+    c.overrides[lang] = c.overrides[lang] || {};
+    const base = I.base(key, lang);
+    if (val == null || val === "" || val === base) delete c.overrides[lang][key];
+    else c.overrides[lang][key] = val;
+    if (c.overrides[lang] && !Object.keys(c.overrides[lang]).length) delete c.overrides[lang];
+    if (c.overrides && !Object.keys(c.overrides).length) delete c.overrides;
+    S.write("content", c);
+  }
 
-    // announcements
-    const annList = document.getElementById("annEditList");
-    const anns = S.list("announcements").slice().sort((a, b) => b.createdAt - a.createdAt);
-    if (!anns.length) annList.innerHTML = '<p class="muted">' + esc(t("staff.site.annEmpty")) + "</p>";
-    else {
-      annList.innerHTML = "";
-      anns.forEach((a) => {
-        const row = document.createElement("div");
-        row.className = "ann-edit-row";
-        row.innerHTML = '<span class="ae-text"></span><button type="button" data-i18n="common.delete">Delete</button>';
-        row.querySelector(".ae-text").textContent = a.text;
-        row.querySelector("button").textContent = t("common.delete");
-        row.querySelector("button").addEventListener("click", () => { S.remove("announcements", a.id); renderSite(); });
-        annList.appendChild(row);
+  /* ---- the big grouped, searchable text editor ---- */
+  function renderContentGroups() {
+    const wrap = document.getElementById("edContentGroups");
+    if (!wrap) return;
+    wrap.innerHTML = "";
+    const q = edSearchQ.trim().toLowerCase();
+    const allKeys = I.allKeys();
+    let anyShown = false;
+
+    EDIT_GROUPS.forEach((group, gi) => {
+      const keys = allKeys.filter((k) => group.prefixes.some((p) => k.indexOf(p) === 0));
+      // build matching field rows for this group
+      const rows = [];
+      keys.forEach((key) => {
+        const base = I.base(key, edLang);
+        const ov = getOverride(edLang, key);
+        const cur = ov != null ? ov : base;
+        if (q && key.toLowerCase().indexOf(q) < 0 &&
+            String(base).toLowerCase().indexOf(q) < 0 &&
+            String(cur).toLowerCase().indexOf(q) < 0) return;
+        rows.push({ key: key, base: base, cur: cur, overridden: ov != null });
       });
-    }
+      if (!rows.length) return;
+      anyShown = true;
 
-    // section toggles
+      const det = document.createElement("details");
+      det.className = "ed-group";
+      if (q) det.open = true; // expand groups while searching
+      const sum = document.createElement("summary");
+      sum.innerHTML = '<span class="ed-grp-title"></span><span class="ed-grp-count">' + rows.length + "</span>";
+      sum.querySelector(".ed-grp-title").textContent = t(group.title);
+      det.appendChild(sum);
+
+      rows.forEach((r) => det.appendChild(buildFieldRow(r)));
+      wrap.appendChild(det);
+    });
+
+    const none = document.getElementById("edNoMatch");
+    if (none) none.hidden = anyShown;
+  }
+
+  function buildFieldRow(r) {
+    const row = document.createElement("div");
+    row.className = "ed-field" + (r.overridden ? " is-edited" : "");
+
+    const head = document.createElement("div");
+    head.className = "ed-field-head";
+    const keyEl = document.createElement("code");
+    keyEl.className = "ed-field-key";
+    keyEl.textContent = r.key;
+    const status = document.createElement("span");
+    status.className = "ed-field-status";
+    head.appendChild(keyEl);
+    head.appendChild(status);
+    row.appendChild(head);
+
+    const multiline = String(r.base).length > 70 || /\n/.test(String(r.base));
+    const input = document.createElement(multiline ? "textarea" : "input");
+    if (!multiline) input.type = "text";
+    input.className = "ed-field-input";
+    input.value = r.cur;
+    if (multiline) input.rows = Math.min(6, Math.max(2, Math.ceil(String(r.cur).length / 60)));
+    row.appendChild(input);
+
+    const reset = document.createElement("button");
+    reset.type = "button";
+    reset.className = "ed-field-reset";
+    reset.textContent = t("staff.site.revert");
+    reset.style.display = r.overridden ? "" : "none";
+    row.appendChild(reset);
+
+    function flashSaved() {
+      status.textContent = t("staff.site.savedField");
+      status.className = "ed-field-status saved";
+      setTimeout(() => { status.textContent = ""; status.className = "ed-field-status"; }, 1600);
+    }
+    function commit(val) {
+      setOverride(edLang, r.key, val);
+      const nowOverridden = getOverride(edLang, r.key) != null;
+      row.classList.toggle("is-edited", nowOverridden);
+      reset.style.display = nowOverridden ? "" : "none";
+      flashSaved();
+    }
+    input.addEventListener("change", () => commit(input.value));
+    reset.addEventListener("click", () => {
+      input.value = I.base(r.key, edLang);
+      commit(input.value);
+    });
+    return row;
+  }
+
+  /* ---- image slots ---- */
+  function setImage(key, val) {
+    const c = S.read("content", {}) || {};
+    c.images = c.images || {};
+    if (val) c.images[key] = val; else delete c.images[key];
+    if (key === "heroImg") delete c.heroImg; // supersede legacy field
+    if (!Object.keys(c.images).length) delete c.images;
+    S.write("content", c);
+  }
+  function currentImage(key) {
+    const c = S.read("content", {}) || {};
+    return (c.images && c.images[key]) || (key === "heroImg" ? c.heroImg : null) || null;
+  }
+  function renderImages() {
+    const wrap = document.getElementById("edImages");
+    if (!wrap) return;
+    wrap.innerHTML = "";
+    IMAGE_SLOTS.forEach((slot) => {
+      const cur = currentImage(slot.key);
+      const card = document.createElement("div");
+      card.className = "ed-img";
+      const thumb = document.createElement("div");
+      thumb.className = "ed-img-thumb";
+      if (cur) { const im = document.createElement("img"); im.src = cur; thumb.appendChild(im); }
+      else thumb.classList.add("empty");
+
+      const body = document.createElement("div");
+      body.className = "ed-img-body";
+      const lab = document.createElement("label");
+      lab.className = "ed-img-label";
+      lab.textContent = t(slot.label);
+      body.appendChild(lab);
+
+      const urlInput = document.createElement("input");
+      urlInput.type = "text";
+      urlInput.className = "ed-img-url";
+      urlInput.placeholder = t("staff.site.urlPh");
+      urlInput.value = cur && cur.indexOf("data:") !== 0 ? cur : "";
+      urlInput.addEventListener("change", () => {
+        setImage(slot.key, urlInput.value.trim());
+        renderImages();
+        U.toast(t("staff.site.saved"), "success");
+      });
+
+      const actions = document.createElement("div");
+      actions.className = "ed-img-actions";
+      const upBtn = document.createElement("button");
+      upBtn.type = "button";
+      upBtn.className = "btn btn-ghost dark ed-img-upload";
+      upBtn.textContent = t("staff.site.upload");
+      const file = document.createElement("input");
+      file.type = "file"; file.accept = "image/*"; file.style.display = "none";
+      upBtn.addEventListener("click", () => file.click());
+      file.addEventListener("change", () => {
+        const f = file.files[0];
+        if (!f) return;
+        if (f.size > 2 * 1024 * 1024) { U.toast(t("staff.site.imgTooBig"), "error"); return; }
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          setImage(slot.key, e.target.result);
+          renderImages();
+          U.toast(t("staff.site.saved"), "success");
+        };
+        reader.readAsDataURL(f);
+        file.value = "";
+      });
+      const rmBtn = document.createElement("button");
+      rmBtn.type = "button";
+      rmBtn.className = "ed-field-reset";
+      rmBtn.textContent = t("staff.site.revert");
+      rmBtn.style.display = cur ? "" : "none";
+      rmBtn.addEventListener("click", () => { setImage(slot.key, null); renderImages(); });
+
+      actions.appendChild(upBtn);
+      actions.appendChild(rmBtn);
+      body.appendChild(urlInput);
+      body.appendChild(actions);
+      body.appendChild(file);
+
+      card.appendChild(thumb);
+      card.appendChild(body);
+      wrap.appendChild(card);
+    });
+  }
+
+  /* ---- theme colours ---- */
+  function renderColors() {
+    const wrap = document.getElementById("edColors");
+    if (!wrap) return;
+    const c = S.read("content", {}) || {};
+    const theme = c.theme || {};
+    wrap.innerHTML = "";
+    THEME_COLORS.forEach((col) => {
+      const row = document.createElement("label");
+      row.className = "ed-color";
+      const swatch = document.createElement("input");
+      swatch.type = "color";
+      swatch.value = theme[col.key] || col.def;
+      // "change" (not "input") fires once the colour is committed, so we don't
+      // flood the store with writes while the user drags the picker.
+      swatch.addEventListener("change", () => {
+        const cc = S.read("content", {}) || {};
+        cc.theme = cc.theme || {};
+        cc.theme[col.key] = swatch.value;
+        S.write("content", cc);
+        U.toast(t("staff.site.saved"), "success");
+      });
+      const span = document.createElement("span");
+      span.textContent = t(col.label);
+      row.appendChild(swatch);
+      row.appendChild(span);
+      wrap.appendChild(row);
+    });
+  }
+  function resetTheme() {
+    const c = S.read("content", {}) || {};
+    delete c.theme;
+    S.write("content", c);
+    renderColors();
+    U.toast(t("staff.site.saved"), "success");
+  }
+
+  /* ---- announcements ---- */
+  function renderAnnouncements() {
+    const annList = document.getElementById("annEditList");
+    if (!annList) return;
+    const anns = S.list("announcements").slice().sort((a, b) => b.createdAt - a.createdAt);
+    if (!anns.length) { annList.innerHTML = '<p class="muted">' + esc(t("staff.site.annEmpty")) + "</p>"; return; }
+    annList.innerHTML = "";
+    anns.forEach((a) => {
+      const row = document.createElement("div");
+      row.className = "ann-edit-row";
+      row.innerHTML = '<span class="ae-text"></span><button type="button"></button>';
+      row.querySelector(".ae-text").textContent = a.text;
+      row.querySelector("button").textContent = t("common.delete");
+      row.querySelector("button").addEventListener("click", () => { S.remove("announcements", a.id); renderAnnouncements(); });
+      annList.appendChild(row);
+    });
+  }
+
+  /* ---- show / hide sections ---- */
+  function renderSectionToggles() {
     const togWrap = document.getElementById("sectionToggles");
+    if (!togWrap) return;
+    const c = S.read("content", {}) || {};
     const hidden = c.hidden || {};
     togWrap.innerHTML = "";
     SECTIONS.forEach((s) => {
@@ -838,24 +1140,18 @@
     });
   }
 
-  function saveHero() {
+  /* ---- undo every content edit (keeps demo data) ---- */
+  function resetEdits() {
+    if (!confirm(t("staff.site.resetEditsConfirm"))) return;
     const c = S.read("content", {}) || {};
-    const tt = document.getElementById("edHeroTitle").value.trim();
-    const ll = document.getElementById("edHeroLede").value.trim();
-    const ii = document.getElementById("edHeroImg").value.trim();
-    if (tt) c.heroTitle = tt; else delete c.heroTitle;
-    if (ll) c.heroLede = ll; else delete c.heroLede;
-    if (ii) c.heroImg = ii; else delete c.heroImg;
+    delete c.overrides; delete c.images; delete c.theme;
+    delete c.heroImg; delete c.heroTitle; delete c.heroLede;
     S.write("content", c);
-    U.toast(t("staff.site.saved"), "success");
-  }
-
-  function resetHero() {
-    const c = S.read("content", {}) || {};
-    delete c.heroTitle; delete c.heroLede; delete c.heroImg;
-    S.write("content", c);
+    edSearchQ = "";
+    const search = document.getElementById("edSearch");
+    if (search) search.value = "";
     renderSite();
-    U.toast(t("staff.site.saved"), "success");
+    U.toast(t("staff.site.resetEditsDone"), "success");
   }
 
   /* ====================  STAFF MANAGEMENT (admin)  ==================== */
@@ -1060,8 +1356,17 @@
     });
 
     // site editor handlers
-    document.getElementById("edSaveHero").addEventListener("click", saveHero);
-    document.getElementById("edResetHero").addEventListener("click", resetHero);
+    document.getElementById("guideToggle").addEventListener("click", toggleGuide);
+    document.getElementById("edLangSel").addEventListener("change", (e) => {
+      edLang = e.target.value;
+      renderContentGroups();
+    });
+    document.getElementById("edSearch").addEventListener("input", (e) => {
+      edSearchQ = e.target.value;
+      renderContentGroups();
+    });
+    document.getElementById("edResetTheme").addEventListener("click", resetTheme);
+    document.getElementById("edResetEdits").addEventListener("click", resetEdits);
     document.getElementById("annForm").addEventListener("submit", (e) => {
       e.preventDefault();
       const inp = document.getElementById("annInput");
@@ -1069,7 +1374,7 @@
       if (!text) return;
       S.insert("announcements", { text: text, active: true });
       inp.value = "";
-      renderSite();
+      renderAnnouncements();
     });
     document.getElementById("edResetAll").addEventListener("click", () => {
       if (!confirm("Reset all demo data? This clears requests, chats, messages and content.")) return;
@@ -1091,8 +1396,9 @@
     S.on("messages", () => { updateBadges(); if (panel === "messages") renderMessages(); });
     S.on("guestBookings", onBookingsChange);
     S.on("staff", onStaffChange);
-    S.on("announcements", () => { if (panel === "site") renderSite(); });
-    S.on("content", () => { if (panel === "site") renderSite(); });
+    S.on("announcements", () => { if (panel === "site") renderAnnouncements(); });
+    // The editor saves overrides in place (keeps focus/scroll), so we don't
+    // re-render the whole panel on every content write.
 
     // re-render on language change
     document.addEventListener("jpark:langchange", () => {

@@ -116,6 +116,23 @@
   checkinEl.min  = todayStr;
   checkoutEl.min = shiftDate(todayStr, 1);
 
+  // Make the whole date field open the calendar on desktop (not just the tiny
+  // picker icon). showPicker() works on click and keyboard activation.
+  function openPicker(inp) {
+    if (typeof inp.showPicker === 'function') {
+      try { inp.showPicker(); } catch (e) { /* needs gesture / unsupported */ }
+    }
+  }
+  [checkinEl, checkoutEl].forEach(function (inp) {
+    inp.addEventListener('click', function () { openPicker(inp); });
+    inp.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowDown') {
+        e.preventDefault();
+        openPicker(inp);
+      }
+    });
+  });
+
   checkinEl.addEventListener('change', function () {
     var ci = checkinEl.value;
     if (!ci) return;

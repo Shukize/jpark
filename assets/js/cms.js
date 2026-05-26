@@ -22,17 +22,57 @@
 
   function content() { return S.read("content", {}) || {}; }
 
+  /* Named, single-slot images the editor can swap. Each maps a content
+     key to a CSS selector on the public page. */
+  const IMAGE_SLOTS = {
+    heroImg:   ".hero-media img",
+    aboutMain: ".about-img-main",
+    aboutSub:  ".about-img-sub"
+  };
+
+  /* Theme colours the editor can change -> CSS custom properties. */
+  const THEME_VARS = {
+    teal:       "--teal",
+    terracotta: "--terracotta",
+    gold:       "--gold"
+  };
+
+  /* ---------- apply images ---------- */
+  function applyImages(c) {
+    const imgs = c.images || {};
+    // legacy: heroImg used to live at the top level of content
+    const heroLegacy = c.heroImg;
+    Object.keys(IMAGE_SLOTS).forEach((slot) => {
+      const el = document.querySelector(IMAGE_SLOTS[slot]);
+      if (!el) return;
+      const src = imgs[slot] || (slot === "heroImg" ? heroLegacy : null);
+      if (src) el.setAttribute("src", src);
+    });
+  }
+
+  /* ---------- apply theme colours ---------- */
+  function applyTheme(c) {
+    const theme = c.theme || {};
+    let style = document.getElementById("cmsTheme");
+    const rules = Object.keys(THEME_VARS)
+      .filter((k) => theme[k])
+      .map((k) => THEME_VARS[k] + ":" + theme[k] + ";")
+      .join("");
+    if (!rules) { if (style) style.remove(); return; }
+    if (!style) {
+      style = document.createElement("style");
+      style.id = "cmsTheme";
+      document.head.appendChild(style);
+    }
+    style.textContent = ":root{" + rules + "}";
+  }
+
   /* ---------- apply hero / section overrides ---------- */
   function applyContent() {
     const c = content();
 
-    const heroTitle = document.querySelector(".hero-title");
-    const heroLede = document.querySelector(".hero-lede");
-    const heroImg = document.querySelector(".hero-media img");
-
-    if (heroTitle && c.heroTitle) heroTitle.textContent = c.heroTitle;
-    if (heroLede && c.heroLede) heroLede.textContent = c.heroLede;
-    if (heroImg && c.heroImg) heroImg.setAttribute("src", c.heroImg);
+    applyImages(c);
+    applyTheme(c);
 
     const hidden = c.hidden || {};
     SECTIONS.forEach((id) => {
@@ -43,6 +83,16 @@
         a.style.display = hidden[id] ? "none" : "";
       });
     });
+  }
+
+  /* Re-paint every translated string after admin text edits, then
+     re-apply the image / theme / section overrides on top. Text edits
+     flow through the i18n layer (content.overrides), so we refresh it
+     and re-run the current language. */
+  function applyAllText() {
+    if (I.refreshOverrides) I.refreshOverrides();
+    if (I.applyLang) I.applyLang(I.getLang()); // re-renders [data-i18n] + dynamic sections
+    applyContent();
   }
 
   /* ---------- announcements banner ---------- */
@@ -94,7 +144,7 @@
     });
 
     // live updates from the admin (same browser, other tab)
-    S.on("content", applyContent);
+    S.on("content", applyAllText);
     S.on("announcements", applyAnnouncements);
     window.addEventListener("storage", (e) => { if (e.key === "jpark.staff") applyAdminBar(); });
 

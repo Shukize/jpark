@@ -630,15 +630,51 @@ function registerI18n(extra) {
   });
 }
 
-/* Translate a single key for the current language, with sensible
-   fallbacks (current -> en -> th -> the key itself). */
-function t(key, lang) {
+/* ------------------------------------------------------------------
+   Admin content overrides
+   The Site Editor (admin) lets an administrator rewrite any piece of
+   text on the public site, per language. Those edits are stored in the
+   shared store under content.overrides[lang][key]; here we read them
+   straight from localStorage so the i18n layer stays dependency-free.
+   ------------------------------------------------------------------ */
+let OVERRIDES = {};
+function loadOverrides() {
+  try {
+    const c = JSON.parse(localStorage.getItem("jpark.db.content") || "{}");
+    OVERRIDES = (c && c.overrides) || {};
+  } catch (_) {
+    OVERRIDES = {};
+  }
+  return OVERRIDES;
+}
+loadOverrides();
+
+/* The original dictionary value for a key, ignoring admin overrides,
+   using the same current -> en -> th -> key fallback chain. */
+function baseT(key, lang) {
   const L = lang || CURRENT_LANG;
   const order = [L, "en", "th"];
   for (const l of order) {
     if (I18N[l] && I18N[l][key] !== undefined) return I18N[l][key];
   }
   return key;
+}
+
+/* Every translation key known to the site (union across languages). */
+function allKeys() {
+  const set = new Set();
+  SUPPORTED.forEach((l) => {
+    if (I18N[l]) Object.keys(I18N[l]).forEach((k) => set.add(k));
+  });
+  return Array.from(set);
+}
+
+/* Translate a single key for the current language. Admin overrides win;
+   otherwise sensible fallbacks (current -> en -> th -> the key itself). */
+function t(key, lang) {
+  const L = lang || CURRENT_LANG;
+  if (OVERRIDES[L] && OVERRIDES[L][key] != null) return OVERRIDES[L][key];
+  return baseT(key, L);
 }
 
 function getLang() { return CURRENT_LANG; }
@@ -678,6 +714,7 @@ function detectLang() {
 function applyLang(lang) {
   if (!SUPPORTED.includes(lang)) lang = "th";
   CURRENT_LANG = lang;
+  loadOverrides(); // pick up any admin edits before painting text
 
   document.documentElement.setAttribute("lang", lang);
   document.documentElement.setAttribute("data-lang", lang);
@@ -711,7 +748,9 @@ function applyLang(lang) {
 window.JPark = window.JPark || {};
 window.JPark.i18n = {
   t, applyLang, getLang, registerI18n,
-  SUPPORTED, LANG_NAMES, detectLang
+  SUPPORTED, LANG_NAMES, detectLang,
+  // used by the admin Site Editor
+  base: baseT, allKeys, refreshOverrides: loadOverrides
 };
 
 document.addEventListener("DOMContentLoaded", () => {
