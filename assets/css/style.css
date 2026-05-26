@@ -570,8 +570,8 @@ body.intro-active { overflow: hidden; }
   .fac-grid { grid-auto-rows: 230px; }
   .gallery-grid { grid-template-columns: repeat(2, 1fr); }
   .gallery-grid figure.tall { grid-row: auto; aspect-ratio: 1/1; }
-  /* keep the "HOTEL · CHONBURI" subtitle on mobile, just smaller */
-  .brand-sub { display: block; font-size: 0.46rem; letter-spacing: 0.16em; }
+  .brand-sub { display: none; }
+  .lang-btn { padding: 6px 10px; font-size: 0.75rem; gap: 5px; }
   .nav-actions .btn-book { display: none; }
   .about-img-sub { right: 0; }
   .hero-cta .btn { flex: 1; }
