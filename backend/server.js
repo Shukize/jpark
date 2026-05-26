@@ -1,4 +1,10 @@
 require('dotenv').config();
+
+if (!process.env.DATABASE_URL) {
+  console.error('[startup] DATABASE_URL is not set. Set it in the Render dashboard under Environment.');
+  process.exit(1);
+}
+
 const express = require('express');
 const cors = require('cors');
 
