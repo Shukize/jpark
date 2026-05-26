@@ -6,3 +6,4 @@ desktop.ini
 *.swp
 .vs/
 node_modules/
+backend/.env

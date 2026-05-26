@@ -134,8 +134,17 @@
     if (panel === "requests") renderRequests();
     else if (panel === "chat") renderChat();
     else if (panel === "messages") renderMessages();
+    else if (panel === "roster") renderRoster();
     else if (panel === "site") renderSite();
     else if (panel === "team") renderTeam();
+  }
+
+  /* Team Status & Shifts — modular card board (assets/js/employee-card.js).
+     Visible to every signed-in user; the board itself gates edit controls on
+     the admin permission carried in the bearer token. */
+  function renderRoster() {
+    const mountEl = document.getElementById("empBoardMount");
+    if (mountEl && J.employeeCards) J.employeeCards.mount(mountEl);
   }
 
   /* ====================  REQUESTS  ==================== */
@@ -1266,7 +1275,7 @@
   }
   function onStaffChange() {
     // if our own account was suspended/removed elsewhere, log out
-    if (!validSession(session)) { setSession(null); showLogin(); return; }
+    if (!validSession(session)) { setSession(null); if (J.authToken) J.authToken.clear(); showLogin(); return; }
     if (panel === "team") renderTeam();
   }
 
@@ -1297,14 +1306,17 @@
       if (res.error) { err.textContent = res.error; return; }
       err.textContent = "";
       setSession(res.user);
-      showDash();
+      // Mint the bearer token (carries the role + admin permission) before the
+      // dashboard mounts any component that calls the API. Falls through even
+      // if minting somehow fails so login is never blocked.
+      Promise.resolve(J.authToken && J.authToken.mint(res.user)).catch(function () {}).then(showDash);
     });
 
     // nav
     document.querySelectorAll(".nav-item").forEach((b) =>
       b.addEventListener("click", () => selectPanel(b.dataset.panel)));
 
-    document.getElementById("dsSignout").addEventListener("click", () => { setSession(null); showLogin(); });
+    document.getElementById("dsSignout").addEventListener("click", () => { setSession(null); if (J.authToken) J.authToken.clear(); showLogin(); });
 
     // avatar change
     const avatarWrap = document.getElementById("dsAvatarWrap");
@@ -1425,12 +1437,16 @@
 
     // open requested panel from hash (e.g. staff.html#site)
     const hash = (location.hash || "").replace("#", "");
-    if (["requests", "chat", "messages", "company", "site", "team"].includes(hash)) {
+    if (["requests", "chat", "messages", "company", "roster", "site", "team"].includes(hash)) {
       panel = hash === "company" ? "messages" : hash;
     }
 
     // boot
     session = validSession(getSession());
-    if (session) showDash(); else showLogin();
+    if (session) {
+      // Restore (or re-mint) the bearer token for an already-signed-in session.
+      if (J.authToken && !J.authToken.get()) Promise.resolve(J.authToken.mint(session)).catch(function () {}).then(showDash);
+      else showDash();
+    } else showLogin();
   });
 })();
