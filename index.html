@@ -109,7 +109,7 @@
           <li><button data-lang="zh-Hant" role="menuitem">繁體中文</button></li>
         </ul>
       </div>
-      <a href="#contact" class="btn btn-book" data-i18n="nav.book">Book Now</a>
+      <a href="booking.html" class="btn btn-book" data-i18n="nav.book">Book Now</a>
       <button class="hamburger" id="hamburger" aria-label="Menu"><span></span><span></span><span></span></button>
     </div>
   </div>
@@ -130,8 +130,110 @@
       <a href="#coffee" class="btn btn-ghost" data-i18n="hero.ctaCoffee">Midnight Coffee Club</a>
     </div>
   </div>
-  <a href="#coffee" class="scroll-cue" aria-label="Scroll down"><span></span></a>
+  <!-- ====== HERO BOOKING BAR ====== -->
+  <div class="hero-bar" role="search" aria-label="Book your stay">
+    <div class="hero-bar-inner">
+
+      <!-- Arrival -->
+      <div class="hb-field">
+        <span class="hb-icon" aria-hidden="true"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span>
+        <div class="hb-field-text">
+          <span class="hb-label">Arrival</span>
+          <span class="hb-value hb-placeholder" id="hbCheckinVal">Select date</span>
+        </div>
+        <input type="date" class="hb-date-ghost" id="hbCheckin" aria-label="Arrival date" />
+      </div>
+
+      <div class="hb-sep" aria-hidden="true"></div>
+
+      <!-- Departure -->
+      <div class="hb-field">
+        <span class="hb-icon" aria-hidden="true"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span>
+        <div class="hb-field-text">
+          <span class="hb-label">Departure</span>
+          <span class="hb-value hb-placeholder" id="hbCheckoutVal">Select date</span>
+        </div>
+        <input type="date" class="hb-date-ghost" id="hbCheckout" aria-label="Departure date" />
+      </div>
+
+      <div class="hb-sep" aria-hidden="true"></div>
+
+      <!-- Guests -->
+      <div class="hb-field hb-field-guests">
+        <span class="hb-icon" aria-hidden="true"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="7" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg></span>
+        <div class="hb-field-text">
+          <span class="hb-label">Guests</span>
+          <div class="hb-guests-row">
+            <button type="button" class="hb-step" id="hbGuestsDown" aria-label="Fewer guests">&#8722;</button>
+            <span class="hb-guests-count" id="hbGuestsCount">2 guests</span>
+            <button type="button" class="hb-step" id="hbGuestsUp" aria-label="More guests">+</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Book Now -->
+      <button type="button" class="hb-book-btn" id="hbBookBtn">BOOK NOW &#8250;</button>
+
+    </div>
+  </div>
 </section>
+<script>
+(function () {
+  var ci      = document.getElementById('hbCheckin');
+  var co      = document.getElementById('hbCheckout');
+  var ciVal   = document.getElementById('hbCheckinVal');
+  var coVal   = document.getElementById('hbCheckoutVal');
+  var gCount  = document.getElementById('hbGuestsCount');
+  var gNum    = 2;
+
+  function todayISO() { return new Date().toISOString().slice(0, 10); }
+  function addDay(iso, n) {
+    var d = new Date(iso + 'T12:00:00'); d.setDate(d.getDate() + n);
+    return d.toISOString().slice(0, 10);
+  }
+  function fmtDate(iso) {
+    return new Date(iso + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  }
+
+  ci.min = todayISO();
+  co.min = addDay(todayISO(), 1);
+
+  ci.addEventListener('change', function () {
+    if (!this.value) return;
+    ciVal.textContent = fmtDate(this.value);
+    ciVal.classList.remove('hb-placeholder');
+    co.min = addDay(this.value, 1);
+    if (co.value && co.value <= this.value) {
+      co.value = addDay(this.value, 1);
+      coVal.textContent = fmtDate(co.value);
+      coVal.classList.remove('hb-placeholder');
+    }
+  });
+
+  co.addEventListener('change', function () {
+    if (!this.value) return;
+    coVal.textContent = fmtDate(this.value);
+    coVal.classList.remove('hb-placeholder');
+  });
+
+  document.getElementById('hbGuestsDown').addEventListener('click', function (e) {
+    e.stopPropagation();
+    if (gNum > 1) { gNum--; gCount.textContent = gNum + (gNum === 1 ? ' guest' : ' guests'); }
+  });
+  document.getElementById('hbGuestsUp').addEventListener('click', function (e) {
+    e.stopPropagation();
+    if (gNum < 10) { gNum++; gCount.textContent = gNum + (gNum === 1 ? ' guest' : ' guests'); }
+  });
+
+  document.getElementById('hbBookBtn').addEventListener('click', function () {
+    var p = [];
+    if (ci.value)  p.push('checkin='  + ci.value);
+    if (co.value)  p.push('checkout=' + co.value);
+    p.push('guests=' + gNum);
+    window.location.href = 'booking.html' + (p.length ? '?' + p.join('&') : '');
+  });
+})();
+</script>
 
 <!-- ====== MIDNIGHT COFFEE CLUB (featured, auto-scrolling) ====== -->
 <section class="coffee" id="coffee">

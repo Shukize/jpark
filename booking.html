@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Book Your Stay · J Park Hotel · Chonburi</title>
+<meta name="description" content="Choose your dates and browse rooms at J Park Hotel, Chonburi. Online pricing coming soon — contact us to confirm your reservation." />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230c5b58'/%3E%3Ctext x='16' y='22' font-family='Georgia,serif' font-size='17' fill='%23d4af37' text-anchor='middle'%3EJ%3C/text%3E%3C/svg%3E" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Noto+Sans+Thai:wght@300;400;500;600;700&family=Noto+Serif+Thai:wght@400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="assets/css/style.css" />
+<link rel="stylesheet" href="assets/css/booking.css" />
+</head>
+<body class="booking-pg">
+
+<!-- ====== HEADER ====== -->
+<header class="site-header scrolled bk-header">
+  <div class="nav-inner">
+    <a href="index.html" class="brand" aria-label="J Park Hotel — back to home">
+      <span class="brand-mark">J</span>
+      <span class="brand-text">
+        <span class="brand-name">J PARK</span>
+        <span class="brand-sub">HOTEL · CHONBURI</span>
+      </span>
+    </a>
+    <nav class="nav-links bk-nav-links" aria-label="Site navigation">
+      <a href="index.html#rooms">Rooms</a>
+      <a href="index.html#facilities">Facilities</a>
+      <a href="index.html#dining">Dining</a>
+      <a href="index.html#contact">Contact</a>
+    </nav>
+    <div class="nav-actions">
+      <a href="index.html" class="btn btn-ghost dark bk-back-btn">&#8592; Back to Hotel</a>
+    </div>
+  </div>
+</header>
+
+<!-- ====== HERO ====== -->
+<div class="bk-hero" role="img" aria-label="J Park Hotel pool and terrace">
+  <img class="bk-hero-img" src="images/Tropical%20Pool/c3ac1733-933b-49de-aa10-7185a21dbe5f.jpg" alt="" />
+  <div class="bk-hero-scrim"></div>
+  <div class="bk-hero-text">
+    <p class="eyebrow light">Reserve Your Stay</p>
+    <h1 class="bk-hero-title">Find Your Perfect Room</h1>
+    <p class="bk-hero-lede">Eight room styles — from a smart single to a two-bedroom residence.</p>
+  </div>
+</div>
+
+<!-- ====== SEARCH BAR ====== -->
+<section class="bk-search-section" aria-label="Date and guest selection">
+  <div class="bk-search-inner">
+    <div class="bk-fields-row">
+
+      <div class="bk-field">
+        <label class="bk-label" for="bkCheckin">Check-in</label>
+        <input class="bk-input" type="date" id="bkCheckin" name="checkin" aria-describedby="bkError" />
+      </div>
+
+      <div class="bk-arrow" aria-hidden="true">&#8594;</div>
+
+      <div class="bk-field">
+        <label class="bk-label" for="bkCheckout">Check-out</label>
+        <input class="bk-input" type="date" id="bkCheckout" name="checkout" aria-describedby="bkError" />
+      </div>
+
+      <div class="bk-field bk-field-stepper">
+        <span class="bk-label" id="adultsLabel">Adults</span>
+        <div class="bk-stepper" role="group" aria-labelledby="adultsLabel">
+          <button type="button" class="bk-step" id="adultsDown" aria-label="Fewer adults">&#8722;</button>
+          <span class="bk-step-val" id="adultsVal" aria-live="polite">2</span>
+          <button type="button" class="bk-step" id="adultsUp" aria-label="More adults">+</button>
+        </div>
+      </div>
+
+      <div class="bk-field bk-field-stepper">
+        <span class="bk-label" id="childrenLabel">Children</span>
+        <div class="bk-stepper" role="group" aria-labelledby="childrenLabel">
+          <button type="button" class="bk-step" id="childrenDown" aria-label="Fewer children">&#8722;</button>
+          <span class="bk-step-val" id="childrenVal" aria-live="polite">0</span>
+          <button type="button" class="bk-step" id="childrenUp" aria-label="More children">+</button>
+        </div>
+      </div>
+
+      <button type="button" class="btn btn-solid bk-search-btn" id="bkSearchBtn">
+        Check Availability
+      </button>
+
+    </div>
+    <p class="bk-error" id="bkError" role="alert" hidden></p>
+  </div>
+</section>
+
+<!-- ====== STATUS BAR (shown after search) ====== -->
+<div class="bk-status" id="bkStatus" hidden>
+  <div class="bk-status-inner">
+    <span class="bk-status-text" id="bkStatusText"></span>
+    <button type="button" class="bk-clear-btn" id="bkClearBtn">Change dates</button>
+  </div>
+</div>
+
+<!-- ====== ROOMS ====== -->
+<main class="bk-rooms-section" id="bkRoomsSection">
+  <div class="bk-rooms-wrap">
+
+    <p class="bk-hint" id="bkHint">
+      Select your dates and guests above, then click <strong>Check Availability</strong> to filter rooms for your group.
+    </p>
+
+    <div class="bk-rooms-grid" id="bkRoomsGrid">
+      <!-- room cards injected by booking-page.js -->
+    </div>
+
+    <div class="bk-no-rooms" id="bkNoRooms" hidden>
+      <p>No rooms match your current guest count. Please try a smaller group, or <a href="index.html#contact">contact us</a> — we can arrange connecting rooms for larger parties.</p>
+    </div>
+
+  </div>
+</main>
+
+<!-- ====== PRICING NOTE ====== -->
+<div class="bk-price-note">
+  <div class="bk-price-note-inner">
+    <span class="bk-price-icon" aria-hidden="true">&#9432;</span>
+    <p>Online pricing is coming soon. To confirm a reservation now, please <a href="tel:+6638053888">call +66 (0)38 053 888</a> or <a href="mailto:info@jparkhotel.com">email info@jparkhotel.com</a> — we are happy to assist.</p>
+  </div>
+</div>
+
+<!-- ====== FOOTER ====== -->
+<footer class="bk-footer">
+  <div class="bk-footer-inner">
+    <a href="index.html" class="brand" aria-label="J Park Hotel">
+      <span class="brand-mark">J</span>
+      <span class="brand-text">
+        <span class="brand-name">J PARK</span>
+        <span class="brand-sub">HOTEL · CHONBURI</span>
+      </span>
+    </a>
+    <p class="bk-footer-contact">
+      <a href="tel:+6638053888">+66 (0)38 053 888</a>
+      <span aria-hidden="true"> &middot; </span>
+      <a href="mailto:info@jparkhotel.com">info@jparkhotel.com</a>
+    </p>
+  </div>
+</footer>
+
+<script src="assets/js/booking-page.js"></script>
+</body>
+</html>
