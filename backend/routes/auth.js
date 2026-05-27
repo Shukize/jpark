@@ -57,7 +57,7 @@ router.post('/login', async (req, res) => {
 
   try {
     const { rows } = await db.query(
-      `SELECT id, name, email, username, role, password_hash, active
+      `SELECT id, name, email, username, role, password_hash, active, must_change_password
          FROM employees WHERE username = $1`,
       [username.trim().toLowerCase()]
     );
@@ -82,6 +82,7 @@ router.post('/login', async (req, res) => {
     res.json({
       token,
       user: { id: emp.id, name: emp.name, role: emp.role, username: emp.username },
+      must_change_password: !!emp.must_change_password,
     });
   } catch (e) {
     console.error('[auth] login', e);
@@ -151,7 +152,7 @@ router.post('/change-password', requireAuth, async (req, res) => {
     }
 
     const hash = await bcrypt.hash(newPassword, 10);
-    await db.query('UPDATE employees SET password_hash = $1 WHERE id = $2', [hash, req.user.id]);
+    await db.query('UPDATE employees SET password_hash = $1, must_change_password = FALSE WHERE id = $2', [hash, req.user.id]);
     res.json({ ok: true });
   } catch (e) {
     console.error('[auth] change-password', e);
@@ -172,8 +173,8 @@ router.post('/register', requireAdmin, async (req, res) => {
 
   try {
     const { rows } = await db.query(
-      `INSERT INTO employees (id, username, password_hash, name, email, role, phone, shift, active)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,TRUE)
+      `INSERT INTO employees (id, username, password_hash, name, email, role, phone, shift, active, must_change_password)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,TRUE,TRUE)
        RETURNING id, username, name, email, role, phone, shift, status, active`,
       [id, username.trim().toLowerCase(), hash, name, email || nameToEmail(name), validRole, phone || null, shift || null]
     );

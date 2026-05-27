@@ -1688,7 +1688,18 @@
       "msg.reset.toDefault": "Reset to default password",
       "msg.reset.markDone": "Mark as done",
       "msg.reset.noUser": "No staff account matches that username.",
-      "msg.reset.didReset": "Password reset to default (jparkhotel)."
+      "msg.reset.didReset": "Password reset to default (jparkhotel).",
+      "profile.title": "Edit Profile",
+      "profile.changePhoto": "Change Photo",
+      "profile.changePass": "Change Password",
+      "profile.currentPass": "Current Password",
+      "profile.newPass": "New Password",
+      "profile.confirmPass": "Confirm Password",
+      "profile.savePass": "Update Password",
+      "profile.forgotPass": "Forgot password?",
+      "profile.passUpdated": "Password updated successfully.",
+      "profile.enterOld": "Please enter your current password.",
+      "profile.oldIncorrect": "Current password is incorrect."
     },
     th: {
       "staff.login.forgotPass": "ลืมรหัสผ่าน",
@@ -1761,7 +1772,18 @@
       "msg.reset.toDefault": "รีเซ็ตเป็นรหัสผ่านเริ่มต้น",
       "msg.reset.markDone": "ทำเครื่องหมายว่าเสร็จ",
       "msg.reset.noUser": "ไม่พบบัญชีพนักงานสำหรับชื่อผู้ใช้นี้",
-      "msg.reset.didReset": "รีเซ็ตรหัสผ่านเป็นค่าเริ่มต้น (jparkhotel) แล้ว"
+      "msg.reset.didReset": "รีเซ็ตรหัสผ่านเป็นค่าเริ่มต้น (jparkhotel) แล้ว",
+      "profile.title": "แก้ไขโปรไฟล์",
+      "profile.changePhoto": "เปลี่ยนรูปโปรไฟล์",
+      "profile.changePass": "เปลี่ยนรหัสผ่าน",
+      "profile.currentPass": "รหัสผ่านปัจจุบัน",
+      "profile.newPass": "รหัสผ่านใหม่",
+      "profile.confirmPass": "ยืนยันรหัสผ่านใหม่",
+      "profile.savePass": "อัปเดตรหัสผ่าน",
+      "profile.forgotPass": "ลืมรหัสผ่าน?",
+      "profile.passUpdated": "อัปเดตรหัสผ่านสำเร็จ",
+      "profile.enterOld": "กรุณากรอกรหัสผ่านปัจจุบัน",
+      "profile.oldIncorrect": "รหัสผ่านปัจจุบันไม่ถูกต้อง"
     },
     ja: {
       "staff.login.forgotPass": "パスワードをお忘れですか",
@@ -1834,7 +1856,18 @@
       "msg.reset.toDefault": "初期パスワードにリセット",
       "msg.reset.markDone": "完了にする",
       "msg.reset.noUser": "そのユーザー名のスタッフアカウントが見つかりません。",
-      "msg.reset.didReset": "パスワードを初期値（jparkhotel）にリセットしました。"
+      "msg.reset.didReset": "パスワードを初期値（jparkhotel）にリセットしました。",
+      "profile.title": "プロフィール編集",
+      "profile.changePhoto": "写真を変更",
+      "profile.changePass": "パスワード変更",
+      "profile.currentPass": "現在のパスワード",
+      "profile.newPass": "新しいパスワード",
+      "profile.confirmPass": "新しいパスワード（確認）",
+      "profile.savePass": "パスワードを更新",
+      "profile.forgotPass": "パスワードをお忘れですか？",
+      "profile.passUpdated": "パスワードを更新しました。",
+      "profile.enterOld": "現在のパスワードを入力してください。",
+      "profile.oldIncorrect": "現在のパスワードが正しくありません。"
     },
     "zh-Hans": {
       "staff.login.forgotPass": "忘记密码",
@@ -1907,7 +1940,18 @@
       "msg.reset.toDefault": "重置为默认密码",
       "msg.reset.markDone": "标记为已处理",
       "msg.reset.noUser": "未找到匹配该用户名的员工账户。",
-      "msg.reset.didReset": "密码已重置为默认值（jparkhotel）。"
+      "msg.reset.didReset": "密码已重置为默认值（jparkhotel）。",
+      "profile.title": "编辑个人资料",
+      "profile.changePhoto": "更换照片",
+      "profile.changePass": "修改密码",
+      "profile.currentPass": "当前密码",
+      "profile.newPass": "新密码",
+      "profile.confirmPass": "确认新密码",
+      "profile.savePass": "更新密码",
+      "profile.forgotPass": "忘记密码？",
+      "profile.passUpdated": "密码已更新。",
+      "profile.enterOld": "请输入当前密码。",
+      "profile.oldIncorrect": "当前密码不正确。"
     },
     "zh-Hant": {
       "staff.login.forgotPass": "忘記密碼",
@@ -1980,7 +2024,18 @@
       "msg.reset.toDefault": "重設為預設密碼",
       "msg.reset.markDone": "標記為已處理",
       "msg.reset.noUser": "找不到符合該使用者名稱的員工帳戶。",
-      "msg.reset.didReset": "密碼已重設為預設值（jparkhotel）。"
+      "msg.reset.didReset": "密碼已重設為預設值（jparkhotel）。",
+      "profile.title": "編輯個人資料",
+      "profile.changePhoto": "更換照片",
+      "profile.changePass": "修改密碼",
+      "profile.currentPass": "目前密碼",
+      "profile.newPass": "新密碼",
+      "profile.confirmPass": "確認新密碼",
+      "profile.savePass": "更新密碼",
+      "profile.forgotPass": "忘記密碼？",
+      "profile.passUpdated": "密碼已更新。",
+      "profile.enterOld": "請輸入目前密碼。",
+      "profile.oldIncorrect": "目前密碼不正確。"
     }
   };
 

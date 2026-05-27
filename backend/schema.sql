@@ -103,10 +103,11 @@ CREATE TABLE IF NOT EXISTS employees (
 );
 
 -- Add columns that were introduced after the initial schema deploy.
-ALTER TABLE employees ADD COLUMN IF NOT EXISTS username      VARCHAR(50)  UNIQUE;
-ALTER TABLE employees ADD COLUMN IF NOT EXISTS password_hash TEXT;
-ALTER TABLE employees ADD COLUMN IF NOT EXISTS active        BOOLEAN NOT NULL DEFAULT TRUE;
-ALTER TABLE employees ADD COLUMN IF NOT EXISTS avatar        TEXT;
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS username             VARCHAR(50)  UNIQUE;
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS password_hash        TEXT;
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS active               BOOLEAN NOT NULL DEFAULT TRUE;
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS avatar               TEXT;
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN NOT NULL DEFAULT FALSE;
 
 DROP TRIGGER IF EXISTS trg_employees_updated_at ON employees;
 CREATE TRIGGER trg_employees_updated_at
@@ -114,11 +115,17 @@ CREATE TRIGGER trg_employees_updated_at
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 INSERT INTO employees (id, name, email, role, status, shift, phone) VALUES
-  ('u_admin',  'Hotel Admin',    'hotel.admin@jpark.hotel',    'admin',     'on_shift',  '09:00–18:00', '+66 2 100 2000'),
-  ('u_staff',  'Front Desk',     'front.desk@jpark.hotel',     'frontdesk', 'on_shift',  '07:00–15:00', '+66 2 100 2001'),
-  ('e_ploy',   'Ploy Srisai',    'ploy.srisai@jpark.hotel',    'frontdesk', 'on_break',  '15:00–23:00', '+66 81 234 5678'),
-  ('e_kenji',  'Kenji Watanabe', 'kenji.watanabe@jpark.hotel', 'frontdesk', 'off_shift', '23:00–07:00', '+66 81 234 5690')
+  ('u_admin',  'Hotel Admin',    'h.admin@jpark.hotel',    'admin',     'on_shift',  '09:00–18:00', '+66 2 100 2000'),
+  ('u_staff',  'Front Desk',     'f.desk@jpark.hotel',     'frontdesk', 'on_shift',  '07:00–15:00', '+66 2 100 2001'),
+  ('e_ploy',   'Ploy Srisai',    'p.srisai@jpark.hotel',   'frontdesk', 'on_break',  '15:00–23:00', '+66 81 234 5678'),
+  ('e_kenji',  'Kenji Watanabe', 'k.watanabe@jpark.hotel', 'frontdesk', 'off_shift', '23:00–07:00', '+66 81 234 5690')
 ON CONFLICT (id) DO NOTHING;
+
+-- Migrate existing seed emails to initial.lastname format (idempotent)
+UPDATE employees SET email = 'h.admin@jpark.hotel'    WHERE id = 'u_admin'  AND email = 'hotel.admin@jpark.hotel';
+UPDATE employees SET email = 'f.desk@jpark.hotel'     WHERE id = 'u_staff'  AND email = 'front.desk@jpark.hotel';
+UPDATE employees SET email = 'p.srisai@jpark.hotel'   WHERE id = 'e_ploy'   AND email = 'ploy.srisai@jpark.hotel';
+UPDATE employees SET email = 'k.watanabe@jpark.hotel' WHERE id = 'e_kenji'  AND email = 'kenji.watanabe@jpark.hotel';
 
 -- ── Guest bookings (OTA + direct; used for guest portal login) ───────────────
 CREATE TABLE IF NOT EXISTS guest_bookings (

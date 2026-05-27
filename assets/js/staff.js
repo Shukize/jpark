@@ -106,6 +106,9 @@
       if (!res.error) {
         // Backend issued a proper JWT — store it and build user from the payload.
         try { localStorage.setItem("jpark.staff.token", res.token); } catch (_) {}
+        if (res.must_change_password) {
+          return { mustChange: true, staffId: res.user.id, user: res.user };
+        }
         return { user: res.user };
       }
       // 404 = auth route not deployed yet; 5xx = server error — fall through to localStorage.
@@ -1806,6 +1809,61 @@
     });
   }
 
+  /* ====================  PROFILE MODAL  ==================== */
+  function openProfileModal() {
+    const modal = document.getElementById("profileModal");
+    if (!modal || !session) return;
+    const pmPhoto = document.getElementById("pmPhoto");
+    const dataUrl = getAvatarDataUrl(session.id);
+    if (dataUrl) {
+      pmPhoto.innerHTML = '<img src="' + esc(dataUrl) + '" alt="Profile photo" />';
+    } else {
+      pmPhoto.textContent = (session.name || "?").charAt(0).toUpperCase();
+    }
+    ["pmOldPass", "pmNewPass", "pmConfirmPass"].forEach((id) => {
+      const el = document.getElementById(id); if (el) el.value = "";
+    });
+    document.getElementById("pmPassError").textContent = "";
+    modal.hidden = false;
+  }
+
+  function closeProfileModal() {
+    const modal = document.getElementById("profileModal");
+    if (modal) modal.hidden = true;
+  }
+
+  async function submitProfilePassword() {
+    const err = document.getElementById("pmPassError"); err.textContent = "";
+    const oldPass = document.getElementById("pmOldPass").value;
+    const p1     = document.getElementById("pmNewPass").value;
+    const p2     = document.getElementById("pmConfirmPass").value;
+    if (!oldPass) { err.textContent = t("profile.enterOld"); return; }
+    if (p1.length < 6) { err.textContent = t("staff.login.passTooShort"); return; }
+    if (p1 !== p2)     { err.textContent = t("staff.login.passMismatch"); return; }
+    const API = window.JPark && window.JPark.api;
+    if (API) {
+      const res = await API.post("/api/auth/change-password", { currentPassword: oldPass, newPassword: p1 });
+      if (res.error && !res.offline) { err.textContent = res.error; return; }
+      if (!res.offline) { U.toast(t("profile.passUpdated"), "success"); closeProfileModal(); return; }
+    }
+    const u = S.find("staff", session.id);
+    if (!u) { err.textContent = t("staff.login.error"); return; }
+    if (u.password && u.password !== oldPass) { err.textContent = t("profile.oldIncorrect"); return; }
+    S.update("staff", session.id, { password: p1 });
+    U.toast(t("profile.passUpdated"), "success");
+    closeProfileModal();
+  }
+
+  function profileForgotPass() {
+    if (!session) return;
+    S.insert("resetRequests", {
+      kind: "password", username: session.username || session.name,
+      note: "Requested from profile page.", handled: false
+    });
+    U.toast(t("staff.login.requestSent"), "success");
+    closeProfileModal();
+  }
+
   /* ====================  INIT  ==================== */
   document.addEventListener("DOMContentLoaded", () => {
     populateLangSelects();
@@ -1847,7 +1905,7 @@
     });
 
     // New Staff Account — step 2: set the new password and sign in
-    document.getElementById("newStaffForm").addEventListener("submit", (e) => {
+    document.getElementById("newStaffForm").addEventListener("submit", async (e) => {
       e.preventDefault();
       if (!nsUserId) return; // step 1 not completed yet
       const err = document.getElementById("nsError2"); err.textContent = "";
@@ -1856,9 +1914,17 @@
       if (p1.length < 6) { err.textContent = t("staff.login.passTooShort"); return; }
       if (p1 !== p2) { err.textContent = t("staff.login.passMismatch"); return; }
       const u = S.find("staff", nsUserId);
-      if (!u) { err.textContent = t("staff.login.error"); showAuthView("signin"); return; }
-      S.update("staff", nsUserId, { password: p1, mustChange: false });
-      const userObj = { id: u.id, name: u.name, role: u.role, username: u.username };
+      if (!u && !nsUserId) { err.textContent = t("staff.login.error"); showAuthView("signin"); return; }
+      // Persist to backend — JWT already stored from the login step above.
+      const API = window.JPark && window.JPark.api;
+      if (API) {
+        const res = await API.post("/api/auth/change-password", { newPassword: p1 });
+        if (res.error && !res.offline) { err.textContent = res.error; return; }
+      }
+      if (u) S.update("staff", nsUserId, { password: p1, mustChange: false });
+      const userObj = u
+        ? { id: u.id, name: u.name, role: u.role, username: u.username }
+        : { id: nsUserId, name: "", role: "frontdesk", username: "" };
       nsUserId = null;
       completeLogin(userObj);
     });
@@ -1899,11 +1965,14 @@
 
     document.getElementById("dsSignout").addEventListener("click", () => { stopApiPolling(); setSession(null); if (J.authToken) J.authToken.clear(); showLogin(); });
 
-    // avatar change
+    // avatar / profile
     const avatarWrap = document.getElementById("dsAvatarWrap");
     const avatarInput = document.getElementById("avatarInput");
-    if (avatarWrap && avatarInput) {
-      avatarWrap.addEventListener("click", () => avatarInput.click());
+    if (avatarWrap) {
+      avatarWrap.title = "";
+      avatarWrap.addEventListener("click", openProfileModal);
+    }
+    if (avatarInput) {
       avatarInput.addEventListener("change", () => {
         const file = avatarInput.files[0];
         if (!file) return;
@@ -1922,6 +1991,12 @@
             return;
           }
           renderAvatarInSidebar();
+          // Sync into profile modal photo if it's open
+          const pmPhoto = document.getElementById("pmPhoto");
+          const modal = document.getElementById("profileModal");
+          if (pmPhoto && modal && !modal.hidden) {
+            pmPhoto.innerHTML = '<img src="' + esc(e.target.result) + '" alt="Profile photo" />';
+          }
           U.toast("Profile photo updated!", "success");
           if (panel === "messages") renderMessages();
         };
@@ -1932,6 +2007,15 @@
         reader.readAsDataURL(file);
       });
     }
+
+    // profile modal
+    document.getElementById("profileModalClose").addEventListener("click", closeProfileModal);
+    document.getElementById("profileModal").addEventListener("click", (e) => {
+      if (e.target === document.getElementById("profileModal")) closeProfileModal();
+    });
+    document.getElementById("pmChangePhoto").addEventListener("click", () => { if (avatarInput) avatarInput.click(); });
+    document.getElementById("pmSavePass").addEventListener("click", submitProfilePassword);
+    document.getElementById("pmForgotPass").addEventListener("click", profileForgotPass);
 
     // messages compose
     document.getElementById("msgComposeBtn").addEventListener("click", openCompose);

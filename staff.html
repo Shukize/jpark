@@ -394,6 +394,42 @@
 
 <div class="toast-wrap" id="toastWrap" aria-live="polite"></div>
 
+<!-- ============ PROFILE MODAL ============ -->
+<div class="profile-modal-overlay" id="profileModal" role="dialog" aria-modal="true" hidden>
+  <div class="profile-modal-box">
+    <div class="profile-modal-head">
+      <span data-i18n="profile.title">Edit Profile</span>
+      <button class="pmh-close" id="profileModalClose" aria-label="Close">✕</button>
+    </div>
+    <div class="profile-modal-body">
+      <div class="pm-photo-wrap">
+        <div class="pm-photo" id="pmPhoto"></div>
+        <button class="btn btn-solid pm-change-photo" id="pmChangePhoto" type="button" data-i18n="profile.changePhoto">Change Photo</button>
+      </div>
+      <div class="pm-section-pass">
+        <div class="pm-section-title" data-i18n="profile.changePass">Change Password</div>
+        <p class="form-error" id="pmPassError"></p>
+        <div class="field">
+          <label data-i18n="profile.currentPass">Current Password</label>
+          <input type="password" id="pmOldPass" autocomplete="current-password" />
+        </div>
+        <div class="field">
+          <label data-i18n="profile.newPass">New Password</label>
+          <input type="password" id="pmNewPass" autocomplete="new-password" />
+        </div>
+        <div class="field">
+          <label data-i18n="profile.confirmPass">Confirm Password</label>
+          <input type="password" id="pmConfirmPass" autocomplete="new-password" />
+        </div>
+        <div class="pm-pass-foot">
+          <button class="pm-forgot-link" id="pmForgotPass" type="button" data-i18n="profile.forgotPass">Forgot password?</button>
+          <button class="btn btn-solid pm-save" id="pmSavePass" type="button" data-i18n="profile.savePass">Update Password</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ============ COMPOSE MODAL ============ -->
 <div class="msg-compose-modal" id="msgComposeModal" role="dialog" aria-label="New Message">
   <div class="msg-compose-box" id="msgComposeBox">
