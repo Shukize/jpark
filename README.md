@@ -220,8 +220,10 @@ Start with Option 1 (email + Lambda) — it's low-friction and works universally
 
 ## Architecture
 
-- Pure HTML / CSS / JS — no framework, no build step
-- All shared state lives in `localStorage` via `JPark.store` (`assets/js/store.js`)
+### Frontend (static — no build step required)
+
+- Pure HTML / CSS / JS — open `index.html` or `staff.html` directly in a browser
+- All shared state falls back to `localStorage` via `JPark.store` (`assets/js/store.js`)
 - Real-time cross-tab sync uses the `storage` event
 - i18n strings: `assets/js/i18n.js` (core) + `assets/js/i18n-app.js` (feature strings). Admin text edits are read first from `content.overrides[lang][key]`
 - **Photo registry**: `assets/js/media.js` (`JPark.media`) is the single source of truth for every photo/video set. `main.js` builds the carousel, room/facility/dining cards, the full Gallery and all lightboxes from it; admin edits live in `content.media[setId]`
@@ -229,6 +231,8 @@ Start with Option 1 (email + Lambda) — it's low-friction and works universally
 - OTA booking intake seam: `assets/js/bookings.js` → `JPark.bookings.ingest()`, stored in the `guestBookings` table
 - Free-text translation (chat, internal mail, booking confirmations, Site Editor auto-translate): `assets/js/translate.js` (keyless Google Translate web endpoint, cached in `localStorage`)
 - Demo data is seeded once on first load; reset via Admin → "Reset all demo data"
+- **API client**: `assets/js/api.js` (`JPark.api`) is a thin `fetch` wrapper that attaches the JWT `Authorization` header and normalises errors. `assets/js/config.js` auto-detects the API base URL (`localhost:3000` for local dev; `https://jpark.onrender.com` when deployed)
+- **Auth token**: `assets/js/auth-token.js` (`JPark.authToken`) mints / caches / clears the JWT issued by the backend; all API calls are **API-first with localStorage fallback** so the site works even when the backend is offline
 
 ### `content` table (admin edits)
 
@@ -244,7 +248,36 @@ content = {
 
 ### Backend (`backend/`)
 
-There is an optional Node/Express service used **only** by the Employee Status &
-Shift Card board (token-authed API, Postgres via `DATABASE_URL`, deployable to
-Render). The public website, guest portal, staff messaging, Site Editor and OTA
-inbox are all client-side and do **not** require it.
+A Node/Express + PostgreSQL API service that backs the entire staff console and
+guest portal. It runs independently of the static frontend and is deployable to
+Render (or any Node host) with a `DATABASE_URL` env var.
+
+| Route | Purpose |
+|-------|---------|
+| `POST /api/auth/login` | Staff/admin login — returns a signed JWT |
+| `POST /api/auth/register` | New staff account self-activation |
+| `GET/POST /api/service-requests` | Guest service requests |
+| `GET/POST /api/chat` | Live chat messages |
+| `GET/POST /api/orders` | In-room dining orders |
+| `GET/POST /api/guest-bookings` | OTA booking inbox |
+| `GET/POST /api/messages` | Internal staff messages |
+| `GET/POST /api/employees` | Staff roster management |
+| `GET/PUT /api/content` | Site Editor overrides (text, media, theme) |
+| `GET/POST /api/v1/ota-sync` | OTA webhook intake |
+| `GET /health` | Liveness probe |
+
+**Running locally:**
+
+```bash
+cd backend
+DATABASE_URL=postgres://... node server.js
+```
+
+`migrate.js` runs automatically on startup — it creates all tables and seeds
+bcrypt-hashed demo accounts (`admin`/`admin123`, `staff`/`staff123`) plus 8
+demo guest bookings.
+
+**Every frontend module is API-first with localStorage fallback** — the public
+website, guest portal, staff console, Site Editor, and OTA inbox all work
+offline/locally without the backend; they sync to Postgres when the API is
+reachable.

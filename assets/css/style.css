@@ -571,6 +571,7 @@ body.intro-active { overflow: hidden; }
   .gallery-grid { grid-template-columns: repeat(2, 1fr); }
   .gallery-grid figure.tall { grid-row: auto; aspect-ratio: 1/1; }
   .brand-sub { display: none; }
+  .hero .eyebrow { display: none; }
   .lang-btn { padding: 6px 10px; font-size: 0.75rem; gap: 5px; }
   .nav-actions .btn-book { display: none; }
   .about-img-sub { right: 0; }
