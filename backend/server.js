@@ -17,7 +17,18 @@ const employeesRouter = require('./routes/employees');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(cors({ origin: process.env.FRONTEND_ORIGIN || '*' }));
+// FRONTEND_ORIGIN may be a comma-separated allowlist (the site is served from
+// GitHub Pages and/or the Render static service, plus localhost in dev). When
+// unset we fall back to '*' so a fresh deploy still answers.
+const allowedOrigins = (process.env.FRONTEND_ORIGIN || '*')
+  .split(',')
+  .map((o) => o.trim())
+  .filter(Boolean);
+app.use(cors({
+  origin: allowedOrigins.includes('*')
+    ? '*'
+    : (origin, cb) => cb(null, !origin || allowedOrigins.includes(origin)),
+}));
 app.use(express.json());
 
 app.get('/health', (_req, res) => res.json({ status: 'ok' }));

@@ -21,7 +21,7 @@
       return "http://localhost:3000";
     }
     // Deployed — the Render web service defined in render.yaml.
-    return "https://jpark-api.onrender.com";
+    return "https://jpark.onrender.com";
   }
 
   window.JPark.config = { apiBase: detectApiBase() };
