@@ -208,6 +208,7 @@
       if (!read("menu")) write("menu", SEED_MENU);
       if (!read("concierge")) write("concierge", SEED_CONCIERGE);
       if (!read("messages")) write("messages", []);
+      if (!read("resetRequests")) write("resetRequests", []);
       if (!read("guestBookings")) write("guestBookings", SEED_GUEST_BOOKINGS);
       // sync seed bookings so renames/updates to seed data take effect
       var bks = list("bookings"); var dirty = false;
@@ -243,6 +244,7 @@
         to: ["u_staff"], toNames: ["Front Desk"], createdAt: Date.now() - 3600000 * 3, readBy: [] }
     ]);
     write("announcements", []);
+    write("resetRequests", []);
     write("content", {});
     write("seeded", true);
   }
@@ -253,7 +255,7 @@
       .filter((k) => k.indexOf(NS) === 0)
       .forEach((k) => localStorage.removeItem(k));
     seed();
-    ["bookings","staff","menu","concierge","requests","orders","chats","company","messages","announcements","content","guestBookings"]
+    ["bookings","staff","menu","concierge","requests","orders","chats","company","messages","announcements","content","guestBookings","resetRequests"]
       .forEach((t) => emit(t, read(t)));
   }
 

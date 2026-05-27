@@ -9,6 +9,7 @@
   const S = window.JPark.store;
   const I = window.JPark.i18n;
   const U = window.JPark.util;
+  const MED = window.JPark.media; // photo-set registry (media.js)
 
   const SECTIONS = ["coffee", "services", "about", "rooms", "facilities", "dining", "concierge", "gallery"];
 
@@ -67,11 +68,62 @@
     style.textContent = ":root{" + rules + "}";
   }
 
+  /* ---------- apply photo-set covers (media.js overrides) ----------
+     When an admin reorders/replaces/removes photos in a set, the section's
+     visible cover (room thumbnail, facility background, dining photo, hero,
+     about) follows the set's first image. Galleries/lightboxes rebuild on
+     reload (see applyAllText). Untouched sets are left exactly as the HTML
+     ships them. */
+  function firstImage(setId) {
+    if (!MED) return null;
+    const items = MED.items(setId);
+    for (let i = 0; i < items.length; i++) { if (!items[i].video) return items[i].src; }
+    return null;
+  }
+  function setImgSrc(sel, src) {
+    const el = document.querySelector(sel);
+    if (el && src) el.setAttribute("src", encodeURI(src));
+  }
+  function setBg(sel, src) {
+    const el = document.querySelector(sel);
+    if (el && src) el.style.backgroundImage = "url('" + encodeURI(src) + "')";
+  }
+  function applyMediaCovers() {
+    if (!MED) return;
+    // Single-image slots
+    if (MED.isOverridden("hero"))      setImgSrc(".hero-media img", firstImage("hero"));
+    if (MED.isOverridden("aboutMain")) setImgSrc(".about-img-main", firstImage("aboutMain"));
+    if (MED.isOverridden("aboutSub"))  setImgSrc(".about-img-sub", firstImage("aboutSub"));
+    // Facility card backgrounds
+    if (MED.isOverridden("pool"))    setBg('.fac-card[data-lb="fac-pool"]', firstImage("pool"));
+    if (MED.isOverridden("onsen"))   setBg('.fac-card[data-lb="fac-onsen"]', firstImage("onsen"));
+    if (MED.isOverridden("gym"))     setBg('.fac-card[data-lb="fac-gym"]', firstImage("gym"));
+    if (MED.isOverridden("banquet")) setBg('.fac-card[data-video="banquet"]', firstImage("banquet"));
+    // Dining card photos
+    if (MED.isOverridden("tsubaki")) setImgSrc('.dining-card[data-lb="dining-tsubaki"] .dining-img img', firstImage("tsubaki"));
+    if (MED.isOverridden("coffee"))  setImgSrc('.dining-card[data-lb="dining-coffee"] .dining-img img', firstImage("coffee"));
+    if (MED.isOverridden("allday"))  setImgSrc('.dining-card[data-video="allday"] .dining-img img', firstImage("allday"));
+    // Room thumbnails + photo counts
+    MED.sets().filter((s) => s.id.indexOf("room:") === 0).forEach((s) => {
+      if (!MED.isOverridden(s.id)) return;
+      const folder = s.id.slice(5);
+      const card = document.querySelector('.room-card[data-room="' + folder + '"]');
+      if (!card) return;
+      const img = card.querySelector(".room-img img");
+      const cover = firstImage(s.id);
+      if (img && cover) img.setAttribute("src", encodeURI(cover));
+      const badge = card.querySelector(".room-photos");
+      const n = MED.items(s.id).length;
+      if (badge) badge.textContent = "📷 " + n;
+    });
+  }
+
   /* ---------- apply hero / section overrides ---------- */
   function applyContent() {
     const c = content();
 
     applyImages(c);
+    applyMediaCovers();
     applyTheme(c);
 
     const hidden = c.hidden || {};
@@ -89,10 +141,36 @@
      re-apply the image / theme / section overrides on top. Text edits
      flow through the i18n layer (content.overrides), so we refresh it
      and re-run the current language. */
+  let lastMediaJSON = JSON.stringify((content().media) || null);
   function applyAllText() {
+    // Photo-set edits change galleries/carousels that are built once at load,
+    // so the cleanest way to reflect them live (e.g. the admin editing in
+    // another tab) is a one-time reload when the media subtree changes.
+    const nowMedia = JSON.stringify((content().media) || null);
+    if (nowMedia !== lastMediaJSON) { lastMediaJSON = nowMedia; location.reload(); return; }
     if (I.refreshOverrides) I.refreshOverrides();
     if (I.applyLang) I.applyLang(I.getLang()); // re-renders [data-i18n] + dynamic sections
     applyContent();
+  }
+
+  /* ---------- locate & highlight a piece of text ----------
+     The Site Editor links to  index.html#hl=<i18n-key>  so an admin can jump
+     from a text field straight to where it shows on the live site. We scroll
+     the matching element into view and briefly highlight it. */
+  function locateFromHash() {
+    const m = (location.hash || "").match(/[#&]hl=([^&]+)/);
+    if (!m) return;
+    let key;
+    try { key = decodeURIComponent(m[1]); } catch (_) { key = m[1]; }
+    history.replaceState(null, "", location.pathname + location.search);
+    const el = document.querySelector('[data-i18n="' + (window.CSS && CSS.escape ? CSS.escape(key) : key) + '"]');
+    if (!el) return;
+    // reveal any collapsed/animated ancestors first
+    setTimeout(() => {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      el.classList.add("cms-locate-flash");
+      setTimeout(() => el.classList.remove("cms-locate-flash"), 2600);
+    }, 350);
   }
 
   /* ---------- announcements banner ---------- */
@@ -135,6 +213,7 @@
 
   document.addEventListener("DOMContentLoaded", () => {
     applyAll();
+    locateFromHash();
 
     const close = document.getElementById("annClose");
     if (close) close.addEventListener("click", () => {

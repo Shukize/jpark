@@ -9,9 +9,15 @@ A multilingual static hotel website for **J Park Hotel · Chonburi, Thailand** �
 - 5 languages: Thai · English · Japanese · Simplified Chinese · Traditional Chinese
 - Guest portal: service requests, in-room dining, live request tracker
 - Live chat (guest ↔ front desk, localStorage-based)
-- Staff & admin console (`staff.html`)
-- Admin site editor (announcements, hero content, show/hide sections)
+- Staff & admin console (`staff.html`) with internal messaging and a team status board
+- **Site Editor (admin)** — a streamlined, tabbed CMS that edits **every** piece of public text and **every** photo in **every** section:
+  - **Website text** — edit any string per language; one edit **auto-translates into the other four languages** so they stay in sync. Each group shows a thumbnail of where it appears, with "View on site" to jump there and highlight it.
+  - **Photos & videos** — add, replace, reorder (◀ ▶) and remove the photos in any section (hero, about, rooms, dining, facilities, pool, gym, gallery…). Current photos are shown.
+  - **Colours**, **show/hide sections**, **announcement banner**
+  - **Previous edits** — an audit log of who changed what and when
+- **Self-service staff login** — Forgot Password, Forgot Username, and New Staff Account flows
 - **Guest Booking inbox** — OTA reservations (Agoda, Booking.com, Airbnb, Trip.com…) land in Messages, auto-translated
+- **Password Reset Requests** inbox for admins
 - Mobile / Desktop view toggle
 
 ---
@@ -34,6 +40,34 @@ Enter the last name + room number (case-insensitive) **or** the booking referenc
 |----------|-----------|---------------|
 | staff    | staff123  | Front Desk    |
 | admin    | admin123  | Administrator |
+
+---
+
+## Staff accounts & passwords
+
+Admins manage accounts under **Staff console → Staff**.
+
+1. **Admin adds a member** — enter a full name + username and pick a role. No password is set by the admin; new accounts start on the shared temporary password **`jparkhotel`** and are flagged "must change password".
+2. **The new member activates their account** — on the login page they choose **New Staff Account**, enter the username the admin gave them and the temporary password `jparkhotel`, then set their own password. They're signed in immediately. (If someone signs in normally while still on the temporary password, they're sent to set a new one too.)
+3. **Forgot Password / Forgot Username** — links under the Sign in button file a request that appears in **Messages → Password Reset Requests** (admin-only). For a password request the admin can click **Reset to default password**, which puts the account back on `jparkhotel` and re-flags "must change"; the member then re-runs the New Staff Account flow.
+
+> Note: this is a front-end demo. Passwords live in `localStorage` in plain text. In a real deployment, authentication and password hashing must happen on a server.
+
+---
+
+## Site Editor (admin)
+
+Open **Staff console → Site Editor**. Everything updates the live public site immediately (text/colour edits apply instantly across open tabs; photo/gallery changes apply on the public page's next load). Tabs:
+
+| Tab | What it does |
+|-----|--------------|
+| **Website text** | Pick the editing language, search or browse grouped sections, and edit any string. Saving **auto-translates** the change into the other four languages via the live translation service so all languages match (you can still hand-edit any language). Each group shows a thumbnail; click it (or a field's **View on site ↗**) to open that spot on the live site and briefly highlight it. |
+| **Photos & videos** | Open any section to **add / replace / reorder / remove** its photos. Uploads (≤ 2 MB, stored as data URLs) or pasted image/video links. The current photos are shown so you always see what's live. |
+| **Colours** | Recolour the whole site (primary / accent / gold). |
+| **Sections** | Show/hide whole sections, post an announcement banner, "Undo all my edits", and "Reset all demo data". |
+| **Previous edits** | Audit log of every change — who, what and when (newest first). |
+
+Edits are stored in the `content` table in `localStorage`: text in `content.overrides[lang][key]`, photos in `content.media[setId]`, plus `content.theme`, `content.hidden` and `content.editLog`. **Undo all my edits** clears them and restores the shipped defaults. Auto-translation needs an internet connection; if it's unavailable the other languages keep their current text and can be edited by hand.
 
 ---
 
@@ -77,11 +111,34 @@ All strings, images, and JS logic are still in place (`assets/js/guest.js → re
 
 ## Guest Booking inbox (OTA reservations)
 
-When a guest books on **Agoda, Booking.com, Airbnb, Trip.com, Expedia** (or any
-other channel), the confirmation — guest details + the booking email — shows up
-under **Messages → Guest Booking** for both Admin and Staff. The confirmation
-body is auto-translated into whatever language the reader has selected, exactly
-like internal messages and live chat.
+When a booking reaches the site, the confirmation — guest details + the booking
+email — shows up under **Messages → Guest Booking** for both Admin and Staff,
+auto-translated into whatever language the reader has selected, exactly like
+internal messages and live chat.
+
+### ✅ Does OTA communication work?
+
+**The in-browser intake works and is verified.** Calling `JPark.bookings.ingest(...)`
+or opening the `staff.html#booking=…` deep link reliably normalises a payload,
+de-duplicates on `channel`+`ref`, stores it in the `guestBookings` table, fires a
+notification and syncs across tabs. Four demo bookings are seeded so the inbox is
+populated out of the box. You can confirm it yourself right now: open `staff.html`,
+sign in, open the browser console and run the `JPark.bookings.ingest({…})` example
+below — the booking appears immediately under **Messages → Guest Booking**.
+
+**What does _not_ happen automatically:** because this is a 100% client-side site
+with **no server**, an OTA (Agoda/Booking.com/…) has no way to reach the browser
+on its own. OTAs deliver bookings by **email or webhook to a server endpoint** —
+and there isn't one here. So real bookings will **not** flow in by themselves
+until you add the small **bridge** described below. This is a hosting/architecture
+limitation, not a bug: the intake seam is ready and waiting; it just needs
+something to call it.
+
+**To make live OTA communication work** you need one piece of always-on infrastructure
+(a serverless function, channel-manager webhook, or a Zapier/Make automation) that
+receives the OTA email/webhook and calls `JPark.bookings.ingest()` — or, more
+realistically for a production hotel, a proper backend that stores bookings in a
+database and the page reads from it. See **Integration guide** below.
 
 ### How a booking gets in
 
@@ -166,7 +223,28 @@ Start with Option 1 (email + Lambda) — it's low-friction and works universally
 - Pure HTML / CSS / JS — no framework, no build step
 - All shared state lives in `localStorage` via `JPark.store` (`assets/js/store.js`)
 - Real-time cross-tab sync uses the `storage` event
-- i18n strings: `assets/js/i18n.js` (core) + `assets/js/i18n-app.js` (feature strings)
+- i18n strings: `assets/js/i18n.js` (core) + `assets/js/i18n-app.js` (feature strings). Admin text edits are read first from `content.overrides[lang][key]`
+- **Photo registry**: `assets/js/media.js` (`JPark.media`) is the single source of truth for every photo/video set. `main.js` builds the carousel, room/facility/dining cards, the full Gallery and all lightboxes from it; admin edits live in `content.media[setId]`
+- Public-site CMS layer (`assets/js/cms.js`) applies text/photo/colour/section overrides to `index.html` and reloads the page when the photo sets change
 - OTA booking intake seam: `assets/js/bookings.js` → `JPark.bookings.ingest()`, stored in the `guestBookings` table
-- Free-text translation (chat, internal mail, booking confirmations): `assets/js/translate.js`
+- Free-text translation (chat, internal mail, booking confirmations, Site Editor auto-translate): `assets/js/translate.js` (keyless Google Translate web endpoint, cached in `localStorage`)
 - Demo data is seeded once on first load; reset via Admin → "Reset all demo data"
+
+### `content` table (admin edits)
+
+```
+content = {
+  overrides: { en: { "hero.title": "…" }, th: {…}, … },  // text, per language
+  media:     { "room:Superior Room": [ {src,video}, … ], … },  // photo sets
+  theme:     { teal, terracotta, gold },
+  hidden:    { rooms: true, … },                          // hidden sections
+  editLog:   [ { ts, userName, type, … } ]                // Previous edits
+}
+```
+
+### Backend (`backend/`)
+
+There is an optional Node/Express service used **only** by the Employee Status &
+Shift Card board (token-authed API, Postgres via `DATABASE_URL`, deployable to
+Render). The public website, guest portal, staff messaging, Site Editor and OTA
+inbox are all client-side and do **not** require it.

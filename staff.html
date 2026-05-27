@@ -17,7 +17,8 @@
 
 <!-- ============ LOGIN ============ -->
 <div class="login-wrap" id="loginView">
-  <form class="login-card" id="loginForm" novalidate>
+  <!-- Sign in -->
+  <form class="login-card auth-card show" id="loginForm" data-auth="signin" novalidate>
     <span class="brand-mark">J</span>
     <h1 data-i18n="staff.login.title">Staff Login</h1>
     <p class="login-sub" data-i18n="staff.login.sub">J Park Hotel · Team portal</p>
@@ -33,11 +34,90 @@
     <p class="form-error" id="loginError"></p>
     <button type="submit" class="btn btn-solid" data-i18n="staff.login.submit">Sign in</button>
 
+    <div class="login-links">
+      <button type="button" class="login-link" data-auth-go="forgotPass" data-i18n="staff.login.forgotPass">Forgot Password</button>
+      <button type="button" class="login-link" data-auth-go="forgotUser" data-i18n="staff.login.forgotUser">Forgot Username</button>
+      <button type="button" class="login-link" data-auth-go="newStaff" data-i18n="staff.login.newStaff">New Staff Account</button>
+    </div>
+
     <div class="field" style="margin-top:18px">
       <select id="staffLangLogin" aria-label="Language"></select>
     </div>
     <p class="login-demo" data-i18n="staff.login.demo">Demo — admin / admin123 · staff / staff123</p>
     <a class="login-back" href="index.html" data-i18n="staff.login.back">← Back to website</a>
+  </form>
+
+  <!-- New staff account -->
+  <form class="login-card auth-card" id="newStaffForm" data-auth="newStaff" novalidate>
+    <span class="brand-mark">J</span>
+    <h1 data-i18n="staff.login.newStaffTitle">New Staff Account</h1>
+    <p class="login-sub" data-i18n="staff.login.newStaffSub">Set up the account your administrator created for you.</p>
+
+    <div class="auth-step" data-step="1">
+      <div class="field">
+        <label for="nsUser" data-i18n="staff.login.user">Username</label>
+        <input type="text" id="nsUser" autocomplete="username" />
+      </div>
+      <div class="field">
+        <label for="nsPass" data-i18n="staff.login.defaultPass">Temporary password</label>
+        <input type="password" id="nsPass" autocomplete="off" placeholder="jparkhotel" />
+        <p class="login-hint" data-i18n="staff.login.defaultPassHint">Your starting password is jparkhotel.</p>
+      </div>
+      <p class="form-error" id="nsError"></p>
+      <button type="button" class="btn btn-solid" id="nsContinue" data-i18n="staff.login.continue">Continue</button>
+    </div>
+
+    <div class="auth-step" data-step="2" hidden>
+      <p class="login-sub" data-i18n="staff.login.setNewPass">Choose a new password.</p>
+      <div class="field">
+        <label for="nsNew1" data-i18n="staff.login.newPass">New password</label>
+        <input type="password" id="nsNew1" autocomplete="new-password" />
+      </div>
+      <div class="field">
+        <label for="nsNew2" data-i18n="staff.login.confirmPass">Confirm new password</label>
+        <input type="password" id="nsNew2" autocomplete="new-password" />
+      </div>
+      <p class="form-error" id="nsError2"></p>
+      <button type="submit" class="btn btn-solid" data-i18n="staff.login.saveAndSignIn">Save &amp; sign in</button>
+    </div>
+
+    <button type="button" class="login-back auth-back" data-auth-go="signin" data-i18n="staff.login.backSignin">← Back to sign in</button>
+  </form>
+
+  <!-- Forgot password -->
+  <form class="login-card auth-card" id="forgotPassForm" data-auth="forgotPass" novalidate>
+    <span class="brand-mark">J</span>
+    <h1 data-i18n="staff.login.forgotPassTitle">Reset Password</h1>
+    <p class="login-sub" data-i18n="staff.login.forgotPassSub">We'll send a reset request to an administrator.</p>
+    <div class="field">
+      <label for="fpUser" data-i18n="staff.login.user">Username</label>
+      <input type="text" id="fpUser" autocomplete="username" />
+    </div>
+    <div class="field">
+      <label for="fpNote" data-i18n="staff.login.note">Note (optional)</label>
+      <input type="text" id="fpNote" />
+    </div>
+    <p class="form-error" id="fpError"></p>
+    <button type="submit" class="btn btn-solid" data-i18n="staff.login.sendRequest">Send reset request</button>
+    <button type="button" class="login-back auth-back" data-auth-go="signin" data-i18n="staff.login.backSignin">← Back to sign in</button>
+  </form>
+
+  <!-- Forgot username -->
+  <form class="login-card auth-card" id="forgotUserForm" data-auth="forgotUser" novalidate>
+    <span class="brand-mark">J</span>
+    <h1 data-i18n="staff.login.forgotUserTitle">Recover Username</h1>
+    <p class="login-sub" data-i18n="staff.login.forgotUserSub">We'll send your request to an administrator.</p>
+    <div class="field">
+      <label for="fuName" data-i18n="staff.login.fullName">Your full name</label>
+      <input type="text" id="fuName" autocomplete="name" />
+    </div>
+    <div class="field">
+      <label for="fuContact" data-i18n="staff.login.contact">Email or phone (optional)</label>
+      <input type="text" id="fuContact" />
+    </div>
+    <p class="form-error" id="fuError"></p>
+    <button type="submit" class="btn btn-solid" data-i18n="staff.login.sendRequest">Send request</button>
+    <button type="button" class="login-back auth-back" data-auth-go="signin" data-i18n="staff.login.backSignin">← Back to sign in</button>
   </form>
 </div>
 
@@ -149,6 +229,11 @@
             <span class="mni-label" data-i18n="msg.announcements">Announcements</span>
             <span class="mni-badge" id="msgAnnBadge" style="display:none"></span>
           </button>
+          <button class="msg-nav-item admin-only" data-view="resets">
+            <span class="mni-ico">🔑</span>
+            <span class="mni-label" data-i18n="msg.resets">Password Reset Requests</span>
+            <span class="mni-badge" id="msgResetBadge" style="display:none"></span>
+          </button>
         </nav>
         <main class="msg-main" id="msgMain">
           <div class="msg-list-area" id="msgListArea"></div>
@@ -174,89 +259,107 @@
           <button type="button" class="guide-toggle" id="guideToggle" data-i18n="staff.guide.hide">Hide guide</button>
         </div>
         <div class="guide-body" id="guideBody">
-          <p class="guide-intro" data-i18n="staff.guide.intro">Anything you change here updates the live public website right away — across every page and in the language you pick. Nothing is permanent: every field has its own Reset, and you can undo all of your edits at the bottom of this page.</p>
+          <p class="guide-intro" data-i18n="staff.guide.intro">Everything here updates the live website right away. Use the tabs below to edit words, swap photos, change colours, show or hide sections, and review who changed what. Nothing is permanent — every field has its own Reset.</p>
           <ol class="guide-steps">
-            <li><b data-i18n="staff.guide.s1t">Pick the language</b><span data-i18n="staff.guide.s1b">Use “Editing language” to choose which language you are editing. Each language is stored separately — editing English does not change Thai.</span></li>
-            <li><b data-i18n="staff.guide.s2t">Find the text</b><span data-i18n="staff.guide.s2b">Scroll the grouped sections (Hero, Rooms, Dining…) or type in the search box to jump straight to any words shown on the site.</span></li>
-            <li><b data-i18n="staff.guide.s3t">Edit and it saves itself</b><span data-i18n="staff.guide.s3b">Click a field, change the words, then click away. It saves automatically and a green “Saved” appears. Press Reset on a field to restore the original.</span></li>
-            <li><b data-i18n="staff.guide.s4t">Swap photos</b><span data-i18n="staff.guide.s4b">In “Photos &amp; images”, upload a picture from your computer or paste an image link to replace the hero and about photos.</span></li>
-            <li><b data-i18n="staff.guide.s5t">Change colours</b><span data-i18n="staff.guide.s5b">In “Colours &amp; theme”, pick new brand colours. The whole site restyles instantly.</span></li>
-            <li><b data-i18n="staff.guide.s6t">Show, hide &amp; announce</b><span data-i18n="staff.guide.s6b">Hide a whole section with one tick, or post an announcement banner that appears across the top of the site.</span></li>
+            <li><b data-i18n="staff.guide.s1t">Pick a tab</b><span data-i18n="staff.guide.s1b">Website text, Photos &amp; videos, Colours, Sections, and Previous edits each live on their own tab so the page stays tidy.</span></li>
+            <li><b data-i18n="staff.guide.s2t">Edit text in any language</b><span data-i18n="staff.guide.s2b">On the Text tab, choose the language you are editing, then search or browse the grouped sections. Each group shows a small picture of where it appears — click it to open that spot on the live site.</span></li>
+            <li><b data-i18n="staff.guide.s3t">Auto-translation</b><span data-i18n="staff.guide.s3b">When you change a piece of text it saves itself and is automatically translated into the other four languages so every language stays in sync. You can still fine-tune any language by hand.</span></li>
+            <li><b data-i18n="staff.guide.s4t">Manage photos for any section</b><span data-i18n="staff.guide.s4b">On the Photos tab, open any section to add, replace, reorder (◀ ▶) or remove its pictures. The current photos are shown so you always see what is live.</span></li>
+            <li><b data-i18n="staff.guide.s5t">Colours &amp; sections</b><span data-i18n="staff.guide.s5b">Recolour the whole site on the Colours tab, and show/hide sections or post an announcement banner on the Sections tab.</span></li>
+            <li><b data-i18n="staff.guide.s6t">See the history</b><span data-i18n="staff.guide.s6b">The Previous edits tab lists every change with who made it and when, so the team can track what has been updated.</span></li>
           </ol>
           <div class="guide-tip">
             <b data-i18n="staff.guide.tipTitle">Good to know</b>
             <ul>
-              <li data-i18n="staff.guide.tip1">Open the website in a second tab and keep it beside this one — your edits appear there live as you type.</li>
+              <li data-i18n="staff.guide.tip1">Open the website in a second tab and keep it beside this one — your edits appear there live as you save.</li>
               <li data-i18n="staff.guide.tip2">A field left exactly as the original stores nothing — only your real changes are kept.</li>
-              <li data-i18n="staff.guide.tip3">Remember to repeat important edits for each language your guests use.</li>
+              <li data-i18n="staff.guide.tip3">Auto-translation uses an online service; if it is unavailable the other languages keep their current text and you can edit them by hand.</li>
             </ul>
           </div>
           <a href="index.html" target="_blank" rel="noopener" class="btn btn-ghost dark" data-i18n="staff.guide.openSite">Open the website ↗</a>
         </div>
       </div>
 
-      <!-- Toolbar: editing language + search -->
-      <div class="editor-card">
-        <div class="ed-toolbar">
-          <div class="field ed-lang-field">
-            <label for="edLangSel" data-i18n="staff.site.editLangLabel">Editing language</label>
-            <select id="edLangSel"></select>
+      <!-- Editor tabs -->
+      <div class="ed-tabs" id="edTabs">
+        <button type="button" class="ed-tab active" data-edtab="text" data-i18n="staff.site.tabText">Website text</button>
+        <button type="button" class="ed-tab" data-edtab="photos" data-i18n="staff.site.tabPhotos">Photos &amp; videos</button>
+        <button type="button" class="ed-tab" data-edtab="theme" data-i18n="staff.site.tabTheme">Colours</button>
+        <button type="button" class="ed-tab" data-edtab="layout" data-i18n="staff.site.tabLayout">Sections</button>
+        <button type="button" class="ed-tab" data-edtab="history" data-i18n="staff.site.tabHistory">Previous edits</button>
+      </div>
+
+      <!-- TEXT TAB -->
+      <div class="ed-tabpane show" data-edpane="text">
+        <div class="editor-card">
+          <div class="ed-toolbar">
+            <div class="field ed-lang-field">
+              <label for="edLangSel" data-i18n="staff.site.editLangLabel">Editing language</label>
+              <select id="edLangSel"></select>
+            </div>
+            <div class="field ed-search-field">
+              <label for="edSearch" data-i18n="staff.site.searchLabel">Find text on the site</label>
+              <input type="search" id="edSearch" data-i18n-attr="placeholder:staff.site.searchPh" placeholder="Search all text…" />
+            </div>
           </div>
-          <div class="field ed-search-field">
-            <label for="edSearch" data-i18n="staff.site.searchLabel">Find text on the site</label>
-            <input type="search" id="edSearch" data-i18n-attr="placeholder:staff.site.searchPh" placeholder="Search all text…" />
-          </div>
+          <p class="ed-hint" data-i18n="staff.site.autoTrHint">Edit text in one language and it is automatically translated into the other four so they all match. Each group shows where it appears on the site — click the picture to view it.</p>
         </div>
-        <p class="ed-hint" data-i18n="staff.site.editLangHint">Each language is edited separately. Choose a language, edit its words, and only that language changes on the site.</p>
+        <div class="editor-card">
+          <div id="edContentGroups"></div>
+          <p class="ed-nomatch" id="edNoMatch" hidden data-i18n="staff.site.noMatch">No text matches your search.</p>
+        </div>
       </div>
 
-      <!-- Website text — auto-generated, grouped editable fields -->
-      <div class="editor-card">
-        <h3 data-i18n="staff.site.content">Website text</h3>
-        <div id="edContentGroups"></div>
-        <p class="ed-nomatch" id="edNoMatch" hidden data-i18n="staff.site.noMatch">No text matches your search.</p>
+      <!-- PHOTOS TAB -->
+      <div class="ed-tabpane" data-edpane="photos">
+        <div class="editor-card">
+          <h3 data-i18n="staff.site.images">Photos &amp; videos</h3>
+          <p class="ed-hint" data-i18n="staff.site.imagesHint">Open any section to add, replace, reorder or remove its photos. Changes appear on the live site (galleries refresh on next load).</p>
+          <div id="edMediaSets"></div>
+        </div>
       </div>
 
-      <!-- Photos & images -->
-      <div class="editor-card">
-        <h3 data-i18n="staff.site.images">Photos &amp; images</h3>
-        <div class="ed-images" id="edImages"></div>
+      <!-- THEME TAB -->
+      <div class="ed-tabpane" data-edpane="theme">
+        <div class="editor-card">
+          <h3 data-i18n="staff.site.theme">Colours &amp; theme</h3>
+          <div class="ed-colors" id="edColors"></div>
+          <button class="btn btn-ghost dark" id="edResetTheme" data-i18n="staff.site.resetTheme">Reset colours</button>
+        </div>
       </div>
 
-      <!-- Colours & theme -->
-      <div class="editor-card">
-        <h3 data-i18n="staff.site.theme">Colours &amp; theme</h3>
-        <div class="ed-colors" id="edColors"></div>
-        <button class="btn btn-ghost dark" id="edResetTheme" data-i18n="staff.site.resetTheme">Reset colours</button>
+      <!-- LAYOUT TAB -->
+      <div class="ed-tabpane" data-edpane="layout">
+        <div class="editor-card">
+          <h3 data-i18n="staff.site.ann">Announcements banner</h3>
+          <div class="ann-edit-list" id="annEditList"></div>
+          <form id="annForm" class="company-compose">
+            <input type="text" id="annInput" data-i18n-attr="placeholder:staff.site.annPh" placeholder="Announcement text…" />
+            <button type="submit" class="btn btn-solid" data-i18n="staff.site.annAdd">Add</button>
+          </form>
+        </div>
+        <div class="editor-card">
+          <h3 data-i18n="staff.site.sections">Show / hide sections</h3>
+          <div class="section-toggles" id="sectionToggles"></div>
+        </div>
+        <div class="editor-card">
+          <h3 data-i18n="staff.site.resetEdits">Undo all my edits</h3>
+          <p class="ed-hint" data-i18n="staff.site.resetEditsHint">Restores all original text, photos and colours. Your demo data (requests, messages, bookings) is kept.</p>
+          <button class="btn btn-ghost dark" id="edResetEdits" data-i18n="staff.site.resetEdits">Undo all my edits</button>
+        </div>
+        <div class="editor-card">
+          <h3 data-i18n="staff.danger">Reset all demo data</h3>
+          <button class="btn-danger" id="edResetAll" data-i18n="staff.danger">Reset all demo data</button>
+        </div>
       </div>
 
-      <!-- Announcements banner -->
-      <div class="editor-card">
-        <h3 data-i18n="staff.site.ann">Announcements banner</h3>
-        <div class="ann-edit-list" id="annEditList"></div>
-        <form id="annForm" class="company-compose">
-          <input type="text" id="annInput" data-i18n-attr="placeholder:staff.site.annPh" placeholder="Announcement text…" />
-          <button type="submit" class="btn btn-solid" data-i18n="staff.site.annAdd">Add</button>
-        </form>
-      </div>
-
-      <!-- Show / hide sections -->
-      <div class="editor-card">
-        <h3 data-i18n="staff.site.sections">Show / hide sections</h3>
-        <div class="section-toggles" id="sectionToggles"></div>
-      </div>
-
-      <!-- Undo all edits -->
-      <div class="editor-card">
-        <h3 data-i18n="staff.site.resetEdits">Undo all my edits</h3>
-        <p class="ed-hint" data-i18n="staff.site.resetEditsHint">Restores all original text, photos and colours. Your demo data (requests, messages, bookings) is kept.</p>
-        <button class="btn btn-ghost dark" id="edResetEdits" data-i18n="staff.site.resetEdits">Undo all my edits</button>
-      </div>
-
-      <!-- Danger: reset all demo data -->
-      <div class="editor-card">
-        <h3 data-i18n="staff.danger">Reset all demo data</h3>
-        <button class="btn-danger" id="edResetAll" data-i18n="staff.danger">Reset all demo data</button>
+      <!-- HISTORY TAB -->
+      <div class="ed-tabpane" data-edpane="history">
+        <div class="editor-card">
+          <h3 data-i18n="staff.site.history">Previous edits</h3>
+          <p class="ed-hint" data-i18n="staff.site.historyHint">Every change to the website, with who made it and when. Newest first.</p>
+          <div id="edHistory"></div>
+        </div>
       </div>
     </section>
 
@@ -270,13 +373,13 @@
         <form id="teamForm">
           <div class="field"><label data-i18n="staff.team.name">Full name</label><input type="text" id="tmName" /></div>
           <div class="field"><label data-i18n="staff.team.username">Username</label><input type="text" id="tmUser" /></div>
-          <div class="field"><label data-i18n="staff.team.password">Password</label><input type="text" id="tmPass" /></div>
           <div class="field"><label data-i18n="staff.team.role">Role</label>
             <select id="tmRole">
               <option value="staff" data-i18n="staff.role.staff">Staff</option>
               <option value="admin" data-i18n="staff.role.admin">Administrator</option>
             </select>
           </div>
+          <p class="ed-hint" data-i18n="staff.team.addHint">New members start with the password “jparkhotel”. They activate their account from the login page (New Staff Account) and set their own password.</p>
           <p class="form-error" id="teamError"></p>
           <button type="submit" class="btn btn-solid" data-i18n="staff.team.add">Add staff member</button>
         </form>
@@ -331,6 +434,7 @@
 <script src="assets/js/i18n.js"></script>
 <script src="assets/js/i18n-app.js"></script>
 <script src="assets/js/translate.js"></script>
+<script src="assets/js/media.js"></script>
 <script src="assets/js/auth-token.js"></script>
 <script src="assets/js/bookings.js"></script>
 <script src="assets/js/employee-card.js"></script>

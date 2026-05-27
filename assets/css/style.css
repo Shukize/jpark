@@ -834,3 +834,16 @@ body.mobile-view .gcat-grid > .gthumb { flex-basis: calc((100% - 20px) / 3); }
 
 /* Staff/Admin sidebar "J" mark returns to the homepage */
 .ds-home { text-decoration: none; cursor: pointer; }
+
+/* Site Editor "View on site" — briefly highlight the located text */
+.cms-locate-flash {
+  animation: cmsLocateFlash 2.4s ease-out;
+  border-radius: 6px;
+}
+@keyframes cmsLocateFlash {
+  0%, 60% { background-color: rgba(201,162,75,0.55); box-shadow: 0 0 0 6px rgba(201,162,75,0.35); }
+  100% { background-color: transparent; box-shadow: 0 0 0 6px rgba(201,162,75,0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cms-locate-flash { animation: none; outline: 3px solid rgba(201,162,75,0.8); }
+}
