@@ -114,12 +114,10 @@ CREATE TRIGGER trg_employees_updated_at
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 INSERT INTO employees (id, name, email, role, status, shift, phone) VALUES
-  ('u_admin',  'Hotel Admin',     'hotel.admin@jpark.hotel',     'admin',        'on_shift',  '09:00–18:00', '+66 2 100 2000'),
-  ('u_staff',  'Front Desk',      'front.desk@jpark.hotel',      'frontdesk',    'on_shift',  '07:00–15:00', '+66 2 100 2001'),
-  ('e_ploy',   'Ploy Srisai',     'ploy.srisai@jpark.hotel',     'frontdesk',    'on_break',  '15:00–23:00', '+66 81 234 5678'),
-  ('e_kenji',  'Kenji Watanabe',  'kenji.watanabe@jpark.hotel',  'frontdesk',    'off_shift', '23:00–07:00', '+66 81 234 5690'),
-  ('e_malee',  'Malee Phongphan', 'malee.phongphan@jpark.hotel', 'housekeeping', 'on_shift',  '08:00–16:00', '+66 89 555 1212'),
-  ('e_arun',   'Arun Chaiyaphum', 'arun.chaiyaphum@jpark.hotel', 'housekeeping', 'off_shift', '16:00–00:00', '+66 89 555 1234')
+  ('u_admin',  'Hotel Admin',    'hotel.admin@jpark.hotel',    'admin',     'on_shift',  '09:00–18:00', '+66 2 100 2000'),
+  ('u_staff',  'Front Desk',     'front.desk@jpark.hotel',     'frontdesk', 'on_shift',  '07:00–15:00', '+66 2 100 2001'),
+  ('e_ploy',   'Ploy Srisai',    'ploy.srisai@jpark.hotel',    'frontdesk', 'on_break',  '15:00–23:00', '+66 81 234 5678'),
+  ('e_kenji',  'Kenji Watanabe', 'kenji.watanabe@jpark.hotel', 'frontdesk', 'off_shift', '23:00–07:00', '+66 81 234 5690')
 ON CONFLICT (id) DO NOTHING;
 
 -- ── Guest bookings (OTA + direct; used for guest portal login) ───────────────

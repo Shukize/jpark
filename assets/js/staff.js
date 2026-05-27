@@ -431,13 +431,13 @@
 
     const bodyEl = document.getElementById("ccBody");
     const cur = I.getLang();
-    conv.messages.forEach((m) => {
+    conv.messages.filter((m) => m.from !== "bot").forEach((m) => {
       const div = document.createElement("div");
       div.className = "msg " + m.from;
       if (m.from === "system") { div.textContent = m.text; }
       else {
         div.innerHTML = '<span class="msg-from">' +
-          esc(m.from === "guest" ? (conv.guestName || t("chat.you")) : m.from === "staff" ? (m.staffName || t("chat.staff")) : t("chat.bot")) + "</span>";
+          esc(m.from === "guest" ? (conv.guestName || t("chat.you")) : m.from === "staff" ? (m.staffName || t("chat.staff")) : t("chat.staff")) + "</span>";
         const span = document.createElement("span"); div.appendChild(span);
         if (m.lang && m.lang === cur) span.textContent = m.text;
         else J.translate.fill(span, m.text, div);

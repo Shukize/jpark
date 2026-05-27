@@ -3,7 +3,7 @@ const db = require('../db');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const router = express.Router();
 
-const ROLES = ['admin', 'frontdesk', 'housekeeping'];
+const ROLES = ['admin', 'frontdesk'];
 const STATUSES = ['on_shift', 'on_break', 'off_shift'];
 
 // GET /api/employees   (any authenticated employee)

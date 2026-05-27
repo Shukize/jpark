@@ -160,10 +160,17 @@ async function seedMessages() {
   );
 }
 
+async function removeHousekeeping() {
+  await db.query(`DELETE FROM employees WHERE id IN ('e_malee', 'e_arun')`);
+}
+
 async function migrate() {
   const sql = require('fs').readFileSync(require('path').join(__dirname, 'schema.sql'), 'utf8');
   await db.query(sql);
   console.log('[migrate] schema up to date');
+
+  await removeHousekeeping();
+  console.log('[migrate] housekeeping employees removed');
 
   await seedAuth();
   console.log('[migrate] staff auth ready');

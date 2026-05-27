@@ -28,28 +28,25 @@
 
   // Colour-coded role tags. Anything unknown falls back to a neutral tag.
   const ROLE_META = {
-    admin:        { labelKey: "emp.role.admin",        cls: "role-admin" },        // red
-    frontdesk:    { labelKey: "emp.role.frontdesk",    cls: "role-frontdesk" },    // blue
-    housekeeping: { labelKey: "emp.role.housekeeping", cls: "role-housekeeping" }, // green
-    staff:        { labelKey: "emp.role.staff",        cls: "role-staff" }
+    admin:     { labelKey: "emp.role.admin",     cls: "role-admin" },     // red
+    frontdesk: { labelKey: "emp.role.frontdesk", cls: "role-frontdesk" }, // blue
+    staff:     { labelKey: "emp.role.staff",     cls: "role-staff" }
   };
   const STATUS_META = {
     on_shift:  { labelKey: "emp.status.on_shift",  cls: "st-on" },
     on_break:  { labelKey: "emp.status.on_break",  cls: "st-break" },
     off_shift: { labelKey: "emp.status.off_shift", cls: "st-off" }
   };
-  const ROLE_OPTIONS = ["admin", "frontdesk", "housekeeping"];
+  const ROLE_OPTIONS = ["admin", "frontdesk"];
   const STATUS_OPTIONS = ["on_shift", "on_break", "off_shift"];
 
   // Resilience fallback only — mirrors the backend seed so the board renders
   // when the API is unreachable. The live fetch above is the real source.
   const FALLBACK_ROSTER = [
-    { id: "u_admin", name: "Hotel Admin",     email: "hotel.admin@jpark.hotel",     role: "admin",        status: "on_shift",  shift: "09:00–18:00" },
-    { id: "u_staff", name: "Front Desk",      email: "front.desk@jpark.hotel",      role: "frontdesk",    status: "on_shift",  shift: "07:00–15:00" },
-    { id: "e_ploy",  name: "Ploy Srisai",     email: "ploy.srisai@jpark.hotel",     role: "frontdesk",    status: "on_break",  shift: "15:00–23:00" },
-    { id: "e_kenji", name: "Kenji Watanabe",  email: "kenji.watanabe@jpark.hotel",  role: "frontdesk",    status: "off_shift", shift: "23:00–07:00" },
-    { id: "e_malee", name: "Malee Phongphan", email: "malee.phongphan@jpark.hotel", role: "housekeeping", status: "on_shift",  shift: "08:00–16:00" },
-    { id: "e_arun",  name: "Arun Chaiyaphum", email: "arun.chaiyaphum@jpark.hotel", role: "housekeeping", status: "off_shift", shift: "16:00–00:00" }
+    { id: "u_admin", name: "Hotel Admin",    email: "hotel.admin@jpark.hotel",    role: "admin",     status: "on_shift",  shift: "09:00–18:00" },
+    { id: "u_staff", name: "Front Desk",     email: "front.desk@jpark.hotel",     role: "frontdesk", status: "on_shift",  shift: "07:00–15:00" },
+    { id: "e_ploy",  name: "Ploy Srisai",   email: "ploy.srisai@jpark.hotel",    role: "frontdesk", status: "on_break",  shift: "15:00–23:00" },
+    { id: "e_kenji", name: "Kenji Watanabe", email: "kenji.watanabe@jpark.hotel", role: "frontdesk", status: "off_shift", shift: "23:00–07:00" }
   ];
   // When offline, admin edits are kept here so the demo still feels live.
   const LOCAL_EDITS_KEY = "jpark.employeeEdits";

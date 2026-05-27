@@ -23,6 +23,21 @@ function row2msg(r) {
   };
 }
 
+/* GET /api/chat/available-staff — on-shift frontdesk staff (public, for guest chat routing) */
+router.get('/available-staff', async (_req, res) => {
+  try {
+    const { rows } = await db.query(
+      `SELECT name FROM employees
+        WHERE status = 'on_shift' AND role IN ('frontdesk', 'admin') AND active = TRUE
+        ORDER BY name`
+    );
+    res.json(rows.map((r) => ({ name: r.name })));
+  } catch (e) {
+    console.error('[chat] available-staff', e);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
 /* GET /api/chat/all — all conversations grouped by guest (staff only) */
 router.get('/all', requireAuth, async (_req, res) => {
   try {

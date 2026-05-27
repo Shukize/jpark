@@ -148,12 +148,32 @@
     setTimeout(async () => { await pushMessage("bot", t(topic.a)); render(); }, 500);
   }
 
+  async function fetchAvailableStaff() {
+    const API = window.JPark.api;
+    if (!API) return [];
+    try {
+      const res = await API.get("/api/chat/available-staff");
+      return Array.isArray(res) ? res : [];
+    } catch (_) { return []; }
+  }
+
   async function escalate() {
     const conv = ensureLocalConv();
     if (!conv.escalated) {
       conv.escalated = true;
       conv.unreadForStaff = (conv.unreadForStaff || 0) + 1;
-      const msg = { id: S.genId(), from: "system", text: t("chat.connecting"), lang: I.getLang(), ts: Date.now() };
+
+      const staff = await fetchAvailableStaff();
+      let msgText;
+      if (staff.length) {
+        const pick = staff[Math.floor(Math.random() * staff.length)];
+        conv.assignedStaff = pick.name;
+        msgText = t("chat.connectedTo").replace("{name}", pick.name);
+      } else {
+        msgText = t("chat.noStaffOnShift");
+      }
+
+      const msg = { id: S.genId(), from: "system", text: msgText, lang: I.getLang(), ts: Date.now() };
       conv.messages.push(msg); conv.lastMsg = msg.text; conv.lastAt = msg.ts;
       saveLocalConv(conv);
       apiPostMessage("system", msg.text, { escalated: true });

@@ -18,6 +18,10 @@ const router = express.Router();
 const SECRET = process.env.AUTH_TOKEN_SECRET || 'jpark-demo-shared-secret';
 const TTL = 12 * 60 * 60; // 12-hour shift token
 
+function nameToEmail(name) {
+  return (name || 'staff').toLowerCase().replace(/\s+/g, '.') + '@jpark.hotel';
+}
+
 /* ---- JWT helpers (mirror of middleware/auth.js) ---- */
 function b64url(str) {
   return Buffer.from(str).toString('base64')
@@ -32,7 +36,7 @@ function mintToken(emp) {
     sub: emp.id,
     name: emp.name,
     username: emp.username,
-    email: emp.email || (emp.username + '@jpark.hotel'),
+    email: emp.email || nameToEmail(emp.name),
     role: emp.role,
     perms,
     iat: now,
@@ -163,14 +167,14 @@ router.post('/register', requireAdmin, async (req, res) => {
 
   const id = 'u_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
   const hash = await bcrypt.hash(password, 10);
-  const validRole = ['admin', 'frontdesk', 'housekeeping'].includes(role) ? role : 'frontdesk';
+  const validRole = ['admin', 'frontdesk'].includes(role) ? role : 'frontdesk';
 
   try {
     const { rows } = await db.query(
       `INSERT INTO employees (id, username, password_hash, name, email, role, phone, shift, active)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,TRUE)
        RETURNING id, username, name, email, role, phone, shift, status, active`,
-      [id, username.trim().toLowerCase(), hash, name, email || null, validRole, phone || null, shift || null]
+      [id, username.trim().toLowerCase(), hash, name, email || nameToEmail(name), validRole, phone || null, shift || null]
     );
     res.status(201).json({ user: rows[0] });
   } catch (e) {
@@ -188,7 +192,7 @@ router.patch('/staff/:id', requireAdmin, async (req, res) => {
   if (active !== undefined) { fields.push(`active = $${fields.length + 1}`); vals.push(!!active); }
   if (name)  { fields.push(`name  = $${fields.length + 1}`); vals.push(name); }
   if (email) { fields.push(`email = $${fields.length + 1}`); vals.push(email); }
-  if (role && ['admin','frontdesk','housekeeping'].includes(role)) {
+  if (role && ['admin','frontdesk'].includes(role)) {
     fields.push(`role  = $${fields.length + 1}`); vals.push(role);
   }
   if (phone) { fields.push(`phone = $${fields.length + 1}`); vals.push(phone); }
