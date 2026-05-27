@@ -47,7 +47,8 @@
       const body = ref ? { ref: ref.trim() } : { lastName: last.trim(), room: room.trim() };
       const res = await API.post("/api/auth/guest-login", body);
       if (!res.error) return res; // { bookingId, name, lastName, room, ref }
-      if (!res.offline) return null; // wrong credentials from API
+      // 404 = auth route not deployed yet; 5xx = server error — fall through to localStorage.
+      if (!res.offline && res.status !== 404 && res.status < 500) return null;
     }
     // Offline fallback
     const bookings = S.list("bookings");

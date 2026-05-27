@@ -7,7 +7,7 @@ databases:
 services:
   # ── API (Node/Express) ──────────────────────────────────────────────────────
   - type: web
-    name: jpark-api
+    name: jpark
     runtime: node
     buildCommand: cd backend && npm install
     startCommand: node backend/server.js

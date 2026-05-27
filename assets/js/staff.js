@@ -108,12 +108,12 @@
         try { localStorage.setItem("jpark.staff.token", res.token); } catch (_) {}
         return { user: res.user };
       }
-      if (!res.offline) {
-        // API is reachable but credentials were wrong.
+      // 404 = auth route not deployed yet; 5xx = server error — fall through to localStorage.
+      if (!res.offline && res.status !== 404 && res.status < 500) {
         return { error: res.error || t("staff.login.error") };
       }
     }
-    // API offline — fall back to localStorage credentials.
+    // API offline or auth route unavailable — fall back to localStorage credentials.
     return loginLocal(username, password);
   }
 
