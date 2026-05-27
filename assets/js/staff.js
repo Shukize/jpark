@@ -1820,6 +1820,13 @@
     } else {
       pmPhoto.textContent = (session.name || "?").charAt(0).toUpperCase();
     }
+    const pmDisplayName = document.getElementById("pmDisplayName");
+    if (pmDisplayName) pmDisplayName.textContent = session.name || "";
+    const pmDisplayEmail = document.getElementById("pmDisplayEmail");
+    if (pmDisplayEmail) {
+      const tok = J.authToken && J.authToken.decode();
+      pmDisplayEmail.textContent = (tok && tok.email) || "";
+    }
     ["pmOldPass", "pmNewPass", "pmConfirmPass"].forEach((id) => {
       const el = document.getElementById(id); if (el) el.value = "";
     });
@@ -1984,6 +1991,7 @@
         const reader = new FileReader();
         reader.onload = (e) => {
           avatarInput.value = "";
+          if (!session) { U.toast("Not signed in — photo not saved.", "error"); return; }
           try {
             setAvatarDataUrl(session.id, e.target.result);
           } catch (_) {

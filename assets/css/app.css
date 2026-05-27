@@ -1166,6 +1166,9 @@ body.mobile-view .fac-card.large {
   overflow: hidden; flex-shrink: 0;
 }
 .pm-photo img { width: 100%; height: 100%; object-fit: cover; }
+.pm-user-info { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.pm-display-name { margin: 0; font-weight: 600; font-size: 0.98rem; color: var(--teal-deep); }
+.pm-display-email { margin: 0; font-size: 0.82rem; color: #888; }
 .pm-change-photo { padding: 9px 20px !important; font-size: 0.82rem !important; }
 .pm-section-pass { display: flex; flex-direction: column; }
 .pm-section-title {
