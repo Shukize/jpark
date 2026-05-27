@@ -102,6 +102,12 @@ CREATE TABLE IF NOT EXISTS employees (
   updated_at    TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
 
+-- Add columns that were introduced after the initial schema deploy.
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS username      VARCHAR(50)  UNIQUE;
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS password_hash TEXT;
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS active        BOOLEAN NOT NULL DEFAULT TRUE;
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS avatar        TEXT;
+
 DROP TRIGGER IF EXISTS trg_employees_updated_at ON employees;
 CREATE TRIGGER trg_employees_updated_at
   BEFORE UPDATE ON employees
