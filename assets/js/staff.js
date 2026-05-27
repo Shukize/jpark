@@ -721,7 +721,7 @@
     const isAnn = m.to === "all";
     const toLabel = isAnn ? "All Staff" : (Array.isArray(m.toNames) ? m.toNames.join(", ") : (m.toNames || ""));
     const _nameParts = (m.fromName || "").toLowerCase().trim().split(/\s+/);
-    const emailAlias = (_nameParts.length > 1 ? _nameParts[0][0] + "." + _nameParts[_nameParts.length - 1] : (_nameParts[0] || "staff")) + "@jpark.hotel";
+    const emailAlias = (_nameParts.length > 1 ? _nameParts[0][0] + _nameParts[_nameParts.length - 1] : (_nameParts[0] || "staff")) + "@jpark.hotel";
     const avatarClass = isAnn ? "mda-avatar announcement-avatar" : "mda-avatar";
 
     detailArea.innerHTML =

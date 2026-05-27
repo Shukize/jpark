@@ -115,17 +115,17 @@ CREATE TRIGGER trg_employees_updated_at
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 INSERT INTO employees (id, name, email, role, status, shift, phone) VALUES
-  ('u_admin',  'Hotel Admin',    'h.admin@jpark.hotel',    'admin',     'on_shift',  '09:00–18:00', '+66 2 100 2000'),
-  ('u_staff',  'Front Desk',     'f.desk@jpark.hotel',     'frontdesk', 'on_shift',  '07:00–15:00', '+66 2 100 2001'),
-  ('e_ploy',   'Ploy Srisai',    'p.srisai@jpark.hotel',   'frontdesk', 'on_break',  '15:00–23:00', '+66 81 234 5678'),
-  ('e_kenji',  'Kenji Watanabe', 'k.watanabe@jpark.hotel', 'frontdesk', 'off_shift', '23:00–07:00', '+66 81 234 5690')
+  ('u_admin',  'Hotel Admin',    'hadmin@jpark.hotel',    'admin',     'on_shift',  '09:00–18:00', '+66 2 100 2000'),
+  ('u_staff',  'Front Desk',     'fdesk@jpark.hotel',     'frontdesk', 'on_shift',  '07:00–15:00', '+66 2 100 2001'),
+  ('e_ploy',   'Ploy Srisai',    'psrisai@jpark.hotel',   'frontdesk', 'on_break',  '15:00–23:00', '+66 81 234 5678'),
+  ('e_kenji',  'Kenji Watanabe', 'kwatanabe@jpark.hotel', 'frontdesk', 'off_shift', '23:00–07:00', '+66 81 234 5690')
 ON CONFLICT (id) DO NOTHING;
 
--- Migrate existing seed emails to initial.lastname format (idempotent)
-UPDATE employees SET email = 'h.admin@jpark.hotel'    WHERE id = 'u_admin'  AND email = 'hotel.admin@jpark.hotel';
-UPDATE employees SET email = 'f.desk@jpark.hotel'     WHERE id = 'u_staff'  AND email = 'front.desk@jpark.hotel';
-UPDATE employees SET email = 'p.srisai@jpark.hotel'   WHERE id = 'e_ploy'   AND email = 'ploy.srisai@jpark.hotel';
-UPDATE employees SET email = 'k.watanabe@jpark.hotel' WHERE id = 'e_kenji'  AND email = 'kenji.watanabe@jpark.hotel';
+-- Migrate existing seed emails to initiallastname format (idempotent)
+UPDATE employees SET email = 'hadmin@jpark.hotel'    WHERE id = 'u_admin'  AND email IN ('hotel.admin@jpark.hotel', 'h.admin@jpark.hotel');
+UPDATE employees SET email = 'fdesk@jpark.hotel'     WHERE id = 'u_staff'  AND email IN ('front.desk@jpark.hotel',  'f.desk@jpark.hotel');
+UPDATE employees SET email = 'psrisai@jpark.hotel'   WHERE id = 'e_ploy'   AND email IN ('ploy.srisai@jpark.hotel', 'p.srisai@jpark.hotel');
+UPDATE employees SET email = 'kwatanabe@jpark.hotel' WHERE id = 'e_kenji'  AND email IN ('kenji.watanabe@jpark.hotel', 'k.watanabe@jpark.hotel');
 
 -- ── Guest bookings (OTA + direct; used for guest portal login) ───────────────
 CREATE TABLE IF NOT EXISTS guest_bookings (

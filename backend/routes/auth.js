@@ -20,7 +20,7 @@ const TTL = 12 * 60 * 60; // 12-hour shift token
 
 function nameToEmail(name) {
   const parts = (name || 'staff').toLowerCase().trim().split(/\s+/);
-  return (parts.length > 1 ? parts[0][0] + '.' + parts[parts.length - 1] : parts[0]) + '@jpark.hotel';
+  return (parts.length > 1 ? parts[0][0] + parts[parts.length - 1] : parts[0]) + '@jpark.hotel';
 }
 
 /* ---- JWT helpers (mirror of middleware/auth.js) ---- */

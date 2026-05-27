@@ -54,7 +54,7 @@
   function emailFor(user) {
     if (user.email) return user.email;
     const parts = (user.name || user.username || "staff").toLowerCase().trim().split(/\s+/);
-    const slug = parts.length > 1 ? parts[0][0] + "." + parts[parts.length - 1] : parts[0];
+    const slug = parts.length > 1 ? parts[0][0] + parts[parts.length - 1] : parts[0];
     return slug + "@jpark.hotel";
   }
 
