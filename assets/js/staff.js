@@ -431,13 +431,16 @@
 
     const bodyEl = document.getElementById("ccBody");
     const cur = I.getLang();
-    conv.messages.filter((m) => m.from !== "bot").forEach((m) => {
+    conv.messages.forEach((m) => {
       const div = document.createElement("div");
       div.className = "msg " + m.from;
       if (m.from === "system") { div.textContent = m.text; }
       else {
-        div.innerHTML = '<span class="msg-from">' +
-          esc(m.from === "guest" ? (conv.guestName || t("chat.you")) : m.from === "staff" ? (m.staffName || t("chat.staff")) : t("chat.staff")) + "</span>";
+        const label = m.from === "guest" ? (conv.guestName || t("chat.you"))
+                    : m.from === "staff" ? (m.staffName || t("chat.staff"))
+                    : m.from === "bot"   ? t("chat.bot")
+                    : t("chat.staff");
+        div.innerHTML = '<span class="msg-from">' + esc(label) + "</span>";
         const span = document.createElement("span"); div.appendChild(span);
         if (m.lang && m.lang === cur) span.textContent = m.text;
         else J.translate.fill(span, m.text, div);
@@ -714,7 +717,8 @@
 
     const isAnn = m.to === "all";
     const toLabel = isAnn ? "All Staff" : (Array.isArray(m.toNames) ? m.toNames.join(", ") : (m.toNames || ""));
-    const emailAlias = (m.fromName || "").toLowerCase().replace(/\s+/g, ".") + "@jpark.hotel";
+    const _nameParts = (m.fromName || "").toLowerCase().trim().split(/\s+/);
+    const emailAlias = (_nameParts.length > 1 ? _nameParts[0][0] + "." + _nameParts[_nameParts.length - 1] : (_nameParts[0] || "staff")) + "@jpark.hotel";
     const avatarClass = isAnn ? "mda-avatar announcement-avatar" : "mda-avatar";
 
     detailArea.innerHTML =

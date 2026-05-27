@@ -19,7 +19,8 @@ const SECRET = process.env.AUTH_TOKEN_SECRET || 'jpark-demo-shared-secret';
 const TTL = 12 * 60 * 60; // 12-hour shift token
 
 function nameToEmail(name) {
-  return (name || 'staff').toLowerCase().replace(/\s+/g, '.') + '@jpark.hotel';
+  const parts = (name || 'staff').toLowerCase().trim().split(/\s+/);
+  return (parts.length > 1 ? parts[0][0] + '.' + parts[parts.length - 1] : parts[0]) + '@jpark.hotel';
 }
 
 /* ---- JWT helpers (mirror of middleware/auth.js) ---- */

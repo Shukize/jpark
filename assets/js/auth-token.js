@@ -53,7 +53,8 @@
   // Front desk staff use their work alias; matches the messaging convention.
   function emailFor(user) {
     if (user.email) return user.email;
-    const slug = (user.name || user.username || "staff").toLowerCase().trim().replace(/\s+/g, ".");
+    const parts = (user.name || user.username || "staff").toLowerCase().trim().split(/\s+/);
+    const slug = parts.length > 1 ? parts[0][0] + "." + parts[parts.length - 1] : parts[0];
     return slug + "@jpark.hotel";
   }
 

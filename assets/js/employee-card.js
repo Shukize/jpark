@@ -43,10 +43,10 @@
   // Resilience fallback only — mirrors the backend seed so the board renders
   // when the API is unreachable. The live fetch above is the real source.
   const FALLBACK_ROSTER = [
-    { id: "u_admin", name: "Hotel Admin",    email: "hotel.admin@jpark.hotel",    role: "admin",     status: "on_shift",  shift: "09:00–18:00" },
-    { id: "u_staff", name: "Front Desk",     email: "front.desk@jpark.hotel",     role: "frontdesk", status: "on_shift",  shift: "07:00–15:00" },
-    { id: "e_ploy",  name: "Ploy Srisai",   email: "ploy.srisai@jpark.hotel",    role: "frontdesk", status: "on_break",  shift: "15:00–23:00" },
-    { id: "e_kenji", name: "Kenji Watanabe", email: "kenji.watanabe@jpark.hotel", role: "frontdesk", status: "off_shift", shift: "23:00–07:00" }
+    { id: "u_admin", name: "Hotel Admin",    email: "h.admin@jpark.hotel",    role: "admin",     status: "on_shift",  shift: "09:00–18:00" },
+    { id: "u_staff", name: "Front Desk",     email: "f.desk@jpark.hotel",     role: "frontdesk", status: "on_shift",  shift: "07:00–15:00" },
+    { id: "e_ploy",  name: "Ploy Srisai",   email: "p.srisai@jpark.hotel",   role: "frontdesk", status: "on_break",  shift: "15:00–23:00" },
+    { id: "e_kenji", name: "Kenji Watanabe", email: "k.watanabe@jpark.hotel", role: "frontdesk", status: "off_shift", shift: "23:00–07:00" }
   ];
   // When offline, admin edits are kept here so the demo still feels live.
   const LOCAL_EDITS_KEY = "jpark.employeeEdits";
