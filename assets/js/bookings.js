@@ -114,6 +114,20 @@
     );
     if (dup) return dup;
 
+    // Persist to backend (fire-and-forget; localStorage is source of truth for the demo)
+    const API = window.JPark && window.JPark.api;
+    if (API) {
+      API.post("/api/guest-bookings", {
+        ref: rec.ref, channel: rec.channel, channelName: rec.channelName,
+        channelEmail: rec.channelEmail, guestName: rec.guestName,
+        guestEmail: rec.guestEmail, guestPhone: rec.guestPhone,
+        room: rec.room, checkIn: rec.checkIn, checkOut: rec.checkOut,
+        nights: rec.nights, adults: rec.adults, children: rec.children,
+        total: rec.total, currency: rec.currency, status: rec.status,
+        lang: rec.lang, confirmation: rec.confirmation,
+      }).catch(function () {});
+    }
+
     return S.insert("guestBookings", rec);
   }
 

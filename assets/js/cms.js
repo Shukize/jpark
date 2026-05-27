@@ -211,9 +211,33 @@
 
   function applyAll() { applyContent(); applyAnnouncements(); applyAdminBar(); }
 
+  /* Fetch content from the API and merge into localStorage so edits made on
+     any device (or by another admin tab) are reflected on this page. */
+  async function syncContentFromApi() {
+    const API = window.JPark && window.JPark.api;
+    if (!API) return;
+    const res = await API.get("/api/content");
+    if (res.error || res.offline) return;
+    // Only update if the API has actual overrides / settings
+    const hasData = (res.overrides && Object.keys(res.overrides).length)
+      || (res.images && Object.keys(res.images).length)
+      || (res.theme  && Object.keys(res.theme).length)
+      || (res.hidden && res.hidden.length);
+    if (!hasData) return;
+    const local = S.read("content", {}) || {};
+    const merged = Object.assign({}, local, {
+      overrides: res.overrides || local.overrides || {},
+      images:    res.images    || local.images    || {},
+      theme:     res.theme     || local.theme     || {},
+      hidden:    res.hidden    ? Object.fromEntries(res.hidden.map((k) => [k, true])) : (local.hidden || {}),
+    });
+    S.write("content", merged);
+  }
+
   document.addEventListener("DOMContentLoaded", () => {
     applyAll();
     locateFromHash();
+    syncContentFromApi();
 
     const close = document.getElementById("annClose");
     if (close) close.addEventListener("click", () => {

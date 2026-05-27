@@ -2,6 +2,8 @@
    J Park Hotel — guest portal
    Access gate, quick service matrix, in-room dining,
    live request tracker, and concierge wiring.
+   API-first: all writes go to the backend; localStorage is
+   the fallback when the API is unreachable (offline / dev).
    ============================================================ */
 (function () {
   "use strict";
@@ -10,7 +12,6 @@
   const U = window.JPark.util;
   const t = (k) => I.t(k);
 
-  /* ---------- service request matrix definition ---------- */
   const MATRIX = [
     { cat: "housekeeping", ico: "🧺", items: [
       { key: "req.towels", ico: "🛁" }, { key: "req.toiletries", ico: "🧴" },
@@ -32,28 +33,40 @@
   ];
 
   const els = {};
-  let guest = null;       // { bookingId, name, room }
-  let cart = {};          // itemId -> qty
+  let guest = null;
+  let cart = {};
+  let pollTimer = null;
 
-  /* ====================  AUTH GATE  ==================== */
+  /* ──────────────────────────────── AUTH GATE ─────────────────────────────── */
   function normalize(s) { return (s || "").trim().toLowerCase(); }
 
-  function tryLogin(last, room, ref) {
+  /* Try the API first; fall back to localStorage bookings on network failure. */
+  async function tryLogin(last, room, ref) {
+    const API = window.JPark.api;
+    if (API) {
+      const body = ref ? { ref: ref.trim() } : { lastName: last.trim(), room: room.trim() };
+      const res = await API.post("/api/auth/guest-login", body);
+      if (!res.error) return res; // { bookingId, name, lastName, room, ref }
+      if (!res.offline) return null; // wrong credentials from API
+    }
+    // Offline fallback
     const bookings = S.list("bookings");
     last = normalize(last); room = normalize(room); ref = normalize(ref);
-    let bk = null;
-    if (ref) {
-      bk = bookings.find((b) => normalize(b.ref) === ref);
-    }
-    if (!bk && last && room) {
+    let bk = ref ? bookings.find((b) => normalize(b.ref) === ref) : null;
+    if (!bk && last && room)
       bk = bookings.find((b) => normalize(b.lastName) === last && normalize(b.room) === room);
-    }
-    return bk;
+    if (!bk) return null;
+    return {
+      bookingId: bk.id,
+      name: bk.lastName.charAt(0).toUpperCase() + bk.lastName.slice(1),
+      lastName: bk.lastName,
+      room: bk.room,
+      ref: bk.ref,
+    };
   }
 
-  function setGuest(bk) {
-    const name = bk.lastName.charAt(0).toUpperCase() + bk.lastName.slice(1);
-    guest = { bookingId: bk.id, name: name, room: bk.room };
+  function setGuest(info) {
+    guest = { bookingId: info.bookingId, name: info.name, room: info.room };
     S.setSession("guest", guest);
   }
 
@@ -68,30 +81,32 @@
       renderMenu();
       renderCart();
       renderTracker();
+      startTrackerPoll();
+    } else {
+      stopTrackerPoll();
     }
   }
 
   function initGate() {
-    els.gate = document.getElementById("svcGate");
+    els.gate   = document.getElementById("svcGate");
     els.portal = document.getElementById("svcPortal");
     if (!els.gate) return;
     els.pbName = document.getElementById("pbName");
     els.pbRoom = document.getElementById("pbRoom");
     const form = document.getElementById("gateForm");
-    const err = document.getElementById("gateError");
+    const err  = document.getElementById("gateError");
 
     guest = S.getSession("guest");
 
-    form.addEventListener("submit", (e) => {
+    form.addEventListener("submit", async (e) => {
       e.preventDefault();
       err.textContent = "";
-      const bk = tryLogin(
-        document.getElementById("gateLast").value,
-        document.getElementById("gateRoom").value,
-        document.getElementById("gateRef").value
-      );
-      if (!bk) { err.textContent = t("gate.error"); return; }
-      setGuest(bk);
+      const last = document.getElementById("gateLast").value;
+      const room = document.getElementById("gateRoom").value;
+      const ref  = document.getElementById("gateRef").value;
+      const info = await tryLogin(last, room, ref);
+      if (!info) { err.textContent = t("gate.error"); return; }
+      setGuest(info);
       showPortal();
       U.toast(t("gate.welcome") + ", " + guest.name, "success");
       els.portal.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -106,7 +121,7 @@
     showPortal();
   }
 
-  /* ====================  SERVICE MATRIX  ==================== */
+  /* ─────────────────────────────── SERVICE MATRIX ─────────────────────────── */
   function renderMatrix() {
     const wrap = document.getElementById("matrixGroups");
     if (!wrap) return;
@@ -115,7 +130,7 @@
       const g = document.createElement("div");
       g.className = "matrix-group";
       g.innerHTML =
-        '<h4><span class="mg-ico">' + group.ico + '</span>' +
+        '<h4><span class="mg-ico">' + group.ico + "</span>" +
         U.escapeHtml(t("matrix.cat." + group.cat)) + "</h4>";
       const btns = document.createElement("div");
       btns.className = "matrix-buttons";
@@ -137,30 +152,42 @@
     });
   }
 
-  function submitService(category, titleKey) {
-    S.insert("requests", {
-      kind: "service",
-      category: category,
-      titleKey: titleKey,
-      title: t(titleKey),
-      room: guest.room,
+  async function submitService(category, titleKey) {
+    const guestId = S.guestId();
+    const payload = {
+      guestId,
       guestName: guest.name,
-      guestId: S.guestId(),
+      roomNumber: guest.room,
+      type: category,
+      kind: "service",
+      titleKey,
+      title: t(titleKey),
       lang: I.getLang(),
-      status: "pending"
-    });
+    };
+
+    const API = window.JPark.api;
+    if (API) {
+      const res = await API.post("/api/service-requests", payload);
+      if (!res.error) {
+        U.toast(t("matrix.sent"), "success");
+        renderTracker();
+        return;
+      }
+      if (!res.offline) { U.toast(t("matrix.sent"), "success"); return; }
+    }
+    // Offline fallback
+    S.insert("requests", Object.assign(payload, { room: guest.room, status: "pending" }));
     U.toast(t("matrix.sent"), "success");
   }
 
-  /* ====================  IN-ROOM DINING  ==================== */
+  /* ─────────────────────────────── IN-ROOM DINING ─────────────────────────── */
   const RS_CATS = ["breakfast", "main", "drink", "dessert"];
   let activeCat = "breakfast";
 
   function renderMenu() {
-    const catWrap = document.getElementById("rsCats");
+    const catWrap  = document.getElementById("rsCats");
     const menuWrap = document.getElementById("rsMenu");
     if (!catWrap || !menuWrap) return;
-
     catWrap.innerHTML = "";
     RS_CATS.forEach((c) => {
       const b = document.createElement("button");
@@ -170,7 +197,6 @@
       b.addEventListener("click", () => { activeCat = c; renderMenu(); });
       catWrap.appendChild(b);
     });
-
     menuWrap.innerHTML = "";
     S.list("menu").filter((m) => m.cat === activeCat).forEach((m) => {
       const item = document.createElement("div");
@@ -180,8 +206,7 @@
         '<div class="rs-price">' + U.money(m.price) + "</div></div>" +
         '<button class="rs-add" type="button" aria-label="' + U.escapeHtml(t("rs.add")) + '">+</button>';
       item.querySelector(".rs-add").addEventListener("click", () => {
-        cart[m.id] = (cart[m.id] || 0) + 1;
-        renderCart();
+        cart[m.id] = (cart[m.id] || 0) + 1; renderCart();
       });
       menuWrap.appendChild(item);
     });
@@ -203,21 +228,17 @@
   function renderCart() {
     const wrap = document.getElementById("rsCart");
     if (!wrap) return;
-    const menu = S.list("menu");
+    const menu  = S.list("menu");
     const lines = Object.keys(cart).filter((id) => cart[id] > 0);
-
     let html = "<h4>" + U.escapeHtml(t("rs.cart")) + "</h4>";
     if (!lines.length) {
       html += '<p class="cart-empty">' + U.escapeHtml(t("rs.cartEmpty")) + "</p>";
-      wrap.innerHTML = html;
-      return;
+      wrap.innerHTML = html; return;
     }
     let total = 0;
     lines.forEach((id) => {
-      const m = menu.find((x) => x.id === id);
-      if (!m) return;
-      const sub = m.price * cart[id];
-      total += sub;
+      const m = menu.find((x) => x.id === id); if (!m) return;
+      const sub = m.price * cart[id]; total += sub;
       html +=
         '<div class="cart-line" data-id="' + id + '">' +
         '<span class="cl-name">' + U.escapeHtml(t(m.key)) + "</span>" +
@@ -232,7 +253,6 @@
       '<div class="field"><label>' + U.escapeHtml(t("rs.notes")) + '</label><textarea id="rsNotes" placeholder="' + U.escapeHtml(t("rs.notesPh")) + '"></textarea></div>' +
       '<button class="btn btn-solid gold" id="rsPlace" type="button">' + U.escapeHtml(t("rs.place")) + "</button>";
     wrap.innerHTML = html;
-
     wrap.querySelectorAll(".cart-line").forEach((line) => {
       const id = line.getAttribute("data-id");
       line.querySelector('[data-act="inc"]').addEventListener("click", () => { cart[id]++; renderCart(); });
@@ -243,46 +263,55 @@
     wrap.querySelector("#rsPlace").addEventListener("click", placeOrder);
   }
 
-  function placeOrder() {
-    const menu = S.list("menu");
+  async function placeOrder() {
+    const menu  = S.list("menu");
     const items = Object.keys(cart).filter((id) => cart[id] > 0).map((id) => {
       const m = menu.find((x) => x.id === id);
       return { key: m.key, name: t(m.key), qty: cart[id], price: m.price };
     });
     if (!items.length) return;
     const deliver = (document.getElementById("rsDeliver") || {}).value || "asap";
-    const note = (document.getElementById("rsNotes") || {}).value || "";
-    const total = items.reduce((s, it) => s + it.price * it.qty, 0);
+    const note    = (document.getElementById("rsNotes")   || {}).value || "";
+    const total   = items.reduce((s, it) => s + it.price * it.qty, 0);
+    const guestId = S.guestId();
 
-    S.insert("requests", {
-      kind: "order",
-      category: "dining",
-      titleKey: "staff.requests.order",
-      title: t("staff.requests.order"),
-      room: guest.room,
-      guestName: guest.name,
-      guestId: S.guestId(),
-      lang: I.getLang(),
-      items: items,
-      deliverAt: deliver,
-      note: note,
-      total: total,
-      status: "pending"
-    });
-    cart = {};
-    renderCart();
+    const payload = {
+      guestId, guestName: guest.name, room: guest.room,
+      items, deliverAt: deliver, notes: note, total,
+    };
+
+    const API = window.JPark.api;
+    if (API) {
+      const res = await API.post("/api/orders", payload);
+      if (!res.error || res.offline) {
+        cart = {}; renderCart();
+        U.toast(t("rs.placed"), "success");
+        renderTracker();
+        return;
+      }
+    }
+    // Offline fallback
+    S.insert("requests", Object.assign({
+      kind: "order", category: "dining",
+      titleKey: "staff.requests.order", title: t("staff.requests.order"),
+      room: guest.room, guestName: guest.name, guestId,
+      lang: I.getLang(), deliverAt: deliver, note, status: "pending",
+    }, { items, total }));
+    cart = {}; renderCart();
     U.toast(t("rs.placed"), "success");
     renderTracker();
   }
 
-  /* ====================  STATUS TRACKER  ==================== */
+  /* ─────────────────────────────── STATUS TRACKER ─────────────────────────── */
   const STATUS_ORDER = ["pending", "progress", "done"];
 
   function statusRail(status) {
     if (status === "cancelled") return "";
-    const idx = STATUS_ORDER.indexOf(status);
-    let html = '<div class="ti-rail">';
-    STATUS_ORDER.forEach((s, i) => {
+    const map = { pending: "pending", in_progress: "progress", progress: "progress", done: "done" };
+    const s   = map[status] || status;
+    const idx = STATUS_ORDER.indexOf(s);
+    let html  = '<div class="ti-rail">';
+    STATUS_ORDER.forEach((step, i) => {
       html += '<span class="dot' + (i <= idx ? " on" : "") + '"></span>';
       if (i < STATUS_ORDER.length - 1) html += '<span class="step' + (i < idx ? " on" : "") + '"></span>';
     });
@@ -290,50 +319,119 @@
   }
 
   function reqTitle(r) {
-    if (r.kind === "order") {
-      const names = (r.items || []).map((it) => (it.qty + "× " + t(it.key))).join(", ");
-      return t("staff.requests.order") + " — " + names;
+    if (r.kind === "order" || r.titleKey === "staff.requests.order") {
+      const names = (r.items || []).map((it) => it.qty + "× " + t(it.key || "")).join(", ");
+      return t("staff.requests.order") + (names ? " — " + names : "");
     }
     return r.titleKey ? t(r.titleKey) : (r.title || "");
   }
 
-  function renderTracker() {
+  function normaliseStatus(s) {
+    return s === "in_progress" ? "progress" : (s || "pending");
+  }
+
+  /* Merge service-requests and orders from API into one flat list. */
+  async function fetchTrackerItems() {
+    const guestId = S.guestId();
+    const API     = window.JPark.api;
+    if (!API) return null;
+
+    const [srRes, ordRes] = await Promise.all([
+      API.get("/api/service-requests?guestId=" + encodeURIComponent(guestId)),
+      API.get("/api/orders?guestId="           + encodeURIComponent(guestId)),
+    ]);
+
+    if (srRes.offline) return null; // fall back to localStorage
+
+    const srs  = (Array.isArray(srRes) ? srRes : []).map((r) => ({
+      id: r.id, kind: r.kind || "service",
+      titleKey: r.titleKey || r.title_key,
+      title: r.title, category: r.type,
+      room: r.roomNumber || r.room_number,
+      guestName: r.guestName || r.guest_name,
+      items: r.items || [],
+      deliverAt: r.deliverAt || r.deliver_at,
+      note: r.note || r.notes,
+      total: r.total,
+      status: normaliseStatus(r.status),
+      createdAt: r.createdAt || (r.created_at ? new Date(r.created_at).getTime() : 0),
+    }));
+
+    const ords = (Array.isArray(ordRes) ? ordRes : []).map((r) => ({
+      id: "ord-" + r.id, kind: "order",
+      titleKey: "staff.requests.order", title: t("staff.requests.order"),
+      category: "dining",
+      room: r.room || r.room_number,
+      guestName: r.guestName || r.guest_name,
+      items: r.items || [],
+      deliverAt: r.deliverAt || r.deliver_at,
+      note: r.note || r.notes,
+      total: r.total,
+      status: normaliseStatus(r.status),
+      createdAt: r.createdAt || (r.created_at ? new Date(r.created_at).getTime() : 0),
+    }));
+
+    return [...srs, ...ords];
+  }
+
+  function renderTrackerItems(mine) {
     const wrap = document.getElementById("trackList");
     if (!wrap || !guest) return;
-    const mine = S.list("requests")
-      .filter((r) => r.room === guest.room)
-      .sort((a, b) => b.createdAt - a.createdAt);
+    mine = mine || S.list("requests").filter((r) => r.room === guest.room);
+    mine = mine.sort((a, b) => b.createdAt - a.createdAt);
 
     if (!mine.length) {
-      wrap.innerHTML = '<p class="track-empty">' + U.escapeHtml(t("track.empty")) + "</p>";
-      return;
+      wrap.innerHTML = '<p class="track-empty">' + U.escapeHtml(t("track.empty")) + "</p>"; return;
     }
     wrap.innerHTML = "";
     mine.forEach((r) => {
+      const normStatus = normaliseStatus(r.status);
       const item = document.createElement("div");
       item.className = "track-item";
-      const canCancel = r.status === "pending";
+      const canCancel = normStatus === "pending";
       let meta = U.timeAgo(r.createdAt);
-      if (r.kind === "order" && r.deliverAt) {
+      if ((r.kind === "order") && r.deliverAt)
         meta += " · " + t("rs.deliveryTime") + " " + (r.deliverAt === "asap" ? t("rs.asap") : r.deliverAt);
-      }
       item.innerHTML =
         '<div class="ti-head"><span class="ti-title">' + U.escapeHtml(reqTitle(r)) + "</span>" +
-        '<span class="badge ' + r.status + '">' + U.escapeHtml(t("track.status." + r.status)) + "</span></div>" +
-        statusRail(r.status) +
+        '<span class="badge ' + normStatus + '">' + U.escapeHtml(t("track.status." + normStatus)) + "</span></div>" +
+        statusRail(normStatus) +
         '<div class="ti-meta">' + U.escapeHtml(meta) + "</div>" +
-        (r.note ? '<div class="ti-note">“' + U.escapeHtml(r.note) + '”</div>' : "") +
+        (r.note ? '<div class="ti-note">"' + U.escapeHtml(r.note) + '"</div>' : "") +
         (canCancel ? '<button class="link-cancel" type="button">' + U.escapeHtml(t("track.cancel")) + "</button>" : "");
       if (canCancel) {
-        item.querySelector(".link-cancel").addEventListener("click", () => {
-          S.update("requests", r.id, { status: "cancelled" });
-        });
+        item.querySelector(".link-cancel").addEventListener("click", () => cancelItem(r));
       }
       wrap.appendChild(item);
     });
   }
 
-  /* ====================  CONCIERGE  ==================== */
+  async function cancelItem(r) {
+    const API = window.JPark.api;
+    if (API && !String(r.id).startsWith("ord-")) {
+      await API.patch("/api/service-requests/" + r.id, { status: "cancelled" });
+    } else if (API && String(r.id).startsWith("ord-")) {
+      await API.patch("/api/orders/" + r.id.replace("ord-", ""), { status: "cancelled" });
+    } else {
+      S.update("requests", r.id, { status: "cancelled" });
+    }
+    renderTracker();
+  }
+
+  async function renderTracker() {
+    const items = await fetchTrackerItems();
+    renderTrackerItems(items || undefined);
+  }
+
+  function startTrackerPoll() {
+    stopTrackerPoll();
+    pollTimer = setInterval(renderTracker, 8000);
+  }
+  function stopTrackerPoll() {
+    if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+  }
+
+  /* ─────────────────────────────── CONCIERGE ──────────────────────────────── */
   function renderConcierge() {
     const grid = document.getElementById("concGrid");
     if (!grid) return;
@@ -350,21 +448,10 @@
         '<button class="cc-book" type="button">' + U.escapeHtml(t("conc.book")) + "</button>" +
         "</div></div>";
       card.querySelector(".cc-ask").addEventListener("click", () => {
-        const title = t(c.key + ".t");
-        if (window.JPark.chat) window.JPark.chat.askAbout(title);
+        if (window.JPark.chat) window.JPark.chat.askAbout(t(c.key + ".t"));
       });
       card.querySelector(".cc-book").addEventListener("click", () => {
-        S.insert("requests", {
-          kind: "concierge",
-          category: "frontdesk",
-          titleKey: c.key + ".t",
-          title: t(c.key + ".t"),
-          room: guest ? guest.room : "—",
-          guestName: guest ? guest.name : "Guest",
-          guestId: S.guestId(),
-          lang: I.getLang(),
-          status: "pending"
-        });
+        submitService("frontdesk", c.key + ".t");
         U.toast(t("conc.booked"), "success");
         if (guest) renderTracker();
       });
@@ -372,17 +459,15 @@
     });
   }
 
-  /* ====================  WIRING  ==================== */
+  /* ─────────────────────────────── WIRING ─────────────────────────────────── */
   document.addEventListener("DOMContentLoaded", () => {
     initGate();
     renderConcierge();
 
-    // live updates from staff / other tabs
     S.on("requests", () => { if (guest) renderTracker(); });
-    S.on("menu", () => { if (guest) { renderMenu(); renderCart(); } });
+    S.on("menu",     () => { if (guest) { renderMenu(); renderCart(); } });
     S.on("concierge", renderConcierge);
 
-    // re-render everything on language change
     document.addEventListener("jpark:langchange", () => {
       renderConcierge();
       if (guest) { renderMatrix(); renderMenu(); renderCart(); renderTracker(); }

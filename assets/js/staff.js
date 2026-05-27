@@ -89,11 +89,32 @@
     return u && u.active ? s : null;
   }
 
-  function login(username, password) {
+  /* Local (localStorage) credential check — used as fallback when the API is offline. */
+  function loginLocal(username, password) {
     const u = S.list("staff").find((x) => x.username.toLowerCase() === username.trim().toLowerCase());
     if (!u || u.password !== password) return { error: t("staff.login.error") };
     if (!u.active) return { error: t("staff.login.disabled") };
     return { user: { id: u.id, name: u.name, role: u.role, username: u.username }, mustChange: !!u.mustChange, staffId: u.id };
+  }
+
+  /* Server-first login: verifies bcrypt password on the backend, which issues a
+     signed JWT. Falls back to loginLocal() when the API is unreachable. */
+  async function login(username, password) {
+    const API = window.JPark && window.JPark.api;
+    if (API) {
+      const res = await API.post("/api/auth/login", { username, password });
+      if (!res.error) {
+        // Backend issued a proper JWT — store it and build user from the payload.
+        try { localStorage.setItem("jpark.staff.token", res.token); } catch (_) {}
+        return { user: res.user };
+      }
+      if (!res.offline) {
+        // API is reachable but credentials were wrong.
+        return { error: res.error || t("staff.login.error") };
+      }
+    }
+    // API offline — fall back to localStorage credentials.
+    return loginLocal(username, password);
   }
 
   /* ---- login sub-views (sign in / new staff / forgot password|username) ---- */
@@ -118,7 +139,109 @@
   }
   function completeLogin(userObj) {
     setSession(userObj);
-    Promise.resolve(J.authToken && J.authToken.mint(userObj)).catch(function () {}).then(showDash);
+    // If the token was already stored by the server-login path, use it.
+    // Otherwise mint a client-side token (offline / legacy flow).
+    if (J.authToken && !J.authToken.get()) {
+      Promise.resolve(J.authToken.mint(userObj)).catch(function () {}).then(showDash);
+    } else {
+      showDash();
+    }
+  }
+
+  /* ── API polling: pull live data from the backend every N seconds ─────── */
+  let _pollTimer = null;
+
+  function startApiPolling() {
+    stopApiPolling();
+    _pollRequests(); _pollChats(); _pollGuestBookings();
+    _pollTimer = setInterval(function () {
+      _pollRequests(); _pollChats(); _pollGuestBookings();
+    }, 6000);
+  }
+  function stopApiPolling() {
+    if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
+  }
+
+  async function _pollRequests() {
+    const API = window.JPark && window.JPark.api;
+    if (!API) return;
+    const data = await API.get("/api/service-requests");
+    if (!Array.isArray(data)) return;
+    const reqs = data.map(function (r) {
+      return {
+        id: String(r.id),
+        kind: r.kind || "service",
+        category: r.type || r.kind,
+        titleKey: r.title_key || r.titleKey,
+        title: r.title,
+        room: r.room_number,
+        guestName: r.guest_name || r.guestName,
+        guestId: r.guest_id || r.guestId,
+        items: r.items || [],
+        deliverAt: r.deliver_at || r.deliverAt,
+        note: r.note || r.notes,
+        total: r.total,
+        lang: r.lang || "en",
+        status: r.status === "in_progress" ? "progress" : (r.status || "pending"),
+        createdAt: r.created_at ? new Date(r.created_at).getTime() : (r.createdAt || 0),
+      };
+    });
+    S.write("requests", reqs);
+  }
+
+  async function _pollChats() {
+    const API = window.JPark && window.JPark.api;
+    if (!API) return;
+    const data = await API.get("/api/chat/all");
+    if (!Array.isArray(data)) return;
+    const local = S.list("chats");
+    let dirty = false;
+    data.forEach(function (remote) {
+      const idx = local.findIndex(function (c) { return c.id === remote.id; });
+      if (idx < 0) {
+        local.push({
+          id: remote.id, guestName: remote.guestName, room: remote.room,
+          lang: remote.lang, escalated: remote.escalated,
+          unreadForStaff: remote.unreadForStaff, lastMsg: remote.lastMsg,
+          lastAt: remote.lastAt, messages: [],
+        });
+        dirty = true;
+      } else if (local[idx].unreadForStaff !== remote.unreadForStaff
+              || local[idx].lastMsg !== remote.lastMsg) {
+        local[idx] = Object.assign({}, local[idx], {
+          unreadForStaff: remote.unreadForStaff, lastMsg: remote.lastMsg,
+          lastAt: remote.lastAt, escalated: remote.escalated,
+        });
+        dirty = true;
+      }
+    });
+    if (dirty) S.write("chats", local);
+  }
+
+  async function _pollGuestBookings() {
+    const API = window.JPark && window.JPark.api;
+    if (!API) return;
+    const data = await API.get("/api/guest-bookings");
+    if (!Array.isArray(data)) return;
+    S.write("guestBookings", data);
+  }
+
+  /* Load full message list for a chat thread from the API. */
+  async function _loadThreadMessages(guestId) {
+    const API = window.JPark && window.JPark.api;
+    if (!API) return;
+    const res = await API.get("/api/chat?guestId=" + encodeURIComponent(guestId));
+    if (res.error) return;
+    const all = S.list("chats");
+    const i = all.findIndex(function (c) { return c.id === guestId; });
+    if (i < 0) return;
+    all[i] = Object.assign({}, all[i], {
+      messages: (res.messages || []).map(function (m) {
+        return { id: m.id, from: m.from, text: m.text, staffName: m.fromName, lang: m.lang, ts: m.ts };
+      }),
+      escalated: res.escalated,
+    });
+    S.write("chats", all);
   }
 
   function showLogin() {
@@ -145,6 +268,7 @@
     selectPanel(panel);
     updateBadges();
     requestNotifyPermission();
+    startApiPolling();
   }
 
   /* ====================  PANELS  ==================== */
@@ -244,11 +368,20 @@
       const startBtn = card.querySelector(".act-start");
       const doneBtn = card.querySelector(".act-done");
       const reopenBtn = card.querySelector(".act-reopen");
-      if (startBtn) startBtn.addEventListener("click", () => S.update("requests", r.id, { status: "progress" }));
-      if (doneBtn) doneBtn.addEventListener("click", () => S.update("requests", r.id, { status: "done" }));
-      if (reopenBtn) reopenBtn.addEventListener("click", () => S.update("requests", r.id, { status: "progress" }));
+      if (startBtn) startBtn.addEventListener("click", () => updateReqStatus(r.id, "progress"));
+      if (doneBtn) doneBtn.addEventListener("click", () => updateReqStatus(r.id, "done"));
+      if (reopenBtn) reopenBtn.addEventListener("click", () => updateReqStatus(r.id, "progress"));
       list.appendChild(card);
     });
+  }
+
+  function updateReqStatus(id, status) {
+    S.update("requests", id, { status: status });
+    const API = window.JPark && window.JPark.api;
+    if (API) {
+      const apiStatus = status === "progress" ? "in_progress" : status;
+      API.patch("/api/service-requests/" + id, { status: apiStatus }).catch(function () {});
+    }
   }
 
   /* ====================  LIVE CHAT  ==================== */
@@ -274,7 +407,10 @@
           '<div class="cct-last">' + esc(c.lastMsg || "") + "</div>" +
           '<div class="cct-lang">' + esc((I.LANG_NAMES[c.lang] || c.lang || "")) +
             (c.escalated ? "" : " · " + esc(t("chat.bot"))) + "</div>";
-        div.addEventListener("click", () => { selectedThread = c.id; markThreadRead(c.id); renderChat(); });
+        div.addEventListener("click", () => {
+          selectedThread = c.id; markThreadRead(c.id);
+          _loadThreadMessages(c.id).then(() => renderChat());
+        });
         threadsEl.appendChild(div);
       });
     }
@@ -338,6 +474,15 @@
     c.unreadForGuest = (c.unreadForGuest || 0) + 1;
     all[i] = c;
     S.write("chats", all);
+    // Persist reply to backend
+    const API = window.JPark && window.JPark.api;
+    if (API) {
+      API.post("/api/chat", {
+        guestId: id, guestName: c.guestName, room: c.room,
+        from: "staff", fromName: session.name, text: text,
+        lang: I.getLang(), escalated: true,
+      }).catch(function () {});
+    }
   }
 
   /* ====================  PROFILE PICTURE  ==================== */
@@ -405,6 +550,9 @@
       all[i] = Object.assign({}, all[i], { readBy });
       S.write("guestBookings", all);
     }
+    // Sync to backend
+    const API = window.JPark && window.JPark.api;
+    if (API) API.patch("/api/guest-bookings/" + id, { userId: session.id }).catch(function () {});
   }
 
   /* Password / username reset requests filed from the login page. Admin-only. */
@@ -1520,7 +1668,7 @@
     });
   }
 
-  function addStaff(e) {
+  async function addStaff(e) {
     e.preventDefault();
     const err = document.getElementById("teamError");
     err.textContent = "";
@@ -1528,17 +1676,46 @@
     const user = document.getElementById("tmUser").value.trim();
     const role = document.getElementById("tmRole").value;
     if (!name || !user) { err.textContent = t("staff.team.needNameUser"); return; }
+
+    const API = window.JPark && window.JPark.api;
+    if (API) {
+      const res = await API.post("/api/auth/register", {
+        username: user, password: DEFAULT_STAFF_PASSWORD, name: name, role: role,
+      });
+      if (res.error && !res.offline) {
+        err.textContent = res.status === 409 ? t("staff.team.userTaken") : res.error;
+        return;
+      }
+      if (!res.offline) {
+        document.getElementById("teamForm").reset();
+        U.toast(t("staff.team.added"), "success");
+        await _syncStaffList();
+        renderTeam();
+        return;
+      }
+    }
+    // Offline fallback — localStorage only
     if (S.list("staff").some((x) => x.username.toLowerCase() === user.toLowerCase())) {
       err.textContent = t("staff.team.userTaken"); return;
     }
-    // New members start on the shared default password and must set their own
-    // via the "New Staff Account" flow on the login page.
-    S.insert("staff", {
-      name: name, username: user, password: DEFAULT_STAFF_PASSWORD,
-      role: role, active: true, mustChange: true
-    });
+    S.insert("staff", { name: name, username: user, password: DEFAULT_STAFF_PASSWORD, role: role, active: true, mustChange: true });
     document.getElementById("teamForm").reset();
     U.toast(t("staff.team.added"), "success");
+  }
+
+  async function _syncStaffList() {
+    const API = window.JPark && window.JPark.api;
+    if (!API) return;
+    const data = await API.get("/api/auth/staff");
+    if (!Array.isArray(data)) return;
+    const staff = data.map(function (e) {
+      return {
+        id: e.id, name: e.name, username: e.username || e.id,
+        role: e.role === "admin" ? "admin" : "staff",
+        active: e.active !== false, email: e.email,
+      };
+    });
+    S.write("staff", staff);
   }
 
   /* ====================  BADGES + NOTIFICATIONS  ==================== */
@@ -1629,18 +1806,20 @@
   document.addEventListener("DOMContentLoaded", () => {
     populateLangSelects();
 
-    // login form
-    document.getElementById("loginForm").addEventListener("submit", (e) => {
+    // login form — async so we can call the server-side auth API
+    document.getElementById("loginForm").addEventListener("submit", async (e) => {
       e.preventDefault();
       const err = document.getElementById("loginError");
-      const res = login(document.getElementById("loginUser").value, document.getElementById("loginPass").value);
+      const btn = document.getElementById("loginForm").querySelector('[type="submit"]');
+      if (btn) btn.disabled = true;
+      const res = await login(
+        document.getElementById("loginUser").value,
+        document.getElementById("loginPass").value
+      );
+      if (btn) btn.disabled = false;
       if (res.error) { err.textContent = res.error; return; }
       err.textContent = "";
-      // First-time / reset accounts must choose a new password before entering.
       if (res.mustChange) { startPasswordSetup(res.staffId); return; }
-      // Mint the bearer token (carries the role + admin permission) before the
-      // dashboard mounts any component that calls the API. Falls through even
-      // if minting somehow fails so login is never blocked.
       completeLogin(res.user);
     });
 
@@ -1714,7 +1893,7 @@
     document.querySelectorAll(".nav-item").forEach((b) =>
       b.addEventListener("click", () => selectPanel(b.dataset.panel)));
 
-    document.getElementById("dsSignout").addEventListener("click", () => { setSession(null); if (J.authToken) J.authToken.clear(); showLogin(); });
+    document.getElementById("dsSignout").addEventListener("click", () => { stopApiPolling(); setSession(null); if (J.authToken) J.authToken.clear(); showLogin(); });
 
     // avatar change
     const avatarWrap = document.getElementById("dsAvatarWrap");
