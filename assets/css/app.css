@@ -813,6 +813,14 @@ body.mobile-view .fac-card.large {
 .mda-star-btn { color: #888; }
 .mda-star-btn.starred { color: #c9a24b; background: #fdf8ec; border-color: #e8d5a0; }
 .mda-star-btn.starred:hover { background: #f9f0d0; }
+.mda-delete-btn { color: #c0392b; }
+.mda-delete-btn:hover { background: #fdecea; border-color: #e8b0aa; color: #a93226; }
+.mda-report-btn { color: #b7640a; }
+.mda-report-btn:hover { background: #fef4e7; border-color: #f0c980; color: #9a5208; }
+.mda-report-btn.reported { color: #999; background: #f7f7f7; border-color: #ddd; cursor: default; }
+.mda-report-btn.reported:hover { background: #f7f7f7; border-color: #ddd; }
+.mr-flag { color: #e67e22; font-size: 0.78rem; }
+.msg-row.reported .mr-subject { color: #c0392b; }
 .msg-detail-back {
   display: inline-flex; align-items: center; gap: 6px;
   background: none; border: none; cursor: pointer; color: var(--teal);

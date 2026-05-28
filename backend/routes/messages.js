@@ -65,6 +65,29 @@ router.patch('/:id/read', async (req, res) => {
   }
 });
 
+// PATCH /api/messages/:id/report
+// Body: { userId }  — flags the message as reported by this user
+router.patch('/:id/report', async (req, res) => {
+  const { userId } = req.body;
+  const { id } = req.params;
+  if (!userId) return res.status(400).json({ error: 'userId required' });
+
+  try {
+    const { rows } = await db.query(
+      `UPDATE messages
+       SET reported_by = array_append(reported_by, $1)
+       WHERE id = $2 AND NOT ($1 = ANY(reported_by))
+       RETURNING *`,
+      [userId, id]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Message not found or already reported' });
+    res.json(rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
 // DELETE /api/messages/:id  (admin only — caller must enforce role)
 router.delete('/:id', async (req, res) => {
   try {

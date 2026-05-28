@@ -22,9 +22,12 @@ CREATE TABLE IF NOT EXISTS messages (
   to_ids      TEXT[]       NOT NULL DEFAULT '{}',
   to_names    TEXT[]       NOT NULL DEFAULT '{}',
   read_by     TEXT[]       NOT NULL DEFAULT '{}',
+  reported_by TEXT[]       NOT NULL DEFAULT '{}',
   lang        VARCHAR(10),
   created_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
+
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS reported_by TEXT[] NOT NULL DEFAULT '{}';
 
 -- ── Service requests (housekeeping, maintenance, dining, front-desk) ─────────
 CREATE TABLE IF NOT EXISTS service_requests (

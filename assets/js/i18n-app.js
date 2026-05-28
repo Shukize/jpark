@@ -338,7 +338,13 @@
       "msg.empty.starred": "Messages and bookings you star will appear here.",
       "msg.replyPrefix": "Re:",
       "msg.fwdPrefix": "Fwd:",
-      "msg.fwdBody": "---------- Forwarded message ----------"
+      "msg.fwdBody": "---------- Forwarded message ----------",
+      "msg.delete": "Delete",
+      "msg.delete.confirm": "Delete this message? This cannot be undone.",
+      "msg.report": "Report",
+      "msg.report.confirm": "Report this message to admin as inappropriate?",
+      "msg.report.done": "Reported to admin.",
+      "msg.report.already": "Already reported."
     },
 
     /* =====================  ไทย  ===================== */
@@ -667,7 +673,13 @@
       "msg.empty.starred": "ข้อความและการจองที่คุณติดดาวจะปรากฏที่นี่",
       "msg.replyPrefix": "Re:",
       "msg.fwdPrefix": "Fwd:",
-      "msg.fwdBody": "---------- ข้อความที่ส่งต่อ ----------"
+      "msg.fwdBody": "---------- ข้อความที่ส่งต่อ ----------",
+      "msg.delete": "ลบ",
+      "msg.delete.confirm": "ลบข้อความนี้? ไม่สามารถย้อนกลับได้",
+      "msg.report": "รายงาน",
+      "msg.report.confirm": "รายงานข้อความนี้ต่อผู้ดูแลว่าไม่เหมาะสม?",
+      "msg.report.done": "รายงานถึงผู้ดูแลแล้ว",
+      "msg.report.already": "รายงานแล้ว"
     },
 
     /* =====================  日本語  ===================== */
@@ -996,7 +1008,13 @@
       "msg.empty.starred": "スターを付けたメッセージや予約がここに表示されます。",
       "msg.replyPrefix": "Re:",
       "msg.fwdPrefix": "Fwd:",
-      "msg.fwdBody": "---------- 転送メッセージ ----------"
+      "msg.fwdBody": "---------- 転送メッセージ ----------",
+      "msg.delete": "削除",
+      "msg.delete.confirm": "このメッセージを削除しますか？元に戻せません。",
+      "msg.report": "報告する",
+      "msg.report.confirm": "このメッセージを管理者に不適切として報告しますか？",
+      "msg.report.done": "管理者に報告しました。",
+      "msg.report.already": "報告済み。"
     },
 
     /* =====================  简体中文  ===================== */
@@ -1325,7 +1343,13 @@
       "msg.empty.starred": "您加了星标的邮件和预订将显示在此处。",
       "msg.replyPrefix": "回复：",
       "msg.fwdPrefix": "转发：",
-      "msg.fwdBody": "---------- 转发邮件 ----------"
+      "msg.fwdBody": "---------- 转发邮件 ----------",
+      "msg.delete": "删除",
+      "msg.delete.confirm": "确定删除此消息？此操作不可撤销。",
+      "msg.report": "举报",
+      "msg.report.confirm": "向管理员举报此消息为不当内容？",
+      "msg.report.done": "已向管理员举报。",
+      "msg.report.already": "已举报。"
     },
 
     /* =====================  繁體中文  ===================== */
@@ -1654,7 +1678,13 @@
       "msg.empty.starred": "您加了星號的郵件和預訂將顯示在此處。",
       "msg.replyPrefix": "回覆：",
       "msg.fwdPrefix": "轉寄：",
-      "msg.fwdBody": "---------- 轉寄郵件 ----------"
+      "msg.fwdBody": "---------- 轉寄郵件 ----------",
+      "msg.delete": "刪除",
+      "msg.delete.confirm": "確定刪除此訊息？此操作無法復原。",
+      "msg.report": "檢舉",
+      "msg.report.confirm": "向管理員檢舉此訊息為不當內容？",
+      "msg.report.done": "已向管理員檢舉。",
+      "msg.report.already": "已檢舉。"
     }
   };
 

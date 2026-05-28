@@ -757,7 +757,8 @@
       const avatarUserId = isSent ? session.id : m.fromId;
 
       const row = document.createElement("div");
-      row.className = "msg-row" + (unread ? " unread" : " read") + (isAnn ? " announcement" : "");
+      const isReported = isAdmin() && Array.isArray(m.reportedBy) && m.reportedBy.length > 0;
+      row.className = "msg-row" + (unread ? " unread" : " read") + (isAnn ? " announcement" : "") + (isReported ? " reported" : "");
       row.dataset.id = m.id;
       row.innerHTML =
         '<div class="mr-avatar">' + makeAvatarHtml(displayName, avatarUserId) + "</div>" +
@@ -767,7 +768,7 @@
           '<span class="mr-sep">—</span>' +
           '<span class="mr-preview">' + esc((m.body || "").replace(/\n/g, " ").slice(0, 100)) + "</span>" +
         "</div>" +
-        '<div class="mr-time">' + esc(formatMsgTime(m.createdAt)) + "</div>";
+        '<div class="mr-time">' + (isReported ? '<span class="mr-flag" title="Reported">⚑ </span>' : "") + esc(formatMsgTime(m.createdAt)) + "</div>";
       maybeTranslateInto(row.querySelector(".mr-subject"), m.subject || "", m.lang);
       maybeTranslateInto(row.querySelector(".mr-preview"), (m.body || "").replace(/\n/g, " ").slice(0, 100), m.lang);
       row.addEventListener("click", () => {
@@ -795,6 +796,9 @@
 
     const canReply = !!(m.fromId && m.fromId !== session.id);
     const isStarred = !!m.starred;
+    const canDelete = isAdmin() || m.fromId === session.id;
+    const alreadyReported = Array.isArray(m.reportedBy) && m.reportedBy.includes(session.id);
+    const canReport = m.fromId !== session.id;
 
     detailArea.innerHTML =
       '<button class="msg-detail-back" id="msgDetailBack">← Back</button>' +
@@ -816,6 +820,9 @@
         '<button class="mda-action-btn mda-star-btn' + (isStarred ? " starred" : "") + '" id="mdaStar">' +
           (isStarred ? "★ " + esc(t("msg.unstar")) : "☆ " + esc(t("msg.star"))) +
         "</button>" +
+        (canReport ? '<button class="mda-action-btn mda-report-btn' + (alreadyReported ? " reported" : "") + '" id="mdaReport">' +
+          (alreadyReported ? "⚠ " + esc(t("msg.report.already")) : "⚑ " + esc(t("msg.report"))) + "</button>" : "") +
+        (canDelete ? '<button class="mda-action-btn mda-delete-btn" id="mdaDelete">🗑 ' + esc(t("msg.delete")) + "</button>" : "") +
       "</div>";
 
     // Subject + body: show original immediately, then auto-translate to the
@@ -853,6 +860,30 @@
       }
       updateBadges();
     });
+
+    const reportBtn = detailArea.querySelector("#mdaReport");
+    if (reportBtn) {
+      reportBtn.addEventListener("click", () => {
+        if (!confirm(t("msg.report.confirm"))) return;
+        const cur = getAllMsgs().find((x) => x.id === m.id);
+        const reportedBy = cur ? (cur.reportedBy || []).concat([session.id]) : [session.id];
+        S.update("messages", m.id, { reportedBy });
+        reportBtn.className = "mda-action-btn mda-report-btn reported";
+        reportBtn.textContent = "⚠ " + t("msg.report.done");
+        reportBtn.disabled = true;
+      });
+    }
+
+    const deleteBtn = detailArea.querySelector("#mdaDelete");
+    if (deleteBtn) {
+      deleteBtn.addEventListener("click", () => {
+        if (!confirm(t("msg.delete.confirm"))) return;
+        S.remove("messages", m.id);
+        msgView = msgPrevView;
+        msgDetailId = null;
+        renderMessages();
+      });
+    }
 
     document.getElementById("msgDetailBack").addEventListener("click", () => {
       msgView = msgPrevView;
@@ -967,6 +998,7 @@
         '<button class="mda-action-btn mda-star-btn' + (bkIsStarred ? " starred" : "") + '" id="mdaBkStar">' +
           (bkIsStarred ? "★ " + esc(t("msg.unstar")) : "☆ " + esc(t("msg.star"))) +
         "</button>" +
+        (isAdmin() ? '<button class="mda-action-btn mda-delete-btn" id="mdaBkDelete">🗑 ' + esc(t("msg.delete")) + "</button>" : "") +
       "</div>";
 
     // Confirmation body: show the original text, then auto-translate it into
@@ -995,6 +1027,18 @@
       }
       updateBadges();
     });
+
+    const bkDeleteBtn = detailArea.querySelector("#mdaBkDelete");
+    if (bkDeleteBtn) {
+      bkDeleteBtn.addEventListener("click", () => {
+        if (!confirm(t("msg.delete.confirm"))) return;
+        S.remove("guestBookings", b.id);
+        msgView = msgPrevView;
+        msgDetailId = null;
+        msgDetailKind = "message";
+        renderMessages();
+      });
+    }
 
     document.getElementById("msgDetailBack").addEventListener("click", () => {
       msgView = msgPrevView;

@@ -18,7 +18,7 @@ A multilingual static hotel website for **J Park Hotel · Chonburi, Thailand** �
 - **Self-service staff login** — Forgot Password, Forgot Username, and New Staff Account flows
 - **Guest Booking inbox** — OTA reservations (Agoda, Booking.com, Airbnb, Trip.com…) land in Messages, auto-translated
 - **Password Reset Requests** inbox for admins
-- **Message actions** — Reply, Forward, and Star on every internal message and booking confirmation; a **Starred** folder (⭐) collects starred items across both inboxes
+- **Message actions** — Reply, Forward, Star, **Delete** and **Report** on every internal message; Star, Forward and **Delete** (admin) on booking confirmations; a **Starred** folder (⭐) collects starred items across both inboxes; reported messages are flagged for admin review
 - **Auto shift status** — each employee's on-shift / off-shift state updates automatically from their shift field and the current ICT clock (no manual toggling needed); `on_break` remains a manual state
 - **Daily demo refresh** — guest booking timestamps reset at **04:00 AM ICT** every day so the demo inbox always shows relative times ("26 min ago", "3 hr ago") rather than stale dates
 - Mobile / Desktop view toggle
@@ -238,17 +238,21 @@ Each employee card shows a live on-shift / off-shift status derived from their *
 
 ---
 
-## Messages — Reply, Forward and Star
+## Messages — Reply, Forward, Star, Delete and Report
 
-Every internal message and OTA booking confirmation has three action buttons at the bottom of its detail view:
+Every internal message and OTA booking confirmation has action buttons at the bottom of its detail view:
 
 | Action | Internal messages | Booking confirmations |
 |--------|------------------|-----------------------|
 | **↩ Reply** | Opens Compose pre-filled with the sender as recipient and `Re:` subject | — (not shown; can't reply to an OTA) |
 | **↪ Forward** | Opens Compose with `Fwd:` subject and the original body quoted | Opens Compose with the booking fields + confirmation text quoted |
 | **☆ Star** | Toggles a gold star on the message | Toggles a gold star on the booking |
+| **⚑ Report** | Flags the message for admin review (available to recipients, not the sender). Reported messages show an orange ⚑ flag in the inbox list for admins. | — (not applicable to OTA bookings) |
+| **🗑 Delete** | Admin: deletes any message. Sender: deletes their own messages. Prompts for confirmation. | Admin only; prompts for confirmation. |
 
 Starred items appear in the **⭐ Starred** folder in the messages sidebar, showing messages and bookings interleaved by date. The folder badge shows the total count. Stars persist in `localStorage` and survive page reloads.
+
+Reported messages are visible to admin in the inbox list with an orange flag next to the timestamp. A recipient can only report a message once; the button changes to "Already reported" after the first report. Admins can see report flags but the report state is informational only — there is no separate "Reported" folder.
 
 ---
 
@@ -308,6 +312,8 @@ Render (or any Node host) with a `DATABASE_URL` env var.
 | `GET/POST /api/orders` | In-room dining orders |
 | `GET/POST /api/guest-bookings` | OTA booking inbox |
 | `GET/POST /api/messages` | Internal staff messages |
+| `PATCH /api/messages/:id/report` | Flag a message as reported by a user |
+| `DELETE /api/messages/:id` | Delete a message (admin only) |
 | `GET/POST /api/employees` | Staff roster management |
 | `GET/PUT /api/content` | Site Editor overrides (text, media, theme) |
 | `GET/POST /api/v1/ota-sync` | OTA webhook intake |
