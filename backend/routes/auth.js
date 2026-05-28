@@ -246,12 +246,21 @@ router.delete('/staff/:id', requireAdmin, async (req, res) => {
   }
 });
 
-/* ---- GET /api/auth/staff (admin — list all accounts) ---- */
-router.get('/staff', requireAdmin, async (_req, res) => {
+/* ---- GET /api/auth/staff ----
+   Any authenticated employee gets the directory (needed for the messaging
+   compose autocomplete). Admins additionally see contact / shift details. */
+router.get('/staff', requireAuth, async (req, res) => {
+  const admin = req.user && Array.isArray(req.user.perms) && req.user.perms.includes('admin');
+  const cols = admin
+    ? 'id, username, name, email, role, phone, shift, status, active, created_at'
+    : 'id, username, name, role, active';
   try {
     const { rows } = await db.query(
-      `SELECT id, username, name, email, role, phone, shift, status, active, created_at
-         FROM employees ORDER BY CASE role WHEN 'admin' THEN 0 WHEN 'frontdesk' THEN 1 ELSE 2 END, name`
+      `SELECT ${cols}
+         FROM employees
+        WHERE active = true OR $1 = true
+        ORDER BY CASE role WHEN 'admin' THEN 0 WHEN 'frontdesk' THEN 1 ELSE 2 END, name`,
+      [admin]
     );
     res.json(rows);
   } catch (e) {

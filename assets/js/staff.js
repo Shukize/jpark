@@ -160,10 +160,10 @@
   function startApiPolling() {
     stopApiPolling();
     _pollRequests(); _pollChats(); _pollGuestBookings();
-    if (isAdmin()) _syncStaffList();
+    _syncStaffList();
     _pollTimer = setInterval(function () {
       _pollRequests(); _pollChats(); _pollGuestBookings();
-      if (isAdmin()) _syncStaffList();
+      _syncStaffList();
     }, 6000);
   }
   function stopApiPolling() {
@@ -1452,6 +1452,10 @@
     document.getElementById("msgBodyInput").value = (opts && opts.body) || "";
     renderToTags();
     hideToDropdown();
+    // Pull a fresh directory so accounts created since the last poll tick show
+    // up in autocomplete immediately. Fire-and-forget — the input listener will
+    // re-render the dropdown whenever the user types.
+    _syncStaffList();
     if (opts && opts.to && opts.to.length) document.getElementById("msgSubjectInput").focus();
     else document.getElementById("msgToInput").focus();
   }
