@@ -70,6 +70,9 @@
   let msgPrevView = "inbox";
   let msgToRecipients = [];
   let msgToAllSelected = false;
+  let msgMultiSelect = false;
+  let selectedMsgIds = new Set();
+  let trashPurgedThisSession = false;
 
   function getSession() {
     try { return JSON.parse(localStorage.getItem(SESSION_KEY) || "null"); } catch (_) { return null; }
@@ -518,18 +521,24 @@
 
   /* ====================  MESSAGES  ==================== */
   function getAllMsgs() { return S.list("messages"); }
+  function getActiveMsgs() {
+    if (!session) return [];
+    return S.list("messages").filter(function(m) {
+      return !(m.trashedBy && m.trashedBy.includes(session.id));
+    });
+  }
   function getInboxMsgs() {
-    return getAllMsgs().filter((m) =>
+    return getActiveMsgs().filter((m) =>
       m.fromId !== session.id &&
       Array.isArray(m.to) && m.to.includes(session.id)
     ).sort((a, b) => b.createdAt - a.createdAt);
   }
   function getSentMsgs() {
-    return getAllMsgs().filter((m) => m.fromId === session.id)
+    return getActiveMsgs().filter((m) => m.fromId === session.id)
       .sort((a, b) => b.createdAt - a.createdAt);
   }
   function getAnnouncementMsgs() {
-    return getAllMsgs().filter((m) => m.to === "all")
+    return getActiveMsgs().filter((m) => m.to === "all")
       .sort((a, b) => b.createdAt - a.createdAt);
   }
   function isUnread(m) {
@@ -590,6 +599,59 @@
       S.write("messages", all);
     }
   }
+  function getTrashedMsgs() {
+    if (!session) return [];
+    return S.list("messages").filter(function(m) {
+      return m.trashedBy && m.trashedBy.includes(session.id);
+    }).sort(function(a, b) {
+      var atA = (a.trashedAt || {})[session.id] || 0;
+      var atB = (b.trashedAt || {})[session.id] || 0;
+      return atB - atA;
+    });
+  }
+  function trashMsg(id) {
+    var all = S.list("messages");
+    var i = all.findIndex(function(m) { return m.id === id; });
+    if (i < 0) return;
+    var trashedBy = (all[i].trashedBy || []).filter(function(x) { return x !== session.id; });
+    trashedBy.push(session.id);
+    var trashedAt = Object.assign({}, all[i].trashedAt || {});
+    trashedAt[session.id] = Date.now();
+    all[i] = Object.assign({}, all[i], { trashedBy: trashedBy, trashedAt: trashedAt });
+    S.write("messages", all);
+  }
+  function restoreMsg(id) {
+    var all = S.list("messages");
+    var i = all.findIndex(function(m) { return m.id === id; });
+    if (i < 0) return;
+    var trashedBy = (all[i].trashedBy || []).filter(function(uid) { return uid !== session.id; });
+    var trashedAt = Object.assign({}, all[i].trashedAt || {});
+    delete trashedAt[session.id];
+    all[i] = Object.assign({}, all[i], { trashedBy: trashedBy, trashedAt: trashedAt });
+    S.write("messages", all);
+  }
+  function purgeExpiredTrash() {
+    var THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000;
+    var now = Date.now();
+    var all = S.list("messages");
+    var changed = false;
+    var result = all.reduce(function(acc, m) {
+      if (!m.trashedBy || !m.trashedBy.length) { acc.push(m); return acc; }
+      var trashedAt = m.trashedAt || {};
+      var freshBy = m.trashedBy.filter(function(uid) { return now - (trashedAt[uid] || 0) < THIRTY_DAYS; });
+      if (freshBy.length === 0) { changed = true; return acc; }
+      if (freshBy.length < m.trashedBy.length) {
+        var freshAt = {};
+        freshBy.forEach(function(uid) { freshAt[uid] = trashedAt[uid]; });
+        acc.push(Object.assign({}, m, { trashedBy: freshBy, trashedAt: freshAt }));
+        changed = true;
+      } else {
+        acc.push(m);
+      }
+      return acc;
+    }, []);
+    if (changed) S.write("messages", result);
+  }
   function formatMsgTime(ts) {
     const now = new Date();
     const d = new Date(ts);
@@ -623,6 +685,7 @@
   }
 
   function renderMessages() {
+    if (!trashPurgedThisSession) { purgeExpiredTrash(); trashPurgedThisSession = true; }
     const counts = getMsgUnreadCount();
     setNavBadge("msgInboxBadge", counts.inboxUnread);
     setNavBadge("msgAnnBadge", counts.annUnread);
@@ -656,11 +719,12 @@
     bookings:      { ico: "🛎️", header: "msg.bookings",      emptySub: "msg.empty.bookings" },
     sent:          { ico: "📤", header: "msg.sent",          emptySub: "msg.empty.sent" },
     announcements: { ico: "📢", header: "msg.announcements", emptySub: "msg.empty.ann" },
-    starred:       { ico: "⭐", header: "msg.starred",       emptySub: "msg.empty.starred" }
+    starred:       { ico: "⭐", header: "msg.starred",       emptySub: "msg.empty.starred" },
+    trash:         { ico: "🗑️", header: "msg.trash",         emptySub: "msg.empty.trash" }
   };
 
   function getStarredMsgs() {
-    const msgs = getAllMsgs().filter((m) => m.starred).sort((a, b) => b.createdAt - a.createdAt);
+    const msgs = getActiveMsgs().filter((m) => m.starred).sort((a, b) => b.createdAt - a.createdAt);
     const bookings = S.list("guestBookings").filter((b) => b.starred).sort((a, b) => b.createdAt - a.createdAt);
     return { msgs, bookings };
   }
@@ -726,6 +790,7 @@
     if (msgView === "bookings") { renderBookingList(); return; }
     if (msgView === "resets") { renderResetList(); return; }
     if (msgView === "starred") { renderStarredList(); return; }
+    if (msgView === "trash") { renderTrashList(); return; }
 
     const listArea = document.getElementById("msgListArea");
     const meta = MSG_VIEW_META[msgView] || MSG_VIEW_META.inbox;
@@ -734,8 +799,34 @@
     else if (msgView === "sent") msgs = getSentMsgs();
     else if (msgView === "announcements") msgs = getAnnouncementMsgs();
 
+    // Keep only IDs still in this list when in multi-select mode
+    if (msgMultiSelect) {
+      const currentIds = new Set(msgs.map((m) => m.id));
+      selectedMsgIds = new Set([...selectedMsgIds].filter((id) => currentIds.has(id)));
+    }
+
     const countLabel = msgs.length ? '<span class="mlh-count">' + msgs.length + "</span>" : "";
-    listArea.innerHTML = '<div class="msg-list-header">' + esc(t(meta.header)) + countLabel + "</div>";
+    const selectBtnHtml = msgs.length
+      ? (msgMultiSelect
+        ? '<button class="mlh-select-btn active" id="msgSelectToggle">✕ ' + esc(t("msg.deselect.all")) + "</button>"
+        : '<button class="mlh-select-btn" id="msgSelectToggle">' + esc(t("msg.select")) + "</button>")
+      : "";
+    listArea.innerHTML = '<div class="msg-list-header">' + esc(t(meta.header)) + countLabel + selectBtnHtml + "</div>";
+
+    // Bulk action bar
+    if (msgMultiSelect && msgs.length) {
+      const n = selectedMsgIds.size;
+      const allSelected = n === msgs.length;
+      const bulkBar = document.createElement("div");
+      bulkBar.className = "msg-bulk-bar";
+      bulkBar.innerHTML =
+        '<span class="mbb-count">' + n + " " + esc(t("msg.select")) + "ed</span>" +
+        '<button class="mbb-btn" id="mbbSelectAll">' + esc(t(allSelected ? "msg.deselect.all" : "msg.select.all")) + "</button>" +
+        '<button class="mbb-btn mbb-delete" id="mbbDelete"' + (n === 0 ? " disabled" : "") + ">🗑 " + esc(t("msg.bulk.delete")) + "</button>" +
+        '<button class="mbb-btn mbb-star" id="mbbStar"' + (n === 0 ? " disabled" : "") + ">☆ " + esc(t("msg.bulk.star")) + "</button>" +
+        '<button class="mbb-btn mbb-report" id="mbbReport"' + (n === 0 ? " disabled" : "") + ">⚑ " + esc(t("msg.bulk.report")) + "</button>";
+      listArea.appendChild(bulkBar);
+    }
 
     if (!msgs.length) {
       listArea.innerHTML +=
@@ -744,43 +835,250 @@
         '<div class="me-title">' + esc(t("msg.empty.title")) + "</div>" +
         '<div class="me-sub">' + esc(t(meta.emptySub)) + "</div>" +
         "</div>";
-      return;
+    } else {
+      msgs.forEach((m) => {
+        const isSent = msgView === "sent";
+        const isAnn = m.to === "all";
+        const unread = !isSent && isUnread(m);
+        const displayName = isSent
+          ? (isAnn ? "Everyone" : (Array.isArray(m.toNames) ? m.toNames.join(", ") : (m.toNames || "—")))
+          : m.fromName;
+        const avatarUserId = isSent ? session.id : m.fromId;
+        const isSelected = selectedMsgIds.has(m.id);
+
+        const row = document.createElement("div");
+        const isReported = isAdmin() && Array.isArray(m.reportedBy) && m.reportedBy.length > 0;
+        row.className = "msg-row" + (unread ? " unread" : " read") + (isAnn ? " announcement" : "") +
+          (isReported ? " reported" : "") + (isSelected ? " selected" : "") + (msgMultiSelect ? " selectable" : "");
+        row.dataset.id = m.id;
+
+        const firstCol = msgMultiSelect
+          ? '<div class="mr-check"><input type="checkbox" class="mr-checkbox" tabindex="-1"' + (isSelected ? " checked" : "") + "></div>"
+          : '<div class="mr-avatar">' + makeAvatarHtml(displayName, avatarUserId) + "</div>";
+
+        row.innerHTML =
+          firstCol +
+          '<div class="mr-sender">' + esc(displayName) + "</div>" +
+          '<div class="mr-subject-preview">' +
+            '<span class="mr-subject">' + esc(m.subject || "(no subject)") + "</span>" +
+            '<span class="mr-sep">—</span>' +
+            '<span class="mr-preview">' + esc((m.body || "").replace(/\n/g, " ").slice(0, 100)) + "</span>" +
+          "</div>" +
+          '<div class="mr-time">' + (isReported ? '<span class="mr-flag" title="Reported">⚑ </span>' : "") + esc(formatMsgTime(m.createdAt)) + "</div>";
+
+        if (!msgMultiSelect) {
+          maybeTranslateInto(row.querySelector(".mr-subject"), m.subject || "", m.lang);
+          maybeTranslateInto(row.querySelector(".mr-preview"), (m.body || "").replace(/\n/g, " ").slice(0, 100), m.lang);
+        }
+
+        row.addEventListener("click", () => {
+          if (msgMultiSelect) {
+            if (selectedMsgIds.has(m.id)) selectedMsgIds.delete(m.id);
+            else selectedMsgIds.add(m.id);
+            renderMessages();
+            return;
+          }
+          msgPrevView = msgView;
+          msgDetailId = m.id;
+          msgDetailKind = "message";
+          msgView = "detail";
+          markMsgRead(m.id);
+          renderMessages();
+        });
+        listArea.appendChild(row);
+      });
     }
 
-    msgs.forEach((m) => {
-      const isSent = msgView === "sent";
-      const isAnn = m.to === "all";
-      const unread = !isSent && isUnread(m);
-      const displayName = isSent
-        ? (isAnn ? "Everyone" : (Array.isArray(m.toNames) ? m.toNames.join(", ") : (m.toNames || "—")))
-        : m.fromName;
-      const avatarUserId = isSent ? session.id : m.fromId;
-
-      const row = document.createElement("div");
-      const isReported = isAdmin() && Array.isArray(m.reportedBy) && m.reportedBy.length > 0;
-      row.className = "msg-row" + (unread ? " unread" : " read") + (isAnn ? " announcement" : "") + (isReported ? " reported" : "");
-      row.dataset.id = m.id;
-      row.innerHTML =
-        '<div class="mr-avatar">' + makeAvatarHtml(displayName, avatarUserId) + "</div>" +
-        '<div class="mr-sender">' + esc(displayName) + "</div>" +
-        '<div class="mr-subject-preview">' +
-          '<span class="mr-subject">' + esc(m.subject || "(no subject)") + "</span>" +
-          '<span class="mr-sep">—</span>' +
-          '<span class="mr-preview">' + esc((m.body || "").replace(/\n/g, " ").slice(0, 100)) + "</span>" +
-        "</div>" +
-        '<div class="mr-time">' + (isReported ? '<span class="mr-flag" title="Reported">⚑ </span>' : "") + esc(formatMsgTime(m.createdAt)) + "</div>";
-      maybeTranslateInto(row.querySelector(".mr-subject"), m.subject || "", m.lang);
-      maybeTranslateInto(row.querySelector(".mr-preview"), (m.body || "").replace(/\n/g, " ").slice(0, 100), m.lang);
-      row.addEventListener("click", () => {
-        msgPrevView = msgView;
-        msgDetailId = m.id;
-        msgDetailKind = "message";
-        msgView = "detail";
-        markMsgRead(m.id);
+    // Wire up select-toggle and bulk-bar buttons
+    const selectToggle = document.getElementById("msgSelectToggle");
+    if (selectToggle) {
+      selectToggle.addEventListener("click", () => {
+        msgMultiSelect = !msgMultiSelect;
+        if (!msgMultiSelect) selectedMsgIds.clear();
         renderMessages();
       });
-      listArea.appendChild(row);
-    });
+    }
+    if (msgMultiSelect) {
+      const mbbSelectAll = document.getElementById("mbbSelectAll");
+      if (mbbSelectAll) {
+        mbbSelectAll.addEventListener("click", () => {
+          if (selectedMsgIds.size === msgs.length) selectedMsgIds.clear();
+          else msgs.forEach((m) => selectedMsgIds.add(m.id));
+          renderMessages();
+        });
+      }
+      const mbbDelete = document.getElementById("mbbDelete");
+      if (mbbDelete) {
+        mbbDelete.addEventListener("click", () => {
+          if (!selectedMsgIds.size) return;
+          if (!confirm(t("msg.delete.confirm"))) return;
+          selectedMsgIds.forEach((id) => trashMsg(id));
+          selectedMsgIds.clear();
+          msgMultiSelect = false;
+          renderMessages();
+        });
+      }
+      const mbbStar = document.getElementById("mbbStar");
+      if (mbbStar) {
+        mbbStar.addEventListener("click", () => {
+          if (!selectedMsgIds.size) return;
+          selectedMsgIds.forEach((id) => toggleStar(id, "message"));
+          renderMessages();
+        });
+      }
+      const mbbReport = document.getElementById("mbbReport");
+      if (mbbReport) {
+        mbbReport.addEventListener("click", () => {
+          if (!selectedMsgIds.size) return;
+          if (!confirm(t("msg.report.confirm"))) return;
+          const all = S.list("messages");
+          selectedMsgIds.forEach((id) => {
+            const i = all.findIndex((x) => x.id === id);
+            if (i < 0 || all[i].fromId === session.id) return;
+            const already = (all[i].reportedBy || []).includes(session.id);
+            if (!already) all[i] = Object.assign({}, all[i], { reportedBy: (all[i].reportedBy || []).concat([session.id]) });
+          });
+          S.write("messages", all);
+          selectedMsgIds.clear();
+          msgMultiSelect = false;
+          renderMessages();
+        });
+      }
+    }
+  }
+
+  function renderTrashList() {
+    const listArea = document.getElementById("msgListArea");
+    const msgs = getTrashedMsgs();
+
+    // Keep only IDs still in trash when in multi-select mode
+    if (msgMultiSelect) {
+      const currentIds = new Set(msgs.map((m) => m.id));
+      selectedMsgIds = new Set([...selectedMsgIds].filter((id) => currentIds.has(id)));
+    }
+
+    const countLabel = msgs.length ? '<span class="mlh-count">' + msgs.length + "</span>" : "";
+    const selectBtnHtml = msgs.length
+      ? (msgMultiSelect
+        ? '<button class="mlh-select-btn active" id="msgSelectToggle">✕ ' + esc(t("msg.deselect.all")) + "</button>"
+        : '<button class="mlh-select-btn" id="msgSelectToggle">' + esc(t("msg.select")) + "</button>")
+      : "";
+    listArea.innerHTML = '<div class="msg-list-header">🗑️ ' + esc(t("msg.trash")) + countLabel + selectBtnHtml + "</div>";
+
+    // Bulk action bar (trash-specific)
+    if (msgMultiSelect && msgs.length) {
+      const n = selectedMsgIds.size;
+      const allSelected = n === msgs.length;
+      const bulkBar = document.createElement("div");
+      bulkBar.className = "msg-bulk-bar";
+      bulkBar.innerHTML =
+        '<span class="mbb-count">' + n + " " + esc(t("msg.select")) + "ed</span>" +
+        '<button class="mbb-btn" id="mbbSelectAll">' + esc(t(allSelected ? "msg.deselect.all" : "msg.select.all")) + "</button>" +
+        '<button class="mbb-btn mbb-restore" id="mbbRestore"' + (n === 0 ? " disabled" : "") + ">↩ " + esc(t("msg.bulk.restore")) + "</button>" +
+        '<button class="mbb-btn mbb-delete" id="mbbDeleteForever"' + (n === 0 ? " disabled" : "") + ">🗑 " + esc(t("msg.bulk.delete.forever")) + "</button>";
+      listArea.appendChild(bulkBar);
+    }
+
+    // Trash info line
+    const infoBar = document.createElement("div");
+    infoBar.className = "msg-trash-info";
+    infoBar.textContent = t("msg.trash.info");
+    listArea.appendChild(infoBar);
+
+    if (!msgs.length) {
+      const empty = document.createElement("div");
+      empty.className = "msg-empty";
+      empty.innerHTML =
+        '<div class="me-ico">🗑️</div>' +
+        '<div class="me-title">' + esc(t("msg.empty.title")) + "</div>" +
+        '<div class="me-sub">' + esc(t("msg.empty.trash")) + "</div>";
+      listArea.appendChild(empty);
+    } else {
+      msgs.forEach((m) => {
+        const isSent = m.fromId === session.id;
+        const displayName = isSent
+          ? (m.to === "all" ? "Everyone" : (Array.isArray(m.toNames) ? m.toNames.join(", ") : (m.toNames || "—")))
+          : m.fromName;
+        const avatarUserId = isSent ? session.id : m.fromId;
+        const isSelected = selectedMsgIds.has(m.id);
+        const trashedWhen = (m.trashedAt || {})[session.id] || 0;
+        const daysLeft = Math.max(0, 30 - Math.floor((Date.now() - trashedWhen) / 86400000));
+
+        const row = document.createElement("div");
+        row.className = "msg-row read trash-row" + (isSelected ? " selected" : "") + (msgMultiSelect ? " selectable" : "");
+        row.dataset.id = m.id;
+
+        const firstCol = msgMultiSelect
+          ? '<div class="mr-check"><input type="checkbox" class="mr-checkbox" tabindex="-1"' + (isSelected ? " checked" : "") + "></div>"
+          : '<div class="mr-avatar">' + makeAvatarHtml(displayName, avatarUserId) + "</div>";
+
+        row.innerHTML =
+          firstCol +
+          '<div class="mr-sender">' + esc(displayName) + "</div>" +
+          '<div class="mr-subject-preview">' +
+            '<span class="mr-subject">' + esc(m.subject || "(no subject)") + "</span>" +
+            '<span class="mr-sep">—</span>' +
+            '<span class="mr-preview">' + esc((m.body || "").replace(/\n/g, " ").slice(0, 100)) + "</span>" +
+          "</div>" +
+          '<div class="mr-time mr-days-left">' + daysLeft + "d</div>";
+
+        row.addEventListener("click", () => {
+          if (msgMultiSelect) {
+            if (selectedMsgIds.has(m.id)) selectedMsgIds.delete(m.id);
+            else selectedMsgIds.add(m.id);
+            renderMessages();
+            return;
+          }
+          msgPrevView = "trash";
+          msgDetailId = m.id;
+          msgDetailKind = "message";
+          msgView = "detail";
+          renderMessages();
+        });
+        listArea.appendChild(row);
+      });
+    }
+
+    // Wire up buttons
+    const selectToggle = document.getElementById("msgSelectToggle");
+    if (selectToggle) {
+      selectToggle.addEventListener("click", () => {
+        msgMultiSelect = !msgMultiSelect;
+        if (!msgMultiSelect) selectedMsgIds.clear();
+        renderMessages();
+      });
+    }
+    if (msgMultiSelect) {
+      const mbbSelectAll = document.getElementById("mbbSelectAll");
+      if (mbbSelectAll) {
+        mbbSelectAll.addEventListener("click", () => {
+          if (selectedMsgIds.size === msgs.length) selectedMsgIds.clear();
+          else msgs.forEach((m) => selectedMsgIds.add(m.id));
+          renderMessages();
+        });
+      }
+      const mbbRestore = document.getElementById("mbbRestore");
+      if (mbbRestore) {
+        mbbRestore.addEventListener("click", () => {
+          if (!selectedMsgIds.size) return;
+          selectedMsgIds.forEach((id) => restoreMsg(id));
+          selectedMsgIds.clear();
+          msgMultiSelect = false;
+          renderMessages();
+        });
+      }
+      const mbbDeleteForever = document.getElementById("mbbDeleteForever");
+      if (mbbDeleteForever) {
+        mbbDeleteForever.addEventListener("click", () => {
+          if (!selectedMsgIds.size) return;
+          if (!confirm(t("msg.delete.forever.confirm"))) return;
+          selectedMsgIds.forEach((id) => S.remove("messages", id));
+          selectedMsgIds.clear();
+          msgMultiSelect = false;
+          renderMessages();
+        });
+      }
+    }
   }
 
   function renderMsgDetail(id) {
@@ -796,9 +1094,9 @@
 
     const canReply = !!(m.fromId && m.fromId !== session.id);
     const isStarred = !!m.starred;
-    const canDelete = isAdmin() || m.fromId === session.id;
+    const isInTrash = msgPrevView === "trash";
     const alreadyReported = Array.isArray(m.reportedBy) && m.reportedBy.includes(session.id);
-    const canReport = m.fromId !== session.id;
+    const canReport = !isInTrash && m.fromId !== session.id;
 
     detailArea.innerHTML =
       '<button class="msg-detail-back" id="msgDetailBack">← Back</button>' +
@@ -815,14 +1113,17 @@
       '<div class="tr-note msg-tr-note" style="display:none"></div>' +
       '<div class="msg-detail-body"></div>' +
       '<div class="msg-detail-actions">' +
-        (canReply ? '<button class="mda-action-btn" id="mdaReply">↩ ' + esc(t("msg.reply")) + "</button>" : "") +
-        '<button class="mda-action-btn" id="mdaForward">↪ ' + esc(t("msg.forward")) + "</button>" +
-        '<button class="mda-action-btn mda-star-btn' + (isStarred ? " starred" : "") + '" id="mdaStar">' +
-          (isStarred ? "★ " + esc(t("msg.unstar")) : "☆ " + esc(t("msg.star"))) +
-        "</button>" +
-        (canReport ? '<button class="mda-action-btn mda-report-btn' + (alreadyReported ? " reported" : "") + '" id="mdaReport">' +
-          (alreadyReported ? "⚠ " + esc(t("msg.report.already")) : "⚑ " + esc(t("msg.report"))) + "</button>" : "") +
-        (canDelete ? '<button class="mda-action-btn mda-delete-btn" id="mdaDelete">🗑 ' + esc(t("msg.delete")) + "</button>" : "") +
+        (isInTrash
+          ? ('<button class="mda-action-btn mda-restore-btn" id="mdaRestore">↩ ' + esc(t("msg.restore")) + "</button>" +
+             '<button class="mda-action-btn mda-delete-btn" id="mdaDeleteForever">🗑 ' + esc(t("msg.delete.forever")) + "</button>")
+          : ((!canReply ? "" : '<button class="mda-action-btn" id="mdaReply">↩ ' + esc(t("msg.reply")) + "</button>") +
+             '<button class="mda-action-btn" id="mdaForward">↪ ' + esc(t("msg.forward")) + "</button>" +
+             '<button class="mda-action-btn mda-star-btn' + (isStarred ? " starred" : "") + '" id="mdaStar">' +
+               (isStarred ? "★ " + esc(t("msg.unstar")) : "☆ " + esc(t("msg.star"))) +
+             "</button>" +
+             (canReport ? '<button class="mda-action-btn mda-report-btn' + (alreadyReported ? " reported" : "") + '" id="mdaReport">' +
+               (alreadyReported ? "⚠ " + esc(t("msg.report.already")) : "⚑ " + esc(t("msg.report"))) + "</button>" : "") +
+             '<button class="mda-action-btn mda-delete-btn" id="mdaDelete">🗑 ' + esc(t("msg.delete")) + "</button>")) +
       "</div>";
 
     // Subject + body: show original immediately, then auto-translate to the
@@ -850,16 +1151,17 @@
 
     const replyBtn = detailArea.querySelector("#mdaReply");
     if (replyBtn) replyBtn.addEventListener("click", () => openReply(m));
-    detailArea.querySelector("#mdaForward").addEventListener("click", () => openForwardMsg(m));
-    detailArea.querySelector("#mdaStar").addEventListener("click", () => {
-      const nowStarred = toggleStar(m.id, "message");
-      const btn = detailArea.querySelector("#mdaStar");
-      if (btn) {
-        btn.className = "mda-action-btn mda-star-btn" + (nowStarred ? " starred" : "");
-        btn.textContent = (nowStarred ? "★ " : "☆ ") + t(nowStarred ? "msg.unstar" : "msg.star");
-      }
-      updateBadges();
-    });
+    const fwdBtn = detailArea.querySelector("#mdaForward");
+    if (fwdBtn) fwdBtn.addEventListener("click", () => openForwardMsg(m));
+    const starBtn = detailArea.querySelector("#mdaStar");
+    if (starBtn) {
+      starBtn.addEventListener("click", () => {
+        const nowStarred = toggleStar(m.id, "message");
+        starBtn.className = "mda-action-btn mda-star-btn" + (nowStarred ? " starred" : "");
+        starBtn.textContent = (nowStarred ? "★ " : "☆ ") + t(nowStarred ? "msg.unstar" : "msg.star");
+        updateBadges();
+      });
+    }
 
     const reportBtn = detailArea.querySelector("#mdaReport");
     if (reportBtn) {
@@ -874,11 +1176,32 @@
       });
     }
 
+    const restoreBtn = detailArea.querySelector("#mdaRestore");
+    if (restoreBtn) {
+      restoreBtn.addEventListener("click", () => {
+        restoreMsg(m.id);
+        msgView = "inbox";
+        msgDetailId = null;
+        renderMessages();
+      });
+    }
+
+    const deleteForeverBtn = detailArea.querySelector("#mdaDeleteForever");
+    if (deleteForeverBtn) {
+      deleteForeverBtn.addEventListener("click", () => {
+        if (!confirm(t("msg.delete.forever.confirm"))) return;
+        S.remove("messages", m.id);
+        msgView = "trash";
+        msgDetailId = null;
+        renderMessages();
+      });
+    }
+
     const deleteBtn = detailArea.querySelector("#mdaDelete");
     if (deleteBtn) {
       deleteBtn.addEventListener("click", () => {
         if (!confirm(t("msg.delete.confirm"))) return;
-        S.remove("messages", m.id);
+        trashMsg(m.id);
         msgView = msgPrevView;
         msgDetailId = null;
         renderMessages();
@@ -2363,7 +2686,13 @@
 
     // messages sidebar nav
     document.querySelectorAll("#msgSidebar .msg-nav-item").forEach((b) => {
-      b.addEventListener("click", () => { msgView = b.dataset.view; msgDetailId = null; renderMessages(); });
+      b.addEventListener("click", () => {
+        msgView = b.dataset.view;
+        msgDetailId = null;
+        msgMultiSelect = false;
+        selectedMsgIds.clear();
+        renderMessages();
+      });
     });
 
     // compose to: input

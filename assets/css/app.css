@@ -863,6 +863,77 @@ body.mobile-view .fac-card.large {
 .msg-empty .me-sub { font-size: 0.84rem; }
 
 /* ============================================================
+   MULTI-SELECT + BULK ACTION BAR
+   ============================================================ */
+/* "Select" toggle button in list header */
+.msg-list-header { display: flex; align-items: center; gap: 10px; }
+.mlh-select-btn {
+  margin-left: auto; padding: 4px 14px; border-radius: 14px; font-size: 0.76rem;
+  font-weight: 600; background: #f0f4ff; border: 1px solid #c8d4f0;
+  color: var(--teal-deep); cursor: pointer; font-family: var(--sans);
+  transition: background .12s, border-color .12s; white-space: nowrap;
+}
+.mlh-select-btn:hover { background: #e0eaff; border-color: #a0b8e8; }
+.mlh-select-btn.active { background: #e8ecf8; border-color: #b0c0e0; color: #555; }
+
+/* Bulk action toolbar shown below header when multi-select is on */
+.msg-bulk-bar {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 8px 18px 8px; background: #f0f6ff;
+  border-bottom: 1px solid #d8e4f8; font-family: var(--sans);
+}
+.mbb-count {
+  font-size: 0.8rem; font-weight: 600; color: var(--teal-deep);
+  margin-right: 4px; min-width: 80px;
+}
+.mbb-btn {
+  padding: 5px 13px; border-radius: 14px; font-size: 0.78rem; font-weight: 500;
+  background: #fff; border: 1px solid #c8d4f0; color: #334; cursor: pointer;
+  font-family: var(--sans); transition: background .12s; white-space: nowrap;
+}
+.mbb-btn:hover:not(:disabled) { background: #e8ecf8; border-color: #b0c0e0; }
+.mbb-btn:disabled { opacity: .45; cursor: default; }
+.mbb-delete { color: #c0392b; border-color: #e0b0aa; }
+.mbb-delete:hover:not(:disabled) { background: #fdecea; border-color: #e8b0aa; }
+.mbb-restore { color: #1a7a50; border-color: #a8d8be; }
+.mbb-restore:hover:not(:disabled) { background: #e8f8f0; border-color: #88c8a8; }
+.mbb-report { color: #b7640a; border-color: #e8d0a0; }
+.mbb-report:hover:not(:disabled) { background: #fef4e7; border-color: #f0c980; }
+
+/* Row selected state */
+.msg-row.selected { background: #eef4ff !important; }
+.msg-row.selectable { cursor: pointer; }
+.msg-row.selectable:hover { background: #e8f0ff; }
+
+/* Checkbox column replaces avatar in multi-select mode */
+.mr-check {
+  width: 38px; height: 38px; display: grid; place-items: center; flex: none;
+}
+.mr-checkbox {
+  width: 17px; height: 17px; cursor: pointer; accent-color: var(--teal);
+  border-radius: 4px;
+}
+/* Unread dot hidden when selectable (checkbox takes that slot) */
+.msg-row.selectable.unread::before { display: none; }
+
+/* ============================================================
+   TRASH VIEW
+   ============================================================ */
+.msg-trash-info {
+  font-size: 0.78rem; color: #aaa; padding: 7px 20px;
+  background: #fafbfe; border-bottom: 1px solid #f0f2fb;
+  font-style: italic;
+}
+.trash-row .mr-sender { color: #999; }
+.trash-row .mr-subject { color: #aaa; }
+.trash-row .mr-preview { color: #bbb; }
+.mr-days-left { color: #caa; font-size: 0.72rem; }
+
+/* Restore button in detail view */
+.mda-restore-btn { color: #1a7a50; }
+.mda-restore-btn:hover { background: #e8f8f0; border-color: #88c8a8; color: #155e3c; }
+
+/* ============================================================
    GUEST BOOKING inbox — OTA reservations (Agoda, Booking.com…)
    ============================================================ */
 .bk-avatar { color: #fff; }
