@@ -259,12 +259,72 @@
       .forEach((t) => emit(t, read(t)));
   }
 
+  /* ============================================================
+     Daily 04:00 AM ICT fallback refresh
+     Re-stamps guestBookings createdAt so demo times stay fresh.
+     04:00 ICT = 21:00 UTC.
+     ============================================================ */
+  var BOOKING_OFFSETS = {
+    gb1: 1000 * 60 * 26,           // 26 min ago
+    gb2: 1000 * 60 * 60 * 3,       // 3 hr ago
+    gb3: 1000 * 60 * 60 * 20,      // 20 hr ago
+    gb4: 1000 * 60 * 60 * 30       // 30 hr ago
+  };
+
+  function refreshFallbackTimestamps() {
+    var now = Date.now();
+    var bks = list("guestBookings");
+    if (!bks.length) return;
+    var dirty = false;
+    bks.forEach(function (b) {
+      if (BOOKING_OFFSETS[b.id] !== undefined) {
+        b.createdAt = now - BOOKING_OFFSETS[b.id];
+        dirty = true;
+      }
+    });
+    if (dirty) write("guestBookings", bks);
+    // Mark today's ICT date as refreshed (ICT = UTC+7)
+    var ictDate = new Date(now + 7 * 3600 * 1000);
+    try { localStorage.setItem("jpark.lastFallbackRefresh", ictDate.toISOString().slice(0, 10)); } catch (_) {}
+  }
+
+  function scheduleDailyRefresh() {
+    // 04:00 ICT = 21:00 UTC the prior calendar day from ICT perspective, but
+    // concretely: fire at the next wall-clock moment when UTC hour rolls to 21.
+    function msToNext() {
+      var now = new Date();
+      var t = new Date(now);
+      t.setUTCHours(21, 0, 0, 0);
+      if (t <= now) t.setUTCDate(t.getUTCDate() + 1);
+      return t - now;
+    }
+
+    // On load: if today's ICT date hasn't been refreshed and it's past 04:00 ICT, do it now.
+    var now = Date.now();
+    var ictNow = new Date(now + 7 * 3600 * 1000);
+    var todayICT = ictNow.toISOString().slice(0, 10);
+    var lastRefresh = "";
+    try { lastRefresh = localStorage.getItem("jpark.lastFallbackRefresh") || ""; } catch (_) {}
+    if (ictNow.getUTCHours() >= 4 && lastRefresh !== todayICT) {
+      refreshFallbackTimestamps();
+    }
+
+    // Schedule recurring at 04:00 ICT (21:00 UTC) each day.
+    (function scheduleNext() {
+      setTimeout(function () {
+        refreshFallbackTimestamps();
+        scheduleNext();
+      }, msToNext());
+    })();
+  }
+
   window.JPark = window.JPark || {};
   window.JPark.store = {
     read, write, on, list, insert, update, remove, find,
     setSession, getSession, clearSession, guestId, genId,
-    seed, resetAll
+    seed, resetAll, refreshFallbackTimestamps
   };
 
   seed();
+  scheduleDailyRefresh();
 })();

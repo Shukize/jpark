@@ -58,6 +58,46 @@
   function statusMeta(s) { return STATUS_META[s] || STATUS_META.off_shift; }
   function initialOf(name) { return (name || "?").trim().charAt(0).toUpperCase() || "?"; }
 
+  /* ---- ICT auto-shift helpers ---- */
+  // Returns current ICT (UTC+7) time as minutes since midnight.
+  function ictMinutes() {
+    var d = new Date(Date.now() + 7 * 3600 * 1000);
+    return d.getUTCHours() * 60 + d.getUTCMinutes();
+  }
+
+  // Parses "HH:MM–HH:MM" (en-dash or hyphen) → {start, end} in minutes, or null.
+  function parseShiftMinutes(shiftStr) {
+    if (!shiftStr) return null;
+    var m = shiftStr.match(/(\d{1,2}):(\d{2})\s*[–\-]\s*(\d{1,2}):(\d{2})/);
+    if (!m) return null;
+    return {
+      start: parseInt(m[1]) * 60 + parseInt(m[2]),
+      end:   parseInt(m[3]) * 60 + parseInt(m[4])
+    };
+  }
+
+  // Returns 'on_shift' or 'off_shift' based on ICT time vs shift string.
+  // Leaves 'on_break' unchanged — that is a manual state.
+  function computeAutoStatus(emp) {
+    if (emp.status === "on_break") return "on_break";
+    if (!emp.shift) return emp.status || "off_shift";
+    var parsed = parseShiftMinutes(emp.shift);
+    if (!parsed) return emp.status || "off_shift";
+    var cur = ictMinutes();
+    var inShift = parsed.start < parsed.end
+      ? cur >= parsed.start && cur < parsed.end          // normal day shift
+      : cur >= parsed.start || cur < parsed.end;         // overnight shift
+    return inShift ? "on_shift" : "off_shift";
+  }
+
+  // Apply ICT-based status to every employee in an array (mutates copies).
+  function applyAutoStatuses(employees) {
+    return employees.map(function (e) {
+      var computed = computeAutoStatus(e);
+      return computed !== e.status ? Object.assign({}, e, { status: computed }) : e;
+    });
+  }
+
   function readLocalEdits() {
     try { return JSON.parse(localStorage.getItem(LOCAL_EDITS_KEY) || "{}") || {}; }
     catch (_) { return {}; }
@@ -101,6 +141,16 @@
     this.canEdit = J.authToken.isAdmin();
     this.renderShell();
     this.load();
+
+    // Re-evaluate shift status every minute so on_shift ↔ off_shift transitions
+    // happen automatically when the ICT clock crosses a shift boundary.
+    if (this._shiftTick) clearInterval(this._shiftTick);
+    this._shiftTick = setInterval(() => {
+      if (!this.loaded || !this.data.length) return;
+      const updated = applyAutoStatuses(this.data);
+      const changed = updated.some((e, i) => e.status !== this.data[i].status);
+      if (changed) { this.data = updated; this.render(); }
+    }, 60 * 1000);
   };
 
   EmployeeBoard.prototype.renderShell = function () {
@@ -145,9 +195,10 @@
       .then((rows) => {
         this.live = true;
         this.loaded = true;
-        this.data = Array.isArray(rows) ? rows : [];
+        const base = Array.isArray(rows) ? rows : [];
         // Keep the cache fresh so offline mode reflects actual staff.
-        try { localStorage.setItem(EMP_CACHE_KEY, JSON.stringify(this.data)); } catch (_) {}
+        try { localStorage.setItem(EMP_CACHE_KEY, JSON.stringify(base)); } catch (_) {}
+        this.data = applyAutoStatuses(base);
         this.render();
       })
       .catch(() => {
@@ -157,7 +208,8 @@
         this.loaded = true;
         let cached = null;
         try { cached = JSON.parse(localStorage.getItem(EMP_CACHE_KEY) || "null"); } catch (_) {}
-        this.data = applyLocalEdits(Array.isArray(cached) && cached.length ? cached : FALLBACK_ROSTER);
+        const base = applyLocalEdits(Array.isArray(cached) && cached.length ? cached : FALLBACK_ROSTER);
+        this.data = applyAutoStatuses(base);
         this.render();
         this.setStatusLine(esc(t("emp.offline")), "warn");
       });

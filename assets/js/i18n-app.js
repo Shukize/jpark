@@ -329,7 +329,16 @@
       "msg.bk.status.confirmed": "Confirmed",
       "msg.bk.status.cancelled": "Cancelled",
       "msg.bk.status.modified": "Modified",
-      "msg.bk.confirmation": "Confirmation email"
+      "msg.bk.confirmation": "Confirmation email",
+      "msg.reply": "Reply",
+      "msg.forward": "Forward",
+      "msg.star": "Star",
+      "msg.unstar": "Unstar",
+      "msg.starred": "Starred",
+      "msg.empty.starred": "Messages and bookings you star will appear here.",
+      "msg.replyPrefix": "Re:",
+      "msg.fwdPrefix": "Fwd:",
+      "msg.fwdBody": "---------- Forwarded message ----------"
     },
 
     /* =====================  ไทย  ===================== */
@@ -649,7 +658,16 @@
       "msg.bk.status.confirmed": "ยืนยันแล้ว",
       "msg.bk.status.cancelled": "ยกเลิกแล้ว",
       "msg.bk.status.modified": "แก้ไขแล้ว",
-      "msg.bk.confirmation": "อีเมลยืนยัน"
+      "msg.bk.confirmation": "อีเมลยืนยัน",
+      "msg.reply": "ตอบกลับ",
+      "msg.forward": "ส่งต่อ",
+      "msg.star": "ติดดาว",
+      "msg.unstar": "เอาดาวออก",
+      "msg.starred": "ติดดาวไว้",
+      "msg.empty.starred": "ข้อความและการจองที่คุณติดดาวจะปรากฏที่นี่",
+      "msg.replyPrefix": "Re:",
+      "msg.fwdPrefix": "Fwd:",
+      "msg.fwdBody": "---------- ข้อความที่ส่งต่อ ----------"
     },
 
     /* =====================  日本語  ===================== */
@@ -969,7 +987,16 @@
       "msg.bk.status.confirmed": "確定",
       "msg.bk.status.cancelled": "キャンセル",
       "msg.bk.status.modified": "変更済み",
-      "msg.bk.confirmation": "確認メール"
+      "msg.bk.confirmation": "確認メール",
+      "msg.reply": "返信",
+      "msg.forward": "転送",
+      "msg.star": "スター",
+      "msg.unstar": "スターを外す",
+      "msg.starred": "スター付き",
+      "msg.empty.starred": "スターを付けたメッセージや予約がここに表示されます。",
+      "msg.replyPrefix": "Re:",
+      "msg.fwdPrefix": "Fwd:",
+      "msg.fwdBody": "---------- 転送メッセージ ----------"
     },
 
     /* =====================  简体中文  ===================== */
@@ -1289,7 +1316,16 @@
       "msg.bk.status.confirmed": "已确认",
       "msg.bk.status.cancelled": "已取消",
       "msg.bk.status.modified": "已修改",
-      "msg.bk.confirmation": "确认邮件"
+      "msg.bk.confirmation": "确认邮件",
+      "msg.reply": "回复",
+      "msg.forward": "转发",
+      "msg.star": "加星标",
+      "msg.unstar": "取消星标",
+      "msg.starred": "已加星标",
+      "msg.empty.starred": "您加了星标的邮件和预订将显示在此处。",
+      "msg.replyPrefix": "回复：",
+      "msg.fwdPrefix": "转发：",
+      "msg.fwdBody": "---------- 转发邮件 ----------"
     },
 
     /* =====================  繁體中文  ===================== */
@@ -1609,7 +1645,16 @@
       "msg.bk.status.confirmed": "已確認",
       "msg.bk.status.cancelled": "已取消",
       "msg.bk.status.modified": "已修改",
-      "msg.bk.confirmation": "確認電子郵件"
+      "msg.bk.confirmation": "確認電子郵件",
+      "msg.reply": "回覆",
+      "msg.forward": "轉寄",
+      "msg.star": "加星號",
+      "msg.unstar": "取消星號",
+      "msg.starred": "已加星號",
+      "msg.empty.starred": "您加了星號的郵件和預訂將顯示在此處。",
+      "msg.replyPrefix": "回覆：",
+      "msg.fwdPrefix": "轉寄：",
+      "msg.fwdBody": "---------- 轉寄郵件 ----------"
     }
   };
 

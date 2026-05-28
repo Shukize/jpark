@@ -628,6 +628,8 @@
     setNavBadge("msgAnnBadge", counts.annUnread);
     setNavBadge("msgBookingBadge", counts.bookingUnread);
     setNavBadge("msgResetBadge", counts.resetUnread);
+    const { msgs: sm, bookings: sb } = getStarredMsgs();
+    setNavBadge("msgStarredBadge", sm.length + sb.length);
 
     // While viewing a detail, keep the list it came from highlighted.
     const activeView = msgView === "detail" ? msgPrevView : msgView;
@@ -653,12 +655,77 @@
     inbox:         { ico: "📥", header: "msg.inbox",         emptySub: "msg.empty.inbox" },
     bookings:      { ico: "🛎️", header: "msg.bookings",      emptySub: "msg.empty.bookings" },
     sent:          { ico: "📤", header: "msg.sent",          emptySub: "msg.empty.sent" },
-    announcements: { ico: "📢", header: "msg.announcements", emptySub: "msg.empty.ann" }
+    announcements: { ico: "📢", header: "msg.announcements", emptySub: "msg.empty.ann" },
+    starred:       { ico: "⭐", header: "msg.starred",       emptySub: "msg.empty.starred" }
   };
+
+  function getStarredMsgs() {
+    const msgs = getAllMsgs().filter((m) => m.starred).sort((a, b) => b.createdAt - a.createdAt);
+    const bookings = S.list("guestBookings").filter((b) => b.starred).sort((a, b) => b.createdAt - a.createdAt);
+    return { msgs, bookings };
+  }
+
+  function renderStarredList() {
+    const listArea = document.getElementById("msgListArea");
+    const { msgs, bookings } = getStarredMsgs();
+    const total = msgs.length + bookings.length;
+    const countLabel = total ? '<span class="mlh-count">' + total + "</span>" : "";
+    listArea.innerHTML = '<div class="msg-list-header">' + esc(t("msg.starred")) + countLabel + "</div>";
+
+    if (!total) {
+      listArea.innerHTML +=
+        '<div class="msg-empty"><div class="me-ico">⭐</div>' +
+        '<div class="me-title">' + esc(t("msg.empty.title")) + "</div>" +
+        '<div class="me-sub">' + esc(t("msg.empty.starred")) + "</div></div>";
+      return;
+    }
+
+    const combined = [
+      ...msgs.map((m) => ({ item: m, kind: "message" })),
+      ...bookings.map((b) => ({ item: b, kind: "booking" }))
+    ].sort((a, b) => b.item.createdAt - a.item.createdAt);
+
+    combined.forEach(({ item: m, kind }) => {
+      const row = document.createElement("div");
+      if (kind === "booking") {
+        const unread = isBookingUnread(m);
+        row.className = "msg-row booking channel-" + m.channel + (unread ? " unread" : " read");
+        row.innerHTML =
+          '<div class="mr-avatar bk-avatar"><span>' + esc((m.channelName || "?").charAt(0).toUpperCase()) + "</span></div>" +
+          '<div class="mr-sender">' + esc(m.channelName) + "</div>" +
+          '<div class="mr-subject-preview"><span class="mr-subject">' + esc(m.guestName) + "</span>" +
+          '<span class="mr-sep">—</span><span class="mr-preview">' + esc((m.room ? m.room + " · " : "") + bookingDateRange(m) + " · " + m.ref) + "</span></div>" +
+          '<div class="mr-time">' + esc(formatMsgTime(m.createdAt)) + "</div>";
+        row.addEventListener("click", () => {
+          msgPrevView = "starred"; msgDetailId = m.id; msgDetailKind = "booking";
+          msgView = "detail"; markBookingRead(m.id); renderMessages();
+        });
+      } else {
+        const isSent = m.fromId === session.id;
+        const unread = !isSent && isUnread(m);
+        const displayName = isSent
+          ? (m.to === "all" ? "Everyone" : (Array.isArray(m.toNames) ? m.toNames.join(", ") : (m.toNames || "—")))
+          : m.fromName;
+        row.className = "msg-row" + (unread ? " unread" : " read") + (m.to === "all" ? " announcement" : "");
+        row.innerHTML =
+          '<div class="mr-avatar">' + makeAvatarHtml(displayName, isSent ? session.id : m.fromId) + "</div>" +
+          '<div class="mr-sender">' + esc(displayName) + "</div>" +
+          '<div class="mr-subject-preview"><span class="mr-subject">' + esc(m.subject || "(no subject)") + "</span>" +
+          '<span class="mr-sep">—</span><span class="mr-preview">' + esc((m.body || "").replace(/\n/g, " ").slice(0, 100)) + "</span></div>" +
+          '<div class="mr-time">' + esc(formatMsgTime(m.createdAt)) + "</div>";
+        row.addEventListener("click", () => {
+          msgPrevView = "starred"; msgDetailId = m.id; msgDetailKind = "message";
+          msgView = "detail"; markMsgRead(m.id); renderMessages();
+        });
+      }
+      listArea.appendChild(row);
+    });
+  }
 
   function renderMsgList() {
     if (msgView === "bookings") { renderBookingList(); return; }
     if (msgView === "resets") { renderResetList(); return; }
+    if (msgView === "starred") { renderStarredList(); return; }
 
     const listArea = document.getElementById("msgListArea");
     const meta = MSG_VIEW_META[msgView] || MSG_VIEW_META.inbox;
@@ -726,6 +793,9 @@
     const emailAlias = (_nameParts.length > 1 ? _nameParts[0][0] + _nameParts[_nameParts.length - 1] : (_nameParts[0] || "staff")) + "@jpark.hotel";
     const avatarClass = isAnn ? "mda-avatar announcement-avatar" : "mda-avatar";
 
+    const canReply = !!(m.fromId && m.fromId !== session.id);
+    const isStarred = !!m.starred;
+
     detailArea.innerHTML =
       '<button class="msg-detail-back" id="msgDetailBack">← Back</button>' +
       '<div class="msg-detail-subject"></div>' +
@@ -739,7 +809,14 @@
         '<div class="mda-time">' + esc(new Date(m.createdAt).toLocaleString()) + "</div>" +
       "</div>" +
       '<div class="tr-note msg-tr-note" style="display:none"></div>' +
-      '<div class="msg-detail-body"></div>';
+      '<div class="msg-detail-body"></div>' +
+      '<div class="msg-detail-actions">' +
+        (canReply ? '<button class="mda-action-btn" id="mdaReply">↩ ' + esc(t("msg.reply")) + "</button>" : "") +
+        '<button class="mda-action-btn" id="mdaForward">↪ ' + esc(t("msg.forward")) + "</button>" +
+        '<button class="mda-action-btn mda-star-btn' + (isStarred ? " starred" : "") + '" id="mdaStar">' +
+          (isStarred ? "★ " + esc(t("msg.unstar")) : "☆ " + esc(t("msg.star"))) +
+        "</button>" +
+      "</div>";
 
     // Subject + body: show original immediately, then auto-translate to the
     // reader's language with a single "translated from X" note.
@@ -763,6 +840,19 @@
         }
       });
     }
+
+    const replyBtn = detailArea.querySelector("#mdaReply");
+    if (replyBtn) replyBtn.addEventListener("click", () => openReply(m));
+    detailArea.querySelector("#mdaForward").addEventListener("click", () => openForwardMsg(m));
+    detailArea.querySelector("#mdaStar").addEventListener("click", () => {
+      const nowStarred = toggleStar(m.id, "message");
+      const btn = detailArea.querySelector("#mdaStar");
+      if (btn) {
+        btn.className = "mda-action-btn mda-star-btn" + (nowStarred ? " starred" : "");
+        btn.textContent = (nowStarred ? "★ " : "☆ ") + t(nowStarred ? "msg.unstar" : "msg.star");
+      }
+      updateBadges();
+    });
 
     document.getElementById("msgDetailBack").addEventListener("click", () => {
       msgView = msgPrevView;
@@ -840,6 +930,7 @@
     const totalStr = b.total != null ? (b.currency || "THB") + " " + Number(b.total).toLocaleString() : "";
     const initial = (b.channelName || "?").charAt(0).toUpperCase();
     const recipientName = session ? session.name : "";
+    const bkIsStarred = !!b.starred;
 
     let fields = "";
     fields += bookingField("msg.bk.guest", b.guestName);
@@ -870,7 +961,13 @@
       '<div class="bk-detail-grid">' + fields + "</div>" +
       '<div class="bk-confirm-label">' + esc(t("msg.bk.confirmation")) + "</div>" +
       '<div class="tr-note msg-tr-note" style="display:none"></div>' +
-      '<div class="msg-detail-body bk-confirm-body"></div>';
+      '<div class="msg-detail-body bk-confirm-body"></div>' +
+      '<div class="msg-detail-actions">' +
+        '<button class="mda-action-btn" id="mdaBkForward">↪ ' + esc(t("msg.forward")) + "</button>" +
+        '<button class="mda-action-btn mda-star-btn' + (bkIsStarred ? " starred" : "") + '" id="mdaBkStar">' +
+          (bkIsStarred ? "★ " + esc(t("msg.unstar")) : "☆ " + esc(t("msg.star"))) +
+        "</button>" +
+      "</div>";
 
     // Confirmation body: show the original text, then auto-translate it into
     // the reader's language with a single "translated from X" note.
@@ -887,6 +984,17 @@
         }
       });
     }
+
+    detailArea.querySelector("#mdaBkForward").addEventListener("click", () => openForwardBooking(b));
+    detailArea.querySelector("#mdaBkStar").addEventListener("click", () => {
+      const nowStarred = toggleStar(b.id, "booking");
+      const btn = detailArea.querySelector("#mdaBkStar");
+      if (btn) {
+        btn.className = "mda-action-btn mda-star-btn" + (nowStarred ? " starred" : "");
+        btn.textContent = (nowStarred ? "★ " : "☆ ") + t(nowStarred ? "msg.unstar" : "msg.star");
+      }
+      updateBadges();
+    });
 
     document.getElementById("msgDetailBack").addEventListener("click", () => {
       msgView = msgPrevView;
@@ -966,18 +1074,68 @@
   }
 
   /* ====================  COMPOSE  ==================== */
-  function openCompose() {
-    msgToRecipients = [];
+  function openCompose(opts) {
+    msgToRecipients = (opts && opts.to) ? opts.to : [];
     msgToAllSelected = false;
     const modal = document.getElementById("msgComposeModal");
     if (!modal) return;
     modal.classList.add("open");
     document.getElementById("msgToInput").value = "";
-    document.getElementById("msgSubjectInput").value = "";
-    document.getElementById("msgBodyInput").value = "";
+    document.getElementById("msgSubjectInput").value = (opts && opts.subject) || "";
+    document.getElementById("msgBodyInput").value = (opts && opts.body) || "";
     renderToTags();
     hideToDropdown();
-    document.getElementById("msgToInput").focus();
+    if (opts && opts.to && opts.to.length) document.getElementById("msgSubjectInput").focus();
+    else document.getElementById("msgToInput").focus();
+  }
+
+  function openReply(m) {
+    if (!m || !m.fromId || m.fromId === session.id) return;
+    const pfx = t("msg.replyPrefix");
+    const subj = (m.subject || "").startsWith(pfx) ? (m.subject || "") : pfx + " " + (m.subject || "");
+    openCompose({ to: [{ id: m.fromId, name: m.fromName }], subject: subj });
+  }
+
+  function openForwardMsg(m) {
+    const pfx = t("msg.fwdPrefix");
+    const subj = (m.subject || "").startsWith(pfx) ? (m.subject || "") : pfx + " " + (m.subject || "");
+    const sep = t("msg.fwdBody");
+    const body = "\n\n" + sep + "\nFrom: " + (m.fromName || "") +
+      "\nDate: " + new Date(m.createdAt).toLocaleString() +
+      "\nSubject: " + (m.subject || "") + "\n\n" + (m.body || "");
+    openCompose({ subject: subj, body });
+  }
+
+  function openForwardBooking(b) {
+    const pfx = t("msg.fwdPrefix");
+    const subj = pfx + " " + t("msg.bk.subject") + " · " + (b.channelName || "") + " · " + (b.guestName || "");
+    const sep = t("msg.fwdBody");
+    const info = "Channel: " + (b.channelName || "") +
+      "\nGuest: " + (b.guestName || "") + "\nRef: " + (b.ref || "") +
+      "\nRoom: " + (b.room || "") + "\nCheck-in: " + (b.checkIn || "") +
+      "\nCheck-out: " + (b.checkOut || "") +
+      "\nTotal: " + ((b.currency || "THB") + " " + (b.total || ""));
+    const body = "\n\n" + sep + "\n" + info + "\n\n" + (b.confirmation || "");
+    openCompose({ subject: subj, body });
+  }
+
+  function toggleStar(id, kind) {
+    if (kind === "booking") {
+      const all = S.list("guestBookings");
+      const i = all.findIndex((b) => b.id === id);
+      if (i < 0) return false;
+      const starred = !all[i].starred;
+      all[i] = Object.assign({}, all[i], { starred });
+      S.write("guestBookings", all);
+      return starred;
+    }
+    const all = getAllMsgs();
+    const i = all.findIndex((m) => m.id === id);
+    if (i < 0) return false;
+    const starred = !all[i].starred;
+    all[i] = Object.assign({}, all[i], { starred });
+    S.write("messages", all);
+    return starred;
   }
   function closeCompose() {
     const modal = document.getElementById("msgComposeModal");
