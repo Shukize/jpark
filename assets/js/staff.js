@@ -59,6 +59,9 @@
   let edSearchQ = "";    // current Site Editor search filter
   let edTab = "text";    // active Site Editor tab
   let selectedThread = null;
+  // Live-chat thread bulk-select state
+  let chatMultiSelect = false;
+  let selectedChatIds = new Set();
   let seenReq = null;
   let seenBookings = null;
   let lastChatUnread = 0;
@@ -362,6 +365,8 @@
     document.getElementById("dashView").classList.add("show");
 
     document.querySelectorAll(".admin-only").forEach((el) => { el.style.display = isAdmin() ? "" : "none"; });
+    // Front-Desk-only surfaces (currently: Live Chat) — admins never see them.
+    document.querySelectorAll(".staff-only").forEach((el) => { el.style.display = isAdmin() ? "none" : ""; });
     document.getElementById("dsUserName").textContent = session.name;
     document.getElementById("dsUserRole").textContent = t(isAdmin() ? "staff.role.admin" : "staff.role.staff");
     document.getElementById("dsRoleLabel").textContent = t(isAdmin() ? "staff.role.admin" : "staff.role.staff");
@@ -380,6 +385,9 @@
   /* ====================  PANELS  ==================== */
   function selectPanel(name) {
     if ((name === "site" || name === "team") && !isAdmin()) name = "requests";
+    // Live Chat is reserved for Front Desk staff — admins don't handle guest
+    // chats, so the panel is hidden and any deep link/redirect lands on Requests.
+    if (name === "chat" && isAdmin()) name = "requests";
     if (name === "company") name = "messages"; // redirect legacy hash
     panel = name;
     document.querySelectorAll(".nav-item").forEach((b) => b.classList.toggle("active", b.dataset.panel === name));
@@ -503,20 +511,90 @@
     const convEl = document.getElementById("chatConv");
     const chats = S.list("chats").filter((c) => c.escalated).slice().sort((a, b) => b.lastAt - a.lastAt);
 
+    // Prune selectedChatIds against the current visible thread list so a
+    // deleted thread doesn't keep its checkbox state.
+    const visibleIds = new Set(chats.map((c) => c.id));
+    selectedChatIds.forEach((id) => { if (!visibleIds.has(id)) selectedChatIds.delete(id); });
+
+    threadsEl.innerHTML = "";
+
+    // Toolbar: multi-select toggle + bulk-delete (only useful when items exist).
+    if (chats.length) {
+      const bar = document.createElement("div");
+      bar.className = "cc-threads-bar";
+      const selBtn = document.createElement("button");
+      selBtn.type = "button";
+      selBtn.className = "cc-btn" + (chatMultiSelect ? " active" : "");
+      selBtn.textContent = chatMultiSelect ? t("staff.chat.cancelSelect") : t("staff.chat.select");
+      selBtn.addEventListener("click", () => {
+        chatMultiSelect = !chatMultiSelect;
+        if (!chatMultiSelect) selectedChatIds.clear();
+        renderChat();
+      });
+      bar.appendChild(selBtn);
+      if (chatMultiSelect) {
+        const delBtn = document.createElement("button");
+        delBtn.type = "button";
+        delBtn.className = "cc-btn cc-btn-danger";
+        delBtn.disabled = !selectedChatIds.size;
+        delBtn.textContent = t("staff.chat.deleteSelected") + (selectedChatIds.size ? " (" + selectedChatIds.size + ")" : "");
+        delBtn.addEventListener("click", bulkDeleteChats);
+        bar.appendChild(delBtn);
+      }
+      threadsEl.appendChild(bar);
+    }
+
     if (!chats.length) {
-      threadsEl.innerHTML = '<div style="padding:18px" class="muted">' + esc(t("staff.chat.empty")) + "</div>";
+      const empty = document.createElement("div");
+      empty.style.padding = "18px";
+      empty.className = "muted";
+      empty.textContent = t("staff.chat.empty");
+      threadsEl.appendChild(empty);
     } else {
-      threadsEl.innerHTML = "";
       chats.forEach((c) => {
         const div = document.createElement("div");
         div.className = "cc-thread" + (selectedThread === c.id ? " active" : "");
-        div.innerHTML =
-          '<div class="cct-name">' + (c.unreadForStaff ? '<span class="cct-unread"></span>' : "") +
-            esc(c.guestName || "Guest") + (c.room ? " · " + esc(t("staff.requests.room")) + " " + esc(c.room) : "") + "</div>" +
-          '<div class="cct-last">' + esc(c.lastMsg || "") + "</div>" +
-          '<div class="cct-lang">' + esc((I.LANG_NAMES[c.lang] || c.lang || "")) +
-            (c.escalated ? "" : " · " + esc(t("chat.bot"))) + "</div>";
+
+        let inner = "";
+        if (chatMultiSelect) {
+          inner += '<input type="checkbox" class="cct-check"' +
+            (selectedChatIds.has(c.id) ? " checked" : "") + ' aria-label="Select thread" />';
+        }
+        inner +=
+          '<div class="cct-body">' +
+            '<div class="cct-name">' + (c.unreadForStaff ? '<span class="cct-unread"></span>' : "") +
+              esc(c.guestName || "Guest") + (c.room ? " · " + esc(t("staff.requests.room")) + " " + esc(c.room) : "") + "</div>" +
+            '<div class="cct-last">' + esc(c.lastMsg || "") + "</div>" +
+            '<div class="cct-lang">' + esc((I.LANG_NAMES[c.lang] || c.lang || "")) +
+              (c.escalated ? "" : " · " + esc(t("chat.bot"))) + "</div>" +
+          "</div>" +
+          '<div class="cct-actions">' +
+            '<button type="button" class="cct-act cct-rename" title="' + esc(t("staff.chat.rename")) + '" aria-label="' + esc(t("staff.chat.rename")) + '">✎</button>' +
+            '<button type="button" class="cct-act cct-delete" title="' + esc(t("staff.chat.delete")) + '" aria-label="' + esc(t("staff.chat.delete")) + '">🗑️</button>' +
+          "</div>";
+        div.innerHTML = inner;
+
+        // Per-thread action handlers — stopPropagation so they don't open the thread.
+        const renameBtn = div.querySelector(".cct-rename");
+        const deleteBtn = div.querySelector(".cct-delete");
+        if (renameBtn) renameBtn.addEventListener("click", (e) => { e.stopPropagation(); renameChatThread(c); });
+        if (deleteBtn) deleteBtn.addEventListener("click", (e) => { e.stopPropagation(); deleteChatThread(c); });
+
+        const checkbox = div.querySelector(".cct-check");
+        if (checkbox) {
+          checkbox.addEventListener("click", (e) => e.stopPropagation());
+          checkbox.addEventListener("change", () => {
+            if (checkbox.checked) selectedChatIds.add(c.id); else selectedChatIds.delete(c.id);
+            renderChat();
+          });
+        }
+
         div.addEventListener("click", () => {
+          if (chatMultiSelect) {
+            if (selectedChatIds.has(c.id)) selectedChatIds.delete(c.id); else selectedChatIds.add(c.id);
+            renderChat();
+            return;
+          }
           selectedThread = c.id; markThreadRead(c.id);
           _loadThreadMessages(c.id).then(() => renderChat());
         });
@@ -595,6 +673,69 @@
         lang: I.getLang(), escalated: true,
       }).catch(function () {});
     }
+  }
+
+  /* Remove a single guest chat thread, locally + on the server. */
+  async function deleteChatThread(c) {
+    if (!c || !c.id) return;
+    if (!confirm(t("staff.chat.confirmDelete").replace("{name}", c.guestName || "Guest"))) return;
+    const API = window.JPark && window.JPark.api;
+    if (API) {
+      const res = await API.del("/api/chat/" + encodeURIComponent(c.id));
+      if (res && res.error && !res.offline) {
+        U.toast(t("staff.chat.deleteFailed") + ": " + res.error, "error");
+        return;
+      }
+    }
+    S.write("chats", S.list("chats").filter((x) => x.id !== c.id));
+    selectedChatIds.delete(c.id);
+    if (selectedThread === c.id) selectedThread = null;
+    U.toast(t("staff.chat.deleted"), "success");
+    renderChat();
+  }
+
+  /* Rename a guest chat thread. Stamps the new name on every server-side
+     message so the next poll picks it up too. */
+  async function renameChatThread(c) {
+    if (!c || !c.id) return;
+    const next = prompt(t("staff.chat.renamePrompt"), c.guestName || "");
+    if (next == null) return;
+    const trimmed = next.trim();
+    if (!trimmed || trimmed === (c.guestName || "")) return;
+    const API = window.JPark && window.JPark.api;
+    if (API) {
+      const res = await API.patch("/api/chat/" + encodeURIComponent(c.id) + "/rename", { name: trimmed });
+      if (res && res.error && !res.offline) {
+        U.toast(t("staff.chat.renameFailed") + ": " + res.error, "error");
+        return;
+      }
+    }
+    const all = S.list("chats");
+    const i = all.findIndex((x) => x.id === c.id);
+    if (i >= 0) { all[i] = Object.assign({}, all[i], { guestName: trimmed }); S.write("chats", all); }
+    U.toast(t("staff.chat.renamed"), "success");
+    renderChat();
+  }
+
+  async function bulkDeleteChats() {
+    if (!selectedChatIds.size) return;
+    const ids = Array.from(selectedChatIds);
+    if (!confirm(t("staff.chat.confirmBulkDelete").replace("{n}", ids.length))) return;
+    const API = window.JPark && window.JPark.api;
+    if (API) {
+      const res = await API.post("/api/chat/bulk-delete", { guestIds: ids });
+      if (res && res.error && !res.offline) {
+        U.toast(t("staff.chat.deleteFailed") + ": " + res.error, "error");
+        return;
+      }
+    }
+    const drop = new Set(ids);
+    S.write("chats", S.list("chats").filter((x) => !drop.has(x.id)));
+    if (selectedThread && drop.has(selectedThread)) selectedThread = null;
+    selectedChatIds.clear();
+    chatMultiSelect = false;
+    U.toast(t("staff.chat.bulkDeleted").replace("{n}", ids.length), "success");
+    renderChat();
   }
 
   /* ====================  PROFILE PICTURE  ==================== */
@@ -2606,9 +2747,13 @@
     updateBadges();
   }
   function onChatsChange() {
-    const u = totalChatUnread();
-    if (u > lastChatUnread) { notify(t("staff.notif.chat")); playChime(); }
-    lastChatUnread = u;
+    // Live chat is a Front-Desk-only surface — skip the chime/notification
+    // for admins so they don't get pinged about chats they can't handle.
+    if (!isAdmin()) {
+      const u = totalChatUnread();
+      if (u > lastChatUnread) { notify(t("staff.notif.chat")); playChime(); }
+      lastChatUnread = u;
+    }
     if (panel === "chat") renderChat();
     updateBadges();
   }

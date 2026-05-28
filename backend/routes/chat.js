@@ -23,12 +23,14 @@ function row2msg(r) {
   };
 }
 
-/* GET /api/chat/available-staff — on-shift frontdesk staff (public, for guest chat routing) */
+/* GET /api/chat/available-staff — on-shift Front Desk staff (public, for guest
+   chat routing). Admins are deliberately excluded so guest chats only ever
+   connect to a frontdesk teammate. */
 router.get('/available-staff', async (_req, res) => {
   try {
     const { rows } = await db.query(
       `SELECT name FROM employees
-        WHERE status = 'on_shift' AND role IN ('frontdesk', 'admin') AND active = TRUE
+        WHERE status = 'on_shift' AND role = 'frontdesk' AND active = TRUE
         ORDER BY name`
     );
     res.json(rows.map((r) => ({ name: r.name })));
@@ -146,6 +148,57 @@ router.patch('/:guestId/read', async (req, res) => {
   // We track read state per-conversation in the client;
   // this endpoint exists so the badge resets on the guest side.
   res.json({ ok: true });
+});
+
+/* PATCH /api/chat/:guestId/rename — staff renames a guest chat thread.
+   Rewrites guest_name across every message in the thread so the staff
+   console picks it up on the next poll. */
+router.patch('/:guestId/rename', requireAuth, async (req, res) => {
+  const { name } = req.body || {};
+  if (!name || !name.trim()) return res.status(400).json({ error: 'name required' });
+  try {
+    const { rowCount } = await db.query(
+      'UPDATE chat_messages SET guest_name = $1 WHERE guest_id = $2',
+      [name.trim().slice(0, 100), req.params.guestId]
+    );
+    res.json({ ok: true, updated: rowCount });
+  } catch (e) {
+    console.error('[chat] rename', e);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+/* DELETE /api/chat/:guestId — staff deletes a single guest chat thread. */
+router.delete('/:guestId', requireAuth, async (req, res) => {
+  try {
+    const { rowCount } = await db.query(
+      'DELETE FROM chat_messages WHERE guest_id = $1',
+      [req.params.guestId]
+    );
+    res.json({ ok: true, deleted: rowCount });
+  } catch (e) {
+    console.error('[chat] delete', e);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+/* POST /api/chat/bulk-delete — staff deletes many guest chat threads at once.
+   Body: { guestIds: ["g_xxx", ...] }. Idempotent: missing ids are ignored. */
+router.post('/bulk-delete', requireAuth, async (req, res) => {
+  const { guestIds } = req.body || {};
+  if (!Array.isArray(guestIds) || !guestIds.length) {
+    return res.status(400).json({ error: 'guestIds[] required' });
+  }
+  try {
+    const { rowCount } = await db.query(
+      'DELETE FROM chat_messages WHERE guest_id = ANY($1::text[])',
+      [guestIds.map(String)]
+    );
+    res.json({ ok: true, deleted: rowCount });
+  } catch (e) {
+    console.error('[chat] bulk-delete', e);
+    res.status(500).json({ error: 'Database error' });
+  }
 });
 
 module.exports = router;

@@ -31,20 +31,28 @@ router.post('/', requireAuth, async (req, res) => {
   if (!subject || !body) return res.status(400).json({ error: 'subject and body required' });
 
   const fromId = req.user.id;
-  const fromName = req.user.name;
-  const fromRole = req.user.role;
+  if (!fromId) return res.status(401).json({ error: 'Token missing user id' });
+  const fromName = req.user.name || fromId;
+  const fromRole = req.user.role || 'frontdesk';
+
+  // Normalise recipient arrays to strings so node-pg can serialise them as
+  // text[] even when the caller sends mixed/empty arrays. Explicit ::text[]
+  // casts are required because Postgres can't always infer the type of an
+  // empty array parameter, which surfaces as "Database error" on send.
+  const toIdsArr   = Array.isArray(toIds)   ? toIds.map(String)   : [];
+  const toNamesArr = Array.isArray(toNames) ? toNames.map(String) : [];
 
   try {
     const { rows } = await db.query(
       `INSERT INTO messages (from_id, from_name, from_role, subject, body, to_all, to_ids, to_names, lang, read_by)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,ARRAY[$1])
+       VALUES ($1,$2,$3,$4,$5,$6,$7::text[],$8::text[],$9,$10::text[])
        RETURNING *`,
-      [fromId, fromName, fromRole, subject, body, !!toAll, toIds || [], toNames || [], lang || null]
+      [fromId, fromName, fromRole, subject, body, !!toAll, toIdsArr, toNamesArr, lang || null, [fromId]]
     );
     res.status(201).json(rows[0]);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Database error' });
+    console.error('[messages] insert failed:', err.message || err);
+    res.status(500).json({ error: 'Database error: ' + (err.message || 'unknown') });
   }
 });
 
@@ -55,7 +63,7 @@ router.patch('/:id/read', requireAuth, async (req, res) => {
   try {
     const { rows } = await db.query(
       `UPDATE messages
-       SET read_by = array_append(read_by, $1)
+       SET read_by = array_append(read_by, $1::text)
        WHERE id = $2 AND NOT ($1 = ANY(read_by))
        RETURNING *`,
       [userId, id]
@@ -76,7 +84,7 @@ router.patch('/:id/report', requireAuth, async (req, res) => {
   try {
     const { rows } = await db.query(
       `UPDATE messages
-       SET reported_by = array_append(reported_by, $1)
+       SET reported_by = array_append(reported_by, $1::text)
        WHERE id = $2 AND NOT ($1 = ANY(reported_by))
        RETURNING *`,
       [userId, id]

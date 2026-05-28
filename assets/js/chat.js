@@ -10,6 +10,24 @@
   const I = window.JPark.i18n;
   const U = window.JPark.util;
   const t = (k) => I.t(k);
+
+  // Visitors who aren't signed in as staff/admin get a fresh chat box on every
+  // visit: rotate their guestId and drop any stale cached conversation so the
+  // widget opens clean. Staff/admin viewing the site keep their session intact.
+  function hasStaffSession() {
+    try { return !!JSON.parse(localStorage.getItem("jpark.staff") || "null"); }
+    catch (_) { return false; }
+  }
+  if (!hasStaffSession()) {
+    try {
+      const oldGid = localStorage.getItem("jpark.guestId");
+      localStorage.removeItem("jpark.guestId");
+      if (oldGid) {
+        const all = S.list("chats").filter((c) => c.id !== oldGid);
+        S.write("chats", all);
+      }
+    } catch (_) {}
+  }
   const gid = S.guestId();
 
   const TOPICS = [

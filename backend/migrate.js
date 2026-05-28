@@ -203,6 +203,20 @@ async function normaliseEmployeeEmails() {
   }
 }
 
+/* Drop live-chat messages older than a week. Staff don't need historical
+   guest chats hanging around once the conversation has gone cold, and it
+   keeps the chat_messages table bounded. Runs at boot and once a day. */
+async function purgeOldChats() {
+  try {
+    const { rowCount } = await db.query(
+      "DELETE FROM chat_messages WHERE created_at < NOW() - INTERVAL '7 days'"
+    );
+    if (rowCount) console.log(`[purge] removed ${rowCount} chat messages older than 7 days`);
+  } catch (e) {
+    console.error('[purge] chat_messages failed:', e.message || e);
+  }
+}
+
 async function migrate() {
   const sql = require('fs').readFileSync(require('path').join(__dirname, 'schema.sql'), 'utf8');
   await db.query(sql);
@@ -222,6 +236,10 @@ async function migrate() {
 
   await seedMessages();
   console.log('[migrate] messages seeded');
+
+  await purgeOldChats();
+  // Keep the table clean without depending on a cron: re-run every 24h.
+  setInterval(purgeOldChats, 24 * 60 * 60 * 1000).unref();
 }
 
 module.exports = migrate;
