@@ -2889,8 +2889,8 @@
     // server's unread count for the active thread.
     let shouldNotify = false;
     myAssignedChats().forEach(function (c) {
-      if (c.id === selectedThread) {
-        lastSeenChatMsg[c.id] = c.lastMsg;  // viewing — mark seen, no ping
+      if (panel === "chat" && c.id === selectedThread) {
+        lastSeenChatMsg[c.id] = c.lastMsg;  // actively viewing this thread — no ping
       } else if ((c.unreadForStaff || 0) > 0 && c.lastMsg !== lastSeenChatMsg[c.id]) {
         shouldNotify = true;
         lastSeenChatMsg[c.id] = c.lastMsg;
