@@ -18,6 +18,9 @@ A multilingual static hotel website for **J Park Hotel · Chonburi, Thailand** �
 - **Self-service staff login** — Forgot Password, Forgot Username, and New Staff Account flows
 - **Guest Booking inbox** — OTA reservations (Agoda, Booking.com, Airbnb, Trip.com…) land in Messages, auto-translated
 - **Password Reset Requests** inbox for admins
+- **Message actions** — Reply, Forward, and Star on every internal message and booking confirmation; a **Starred** folder (⭐) collects starred items across both inboxes
+- **Auto shift status** — each employee's on-shift / off-shift state updates automatically from their shift field and the current ICT clock (no manual toggling needed); `on_break` remains a manual state
+- **Daily demo refresh** — guest booking timestamps reset at **04:00 AM ICT** every day so the demo inbox always shows relative times ("26 min ago", "3 hr ago") rather than stale dates
 - Mobile / Desktop view toggle
 
 ---
@@ -215,6 +218,50 @@ Staff can paste a booking confirmation email into the console, or use the API in
 - Track unread/read status per user (like internal messages)
 
 Start with Option 1 (email + Lambda) — it's low-friction and works universally.
+
+---
+
+## Team Status board — auto shift status
+
+Each employee card shows a live on-shift / off-shift status derived from their **shift** field (`HH:MM–HH:MM`) and the current **Indochina Time (ICT, UTC+7)** clock:
+
+| Shift example | Current ICT time | Auto status |
+|--------------|------------------|-------------|
+| `07:00–15:00` | 10:30 | **on_shift** |
+| `07:00–15:00` | 18:00 | **off_shift** |
+| `23:00–07:00` | 01:00 | **on_shift** (overnight) |
+| `23:00–07:00` | 12:00 | **off_shift** (overnight) |
+
+- Status re-evaluates **every 60 seconds** — the board transitions automatically when the clock crosses a shift boundary.
+- `on_break` is the only **manual** state; it is never overridden by the clock. Set it in the edit panel and it stays until the admin changes it.
+- When the backend API is reachable, the board uses the live roster; when offline, it uses the last-cached roster. Auto status is applied in both cases.
+
+---
+
+## Messages — Reply, Forward and Star
+
+Every internal message and OTA booking confirmation has three action buttons at the bottom of its detail view:
+
+| Action | Internal messages | Booking confirmations |
+|--------|------------------|-----------------------|
+| **↩ Reply** | Opens Compose pre-filled with the sender as recipient and `Re:` subject | — (not shown; can't reply to an OTA) |
+| **↪ Forward** | Opens Compose with `Fwd:` subject and the original body quoted | Opens Compose with the booking fields + confirmation text quoted |
+| **☆ Star** | Toggles a gold star on the message | Toggles a gold star on the booking |
+
+Starred items appear in the **⭐ Starred** folder in the messages sidebar, showing messages and bookings interleaved by date. The folder badge shows the total count. Stars persist in `localStorage` and survive page reloads.
+
+---
+
+## Daily demo data refresh
+
+The four demo guest bookings use **relative timestamps** (26 min ago, 3 hr ago, 20 hr ago, 30 hr ago). To keep the demo inbox feeling current, `store.js` schedules a daily reset:
+
+- **Trigger time:** 04:00 AM ICT (= 21:00 UTC the prior calendar day)
+- **What it does:** re-stamps each seed booking's `createdAt` to `now − original_offset`, so "26 minutes ago" stays 26 minutes ago regardless of when the browser was last opened
+- **First-load catch-up:** if the page opens after 04:00 ICT and the refresh hasn't run yet today, it runs immediately on load
+- **Tracked via:** `localStorage["jpark.lastFallbackRefresh"]` (ICT date string)
+
+This is a demo convenience only; real deployments get live timestamps from the OTA bridge / backend.
 
 ---
 
