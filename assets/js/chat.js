@@ -26,6 +26,26 @@
   let pollTimer = null;
   let lastMsgCount = 0; // for detecting new staff replies
 
+  function playChime() {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(880, ctx.currentTime);
+      osc.frequency.setValueAtTime(1100, ctx.currentTime + 0.12);
+      gain.gain.setValueAtTime(0.2, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.45);
+      osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.45);
+    } catch (_) {}
+  }
+  function requestGuestNotifyPermission() {
+    if ("Notification" in window && Notification.permission === "default") {
+      try { Notification.requestPermission(); } catch (_) {}
+    }
+  }
+
   /* ─────────────── local cache (localStorage fallback) ─────────────────── */
   function getLocalConv() {
     return S.list("chats").find((c) => c.id === gid) || null;
@@ -116,6 +136,10 @@
       else if (hasStaffReply) {
         rebuilt.unreadForGuest = (rebuilt.unreadForGuest || 0) + newMsgs.filter((m) => m.from === "staff").length;
         setBadge(rebuilt.unreadForGuest);
+        playChime();
+        if ("Notification" in window && Notification.permission === "granted") {
+          try { new Notification("J Park Hotel", { body: t("chat.notif.staffReply") || "New message from the front desk." }); } catch (_) {}
+        }
       }
     }
   }
@@ -235,6 +259,7 @@
   function open() {
     openState = true;
     panel.classList.add("open"); fab.style.display = "none";
+    requestGuestNotifyPermission();
     ensureLocalConv();
     const conv = getLocalConv();
     if (conv && conv.unreadForGuest) { conv.unreadForGuest = 0; saveLocalConv(conv); }

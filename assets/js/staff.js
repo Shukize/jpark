@@ -495,13 +495,13 @@
 
   /* ====================  LIVE CHAT  ==================== */
   function totalChatUnread() {
-    return S.list("chats").reduce((s, c) => s + (c.unreadForStaff || 0), 0);
+    return S.list("chats").filter((c) => c.escalated).reduce((s, c) => s + (c.unreadForStaff || 0), 0);
   }
 
   function renderChat() {
     const threadsEl = document.getElementById("chatThreads");
     const convEl = document.getElementById("chatConv");
-    const chats = S.list("chats").slice().sort((a, b) => b.lastAt - a.lastAt);
+    const chats = S.list("chats").filter((c) => c.escalated).slice().sort((a, b) => b.lastAt - a.lastAt);
 
     if (!chats.length) {
       threadsEl.innerHTML = '<div style="padding:18px" class="muted">' + esc(t("staff.chat.empty")) + "</div>";
@@ -2569,6 +2569,20 @@
       try { Notification.requestPermission(); } catch (_) {}
     }
   }
+  function playChime() {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(880, ctx.currentTime);
+      osc.frequency.setValueAtTime(1100, ctx.currentTime + 0.12);
+      gain.gain.setValueAtTime(0.25, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.45);
+      osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.45);
+    } catch (_) {}
+  }
   function notify(msg) {
     U.toast(msg);
     if ("Notification" in window && Notification.permission === "granted") {
@@ -2593,7 +2607,7 @@
   }
   function onChatsChange() {
     const u = totalChatUnread();
-    if (u > lastChatUnread) notify(t("staff.notif.chat"));
+    if (u > lastChatUnread) { notify(t("staff.notif.chat")); playChime(); }
     lastChatUnread = u;
     if (panel === "chat") renderChat();
     updateBadges();

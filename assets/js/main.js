@@ -451,6 +451,7 @@
   /* ---------- Staff/Admin portal link in the nav (when signed in) ---------- */
   function initNavPortal() {
     const link = document.getElementById("navPortalLink");
+    const signoutBtn = document.getElementById("navStaffSignout");
     if (!link) return;
     const I = window.JPark && window.JPark.i18n;
     function apply() {
@@ -461,9 +462,18 @@
         link.setAttribute("data-i18n", key);
         link.textContent = I ? I.t(key) : (staff.role === "admin" ? "Admin" : "Staff");
         link.hidden = false;
+        if (signoutBtn) signoutBtn.hidden = false;
       } else {
         link.hidden = true;
+        if (signoutBtn) signoutBtn.hidden = true;
       }
+    }
+    if (signoutBtn) {
+      signoutBtn.addEventListener("click", () => {
+        localStorage.removeItem("jpark.staff");
+        localStorage.removeItem("jpark.staff.token");
+        apply();
+      });
     }
     apply();
     window.addEventListener("storage", (e) => { if (e.key === "jpark.staff") apply(); });

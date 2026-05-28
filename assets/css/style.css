@@ -691,6 +691,15 @@ body.intro-active { overflow: hidden; }
 .nav-portal-link::after { display: none !important; }
 .nav-portal-link:hover { background: var(--teal-deep); color: #fff !important; }
 .site-header:not(.scrolled) .nav-portal-link { background: rgba(247,242,232,0.16); border: 1px solid rgba(247,242,232,0.5); }
+.btn-nav-signout {
+  background: transparent; color: var(--ivory);
+  border: 1px solid rgba(247,242,232,0.5); border-radius: 999px;
+  padding: 7px 16px; font-size: 0.8rem; font-weight: 600; cursor: pointer; white-space: nowrap;
+}
+.btn-nav-signout:hover { background: rgba(247,242,232,0.14); }
+.site-header.scrolled .btn-nav-signout { color: var(--teal); border-color: var(--teal); }
+.site-header.scrolled .btn-nav-signout:hover { background: var(--teal); color: #fff; }
+@media (max-width: 640px) { .btn-nav-signout { display: none; } }
 
 /* ============================================================
    Gallery — "more" button, leaf intro, categorized media grid
