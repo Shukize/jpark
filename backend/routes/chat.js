@@ -173,6 +173,19 @@ router.post('/', async (req, res) => {
       assignName = cur.assigned_staff_name;
     }
 
+    // Carry the escalation flag forward. /api/chat/all reads escalated from
+    // the latest row per thread, so without this every guest follow-up after
+    // hand-off would reset the flag and the thread would drop off the staff
+    // console mid-conversation.
+    let escFlag = !!escalated;
+    if (!escFlag) {
+      const { rows: prior } = await db.query(
+        `SELECT 1 FROM chat_messages WHERE guest_id = $1 AND escalated = TRUE LIMIT 1`,
+        [guestId]
+      );
+      if (prior.length) escFlag = true;
+    }
+
     const { rows } = await db.query(
       `INSERT INTO chat_messages
          (guest_id, guest_name, room, from_role, from_name, body, lang, escalated,
@@ -187,7 +200,7 @@ router.post('/', async (req, res) => {
         fromName || null,
         text,
         lang || 'en',
-        !!escalated,
+        escFlag,
         assignId,
         assignName,
       ]
