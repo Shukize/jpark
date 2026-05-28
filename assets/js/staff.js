@@ -65,6 +65,7 @@
   let seenReq = null;
   let seenBookings = null;
   let lastChatUnread = 0;
+  let lastSeenChatMsg = {};  // { [guestId]: lastMsg } — tracks what we've already notified/seen per thread
 
   // Messages state
   let msgView = "inbox";
@@ -207,6 +208,7 @@
     if (!Array.isArray(data)) return;
     const local = S.list("chats");
     let dirty = false;
+    let reloadSelected = false;
     data.forEach(function (remote) {
       const idx = local.findIndex(function (c) { return c.id === remote.id; });
       if (idx < 0) {
@@ -222,6 +224,9 @@
       } else if (local[idx].unreadForStaff !== remote.unreadForStaff
               || local[idx].lastMsg !== remote.lastMsg
               || local[idx].assignedStaffId !== remote.assignedStaffId) {
+        if (remote.id === selectedThread && local[idx].lastMsg !== remote.lastMsg) {
+          reloadSelected = true;
+        }
         local[idx] = Object.assign({}, local[idx], {
           unreadForStaff: remote.unreadForStaff, lastMsg: remote.lastMsg,
           lastAt: remote.lastAt, escalated: remote.escalated,
@@ -232,6 +237,7 @@
       }
     });
     if (dirty) S.write("chats", local);
+    if (reloadSelected) _loadThreadMessages(selectedThread);
   }
 
   async function _pollGuestBookings() {
@@ -381,6 +387,8 @@
     seenReq = new Set(S.list("requests").map((r) => r.id));
     seenBookings = new Set(S.list("guestBookings").map((b) => b.id));
     lastChatUnread = totalChatUnread();
+    lastSeenChatMsg = {};
+    myAssignedChats().forEach(function (c) { lastSeenChatMsg[c.id] = c.lastMsg; });
 
     renderAvatarInSidebar();
     selectPanel(panel);
@@ -614,6 +622,7 @@
             renderChat();
             return;
           }
+          lastSeenChatMsg[c.id] = c.lastMsg;
           selectedThread = c.id; markThreadRead(c.id);
           _loadThreadMessages(c.id).then(() => renderChat());
         });
@@ -2874,12 +2883,21 @@
     updateBadges();
   }
   function onChatsChange() {
-    // Notifications + chime only fire for chats where the signed-in user is
-    // the assigned account, so admins and other Front-Desk staff don't get
-    // pinged about threads they aren't currently handling.
-    const u = totalChatUnread();
-    if (u > lastChatUnread) { notify(t("staff.notif.chat")); playChime(); }
-    lastChatUnread = u;
+    // Fire sound/notification only when a thread has a genuinely new lastMsg
+    // that we haven't seen yet, and only for threads the staff isn't currently
+    // viewing. This prevents re-notifying every time the poll restores the
+    // server's unread count for the active thread.
+    let shouldNotify = false;
+    myAssignedChats().forEach(function (c) {
+      if (c.id === selectedThread) {
+        lastSeenChatMsg[c.id] = c.lastMsg;  // viewing — mark seen, no ping
+      } else if ((c.unreadForStaff || 0) > 0 && c.lastMsg !== lastSeenChatMsg[c.id]) {
+        shouldNotify = true;
+        lastSeenChatMsg[c.id] = c.lastMsg;
+      }
+    });
+    if (shouldNotify) { notify(t("staff.notif.chat")); playChime(); }
+    lastChatUnread = totalChatUnread();
     if (panel === "chat") renderChat();
     updateBadges();
   }
