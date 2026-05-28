@@ -1646,33 +1646,156 @@
   }
 
   /* ====================  STAFF MANAGEMENT (admin)  ==================== */
+  // Username convention: first letter of first name + last name, lowercased.
+  // Matches the email alias format (initiallastname@jpark.hotel) used everywhere.
+  function autoUsername(name) {
+    const parts = (name || "").toLowerCase().trim().split(/\s+/).filter(Boolean);
+    if (!parts.length) return "";
+    return parts.length > 1 ? parts[0][0] + parts[parts.length - 1] : parts[0];
+  }
+
+  // Pending staff edits: { [id]: { active?, deleted? } }. Applied to the
+  // server (and the local store) only when the admin clicks "Save changes".
+  let pendingTeamChanges = {};
+
+  function hasPendingTeam() {
+    return Object.keys(pendingTeamChanges).length > 0;
+  }
+
+  function teamRowEffective(u) {
+    const p = pendingTeamChanges[u.id] || {};
+    return {
+      id: u.id, name: u.name, role: u.role, username: u.username,
+      active: p.active !== undefined ? p.active : u.active,
+      deleted: !!p.deleted,
+    };
+  }
+
+  function updateTeamActionsBar() {
+    const bar = document.getElementById("teamActions");
+    const hint = document.getElementById("teamPendingHint");
+    const saveBtn = document.getElementById("teamSaveBtn");
+    const undoBtn = document.getElementById("teamUndoBtn");
+    if (!bar) return;
+    const count = Object.keys(pendingTeamChanges).length;
+    bar.hidden = count === 0;
+    if (saveBtn) saveBtn.disabled = count === 0;
+    if (undoBtn) undoBtn.disabled = count === 0;
+    if (hint) hint.textContent = count ? (t("staff.team.pendingHint") + " (" + count + ")") : "";
+  }
+
   function renderTeam() {
     if (!isAdmin()) return;
     const wrap = document.getElementById("teamList");
     wrap.innerHTML = "";
-    S.list("staff").forEach((u) => {
+    const live = S.list("staff");
+    const liveIds = new Set(live.map((u) => u.id));
+    Object.keys(pendingTeamChanges).forEach((id) => {
+      if (!liveIds.has(id)) delete pendingTeamChanges[id];
+    });
+    live.forEach((u) => {
+      const eff = teamRowEffective(u);
       const row = document.createElement("div");
-      row.className = "team-row";
+      row.className = "team-row" + (eff.deleted ? " pending-remove" : "") +
+        (pendingTeamChanges[u.id] ? " pending" : "");
       const isMe = u.id === session.id;
       row.innerHTML =
-        '<span class="tr-name">' + esc(u.name) + "</span>" +
-        '<span class="tr-role ' + (u.role === "admin" ? "admin" : "staff") + '">' + esc(t(u.role === "admin" ? "staff.role.admin" : "staff.role.staff")) + "</span>" +
-        '<span class="tr-status ' + (u.active ? "active" : "suspended") + '">' + esc(t(u.active ? "staff.team.active" : "staff.team.suspended")) + "</span>" +
+        '<span class="tr-name">' + esc(eff.name) +
+          (eff.deleted ? ' <em class="tr-tag">(' + esc(t("staff.team.pendingRemove")) + ")</em>" : "") +
+        "</span>" +
+        '<span class="tr-role ' + (eff.role === "admin" ? "admin" : "staff") + '">' + esc(t(eff.role === "admin" ? "staff.role.admin" : "staff.role.staff")) + "</span>" +
+        '<span class="tr-status ' + (eff.active ? "active" : "suspended") + '">' + esc(t(eff.active ? "staff.team.active" : "staff.team.suspended")) + "</span>" +
         '<span class="tr-spacer"></span>';
       if (isMe) {
         row.innerHTML += '<span class="you-tag">(' + esc(t("staff.team.you")) + ")</span>";
-      } else {
-        const toggleLabel = u.active ? t("staff.team.suspend") : t("staff.team.activate");
+      } else if (eff.deleted) {
         row.innerHTML +=
-          '<button class="' + (u.active ? "" : "btn-activate") + '" data-act="toggle">' + esc(toggleLabel) + "</button>" +
+          '<button class="btn-activate" data-act="restore">' + esc(t("staff.team.restore")) + "</button>";
+      } else {
+        const toggleLabel = eff.active ? t("staff.team.suspend") : t("staff.team.activate");
+        row.innerHTML +=
+          '<button class="' + (eff.active ? "" : "btn-activate") + '" data-act="toggle">' + esc(toggleLabel) + "</button>" +
           '<button data-act="remove">' + esc(t("staff.team.remove")) + "</button>";
       }
       const tg = row.querySelector('[data-act="toggle"]');
       const rm = row.querySelector('[data-act="remove"]');
-      if (tg) tg.addEventListener("click", () => S.update("staff", u.id, { active: !u.active }));
-      if (rm) rm.addEventListener("click", () => S.remove("staff", u.id));
+      const rs = row.querySelector('[data-act="restore"]');
+      if (tg) tg.addEventListener("click", () => {
+        const cur = teamRowEffective(u);
+        const next = !cur.active;
+        const p = Object.assign({}, pendingTeamChanges[u.id] || {});
+        if (next === u.active) delete p.active; else p.active = next;
+        if (Object.keys(p).length === 0) delete pendingTeamChanges[u.id];
+        else pendingTeamChanges[u.id] = p;
+        renderTeam();
+      });
+      if (rm) rm.addEventListener("click", () => {
+        pendingTeamChanges[u.id] = Object.assign({}, pendingTeamChanges[u.id] || {}, { deleted: true });
+        renderTeam();
+      });
+      if (rs) rs.addEventListener("click", () => {
+        const p = Object.assign({}, pendingTeamChanges[u.id] || {});
+        delete p.deleted;
+        if (Object.keys(p).length === 0) delete pendingTeamChanges[u.id];
+        else pendingTeamChanges[u.id] = p;
+        renderTeam();
+      });
       wrap.appendChild(row);
     });
+    updateTeamActionsBar();
+  }
+
+  async function saveTeamChanges() {
+    if (!hasPendingTeam()) return;
+    const API = window.JPark && window.JPark.api;
+    const ids = Object.keys(pendingTeamChanges);
+    let failed = 0;
+    for (const id of ids) {
+      const p = pendingTeamChanges[id];
+      if (p.deleted) {
+        if (API) {
+          const res = await API.del("/api/auth/staff/" + encodeURIComponent(id));
+          if (res && res.error && !res.offline) { failed++; continue; }
+        }
+        S.remove("staff", id);
+        // Also strip from cached Team Status (employees board) so the user
+        // disappears immediately on this tab even before the next API fetch.
+        try {
+          const edits = JSON.parse(localStorage.getItem("jpark.employeeEdits") || "{}") || {};
+          if (edits[id]) { delete edits[id]; localStorage.setItem("jpark.employeeEdits", JSON.stringify(edits)); }
+        } catch (_) {}
+        try { localStorage.removeItem("jpark.db.avatar_" + id); } catch (_) {}
+      } else if (p.active !== undefined) {
+        if (API) {
+          const res = await API.patch("/api/auth/staff/" + encodeURIComponent(id), { active: !!p.active });
+          if (res && res.error && !res.offline) { failed++; continue; }
+        }
+        S.update("staff", id, { active: !!p.active });
+      }
+    }
+    pendingTeamChanges = {};
+    await _syncStaffList();
+    // Re-fetch Team Status board if it's mounted, so removed users disappear
+    // from the shift board immediately (server rows are gone; cache is purged).
+    const board = document.getElementById("empBoardMount");
+    if (board && board._empBoard) board._empBoard.load();
+    renderTeam();
+    if (failed) U.toast(t("staff.team.saveErr"), "error");
+    else U.toast(t("staff.team.saved"), "success");
+  }
+
+  function undoTeamChanges() {
+    if (!hasPendingTeam()) return;
+    pendingTeamChanges = {};
+    renderTeam();
+    U.toast(t("staff.team.undone"), "success");
+  }
+
+  function refreshUsernamePreview() {
+    const nameInput = document.getElementById("tmName");
+    const preview = document.getElementById("tmUserPreview");
+    if (!nameInput || !preview) return;
+    preview.value = autoUsername(nameInput.value) || "";
   }
 
   async function addStaff(e) {
@@ -1680,9 +1803,10 @@
     const err = document.getElementById("teamError");
     err.textContent = "";
     const name = document.getElementById("tmName").value.trim();
-    const user = document.getElementById("tmUser").value.trim();
     const role = document.getElementById("tmRole").value;
-    if (!name || !user) { err.textContent = t("staff.team.needNameUser"); return; }
+    if (!name) { err.textContent = t("staff.team.needName"); return; }
+    const user = autoUsername(name);
+    if (!user) { err.textContent = t("staff.team.needName"); return; }
 
     const API = window.JPark && window.JPark.api;
     if (API) {
@@ -1695,6 +1819,7 @@
       }
       if (!res.offline) {
         document.getElementById("teamForm").reset();
+        refreshUsernamePreview();
         U.toast(t("staff.team.added"), "success");
         await _syncStaffList();
         renderTeam();
@@ -1702,11 +1827,12 @@
       }
     }
     // Offline fallback — localStorage only
-    if (S.list("staff").some((x) => x.username.toLowerCase() === user.toLowerCase())) {
+    if (S.list("staff").some((x) => (x.username || "").toLowerCase() === user.toLowerCase())) {
       err.textContent = t("staff.team.userTaken"); return;
     }
     S.insert("staff", { name: name, username: user, password: DEFAULT_STAFF_PASSWORD, role: role, active: true, mustChange: true });
     document.getElementById("teamForm").reset();
+    refreshUsernamePreview();
     U.toast(t("staff.team.added"), "success");
   }
 
@@ -2092,6 +2218,12 @@
 
     // staff management
     document.getElementById("teamForm").addEventListener("submit", addStaff);
+    const tmName = document.getElementById("tmName");
+    if (tmName) tmName.addEventListener("input", refreshUsernamePreview);
+    const teamSaveBtn = document.getElementById("teamSaveBtn");
+    if (teamSaveBtn) teamSaveBtn.addEventListener("click", saveTeamChanges);
+    const teamUndoBtn = document.getElementById("teamUndoBtn");
+    if (teamUndoBtn) teamUndoBtn.addEventListener("click", undoTeamChanges);
 
     // real-time subscriptions
     S.on("requests", onRequestsChange);

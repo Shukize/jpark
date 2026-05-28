@@ -164,6 +164,45 @@ async function removeHousekeeping() {
   await db.query(`DELETE FROM employees WHERE id IN ('e_malee', 'e_arun')`);
 }
 
+/* Normalise every employee's email + username to the initiallastname format
+   so the system stays on a single convention even for accounts that pre-date
+   the rule. Idempotent: only writes when the value differs. */
+function nameToAlias(name) {
+  const parts = String(name || '').toLowerCase().trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return null;
+  return parts.length > 1 ? parts[0][0] + parts[parts.length - 1] : parts[0];
+}
+
+async function normaliseEmployeeEmails() {
+  const { rows } = await db.query('SELECT id, name, email, username FROM employees');
+  for (const r of rows) {
+    const alias = nameToAlias(r.name);
+    if (!alias) continue;
+    const desiredEmail = alias + '@jpark.hotel';
+    const patches = [];
+    const vals = [];
+    if (r.email !== desiredEmail) { patches.push(`email = $${patches.length + 1}`); vals.push(desiredEmail); }
+    // Only auto-rename the username if it's still the placeholder employee id
+    // (e.g. "e_ploy") — never overwrite an alias a person has been using.
+    if (!r.username || r.username === r.id) {
+      // Skip if another row already owns the desired username.
+      const { rows: clash } = await db.query(
+        'SELECT id FROM employees WHERE username = $1 AND id <> $2',
+        [alias, r.id]
+      );
+      if (!clash.length) {
+        patches.push(`username = $${patches.length + 1}`); vals.push(alias);
+      }
+    }
+    if (!patches.length) continue;
+    vals.push(r.id);
+    await db.query(
+      `UPDATE employees SET ${patches.join(', ')} WHERE id = $${vals.length}`,
+      vals
+    );
+  }
+}
+
 async function migrate() {
   const sql = require('fs').readFileSync(require('path').join(__dirname, 'schema.sql'), 'utf8');
   await db.query(sql);
@@ -174,6 +213,9 @@ async function migrate() {
 
   await seedAuth();
   console.log('[migrate] staff auth ready');
+
+  await normaliseEmployeeEmails();
+  console.log('[migrate] employee emails normalised');
 
   await seedGuestBookings();
   console.log('[migrate] guest bookings seeded');

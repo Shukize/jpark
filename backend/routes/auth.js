@@ -163,9 +163,16 @@ router.post('/change-password', requireAuth, async (req, res) => {
 /* ---- POST /api/auth/register (admin) ---- */
 router.post('/register', requireAdmin, async (req, res) => {
   if (!bcrypt) return res.status(500).json({ error: 'bcrypt not available' });
-  const { username, password, name, email, role, phone, shift } = req.body || {};
-  if (!username || !password || !name)
-    return res.status(400).json({ error: 'username, password, name required' });
+  const { password, name, role, phone, shift } = req.body || {};
+  if (!password || !name)
+    return res.status(400).json({ error: 'password and name required' });
+
+  // Username and email are always derived from the name so the whole system
+  // stays on the single "initiallastname" convention.
+  const parts = String(name).toLowerCase().trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return res.status(400).json({ error: 'name is required' });
+  const username = (parts.length > 1 ? parts[0][0] + parts[parts.length - 1] : parts[0]);
+  const email = nameToEmail(name);
 
   const id = 'u_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
   const hash = await bcrypt.hash(password, 10);
@@ -176,7 +183,7 @@ router.post('/register', requireAdmin, async (req, res) => {
       `INSERT INTO employees (id, username, password_hash, name, email, role, phone, shift, active, must_change_password)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,TRUE,TRUE)
        RETURNING id, username, name, email, role, phone, shift, status, active`,
-      [id, username.trim().toLowerCase(), hash, name, email || nameToEmail(name), validRole, phone || null, shift || null]
+      [id, username, hash, name, email, validRole, phone || null, shift || null]
     );
     res.status(201).json({ user: rows[0] });
   } catch (e) {
@@ -192,7 +199,11 @@ router.patch('/staff/:id', requireAdmin, async (req, res) => {
   const fields = [], vals = [];
 
   if (active !== undefined) { fields.push(`active = $${fields.length + 1}`); vals.push(!!active); }
-  if (name)  { fields.push(`name  = $${fields.length + 1}`); vals.push(name); }
+  if (name)  {
+    fields.push(`name  = $${fields.length + 1}`); vals.push(name);
+    // Keep the email alias in sync with the name (initiallastname@jpark.hotel).
+    if (!email) { fields.push(`email = $${fields.length + 1}`); vals.push(nameToEmail(name)); }
+  }
   if (email) { fields.push(`email = $${fields.length + 1}`); vals.push(email); }
   if (role && ['admin','frontdesk'].includes(role)) {
     fields.push(`role  = $${fields.length + 1}`); vals.push(role);
@@ -213,6 +224,24 @@ router.patch('/staff/:id', requireAdmin, async (req, res) => {
     res.json(rows[0]);
   } catch (e) {
     console.error('[auth] patch-staff', e);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+/* ---- DELETE /api/auth/staff/:id (admin — hard remove) ----
+   Frees the username for re-use and drops the row from the Team Status board.
+   Admins cannot delete themselves. */
+router.delete('/staff/:id', requireAdmin, async (req, res) => {
+  const id = req.params.id;
+  if (req.user && req.user.id === id) {
+    return res.status(400).json({ error: 'Cannot delete the signed-in account' });
+  }
+  try {
+    const { rowCount } = await db.query('DELETE FROM employees WHERE id = $1', [id]);
+    if (!rowCount) return res.status(404).json({ error: 'Employee not found' });
+    res.json({ ok: true, id });
+  } catch (e) {
+    console.error('[auth] delete-staff', e);
     res.status(500).json({ error: 'Server error' });
   }
 });

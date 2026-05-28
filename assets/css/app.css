@@ -500,6 +500,16 @@ textarea.ed-field-input { resize: vertical; line-height: 1.5; }
 .team-row .tr-spacer { flex: 1; }
 .team-row .btn-activate { background: #2bb35a; }
 .team-row .you-tag { font-size: 0.72rem; color: var(--ink-soft); }
+.team-row.pending { background: rgba(201, 162, 75, 0.08); }
+.team-row.pending-remove .tr-name,
+.team-row.pending-remove .tr-role,
+.team-row.pending-remove .tr-status { opacity: 0.55; text-decoration: line-through; }
+.team-row .tr-tag { font-size: 0.7rem; color: var(--terracotta-d); font-style: italic; font-weight: 600; margin-left: 6px; text-decoration: none; }
+.team-actions { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
+.team-actions .ed-hint { margin: 0 0 10px; color: var(--terracotta-d); font-weight: 600; }
+.team-actions-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.team-actions-row .btn[disabled],
+.team-actions-row .btn-solid[disabled] { opacity: 0.5; cursor: not-allowed; }
 .btn-danger { background: var(--terracotta-d); color: #fff; border: none; border-radius: 10px; padding: 10px 20px; cursor: pointer; font-weight: 600; font-family: var(--sans); }
 
 /* admin-only "edit website" entry on public site */

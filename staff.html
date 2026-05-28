@@ -372,7 +372,10 @@
         <h3 data-i18n="staff.team.add">Add staff member</h3>
         <form id="teamForm">
           <div class="field"><label data-i18n="staff.team.name">Full name</label><input type="text" id="tmName" /></div>
-          <div class="field"><label data-i18n="staff.team.username">Username</label><input type="text" id="tmUser" /></div>
+          <div class="field">
+            <label data-i18n="staff.team.usernamePreview">Username (auto)</label>
+            <input type="text" id="tmUserPreview" readonly placeholder="—" />
+          </div>
           <div class="field"><label data-i18n="staff.team.role">Role</label>
             <select id="tmRole">
               <option value="staff" data-i18n="staff.role.staff">Staff</option>
@@ -380,6 +383,7 @@
             </select>
           </div>
           <p class="ed-hint" data-i18n="staff.team.addHint">New members start with the password “jparkhotel”. They activate their account from the login page (New Staff Account) and set their own password.</p>
+          <p class="ed-hint" data-i18n="staff.team.userAutoHint">The username is generated automatically from the staff member’s name (first initial + last name).</p>
           <p class="form-error" id="teamError"></p>
           <button type="submit" class="btn btn-solid" data-i18n="staff.team.add">Add staff member</button>
         </form>
@@ -387,6 +391,13 @@
 
       <div class="team-card">
         <div id="teamList"></div>
+        <div class="team-actions" id="teamActions" hidden>
+          <p class="ed-hint" id="teamPendingHint"></p>
+          <div class="team-actions-row">
+            <button type="button" class="btn btn-solid" id="teamSaveBtn" data-i18n="staff.team.save">Save changes</button>
+            <button type="button" class="btn" id="teamUndoBtn" data-i18n="staff.team.undo">Undo</button>
+          </div>
+        </div>
       </div>
     </section>
   </main>
