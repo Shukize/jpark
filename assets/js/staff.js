@@ -157,8 +157,10 @@
   function startApiPolling() {
     stopApiPolling();
     _pollRequests(); _pollChats(); _pollGuestBookings();
+    if (isAdmin()) _syncStaffList();
     _pollTimer = setInterval(function () {
       _pollRequests(); _pollChats(); _pollGuestBookings();
+      if (isAdmin()) _syncStaffList();
     }, 6000);
   }
   function stopApiPolling() {

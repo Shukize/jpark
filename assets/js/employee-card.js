@@ -50,6 +50,9 @@
   ];
   // When offline, admin edits are kept here so the demo still feels live.
   const LOCAL_EDITS_KEY = "jpark.employeeEdits";
+  // Last successful /api/employees response — used as offline fallback so the
+  // board always reflects real staff rather than the hardcoded seed list.
+  const EMP_CACHE_KEY = "jpark.db.empCache";
 
   function roleMeta(role) { return ROLE_META[role] || { labelKey: "emp.role.staff", cls: "role-staff" }; }
   function statusMeta(s) { return STATUS_META[s] || STATUS_META.off_shift; }
@@ -143,13 +146,18 @@
         this.live = true;
         this.loaded = true;
         this.data = Array.isArray(rows) ? rows : [];
+        // Keep the cache fresh so offline mode reflects actual staff.
+        try { localStorage.setItem(EMP_CACHE_KEY, JSON.stringify(this.data)); } catch (_) {}
         this.render();
       })
       .catch(() => {
-        // Offline / no backend: render the cached roster (with any local edits).
+        // Offline / no backend: use the last-known live roster (with any local
+        // edits applied), falling back to the hardcoded seed only on first run.
         this.live = false;
         this.loaded = true;
-        this.data = applyLocalEdits(FALLBACK_ROSTER);
+        let cached = null;
+        try { cached = JSON.parse(localStorage.getItem(EMP_CACHE_KEY) || "null"); } catch (_) {}
+        this.data = applyLocalEdits(Array.isArray(cached) && cached.length ? cached : FALLBACK_ROSTER);
         this.render();
         this.setStatusLine(esc(t("emp.offline")), "warn");
       });

@@ -13,6 +13,7 @@ router.get('/', requireAuth, async (_req, res) => {
     const { rows } = await db.query(
       `SELECT id, name, email, role, status, shift, phone, updated_at
          FROM employees
+        WHERE active = true
         ORDER BY CASE role WHEN 'admin' THEN 0 WHEN 'frontdesk' THEN 1 ELSE 2 END, name`
     );
     res.json(rows);
