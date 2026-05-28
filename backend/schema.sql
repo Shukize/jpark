@@ -165,17 +165,25 @@ CREATE TRIGGER trg_guest_bookings_updated_at
 
 -- ── Chat messages (guest ↔ front-desk) ──────────────────────────────────────
 CREATE TABLE IF NOT EXISTS chat_messages (
-  id           SERIAL       PRIMARY KEY,
-  guest_id     VARCHAR(100) NOT NULL,
-  guest_name   VARCHAR(100),
-  room         VARCHAR(20),
-  from_role    VARCHAR(20)  NOT NULL,  -- guest | bot | staff | system
-  from_name    VARCHAR(100),
-  body         TEXT         NOT NULL,
-  lang         VARCHAR(10)  DEFAULT 'en',
-  escalated    BOOLEAN      NOT NULL DEFAULT FALSE,
-  created_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+  id                  SERIAL       PRIMARY KEY,
+  guest_id            VARCHAR(100) NOT NULL,
+  guest_name          VARCHAR(100),
+  room                VARCHAR(20),
+  from_role           VARCHAR(20)  NOT NULL,  -- guest | bot | staff | system
+  from_name           VARCHAR(100),
+  body                TEXT         NOT NULL,
+  lang                VARCHAR(10)  DEFAULT 'en',
+  escalated           BOOLEAN      NOT NULL DEFAULT FALSE,
+  assigned_staff_id   VARCHAR(50),
+  assigned_staff_name VARCHAR(100),
+  pinned              BOOLEAN      NOT NULL DEFAULT FALSE,
+  created_at          TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
+
+-- Columns added after the initial schema deploy.
+ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS assigned_staff_id   VARCHAR(50);
+ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS assigned_staff_name VARCHAR(100);
+ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS pinned              BOOLEAN NOT NULL DEFAULT FALSE;
 
 CREATE INDEX IF NOT EXISTS idx_chat_guest
   ON chat_messages (guest_id, created_at);

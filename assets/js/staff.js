@@ -213,15 +213,20 @@
         local.push({
           id: remote.id, guestName: remote.guestName, room: remote.room,
           lang: remote.lang, escalated: remote.escalated,
+          assignedStaffId: remote.assignedStaffId,
+          assignedStaffName: remote.assignedStaffName,
           unreadForStaff: remote.unreadForStaff, lastMsg: remote.lastMsg,
           lastAt: remote.lastAt, messages: [],
         });
         dirty = true;
       } else if (local[idx].unreadForStaff !== remote.unreadForStaff
-              || local[idx].lastMsg !== remote.lastMsg) {
+              || local[idx].lastMsg !== remote.lastMsg
+              || local[idx].assignedStaffId !== remote.assignedStaffId) {
         local[idx] = Object.assign({}, local[idx], {
           unreadForStaff: remote.unreadForStaff, lastMsg: remote.lastMsg,
           lastAt: remote.lastAt, escalated: remote.escalated,
+          assignedStaffId: remote.assignedStaffId,
+          assignedStaffName: remote.assignedStaffName,
         });
         dirty = true;
       }
@@ -346,9 +351,11 @@
     if (i < 0) return;
     all[i] = Object.assign({}, all[i], {
       messages: (res.messages || []).map(function (m) {
-        return { id: m.id, from: m.from, text: m.text, staffName: m.fromName, lang: m.lang, ts: m.ts };
+        return { id: m.id, from: m.from, text: m.text, staffName: m.fromName, lang: m.lang, ts: m.ts, pinned: !!m.pinned };
       }),
       escalated: res.escalated,
+      assignedStaffId: res.assignedStaffId,
+      assignedStaffName: res.assignedStaffName,
     });
     S.write("chats", all);
   }
@@ -385,9 +392,6 @@
   /* ====================  PANELS  ==================== */
   function selectPanel(name) {
     if ((name === "site" || name === "team") && !isAdmin()) name = "requests";
-    // Live Chat is reserved for Front Desk staff — admins don't handle guest
-    // chats, so the panel is hidden and any deep link/redirect lands on Requests.
-    if (name === "chat" && isAdmin()) name = "requests";
     if (name === "company") name = "messages"; // redirect legacy hash
     panel = name;
     document.querySelectorAll(".nav-item").forEach((b) => b.classList.toggle("active", b.dataset.panel === name));
@@ -502,8 +506,15 @@
   }
 
   /* ====================  LIVE CHAT  ==================== */
+  // Per-user unread: only chats currently assigned to the signed-in account
+  // contribute to the badge/chime, so admins and other Front-Desk users don't
+  // get pinged about threads they aren't handling.
+  function myAssignedChats() {
+    if (!session) return [];
+    return S.list("chats").filter((c) => c.escalated && c.assignedStaffId === session.id);
+  }
   function totalChatUnread() {
-    return S.list("chats").filter((c) => c.escalated).reduce((s, c) => s + (c.unreadForStaff || 0), 0);
+    return myAssignedChats().reduce((s, c) => s + (c.unreadForStaff || 0), 0);
   }
 
   function renderChat() {
@@ -560,11 +571,19 @@
           inner += '<input type="checkbox" class="cct-check"' +
             (selectedChatIds.has(c.id) ? " checked" : "") + ' aria-label="Select thread" />';
         }
+        // Show which staff member owns the chat right in the list so anyone
+        // browsing knows who's currently responsible — only that account's
+        // unread dot lights up (it's filtered by myAssignedChats() above).
+        const mine = c.assignedStaffId && session && c.assignedStaffId === session.id;
+        const assignedLabel = c.assignedStaffName
+          ? (mine ? t("staff.chat.assignedYou") : t("staff.chat.assignedTo").replace("{name}", c.assignedStaffName))
+          : t("staff.chat.unassigned");
         inner +=
           '<div class="cct-body">' +
-            '<div class="cct-name">' + (c.unreadForStaff ? '<span class="cct-unread"></span>' : "") +
+            '<div class="cct-name">' + (mine && c.unreadForStaff ? '<span class="cct-unread"></span>' : "") +
               esc(c.guestName || "Guest") + (c.room ? " · " + esc(t("staff.requests.room")) + " " + esc(c.room) : "") + "</div>" +
             '<div class="cct-last">' + esc(c.lastMsg || "") + "</div>" +
+            '<div class="cct-assigned' + (mine ? " mine" : "") + '">' + esc(assignedLabel) + "</div>" +
             '<div class="cct-lang">' + esc((I.LANG_NAMES[c.lang] || c.lang || "")) +
               (c.escalated ? "" : " · " + esc(t("chat.bot"))) + "</div>" +
           "</div>" +
@@ -607,22 +626,40 @@
       convEl.innerHTML = '<div class="cc-conv-empty">' + esc(t("staff.chat.none")) + "</div>";
       return;
     }
+    // Only the assigned account can reply. Anyone else sees a read-only
+    // banner with "Take over chat" so they can grab the thread when the
+    // assignee is on break / off shift.
+    const mineConv = conv.assignedStaffId && session && conv.assignedStaffId === session.id;
+    const ownerLabel = conv.assignedStaffName
+      ? (mineConv ? t("staff.chat.assignedYou") : t("staff.chat.assignedTo").replace("{name}", conv.assignedStaffName))
+      : t("staff.chat.unassigned");
     let html =
       '<div class="cc-conv-head"><span class="cch-name">' + esc(conv.guestName || "Guest") +
         (conv.room ? " · " + esc(t("staff.requests.room")) + " " + esc(conv.room) : "") + "</span>" +
+        '<span class="cch-owner' + (mineConv ? " mine" : "") + '">' + esc(ownerLabel) + "</span>" +
         '<span class="cch-lang">' + esc(t("staff.chat.guestLang")) + ": " + esc(I.LANG_NAMES[conv.lang] || conv.lang || "") + "</span></div>" +
-      '<div class="cc-conv-body" id="ccBody"></div>' +
-      '<form class="cc-conv-input" id="ccForm"><input type="text" id="ccInput" placeholder="' + esc(t("staff.chat.placeholder")) + '" autocomplete="off" />' +
-        '<button type="submit">' + esc(t("common.send")) + "</button></form>";
+      '<div class="cc-conv-body" id="ccBody"></div>';
+    if (mineConv) {
+      html +=
+        '<form class="cc-conv-input" id="ccForm"><input type="text" id="ccInput" placeholder="' + esc(t("staff.chat.placeholder")) + '" autocomplete="off" />' +
+          '<button type="submit">' + esc(t("common.send")) + "</button></form>";
+    } else {
+      html +=
+        '<div class="cc-conv-takeover">' +
+          '<span class="cct-readonly">' + esc(t("staff.chat.readOnly")) + "</span>" +
+          '<button type="button" class="cc-takeover-btn" id="ccTakeover">' + esc(t("staff.chat.takeOver")) + "</button>" +
+        "</div>";
+    }
     convEl.innerHTML = html;
 
     const bodyEl = document.getElementById("ccBody");
     const cur = I.getLang();
     conv.messages.forEach((m) => {
       const div = document.createElement("div");
-      div.className = "msg " + m.from;
-      if (m.from === "system") { div.textContent = m.text; }
-      else {
+      div.className = "msg " + m.from + (m.pinned ? " pinned" : "");
+      if (m.from === "system") {
+        div.textContent = m.text;
+      } else {
         const label = m.from === "guest" ? (conv.guestName || t("chat.you"))
                     : m.from === "staff" ? (m.staffName || t("chat.staff"))
                     : m.from === "bot"   ? t("chat.bot")
@@ -632,18 +669,38 @@
         if (m.lang && m.lang === cur) span.textContent = m.text;
         else J.translate.fill(span, m.text, div);
       }
+      // Pin toggle is available on every persisted message (skip ephemeral
+      // ids that never made it to the server — they don't have a numeric id).
+      if (typeof m.id === "number" || (typeof m.id === "string" && /^\d+$/.test(m.id))) {
+        const pinBtn = document.createElement("button");
+        pinBtn.type = "button";
+        pinBtn.className = "msg-pin" + (m.pinned ? " is-pinned" : "");
+        pinBtn.title = t(m.pinned ? "staff.chat.unpin" : "staff.chat.pin");
+        pinBtn.setAttribute("aria-label", pinBtn.title);
+        pinBtn.textContent = "📌";
+        pinBtn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          togglePinMessage(conv.id, m.id, !m.pinned);
+        });
+        div.appendChild(pinBtn);
+      }
       bodyEl.appendChild(div);
     });
     bodyEl.scrollTop = bodyEl.scrollHeight;
 
-    document.getElementById("ccForm").addEventListener("submit", (e) => {
-      e.preventDefault();
-      const inp = document.getElementById("ccInput");
-      const text = inp.value.trim();
-      if (!text) return;
-      staffReply(conv.id, text);
-      inp.value = "";
-    });
+    const ccForm = document.getElementById("ccForm");
+    if (ccForm) {
+      ccForm.addEventListener("submit", (e) => {
+        e.preventDefault();
+        const inp = document.getElementById("ccInput");
+        const text = inp.value.trim();
+        if (!text) return;
+        staffReply(conv.id, text);
+        inp.value = "";
+      });
+    }
+    const takeBtn = document.getElementById("ccTakeover");
+    if (takeBtn) takeBtn.addEventListener("click", () => takeOverChat(conv));
   }
 
   function markThreadRead(id) {
@@ -657,6 +714,12 @@
     const i = all.findIndex((c) => c.id === id);
     if (i < 0) return;
     const c = all[i];
+    // Only the assigned account is allowed to type into this thread. If the
+    // current user isn't the owner, send them down the take-over path first.
+    if (c.assignedStaffId && c.assignedStaffId !== session.id) {
+      U.toast(t("staff.chat.notAssigned"), "error");
+      return;
+    }
     c.escalated = true;
     c.messages.push({ id: S.genId(), from: "staff", text: text, staffName: session.name, ts: Date.now() });
     c.lastMsg = text; c.lastAt = Date.now();
@@ -671,7 +734,63 @@
         guestId: id, guestName: c.guestName, room: c.room,
         from: "staff", fromName: session.name, text: text,
         lang: I.getLang(), escalated: true,
+        assignedStaffId: session.id, assignedStaffName: session.name,
       }).catch(function () {});
+    }
+  }
+
+  /* Reassign a guest chat to the signed-in user (e.g. when the original
+     owner is on break). Posts a system message so the guest knows who's
+     replying now, then refreshes the thread. */
+  async function takeOverChat(conv) {
+    if (!conv || !session) return;
+    if (conv.assignedStaffId === session.id) return;
+    if (!confirm(t("staff.chat.takeOverConfirm").replace("{name}", conv.guestName || "Guest"))) return;
+    const API = window.JPark && window.JPark.api;
+    if (API) {
+      const systemText = t("chat.connectedTo").replace("{name}", session.name);
+      const res = await API.patch("/api/chat/" + encodeURIComponent(conv.id) + "/assign", {
+        staffId: session.id, staffName: session.name,
+        systemText, lang: I.getLang(),
+      });
+      if (res && res.error && !res.offline) {
+        U.toast(t("staff.chat.takeOverFailed") + ": " + res.error, "error");
+        return;
+      }
+    }
+    const all = S.list("chats");
+    const i = all.findIndex((c) => c.id === conv.id);
+    if (i >= 0) {
+      all[i] = Object.assign({}, all[i], {
+        assignedStaffId: session.id, assignedStaffName: session.name,
+      });
+      S.write("chats", all);
+    }
+    U.toast(t("staff.chat.takenOver"), "success");
+    await _loadThreadMessages(conv.id);
+    renderChat();
+  }
+
+  /* Toggle the pin flag on a single chat message. Optimistically updates the
+     local cache so the icon flips immediately, then writes the change to the
+     server. The next poll tick re-reads the canonical state. */
+  async function togglePinMessage(guestId, msgId, pinned) {
+    const all = S.list("chats");
+    const i = all.findIndex((c) => c.id === guestId);
+    if (i < 0) return;
+    const msgs = all[i].messages || [];
+    const j = msgs.findIndex((m) => String(m.id) === String(msgId));
+    if (j < 0) return;
+    msgs[j] = Object.assign({}, msgs[j], { pinned });
+    all[i] = Object.assign({}, all[i], { messages: msgs });
+    S.write("chats", all);
+    if (selectedThread === guestId) renderChat();
+    const API = window.JPark && window.JPark.api;
+    if (API) {
+      const res = await API.patch("/api/chat/message/" + encodeURIComponent(msgId) + "/pin", { pinned });
+      if (res && res.error && !res.offline) {
+        U.toast(t("staff.chat.pinFailed") + ": " + res.error, "error");
+      }
     }
   }
 
@@ -2691,7 +2810,10 @@
   /* ====================  BADGES + NOTIFICATIONS  ==================== */
   function updateBadges() {
     const pending = S.list("requests").filter((r) => r.status === "pending").length;
-    const chatUnread = S.list("chats").filter((c) => c.unreadForStaff > 0).length;
+    // Live-chat badge is per-user: count only threads assigned to me that
+    // still have unread guest messages. That's why a 1/2 only ever shows on
+    // the account the guest is currently connected to.
+    const chatUnread = myAssignedChats().filter((c) => c.unreadForStaff > 0).length;
     const msgUnread = session ? getMsgUnreadCount().total : 0;
     setCount("countRequests", pending);
     setCount("countChat", chatUnread);
@@ -2747,13 +2869,12 @@
     updateBadges();
   }
   function onChatsChange() {
-    // Live chat is a Front-Desk-only surface — skip the chime/notification
-    // for admins so they don't get pinged about chats they can't handle.
-    if (!isAdmin()) {
-      const u = totalChatUnread();
-      if (u > lastChatUnread) { notify(t("staff.notif.chat")); playChime(); }
-      lastChatUnread = u;
-    }
+    // Notifications + chime only fire for chats where the signed-in user is
+    // the assigned account, so admins and other Front-Desk staff don't get
+    // pinged about threads they aren't currently handling.
+    const u = totalChatUnread();
+    if (u > lastChatUnread) { notify(t("staff.notif.chat")); playChime(); }
+    lastChatUnread = u;
     if (panel === "chat") renderChat();
     updateBadges();
   }

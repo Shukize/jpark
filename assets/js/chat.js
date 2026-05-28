@@ -110,6 +110,10 @@
       text,
       lang: I.getLang(),
       escalated: !!(opts && opts.escalated),
+      // When escalating, stamp the freshly picked Front Desk owner on the
+      // row so the staff console can route notifications to that account.
+      assignedStaffId: opts && opts.assignedStaffId ? opts.assignedStaffId : undefined,
+      assignedStaffName: opts && opts.assignedStaffName ? opts.assignedStaffName : undefined,
     });
   }
 
@@ -207,9 +211,12 @@
 
       const staff = await fetchAvailableStaff();
       let msgText;
+      let pickedId = null, pickedName = null;
       if (staff.length) {
         const pick = staff[Math.floor(Math.random() * staff.length)];
         conv.assignedStaff = pick.name;
+        pickedId = pick.id;
+        pickedName = pick.name;
         msgText = t("chat.connectedTo").replace("{name}", pick.name);
       } else {
         msgText = t("chat.noStaffOnShift");
@@ -218,7 +225,10 @@
       const msg = { id: S.genId(), from: "system", text: msgText, lang: I.getLang(), ts: Date.now() };
       conv.messages.push(msg); conv.lastMsg = msg.text; conv.lastAt = msg.ts;
       saveLocalConv(conv);
-      apiPostMessage("system", msg.text, { escalated: true });
+      apiPostMessage("system", msg.text, {
+        escalated: true,
+        assignedStaffId: pickedId, assignedStaffName: pickedName,
+      });
     }
     render();
   }
