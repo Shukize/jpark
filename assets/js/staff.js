@@ -2847,8 +2847,13 @@
     } catch (_) {}
   }
   function notify(msg) {
-    U.toast(msg);
-    if ("Notification" in window && Notification.permission === "granted") {
+    // Show the in-page toast when the console is visible, fall back to the
+    // OS-level Notification only when it isn't — otherwise the assigned
+    // staff sees the same ping twice (toast + system popup) for one event.
+    const visible = typeof document.hidden === "boolean" ? !document.hidden : true;
+    if (visible) {
+      U.toast(msg);
+    } else if ("Notification" in window && Notification.permission === "granted") {
       try { new Notification("J Park Hotel", { body: msg }); } catch (_) {}
     }
   }
