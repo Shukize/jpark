@@ -159,10 +159,10 @@
 
   function startApiPolling() {
     stopApiPolling();
-    _pollRequests(); _pollChats(); _pollGuestBookings();
+    _pollRequests(); _pollChats(); _pollGuestBookings(); _pollMessages();
     _syncStaffList();
     _pollTimer = setInterval(function () {
-      _pollRequests(); _pollChats(); _pollGuestBookings();
+      _pollRequests(); _pollChats(); _pollGuestBookings(); _pollMessages();
       _syncStaffList();
     }, 6000);
   }
@@ -234,6 +234,104 @@
     S.write("guestBookings", data);
   }
 
+  /* ── Internal messages: pull every visible message from the server and
+     merge them into the local cache. Per-user UI state (starred, trashedBy,
+     trashedAt) is local-only and preserved across syncs; canonical fields
+     (subject, body, readBy, reportedBy, recipients) come from the server.
+     Server rows live under id = "srv_<serial>"; locally-only rows (seed
+     welcome, offline sends) keep their original ids so we don't drop them. */
+  function _mapServerMsg(r) {
+    return {
+      id: "srv_" + r.id,
+      fromId: r.from_id,
+      fromName: r.from_name,
+      fromRole: r.from_role,
+      subject: r.subject,
+      body: r.body,
+      lang: r.lang,
+      to: r.to_all ? "all" : (r.to_ids || []),
+      toNames: r.to_all ? "Everyone" : (r.to_names || []),
+      readBy: r.read_by || [],
+      reportedBy: r.reported_by || [],
+      createdAt: r.created_at ? new Date(r.created_at).getTime() : Date.now(),
+    };
+  }
+
+  async function _pollMessages() {
+    if (!session) return;
+    const API = window.JPark && window.JPark.api;
+    if (!API) return;
+    const data = await API.get("/api/messages");
+    if (!Array.isArray(data)) return;
+    const local = S.list("messages");
+    const personal = new Map();
+    local.forEach(function (m) {
+      if (typeof m.id === "string" && m.id.indexOf("srv_") === 0) {
+        personal.set(m.id, {
+          starred: m.starred,
+          trashedBy: m.trashedBy,
+          trashedAt: m.trashedAt,
+        });
+      }
+    });
+    // Server messages the user perma-deleted from their own view stay hidden
+    // forever (server doesn't know — delete-forever is a per-user UI action).
+    const hidden = new Set(S.list("messages_deleted"));
+    const remote = data
+      .map(_mapServerMsg)
+      .filter(function (m) { return !hidden.has(m.id); })
+      .map(function (m) {
+        const p = personal.get(m.id);
+        return p ? Object.assign({}, m, {
+          starred: p.starred,
+          trashedBy: p.trashedBy,
+          trashedAt: p.trashedAt,
+        }) : m;
+      });
+    const localOnly = local.filter(function (m) {
+      return typeof m.id !== "string" || m.id.indexOf("srv_") !== 0;
+    });
+    const merged = remote.concat(localOnly);
+    if (JSON.stringify(merged) !== JSON.stringify(local)) {
+      S.write("messages", merged);
+    }
+  }
+
+  /* Track perma-deleted server ids so the next poll doesn't bring them back. */
+  function permaForgetMsg(id) {
+    if (typeof id !== "string" || id.indexOf("srv_") !== 0) return;
+    const arr = S.list("messages_deleted");
+    if (arr.indexOf(id) >= 0) return;
+    arr.push(id);
+    S.write("messages_deleted", arr);
+  }
+
+  /* Lazy-load peer avatars. We only fetch when the local cached version
+     doesn't match the directory's `avatar_updated_at`, so the staff list
+     stays small and bandwidth is bounded. */
+  async function _syncAvatars(staff) {
+    const API = window.JPark && window.JPark.api;
+    if (!API) return;
+    for (let i = 0; i < staff.length; i++) {
+      const u = staff[i];
+      const remoteV = u.avatar_updated_at || null;
+      const localV = S.read("avatar_v_" + u.id, null);
+      if (!remoteV) continue;            // no server-side photo set
+      if (localV === remoteV) continue;  // already in sync
+      try {
+        const res = await API.get("/api/auth/avatar/" + encodeURIComponent(u.id));
+        if (res && !res.error) {
+          if (res.avatar) S.write("avatar_" + u.id, res.avatar);
+          else { try { localStorage.removeItem("jpark.db.avatar_" + u.id); } catch (_) {} }
+          S.write("avatar_v_" + u.id, remoteV);
+        }
+      } catch (_) { /* network blip — retry next tick */ }
+    }
+    // Re-render UI surfaces that show avatars.
+    if (session) renderAvatarInSidebar();
+    if (panel === "messages") renderMessages();
+  }
+
   /* Load full message list for a chat thread from the API. */
   async function _loadThreadMessages(guestId) {
     const API = window.JPark && window.JPark.api;
@@ -287,6 +385,9 @@
     document.querySelectorAll(".nav-item").forEach((b) => b.classList.toggle("active", b.dataset.panel === name));
     document.querySelectorAll(".dash-panel").forEach((p) => p.classList.toggle("show", p.id === "panel-" + name));
     renderPanel();
+    // Opening the messages panel triggers a fresh pull so the user sees any
+    // server-side activity that landed since the last 6s poll tick.
+    if (name === "messages") _pollMessages();
   }
 
   function renderPanel() {
@@ -500,8 +601,19 @@
   function getAvatarDataUrl(userId) {
     return S.read("avatar_" + userId, null);
   }
-  function setAvatarDataUrl(userId, dataUrl) {
+  // Writes to local cache first for instant feedback, then syncs to the
+  // server so every other device / teammate sees it. Returns the API result
+  // (or null on local-only write) so callers can show errors.
+  async function setAvatarDataUrl(userId, dataUrl) {
     S.write("avatar_" + userId, dataUrl);
+    if (!session || userId !== session.id) return null;
+    const API = window.JPark && window.JPark.api;
+    if (!API) return null;
+    const res = await API.post("/api/auth/avatar", { avatar: dataUrl });
+    if (res && !res.error && res.avatar_updated_at) {
+      S.write("avatar_v_" + userId, res.avatar_updated_at);
+    }
+    return res;
   }
   function renderAvatarInSidebar() {
     const el = document.getElementById("dsAvatar");
@@ -598,6 +710,12 @@
       all[i] = Object.assign({}, all[i], { readBy });
       S.write("messages", all);
     }
+    // Propagate to server so other devices the same user is signed in on,
+    // and the sender's "read by" view, stay in sync.
+    if (typeof id === "string" && id.indexOf("srv_") === 0) {
+      const API = window.JPark && window.JPark.api;
+      if (API) API.patch("/api/messages/" + id.slice(4) + "/read", {}).catch(function () {});
+    }
   }
   function getTrashedMsgs() {
     if (!session) return [];
@@ -639,7 +757,13 @@
       if (!m.trashedBy || !m.trashedBy.length) { acc.push(m); return acc; }
       var trashedAt = m.trashedAt || {};
       var freshBy = m.trashedBy.filter(function(uid) { return now - (trashedAt[uid] || 0) < THIRTY_DAYS; });
-      if (freshBy.length === 0) { changed = true; return acc; }
+      if (freshBy.length === 0) {
+        // Auto-purge after 30 days — same as "Delete forever" so it doesn't
+        // come back on the next server poll.
+        permaForgetMsg(m.id);
+        changed = true;
+        return acc;
+      }
       if (freshBy.length < m.trashedBy.length) {
         var freshAt = {};
         freshBy.forEach(function(uid) { freshAt[uid] = trashedAt[uid]; });
@@ -932,11 +1056,15 @@
           if (!selectedMsgIds.size) return;
           if (!confirm(t("msg.report.confirm"))) return;
           const all = S.list("messages");
+          const API = window.JPark && window.JPark.api;
           selectedMsgIds.forEach((id) => {
             const i = all.findIndex((x) => x.id === id);
             if (i < 0 || all[i].fromId === session.id) return;
             const already = (all[i].reportedBy || []).includes(session.id);
             if (!already) all[i] = Object.assign({}, all[i], { reportedBy: (all[i].reportedBy || []).concat([session.id]) });
+            if (API && typeof id === "string" && id.indexOf("srv_") === 0) {
+              API.patch("/api/messages/" + id.slice(4) + "/report", {}).catch(function () {});
+            }
           });
           S.write("messages", all);
           selectedMsgIds.clear();
@@ -1072,7 +1200,7 @@
         mbbDeleteForever.addEventListener("click", () => {
           if (!selectedMsgIds.size) return;
           if (!confirm(t("msg.delete.forever.confirm"))) return;
-          selectedMsgIds.forEach((id) => S.remove("messages", id));
+          selectedMsgIds.forEach((id) => { permaForgetMsg(id); S.remove("messages", id); });
           selectedMsgIds.clear();
           msgMultiSelect = false;
           renderMessages();
@@ -1173,6 +1301,10 @@
         reportBtn.className = "mda-action-btn mda-report-btn reported";
         reportBtn.textContent = "⚠ " + t("msg.report.done");
         reportBtn.disabled = true;
+        if (typeof m.id === "string" && m.id.indexOf("srv_") === 0) {
+          const API = window.JPark && window.JPark.api;
+          if (API) API.patch("/api/messages/" + m.id.slice(4) + "/report", {}).catch(function () {});
+        }
       });
     }
 
@@ -1190,6 +1322,7 @@
     if (deleteForeverBtn) {
       deleteForeverBtn.addEventListener("click", () => {
         if (!confirm(t("msg.delete.forever.confirm"))) return;
+        permaForgetMsg(m.id);
         S.remove("messages", m.id);
         msgView = "trash";
         msgDetailId = null;
@@ -1609,7 +1742,7 @@
     });
     dd.style.display = hasItems ? "block" : "none";
   }
-  function sendMessage() {
+  async function sendMessage() {
     const subject = document.getElementById("msgSubjectInput").value.trim();
     const body = document.getElementById("msgBodyInput").value.trim();
     if (!msgToAllSelected && msgToRecipients.length === 0) {
@@ -1617,16 +1750,46 @@
     }
     if (!subject) { U.toast("Please add a subject.", "error"); return; }
     if (!body) { U.toast("Please write a message.", "error"); return; }
-    const msg = {
+
+    const toAll = msgToAllSelected;
+    const toIds = toAll ? [] : msgToRecipients.map((r) => r.id);
+    const toNames = toAll ? [] : msgToRecipients.map((r) => r.name);
+
+    // Sync path: POST to the server so the recipient sees it on their next
+    // poll tick (~6s). The server stamps the canonical id and createdAt,
+    // and we mirror the row locally for instant UI feedback.
+    const API = window.JPark && window.JPark.api;
+    if (API) {
+      const res = await API.post("/api/messages", {
+        subject, body, lang: I.getLang(), toAll, toIds, toNames,
+      });
+      if (res && !res.error) {
+        const all = S.list("messages");
+        all.push(_mapServerMsg(res));
+        S.write("messages", all);
+        closeCompose();
+        U.toast("Message sent!", "success");
+        if (panel === "messages") { msgView = "sent"; renderMessages(); }
+        return;
+      }
+      if (res && res.error && !res.offline) {
+        U.toast("Could not send: " + res.error, "error");
+        return;
+      }
+      // Fall through on offline — store locally so it isn't lost.
+    }
+
+    // Offline / no API fallback — local-only insert. (Survives until the
+    // server comes back; not auto-replayed today.)
+    S.insert("messages", {
       fromId: session.id, fromName: session.name, fromRole: session.role,
       subject, body, lang: I.getLang(),
-      to: msgToAllSelected ? "all" : msgToRecipients.map((r) => r.id),
-      toNames: msgToAllSelected ? "Everyone" : msgToRecipients.map((r) => r.name),
-      readBy: [session.id]
-    };
-    S.insert("messages", msg);
+      to: toAll ? "all" : toIds,
+      toNames: toAll ? "Everyone" : toNames,
+      readBy: [session.id],
+    });
     closeCompose();
-    U.toast("Message sent!", "success");
+    U.toast("Message saved offline — will send when reconnected.", "success");
     if (panel === "messages") { msgView = "sent"; renderMessages(); }
   }
 
@@ -2377,9 +2540,11 @@
         id: e.id, name: e.name, username: e.username || e.id,
         role: e.role === "admin" ? "admin" : "staff",
         active: e.active !== false, email: e.email,
+        avatar_updated_at: e.avatar_updated_at || null,
       };
     });
     S.write("staff", staff);
+    _syncAvatars(staff);
   }
 
   /* ====================  BADGES + NOTIFICATIONS  ==================== */
@@ -2640,8 +2805,8 @@
       avatarInput.addEventListener("change", () => {
         const file = avatarInput.files[0];
         if (!file) return;
-        if (file.size > 2 * 1024 * 1024) {
-          U.toast("Image too large — please use a file under 2 MB.", "error");
+        if (file.size > 5 * 1024 * 1024) {
+          U.toast("Image too large — please use a file under 5 MB.", "error");
           avatarInput.value = "";
           return;
         }
@@ -2649,21 +2814,43 @@
         reader.onload = (e) => {
           avatarInput.value = "";
           if (!session) { U.toast("Not signed in — photo not saved.", "error"); return; }
-          try {
-            setAvatarDataUrl(session.id, e.target.result);
-          } catch (_) {
-            U.toast("Could not save photo — storage full.", "error");
-            return;
-          }
-          renderAvatarInSidebar();
-          // Sync into profile modal photo if it's open
-          const pmPhoto = document.getElementById("pmPhoto");
-          const modal = document.getElementById("profileModal");
-          if (pmPhoto && modal && !modal.hidden) {
-            pmPhoto.innerHTML = '<img src="' + esc(e.target.result) + '" alt="Profile photo" />';
-          }
-          U.toast("Profile photo updated!", "success");
-          if (panel === "messages") renderMessages();
+          // Downscale to ~256px square JPEG (~20–30KB) before storing, so the
+          // server row stays small and teammates can pull it cheaply.
+          const img = new Image();
+          img.onload = async () => {
+            const MAX = 256;
+            const scale = Math.min(1, MAX / Math.max(img.width, img.height));
+            const w = Math.max(1, Math.round(img.width * scale));
+            const h = Math.max(1, Math.round(img.height * scale));
+            const c = document.createElement("canvas");
+            c.width = w; c.height = h;
+            const ctx = c.getContext("2d");
+            ctx.drawImage(img, 0, 0, w, h);
+            const dataUrl = c.toDataURL("image/jpeg", 0.82);
+            let res;
+            try {
+              res = await setAvatarDataUrl(session.id, dataUrl);
+            } catch (_) {
+              U.toast("Could not save photo — storage full.", "error");
+              return;
+            }
+            renderAvatarInSidebar();
+            const pmPhoto = document.getElementById("pmPhoto");
+            const modal = document.getElementById("profileModal");
+            if (pmPhoto && modal && !modal.hidden) {
+              pmPhoto.innerHTML = '<img src="' + esc(dataUrl) + '" alt="Profile photo" />';
+            }
+            if (res && res.error && !res.offline) {
+              U.toast("Photo saved locally but server upload failed: " + res.error, "error");
+            } else if (res && res.offline) {
+              U.toast("Photo saved locally — will sync when back online.", "success");
+            } else {
+              U.toast("Profile photo updated!", "success");
+            }
+            if (panel === "messages") renderMessages();
+          };
+          img.onerror = () => { U.toast("Failed to read image. Please try again.", "error"); };
+          img.src = e.target.result;
         };
         reader.onerror = () => {
           avatarInput.value = "";

@@ -110,6 +110,7 @@ ALTER TABLE employees ADD COLUMN IF NOT EXISTS username             VARCHAR(50) 
 ALTER TABLE employees ADD COLUMN IF NOT EXISTS password_hash        TEXT;
 ALTER TABLE employees ADD COLUMN IF NOT EXISTS active               BOOLEAN NOT NULL DEFAULT TRUE;
 ALTER TABLE employees ADD COLUMN IF NOT EXISTS avatar               TEXT;
+ALTER TABLE employees ADD COLUMN IF NOT EXISTS avatar_updated_at    TIMESTAMPTZ;
 ALTER TABLE employees ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN NOT NULL DEFAULT FALSE;
 
 DROP TRIGGER IF EXISTS trg_employees_updated_at ON employees;

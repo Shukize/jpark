@@ -248,12 +248,13 @@ router.delete('/staff/:id', requireAdmin, async (req, res) => {
 
 /* ---- GET /api/auth/staff ----
    Any authenticated employee gets the directory (needed for the messaging
-   compose autocomplete). Admins additionally see contact / shift details. */
+   compose autocomplete). Admins additionally see contact / shift details.
+   `avatar_updated_at` lets the client decide when to lazy-fetch the photo. */
 router.get('/staff', requireAuth, async (req, res) => {
   const admin = req.user && Array.isArray(req.user.perms) && req.user.perms.includes('admin');
   const cols = admin
-    ? 'id, username, name, email, role, phone, shift, status, active, created_at'
-    : 'id, username, name, role, active';
+    ? 'id, username, name, email, role, phone, shift, status, active, created_at, avatar_updated_at'
+    : 'id, username, name, role, active, avatar_updated_at';
   try {
     const { rows } = await db.query(
       `SELECT ${cols}
@@ -265,6 +266,73 @@ router.get('/staff', requireAuth, async (req, res) => {
     res.json(rows);
   } catch (e) {
     console.error('[auth] list-staff', e);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+/* ---- GET /api/auth/avatar/:id ----
+   Returns one employee's avatar as a data URL. The directory only exposes a
+   version timestamp, so this endpoint is only hit when the cached version is
+   stale or missing — keeps polling traffic cheap. */
+router.get('/avatar/:id', requireAuth, async (req, res) => {
+  try {
+    const { rows } = await db.query(
+      'SELECT avatar, avatar_updated_at FROM employees WHERE id = $1',
+      [req.params.id]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Employee not found' });
+    res.json({
+      id: req.params.id,
+      avatar: rows[0].avatar || null,
+      avatar_updated_at: rows[0].avatar_updated_at,
+    });
+  } catch (e) {
+    console.error('[auth] get-avatar', e);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+/* ---- POST /api/auth/avatar ----
+   Current user uploads their photo (data URL). Capped at ~350KB of base64
+   (≈ a 256×256 JPEG at quality 0.82) to keep the row small. */
+router.post('/avatar', requireAuth, async (req, res) => {
+  const { avatar } = req.body || {};
+  if (typeof avatar !== 'string' || !avatar.startsWith('data:image/')) {
+    return res.status(400).json({ error: 'avatar must be a data URL' });
+  }
+  if (avatar.length > 350000) {
+    return res.status(413).json({ error: 'avatar too large — please downscale before upload' });
+  }
+  try {
+    const { rows } = await db.query(
+      `UPDATE employees
+          SET avatar = $1, avatar_updated_at = NOW()
+        WHERE id = $2
+        RETURNING id, avatar_updated_at`,
+      [avatar, req.user.id]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Employee not found' });
+    res.json({ ok: true, avatar_updated_at: rows[0].avatar_updated_at });
+  } catch (e) {
+    console.error('[auth] post-avatar', e);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+/* ---- DELETE /api/auth/avatar (current user removes their photo) ---- */
+router.delete('/avatar', requireAuth, async (req, res) => {
+  try {
+    const { rows } = await db.query(
+      `UPDATE employees
+          SET avatar = NULL, avatar_updated_at = NOW()
+        WHERE id = $1
+        RETURNING id, avatar_updated_at`,
+      [req.user.id]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Employee not found' });
+    res.json({ ok: true, avatar_updated_at: rows[0].avatar_updated_at });
+  } catch (e) {
+    console.error('[auth] delete-avatar', e);
     res.status(500).json({ error: 'Server error' });
   }
 });
