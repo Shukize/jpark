@@ -150,8 +150,8 @@
   function completeLogin(userObj) {
     setSession(userObj);
     // If the token was already stored by the server-login path, use it.
-    // Otherwise mint a client-side token (offline / legacy flow).
-    if (J.authToken && !J.authToken.get()) {
+    // Otherwise mint a client-side token (offline / legacy / expired flow).
+    if (J.authToken && !J.authToken.isValid()) {
       Promise.resolve(J.authToken.mint(userObj)).catch(function () {}).then(showDash);
     } else {
       showDash();
@@ -3285,7 +3285,7 @@
     session = validSession(getSession());
     if (session) {
       // Restore (or re-mint) the bearer token for an already-signed-in session.
-      if (J.authToken && !J.authToken.get()) Promise.resolve(J.authToken.mint(session)).catch(function () {}).then(showDash);
+      if (J.authToken && !J.authToken.isValid()) Promise.resolve(J.authToken.mint(session)).catch(function () {}).then(showDash);
       else showDash();
     } else showLogin();
   });

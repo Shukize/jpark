@@ -103,6 +103,13 @@
   }
   function isAdmin() { return hasPermission("admin"); }
 
+  // Returns true when a non-expired token is stored in localStorage.
+  function isValid() {
+    const p = decode();
+    if (!p) return false;
+    return !(p.exp && Date.now() / 1000 > p.exp);
+  }
+
   function authHeaders(extra) {
     const token = get();
     const headers = Object.assign({}, extra || {});
@@ -110,5 +117,5 @@
     return headers;
   }
 
-  window.JPark.authToken = { mint, get, clear, decode, hasPermission, isAdmin, authHeaders };
+  window.JPark.authToken = { mint, get, clear, decode, hasPermission, isAdmin, isValid, authHeaders };
 })();

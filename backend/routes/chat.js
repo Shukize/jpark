@@ -31,15 +31,37 @@ function row2msg(r) {
 
 /* GET /api/chat/available-staff — on-shift Front Desk staff (public, for guest
    chat routing). Admins are deliberately excluded so guest chats only ever
-   connect to a frontdesk teammate. */
+   connect to a frontdesk teammate.
+   The stored `status` column can be stale (it's only updated manually), so we
+   validate each employee's shift string against the current ICT (UTC+7) time —
+   the same logic the frontend employee board uses for live status display. */
 router.get('/available-staff', async (_req, res) => {
   try {
     const { rows } = await db.query(
-      `SELECT id, name FROM employees
-        WHERE status = 'on_shift' AND role = 'frontdesk' AND active = TRUE
+      `SELECT id, name, status, shift FROM employees
+        WHERE role = 'frontdesk' AND active = TRUE
         ORDER BY name`
     );
-    res.json(rows.map((r) => ({ id: r.id, name: r.name })));
+
+    // ICT = UTC+7; minutes elapsed since local midnight.
+    const ictNow = new Date(Date.now() + 7 * 3600 * 1000);
+    const curMin = ictNow.getUTCHours() * 60 + ictNow.getUTCMinutes();
+
+    function isActuallyOnShift(emp) {
+      // Employees on a manual break are unavailable regardless of clock time.
+      if (emp.status === 'on_break') return false;
+      if (!emp.shift) return false;
+      const m = emp.shift.match(/(\d{1,2}):(\d{2})\s*[–\-]\s*(\d{1,2}):(\d{2})/);
+      if (!m) return false;
+      const start = parseInt(m[1]) * 60 + parseInt(m[2]);
+      const end   = parseInt(m[3]) * 60 + parseInt(m[4]);
+      // Overnight shifts (e.g. 23:00–07:00) wrap past midnight.
+      return start < end
+        ? curMin >= start && curMin < end
+        : curMin >= start || curMin < end;
+    }
+
+    res.json(rows.filter(isActuallyOnShift).map((r) => ({ id: r.id, name: r.name })));
   } catch (e) {
     console.error('[chat] available-staff', e);
     res.status(500).json({ error: 'Database error' });
