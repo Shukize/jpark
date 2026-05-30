@@ -388,6 +388,10 @@ body.staff-body { background: #eef1ef; }
 .cc-thread .cct-act { background: transparent; border: 1px solid transparent; border-radius: 6px; padding: 4px 6px; cursor: pointer; font-size: 0.95rem; line-height: 1; color: var(--ink-soft); }
 .cc-thread .cct-act:hover { background: var(--paper); border-color: var(--line); }
 .cc-thread .cct-act.cct-delete:hover { color: var(--terracotta); }
+.cc-thread .cct-act.cct-pin.is-pinned { opacity: 1; color: var(--gold, #c9952a); }
+.cc-thread.pinned-thread .cct-actions { opacity: 1; }
+.cc-thread .cct-pinned { font-size: 0.75rem; line-height: 1; flex-shrink: 0; }
+.cc-thread.pinned-thread { border-left: 3px solid var(--gold, #c9952a); }
 .cc-threads-bar { display: flex; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--line); background: var(--paper); position: sticky; top: 0; z-index: 1; }
 .cc-threads-bar .cc-btn { font-size: 0.82rem; padding: 6px 12px; border: 1px solid var(--line); background: #fff; border-radius: 999px; cursor: pointer; color: var(--ink); }
 .cc-threads-bar .cc-btn:hover:not(:disabled) { background: var(--paper); border-color: var(--teal-soft); }

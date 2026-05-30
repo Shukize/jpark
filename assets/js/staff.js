@@ -528,7 +528,10 @@
   function renderChat() {
     const threadsEl = document.getElementById("chatThreads");
     const convEl = document.getElementById("chatConv");
-    const chats = S.list("chats").filter((c) => c.escalated).slice().sort((a, b) => b.lastAt - a.lastAt);
+    const chats = S.list("chats").filter((c) => c.escalated).slice().sort((a, b) => {
+      if (!!a.pinned !== !!b.pinned) return a.pinned ? -1 : 1;
+      return b.lastAt - a.lastAt;
+    });
 
     // Prune selectedChatIds against the current visible thread list so a
     // deleted thread doesn't keep its checkbox state.
@@ -572,7 +575,7 @@
     } else {
       chats.forEach((c) => {
         const div = document.createElement("div");
-        div.className = "cc-thread" + (selectedThread === c.id ? " active" : "");
+        div.className = "cc-thread" + (selectedThread === c.id ? " active" : "") + (c.pinned ? " pinned-thread" : "");
 
         let inner = "";
         if (chatMultiSelect) {
@@ -588,7 +591,7 @@
           : t("staff.chat.unassigned");
         inner +=
           '<div class="cct-body">' +
-            '<div class="cct-name">' + (mine && c.unreadForStaff ? '<span class="cct-unread"></span>' : "") +
+            '<div class="cct-name">' + (c.pinned ? '<span class="cct-pinned">📌</span>' : "") + (mine && c.unreadForStaff ? '<span class="cct-unread"></span>' : "") +
               esc(c.guestName || "Guest") + (c.room ? " · " + esc(t("staff.requests.room")) + " " + esc(c.room) : "") + "</div>" +
             '<div class="cct-last">' + esc(c.lastMsg || "") + "</div>" +
             '<div class="cct-assigned' + (mine ? " mine" : "") + '">' + esc(assignedLabel) + "</div>" +
@@ -596,14 +599,17 @@
               (c.escalated ? "" : " · " + esc(t("chat.bot"))) + "</div>" +
           "</div>" +
           '<div class="cct-actions">' +
+            '<button type="button" class="cct-act cct-pin' + (c.pinned ? " is-pinned" : "") + '" title="' + esc(t(c.pinned ? "staff.chat.unpinThread" : "staff.chat.pinThread")) + '" aria-label="' + esc(t(c.pinned ? "staff.chat.unpinThread" : "staff.chat.pinThread")) + '">📌</button>' +
             '<button type="button" class="cct-act cct-rename" title="' + esc(t("staff.chat.rename")) + '" aria-label="' + esc(t("staff.chat.rename")) + '">✎</button>' +
             '<button type="button" class="cct-act cct-delete" title="' + esc(t("staff.chat.delete")) + '" aria-label="' + esc(t("staff.chat.delete")) + '">🗑️</button>' +
           "</div>";
         div.innerHTML = inner;
 
         // Per-thread action handlers — stopPropagation so they don't open the thread.
+        const pinBtn = div.querySelector(".cct-pin");
         const renameBtn = div.querySelector(".cct-rename");
         const deleteBtn = div.querySelector(".cct-delete");
+        if (pinBtn) pinBtn.addEventListener("click", (e) => { e.stopPropagation(); pinChatThread(c); });
         if (renameBtn) renameBtn.addEventListener("click", (e) => { e.stopPropagation(); renameChatThread(c); });
         if (deleteBtn) deleteBtn.addEventListener("click", (e) => { e.stopPropagation(); deleteChatThread(c); });
 
@@ -801,6 +807,17 @@
         U.toast(t("staff.chat.pinFailed") + ": " + res.error, "error");
       }
     }
+  }
+
+  /* Toggle the pinned flag on a chat thread. Pinned threads float to the top
+     of the list. State is local-only — no server call needed. */
+  function pinChatThread(c) {
+    const all = S.list("chats");
+    const i = all.findIndex((x) => x.id === c.id);
+    if (i < 0) return;
+    all[i] = Object.assign({}, all[i], { pinned: !c.pinned });
+    S.write("chats", all);
+    renderChat();
   }
 
   /* Remove a single guest chat thread, locally + on the server. */
