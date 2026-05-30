@@ -757,7 +757,7 @@
     if (!confirm(t("staff.chat.takeOverConfirm").replace("{name}", conv.guestName || "Guest"))) return;
     const API = window.JPark && window.JPark.api;
     if (API) {
-      const systemText = t("chat.connectedTo").replace("{name}", session.name);
+      const systemText = t("chat.connectedTo").replace("{name}", session.name.trim().split(/\s+/)[0]);
       const res = await API.patch("/api/chat/" + encodeURIComponent(conv.id) + "/assign", {
         staffId: session.id, staffName: session.name,
         systemText, lang: I.getLang(),

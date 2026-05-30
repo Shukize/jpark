@@ -217,7 +217,7 @@
         conv.assignedStaff = pick.name;
         pickedId = pick.id;
         pickedName = pick.name;
-        msgText = t("chat.connectedTo").replace("{name}", pick.name);
+        msgText = t("chat.connectedTo").replace("{name}", pick.name.trim().split(/\s+/)[0]);
       } else {
         msgText = t("chat.noStaffOnShift");
       }
