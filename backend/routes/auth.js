@@ -228,6 +228,28 @@ router.patch('/staff/:id', requireAdmin, async (req, res) => {
   }
 });
 
+/* ---- POST /api/auth/staff/:id/reset-password (admin) ----
+   Sets the account back to the shared temporary password and flags it
+   must_change_password so the employee is forced to choose a new one. */
+router.post('/staff/:id/reset-password', requireAdmin, async (req, res) => {
+  if (!bcrypt) return res.status(500).json({ error: 'bcrypt not available' });
+  const TEMP = 'jparkhotel';
+  try {
+    const hash = await bcrypt.hash(TEMP, 10);
+    const { rowCount } = await db.query(
+      `UPDATE employees
+          SET password_hash = $1, must_change_password = TRUE
+        WHERE id = $2`,
+      [hash, req.params.id]
+    );
+    if (!rowCount) return res.status(404).json({ error: 'Employee not found' });
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('[auth] reset-password', e);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 /* ---- DELETE /api/auth/staff/:id (admin — hard remove) ----
    Frees the username for re-use and drops the row from the Team Status board.
    Admins cannot delete themselves. */

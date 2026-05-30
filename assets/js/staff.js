@@ -1816,9 +1816,14 @@
         const resetBtn = document.createElement("button");
         resetBtn.className = "btn-activate";
         resetBtn.textContent = t("msg.reset.toDefault");
-        resetBtn.addEventListener("click", () => {
+        resetBtn.addEventListener("click", async () => {
           const u = S.list("staff").find((x) => x.username.toLowerCase() === (r.username || "").toLowerCase());
           if (!u) { U.toast(t("msg.reset.noUser"), "error"); return; }
+          const API = window.JPark && window.JPark.api;
+          if (API) {
+            const res = await API.post("/api/auth/staff/" + encodeURIComponent(u.id) + "/reset-password", {});
+            if (res && res.error && !res.offline) { U.toast(res.error, "error"); return; }
+          }
           S.update("staff", u.id, { password: DEFAULT_STAFF_PASSWORD, mustChange: true });
           S.update("resetRequests", r.id, { handled: true });
           U.toast(t("msg.reset.didReset"), "success");
