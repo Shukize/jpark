@@ -665,6 +665,26 @@
     els.forEach((el) => io.observe(el));
   }
 
+  /* ---------- "View on site" highlight ----------
+     Reads #hl=<i18n-key> from the URL (set by the Site Editor) and briefly
+     highlights the matching element so the editor can see exactly what they're editing. */
+  function initHighlight() {
+    const hash = location.hash;
+    if (!hash.startsWith("#hl=")) return;
+    const key = decodeURIComponent(hash.slice(4));
+    const el = document.querySelector("[data-i18n='" + CSS.escape(key) + "']");
+    if (!el) return;
+    // Force any lazy-reveal ancestor to become visible before scrolling
+    const revealAncestor = el.closest(".reveal");
+    if (revealAncestor) revealAncestor.classList.add("in");
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    // Short delay so the scroll settles before the flash starts
+    setTimeout(() => {
+      el.classList.add("site-hl");
+      setTimeout(() => el.classList.remove("site-hl"), 3000);
+    }, 500);
+  }
+
   /* ---------- Footer year ---------- */
   function initYear() {
     const y = document.getElementById("year");
@@ -714,5 +734,6 @@
     initCoffeeLightbox();
     initReveal();
     initYear();
+    initHighlight();
   });
 })();

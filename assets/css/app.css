@@ -1208,6 +1208,20 @@ body.mobile-view .fac-card.large {
 .ed-field-view:hover { text-decoration: underline; }
 .ed-field-status.translating { color: var(--terracotta-d); }
 
+/* "view on site" highlight — pulsing gold outline on the targeted element */
+@keyframes site-hl-pulse {
+  0%   { outline-color: transparent;      background-color: transparent; }
+  18%  { outline-color: var(--gold);       background-color: rgba(201,162,75,0.22); }
+  65%  { outline-color: var(--gold);       background-color: rgba(201,162,75,0.10); }
+  100% { outline-color: transparent;      background-color: transparent; }
+}
+.site-hl {
+  outline: 3px solid transparent;
+  outline-offset: 5px;
+  border-radius: 4px;
+  animation: site-hl-pulse 2.8s ease forwards;
+}
+
 /* ===================== Site Editor — photo manager ===================== */
 #edMediaSets { display: flex; flex-direction: column; gap: 12px; }
 .ed-mset { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
