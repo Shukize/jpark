@@ -2389,7 +2389,13 @@
       commitMedia(det, s, arr);
     });
     const rep = btn("⟳", t("staff.site.replace"), () => {
-      pickImageFile((item) => { const arr = items.slice(); arr[idx] = item; commitMedia(det, s, arr); });
+      if (it.video) {
+        const v = (prompt(t("staff.site.replaceVideoPrompt"), it.src) || "").trim();
+        if (!v) return;
+        const arr = items.slice(); arr[idx] = { src: v, video: isVideoUrl(v) }; commitMedia(det, s, arr);
+      } else {
+        pickImageFile((item) => { const arr = items.slice(); arr[idx] = item; commitMedia(det, s, arr); });
+      }
     });
     const rem = btn("✕", t("staff.site.remove"), () => {
       const arr = items.slice(); arr.splice(idx, 1); commitMedia(det, s, arr);
