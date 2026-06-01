@@ -5,6 +5,16 @@ if (!process.env.DATABASE_URL) {
   process.exit(1);
 }
 
+// Fail closed: in production the JWT signing secret must be set and must not be
+// the public placeholder, otherwise anyone could forge an admin token.
+const DEMO_SECRET = 'jpark-demo-shared-secret';
+if (process.env.NODE_ENV === 'production' &&
+    (!process.env.AUTH_TOKEN_SECRET || process.env.AUTH_TOKEN_SECRET === DEMO_SECRET)) {
+  console.error('[startup] AUTH_TOKEN_SECRET is missing or set to the public demo value. ' +
+    'Set a long random AUTH_TOKEN_SECRET in the Render dashboard before serving production traffic.');
+  process.exit(1);
+}
+
 const express = require('express');
 const cors = require('cors');
 
@@ -18,6 +28,7 @@ const guestBookingsRouter   = require('./routes/guestBookings');
 const chatRouter            = require('./routes/chat');
 const ordersRouter          = require('./routes/orders');
 const contentRouter         = require('./routes/content');
+const emailRouter           = require('./routes/email');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -44,6 +55,7 @@ app.use('/api/guest-bookings',   guestBookingsRouter);
 app.use('/api/chat',             chatRouter);
 app.use('/api/orders',           ordersRouter);
 app.use('/api/content',          contentRouter);
+app.use('/api/email',            emailRouter);
 
 migrate()
   .then(() => app.listen(PORT, () => console.log(`J Park API listening on port ${PORT}`)))

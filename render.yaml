@@ -1,33 +1,44 @@
-databases:
-  - name: jpark-db
-    databaseName: jpark
-    user: jpark
-    plan: free
+# ── J Park Hotel — Render blueprint (Option B) ───────────────────────────────
+# Hosting plan:
+#   • Frontend  → GitHub Pages (free)            — primary live site
+#   • Database  → Neon Postgres (free, durable)  — set DATABASE_URL below
+#   • API       → Render Starter ($7/mo, no cold-start spin-down)
+#   • Email     → Resend (free tier)             — set RESEND_API_KEY below
+#
+# The Render-managed free Postgres has been removed: free Render databases are
+# deleted after a fixed window, so the data now lives on Neon instead. Paste the
+# Neon connection string into DATABASE_URL in the Render dashboard (it's marked
+# sync:false so it is never committed to git).
 
 services:
   # ── API (Node/Express) ──────────────────────────────────────────────────────
   - type: web
     name: jpark
     runtime: node
+    plan: starter           # was "free" — Starter keeps the API always-on (no 50s cold start)
     buildCommand: cd backend && npm install
     startCommand: node backend/server.js
-    plan: free
     envVars:
       - key: NODE_ENV
         value: production
       - key: DATABASE_URL
-        fromDatabase:
-          name: jpark-db
-          property: connectionString
+        sync: false         # paste the Neon connection string here in the Render dashboard
       - key: FRONTEND_ORIGIN
         # Comma-separated allowlist. The live site is served from GitHub Pages
         # (Shukize/jpark → shukize.github.io); the Render static site is kept as
         # a fallback. Add a custom domain here if/when you set one up.
         value: https://shukize.github.io,https://jpark-site.onrender.com
       - key: OTA_WEBHOOK_SECRET
-        sync: false  # set this manually in the Render dashboard — never commit the real value
+        sync: false         # set manually in the Render dashboard — never commit the real value
+      - key: AUTH_TOKEN_SECRET
+        sync: false         # server-side JWT signing secret — set a long random string
+      - key: RESEND_API_KEY
+        sync: false         # Resend API key (re_...) for transactional email
+      - key: EMAIL_FROM
+        # Until you verify a domain in Resend, use the sandbox sender below.
+        value: J Park Hotel <onboarding@resend.dev>
 
-  # ── Static front-end ────────────────────────────────────────────────────────
+  # ── Static front-end (fallback; GitHub Pages is primary) ────────────────────
   - type: static
     name: jpark-site
     buildCommand: ""        # no build step — plain HTML/CSS/JS

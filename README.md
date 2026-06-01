@@ -303,6 +303,25 @@ A Node/Express + PostgreSQL API service that backs the entire staff console and
 guest portal. It runs independently of the static frontend and is deployable to
 Render (or any Node host) with a `DATABASE_URL` env var.
 
+**Production hosting (Option B, ~$7/mo):**
+
+| Layer | Host | Cost |
+|-------|------|------|
+| Frontend (static site) | GitHub Pages (`.github/workflows/deploy.yml`) | Free |
+| Database (Postgres) | [Neon](https://neon.tech) — durable free tier | Free |
+| API (this service) | Render **Starter** plan — always-on, no cold start | ~$7/mo |
+| Transactional email | [Resend](https://resend.com) free tier (~3k/mo) | Free |
+
+Set these in the Render dashboard (Environment tab — all are `sync:false` in
+[`render.yaml`](render.yaml), so they are never committed):
+
+- `DATABASE_URL` — the Neon connection string
+- `OTA_WEBHOOK_SECRET` — shared secret for the OTA channel-manager webhook
+- `AUTH_TOKEN_SECRET` — server-side JWT signing secret (long random string)
+- `RESEND_API_KEY` — Resend API key (`re_…`); leave blank to disable email
+- `EMAIL_FROM` — sender, e.g. `J Park Hotel <onboarding@resend.dev>` until you
+  verify your own domain in Resend
+
 | Route | Purpose |
 |-------|---------|
 | `POST /api/auth/login` | Staff/admin login — returns a signed JWT |
@@ -317,6 +336,7 @@ Render (or any Node host) with a `DATABASE_URL` env var.
 | `GET/POST /api/employees` | Staff roster management |
 | `GET/PUT /api/content` | Site Editor overrides (text, media, theme) |
 | `GET/POST /api/v1/ota-sync` | OTA webhook intake |
+| `POST /api/email` | Send transactional email (Resend); `GET /api/email/status` reports if configured |
 | `GET /health` | Liveness probe |
 
 **Running locally:**

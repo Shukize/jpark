@@ -9,8 +9,51 @@
 const express = require('express');
 const db = require('../db');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
+const { sendEmail } = require('../mailer');
 
 const router = express.Router();
+
+// Build a plain confirmation email from a booking row. Kept simple and English;
+// the staff console can still send a localised follow-up via POST /api/email.
+function confirmationEmail(bk) {
+  const money = bk.total != null ? `${bk.total} ${bk.currency || 'THB'}` : '—';
+  const lines = [
+    `Dear ${bk.guest_name || 'Guest'},`,
+    '',
+    'Thank you for choosing J Park Hotel, Chonburi. Your reservation is confirmed.',
+    '',
+    `Confirmation: ${bk.ref}`,
+    `Room: ${bk.room || '—'}`,
+    `Check-in: ${bk.check_in}`,
+    `Check-out: ${bk.check_out}`,
+    `Nights: ${bk.nights}`,
+    `Guests: ${bk.adults} adult(s), ${bk.children} child(ren)`,
+    `Total: ${money}`,
+    '',
+    'We look forward to welcoming you. Reply to this email if you need anything before arrival.',
+    '',
+    'J Park Hotel, Chonburi',
+  ];
+  const text = lines.join('\n');
+  const html =
+    `<div style="font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;line-height:1.5">` +
+    `<h2 style="color:#0f766e;margin:0 0 12px">Your reservation is confirmed</h2>` +
+    `<p>Dear ${bk.guest_name || 'Guest'},</p>` +
+    `<p>Thank you for choosing <strong>J Park Hotel, Chonburi</strong>. Your reservation is confirmed.</p>` +
+    `<table style="border-collapse:collapse;margin:16px 0">` +
+    `<tr><td style="padding:4px 12px 4px 0;color:#555">Confirmation</td><td style="padding:4px 0"><strong>${bk.ref}</strong></td></tr>` +
+    `<tr><td style="padding:4px 12px 4px 0;color:#555">Room</td><td style="padding:4px 0">${bk.room || '—'}</td></tr>` +
+    `<tr><td style="padding:4px 12px 4px 0;color:#555">Check-in</td><td style="padding:4px 0">${bk.check_in}</td></tr>` +
+    `<tr><td style="padding:4px 12px 4px 0;color:#555">Check-out</td><td style="padding:4px 0">${bk.check_out}</td></tr>` +
+    `<tr><td style="padding:4px 12px 4px 0;color:#555">Nights</td><td style="padding:4px 0">${bk.nights}</td></tr>` +
+    `<tr><td style="padding:4px 12px 4px 0;color:#555">Guests</td><td style="padding:4px 0">${bk.adults} adult(s), ${bk.children} child(ren)</td></tr>` +
+    `<tr><td style="padding:4px 12px 4px 0;color:#555">Total</td><td style="padding:4px 0">${money}</td></tr>` +
+    `</table>` +
+    `<p>We look forward to welcoming you. Just reply to this email if you need anything before arrival.</p>` +
+    `<p style="color:#0f766e;font-weight:bold;margin-top:24px">J Park Hotel, Chonburi</p>` +
+    `</div>`;
+  return { text, html };
+}
 
 function row2js(r) {
   return {
@@ -85,7 +128,7 @@ router.post('/', async (req, res) => {
        ON CONFLICT (ref) DO UPDATE SET
          status = EXCLUDED.status,
          updated_at = NOW()
-       RETURNING *`,
+       RETURNING *, (xmax = 0) AS inserted`,
       [
         ref,
         channel,
@@ -108,7 +151,24 @@ router.post('/', async (req, res) => {
         b.confirmation || b.body || null,
       ]
     );
-    res.status(201).json(row2js(rows[0]));
+    const saved = rows[0];
+    res.status(201).json(row2js(saved));
+
+    // Fire-and-forget confirmation email — only for a genuinely new, confirmed
+    // booking that has a guest email. Never blocks or fails the API response;
+    // webhook retries (ON CONFLICT updates) won't re-send because inserted=false.
+    if (saved.inserted && saved.guest_email && saved.status === 'confirmed') {
+      const { text, html } = confirmationEmail(saved);
+      sendEmail({
+        to: saved.guest_email,
+        subject: `J Park Hotel — booking confirmed (${saved.ref})`,
+        text,
+        html,
+      }).then((r) => {
+        if (r.ok) console.log(`[guest-bookings] confirmation emailed to ${saved.guest_email} (${saved.ref})`);
+        else if (!r.skipped) console.warn(`[guest-bookings] confirmation email failed (${saved.ref}): ${r.error}`);
+      }).catch((err) => console.error('[guest-bookings] email error', err));
+    }
   } catch (e) {
     console.error('[guest-bookings] create', e);
     res.status(500).json({ error: 'Database error' });

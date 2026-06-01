@@ -6,15 +6,16 @@
    exported: requireAuth (any signed-in employee) and requireAdmin
    (the token must carry the "admin" permission).
 
-   The token is a compact JWT (header.payload.signature). It is
-   minted in the browser at login (assets/js/auth-token.js) using
-   the SAME shared secret below, so HS256 signatures verify here.
+   The token is a compact JWT (header.payload.signature) minted
+   server-side by POST /api/auth/login and signed with HS256 using
+   AUTH_TOKEN_SECRET — which lives ONLY on the server.
 
-   ⚠️  DEMO AUTH — because the browser holds the signing secret, it
-   is effectively public and this is NOT a real trust boundary. In
-   production: issue tokens from a server-side login endpoint, keep
-   AUTH_TOKEN_SECRET on the server only, and drop the "alg: none"
-   fallback so unsigned tokens are always rejected.
+   This is a real trust boundary: tokens must be HS256 and carry a
+   signature that verifies against AUTH_TOKEN_SECRET. The "alg: none"
+   fallback has been removed, and server.js refuses to start in
+   production unless a non-default AUTH_TOKEN_SECRET is set, so the
+   browser's offline/demo token (signed with a public placeholder)
+   can never authenticate against live data.
    ============================================================ */
 const crypto = require('crypto');
 
@@ -51,16 +52,14 @@ function verifyToken(token) {
     return null;
   }
 
-  // Verify the HS256 signature. Unsigned tokens (alg: "none") are tolerated in
-  // this demo so the board still works where the browser lacks crypto.subtle.
-  if (header.alg === 'HS256') {
-    const expected = b64url(
-      crypto.createHmac('sha256', SECRET).update(parts[0] + '.' + parts[1]).digest()
-    );
-    if (!timingSafeEqualStr(parts[2], expected)) return null;
-  } else if (header.alg !== 'none') {
-    return null;
-  }
+  // Require a valid HS256 signature. Unsigned tokens (alg: "none") and any other
+  // algorithm are rejected outright — this is a real trust boundary, so a client
+  // can never present a token the server did not sign with AUTH_TOKEN_SECRET.
+  if (header.alg !== 'HS256') return null;
+  const expected = b64url(
+    crypto.createHmac('sha256', SECRET).update(parts[0] + '.' + parts[1]).digest()
+  );
+  if (!timingSafeEqualStr(parts[2], expected)) return null;
 
   if (payload.exp && Date.now() / 1000 > payload.exp) return null;
   return payload;
