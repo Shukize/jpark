@@ -20,7 +20,14 @@
     if (host === "localhost" || host === "127.0.0.1" || host === "" || host === "0.0.0.0") {
       return "http://localhost:3000";
     }
-    // Deployed — the Render web service defined in render.yaml.
+    // Custom domain — use the branded API subdomain once it's set up in Render
+    // (Render service → Custom Domains → api.jparkhotel.com, + a CNAME at the
+    // DNS host pointing api → the Render target). Until that exists, override
+    // with window.JPARK_API_BASE = "https://jpark.onrender.com" on the page.
+    if (host === "jparkhotel.com" || host === "www.jparkhotel.com") {
+      return "https://api.jparkhotel.com";
+    }
+    // Other deployed origins (GitHub Pages, Render static) — the Render web service.
     return "https://jpark.onrender.com";
   }
 

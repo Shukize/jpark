@@ -24,10 +24,10 @@ services:
       - key: DATABASE_URL
         sync: false         # paste the Neon connection string here in the Render dashboard
       - key: FRONTEND_ORIGIN
-        # Comma-separated allowlist. The live site is served from GitHub Pages
-        # (Shukize/jpark → shukize.github.io); the Render static site is kept as
-        # a fallback. Add a custom domain here if/when you set one up.
-        value: https://shukize.github.io,https://jpark-site.onrender.com
+        # Comma-separated CORS allowlist. The live site is served from the custom
+        # domain (jparkhotel.com) with GitHub Pages (shukize.github.io) and the
+        # Render static site kept as fallbacks.
+        value: https://jparkhotel.com,https://www.jparkhotel.com,https://shukize.github.io,https://jpark-site.onrender.com
       - key: OTA_WEBHOOK_SECRET
         sync: false         # set manually in the Render dashboard — never commit the real value
       - key: AUTH_TOKEN_SECRET
