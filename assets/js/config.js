@@ -20,6 +20,14 @@
     if (host === "localhost" || host === "127.0.0.1" || host === "" || host === "0.0.0.0") {
       return "http://localhost:3000";
     }
+    // Primary custom domain (jparkhotelchonburi.com): once DNS points the apex
+    // and www at GitHub Pages, the site loads here and talks to the Render API
+    // directly — no branded api subdomain required. Upgrade to
+    // api.jparkhotelchonburi.com later if desired (add it as a Render custom
+    // domain + a CNAME, then return it here).
+    if (host === "jparkhotelchonburi.com" || host === "www.jparkhotelchonburi.com") {
+      return "https://jpark.onrender.com";
+    }
     // Custom domain — use the branded API subdomain once it's set up in Render
     // (Render service → Custom Domains → api.jparkhotel.com, + a CNAME at the
     // DNS host pointing api → the Render target). Until that exists, override

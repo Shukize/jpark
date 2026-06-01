@@ -7,11 +7,85 @@
    DELETE /api/guest-bookings/:id      delete (admin)
    ============================================================ */
 const express = require('express');
+const crypto = require('crypto');
 const db = require('../db');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const { sendEmail } = require('../mailer');
 
 const router = express.Router();
+
+// Optional shared-secret gate for the public ingest endpoint (POST below).
+// A channel manager / OTA bridge authenticates server-to-server with
+//   X-API-Key: <OTA_WEBHOOK_SECRET>
+// When OTA_WEBHOOK_SECRET is unset the endpoint stays open (local dev / the
+// demo browser ingest). When it IS set, an inbound POST must present the
+// matching key — this stops anyone from spamming fake reservations (and the
+// hotel/guest emails each one triggers) at the live property. Uses the same
+// secret as /api/v1/ota-sync so the channel manager only needs one key.
+function ingestKeyOk(provided) {
+  const expected = process.env.OTA_WEBHOOK_SECRET || '';
+  if (!expected) return true;            // no secret configured → endpoint open
+  if (!provided) return false;
+  const a = Buffer.from(String(provided));
+  const b = Buffer.from(expected);
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(a, b);
+}
+
+// Where new-booking notifications land. This is the hotel's own inbox (the same
+// address the OTAs send their confirmations to), so the front desk gets a copy of
+// every reservation that flows through the Guest Booking system. Override with the
+// HOTEL_NOTIFY_EMAIL env var; comma-separated values are allowed for multiple staff.
+function hotelRecipients() {
+  return (process.env.HOTEL_NOTIFY_EMAIL || 'jparkhotel1@gmail.com')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+// Build a hotel-facing "new booking" notice from a booking row. Sent to the front
+// desk inbox so staff see every OTA / direct reservation as it arrives, mirroring
+// the Guest Booking entry in the staff console.
+function hotelNotice(bk) {
+  const money = bk.total != null ? `${bk.total} ${bk.currency || 'THB'}` : '—';
+  const guests = `${bk.adults} adult(s), ${bk.children} child(ren)`;
+  const via = bk.channel_name || bk.channel || 'Direct';
+  const lines = [
+    `New booking via ${via}.`,
+    '',
+    `Confirmation: ${bk.ref}`,
+    `Guest: ${bk.guest_name || '—'}`,
+    `Guest email: ${bk.guest_email || '—'}`,
+    `Guest phone: ${bk.guest_phone || '—'}`,
+    `Room: ${bk.room || '—'}`,
+    `Check-in: ${bk.check_in}`,
+    `Check-out: ${bk.check_out}`,
+    `Nights: ${bk.nights}`,
+    `Guests: ${guests}`,
+    `Total: ${money}`,
+    '',
+    'This reservation is now in the Guest Booking inbox of the staff console.',
+  ];
+  const text = lines.join('\n');
+  const html =
+    `<div style="font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;line-height:1.5">` +
+    `<h2 style="color:#0f766e;margin:0 0 12px">New booking via ${via}</h2>` +
+    `<table style="border-collapse:collapse;margin:16px 0">` +
+    `<tr><td style="padding:4px 12px 4px 0;color:#555">Confirmation</td><td style="padding:4px 0"><strong>${bk.ref}</strong></td></tr>` +
+    `<tr><td style="padding:4px 12px 4px 0;color:#555">Guest</td><td style="padding:4px 0">${bk.guest_name || '—'}</td></tr>` +
+    `<tr><td style="padding:4px 12px 4px 0;color:#555">Guest email</td><td style="padding:4px 0">${bk.guest_email || '—'}</td></tr>` +
+    `<tr><td style="padding:4px 12px 4px 0;color:#555">Guest phone</td><td style="padding:4px 0">${bk.guest_phone || '—'}</td></tr>` +
+    `<tr><td style="padding:4px 12px 4px 0;color:#555">Room</td><td style="padding:4px 0">${bk.room || '—'}</td></tr>` +
+    `<tr><td style="padding:4px 12px 4px 0;color:#555">Check-in</td><td style="padding:4px 0">${bk.check_in}</td></tr>` +
+    `<tr><td style="padding:4px 12px 4px 0;color:#555">Check-out</td><td style="padding:4px 0">${bk.check_out}</td></tr>` +
+    `<tr><td style="padding:4px 12px 4px 0;color:#555">Nights</td><td style="padding:4px 0">${bk.nights}</td></tr>` +
+    `<tr><td style="padding:4px 12px 4px 0;color:#555">Guests</td><td style="padding:4px 0">${guests}</td></tr>` +
+    `<tr><td style="padding:4px 12px 4px 0;color:#555">Total</td><td style="padding:4px 0">${money}</td></tr>` +
+    `</table>` +
+    `<p style="color:#555">This reservation is now in the <strong>Guest Booking</strong> inbox of the staff console.</p>` +
+    `</div>`;
+  return { text, html };
+}
 
 // Build a plain confirmation email from a booking row. Kept simple and English;
 // the staff console can still send a localised follow-up via POST /api/email.
@@ -110,8 +184,13 @@ router.get('/:id', requireAuth, async (req, res) => {
   }
 });
 
-/* POST /api/guest-bookings — ingest from OTA bridge or staff manual entry */
+/* POST /api/guest-bookings — ingest from OTA bridge / channel manager.
+   Protected by an optional X-API-Key (see ingestKeyOk): open when
+   OTA_WEBHOOK_SECRET is unset, key-gated once it is. */
 router.post('/', async (req, res) => {
+  if (!ingestKeyOk(req.get('x-api-key'))) {
+    return res.status(401).json({ error: 'Invalid or missing API key' });
+  }
   const b = req.body || {};
   const channel = normChannel(b.channel || b.source || 'direct');
   const ref = b.ref || b.bookingId || b.confirmationCode
@@ -154,20 +233,41 @@ router.post('/', async (req, res) => {
     const saved = rows[0];
     res.status(201).json(row2js(saved));
 
-    // Fire-and-forget confirmation email — only for a genuinely new, confirmed
-    // booking that has a guest email. Never blocks or fails the API response;
-    // webhook retries (ON CONFLICT updates) won't re-send because inserted=false.
-    if (saved.inserted && saved.guest_email && saved.status === 'confirmed') {
-      const { text, html } = confirmationEmail(saved);
-      sendEmail({
-        to: saved.guest_email,
-        subject: `J Park Hotel — booking confirmed (${saved.ref})`,
-        text,
-        html,
-      }).then((r) => {
-        if (r.ok) console.log(`[guest-bookings] confirmation emailed to ${saved.guest_email} (${saved.ref})`);
-        else if (!r.skipped) console.warn(`[guest-bookings] confirmation email failed (${saved.ref}): ${r.error}`);
-      }).catch((err) => console.error('[guest-bookings] email error', err));
+    // Fire-and-forget emails — only for a genuinely new, confirmed booking.
+    // Never blocks or fails the API response; webhook retries (ON CONFLICT
+    // updates) won't re-send because inserted=false.
+    if (saved.inserted && saved.status === 'confirmed') {
+      // 1) Notify the hotel front desk (jparkhotel1@gmail.com) for EVERY booking,
+      //    even when the OTA didn't pass a guest email. Mirrors the Guest Booking
+      //    entry that staff also see in the console.
+      const to = hotelRecipients();
+      if (to.length) {
+        const { text, html } = hotelNotice(saved);
+        sendEmail({
+          to,
+          subject: `New booking — ${saved.channel_name || saved.channel || 'Direct'} (${saved.ref})`,
+          text,
+          html,
+          replyTo: saved.guest_email || undefined,
+        }).then((r) => {
+          if (r.ok) console.log(`[guest-bookings] hotel notified at ${to.join(', ')} (${saved.ref})`);
+          else if (!r.skipped) console.warn(`[guest-bookings] hotel notice failed (${saved.ref}): ${r.error}`);
+        }).catch((err) => console.error('[guest-bookings] hotel notice error', err));
+      }
+
+      // 2) Send the guest their confirmation, when the booking carries a guest email.
+      if (saved.guest_email) {
+        const { text, html } = confirmationEmail(saved);
+        sendEmail({
+          to: saved.guest_email,
+          subject: `J Park Hotel — booking confirmed (${saved.ref})`,
+          text,
+          html,
+        }).then((r) => {
+          if (r.ok) console.log(`[guest-bookings] confirmation emailed to ${saved.guest_email} (${saved.ref})`);
+          else if (!r.skipped) console.warn(`[guest-bookings] confirmation email failed (${saved.ref}): ${r.error}`);
+        }).catch((err) => console.error('[guest-bookings] email error', err));
+      }
     }
   } catch (e) {
     console.error('[guest-bookings] create', e);

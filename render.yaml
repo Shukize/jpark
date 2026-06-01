@@ -24,11 +24,16 @@ services:
       - key: DATABASE_URL
         sync: false         # paste the Neon connection string here in the Render dashboard
       - key: FRONTEND_ORIGIN
-        # Comma-separated CORS allowlist. The live site is served from the custom
-        # domain (jparkhotel.com) with GitHub Pages (shukize.github.io) and the
-        # Render static site kept as fallbacks.
-        value: https://jparkhotel.com,https://www.jparkhotel.com,https://shukize.github.io,https://jpark-site.onrender.com
+        # Comma-separated CORS allowlist. The intended primary custom domain is
+        # jparkhotelchonburi.com; jparkhotel.com is kept until its DNS is fixed,
+        # with GitHub Pages (shukize.github.io) and the Render static site as
+        # fallbacks. Add/remove origins here, then re-sync the blueprint.
+        value: https://jparkhotelchonburi.com,https://www.jparkhotelchonburi.com,https://jparkhotel.com,https://www.jparkhotel.com,https://shukize.github.io,https://jpark-site.onrender.com
       - key: OTA_WEBHOOK_SECRET
+        # Shared secret for inbound OTA traffic. Gates BOTH the channel-manager
+        # webhook (POST /api/v1/ota-sync) and the booking-ingest endpoint
+        # (POST /api/guest-bookings, via X-API-Key). Set the same value in the
+        # channel manager. Leave unset only for local/demo (endpoint stays open).
         sync: false         # set manually in the Render dashboard — never commit the real value
       - key: AUTH_TOKEN_SECRET
         sync: false         # server-side JWT signing secret — set a long random string
@@ -37,6 +42,10 @@ services:
       - key: EMAIL_FROM
         # Until you verify a domain in Resend, use the sandbox sender below.
         value: J Park Hotel <onboarding@resend.dev>
+      - key: HOTEL_NOTIFY_EMAIL
+        # Front-desk inbox that receives a notice for every new booking that
+        # lands in the Guest Booking system. Comma-separate for multiple staff.
+        value: jparkhotel1@gmail.com
 
   # ── Static front-end (fallback; GitHub Pages is primary) ────────────────────
   - type: static
