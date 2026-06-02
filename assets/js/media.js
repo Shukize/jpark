@@ -117,8 +117,8 @@
   ]);
 
   const POOL_ITEMS = imgs([
-    "images/Tropical Pool/20260601_074038.jpg",
     "images/Tropical Pool/20260601_081436.jpg",
+    "images/Tropical Pool/20260601_074038.jpg",
     "images/Tropical Pool/20260601_074024.jpg",
     "images/Tropical Pool/20260601_074044.jpg",
     "images/Tropical Pool/20260601_074057.jpg",
@@ -139,7 +139,6 @@
 
   const GRAND_DELUXE_ITEMS = imgs([
     "images/Grand Deluxe/20260601_074454.jpg",
-    "images/Grand Deluxe/20260601_074541.jpg",
     "images/Grand Deluxe/20260601_074549.jpg",
     "images/Grand Deluxe/20260601_074706.jpg",
     "images/Grand Deluxe/20260601_074712.jpg",
@@ -147,7 +146,6 @@
     "images/Grand Deluxe/20260601_074727.jpg",
     "images/Grand Deluxe/20260601_074739.jpg",
     "images/Grand Deluxe/20260601_074747.jpg",
-    "images/Grand Deluxe/20260601_074820.jpg",
     "images/Grand Deluxe/20260601_074828.jpg",
     "images/Grand Deluxe/20260601_074845.jpg",
     "images/Grand Deluxe/20260601_074900.jpg",

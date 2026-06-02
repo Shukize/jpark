@@ -77,6 +77,7 @@
   let msgMultiSelect = false;
   let selectedMsgIds = new Set();
   let trashPurgedThisSession = false;
+  let dragSrc = null; // { det, s, idx } — active drag tile for the photo reorder
 
   function getSession() {
     try { return JSON.parse(localStorage.getItem(SESSION_KEY) || "null"); } catch (_) { return null; }
@@ -2357,6 +2358,36 @@
     const it = items[idx];
     const tile = document.createElement("div");
     tile.className = "ed-tile" + (it.video ? " is-video" : "");
+    tile.draggable = true;
+    tile.addEventListener("dragstart", (e) => {
+      dragSrc = { det, s, idx };
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/plain", String(idx));
+      setTimeout(() => tile.classList.add("is-dragging"), 0);
+    });
+    tile.addEventListener("dragend", () => {
+      tile.classList.remove("is-dragging");
+      document.querySelectorAll(".ed-tile.drag-over").forEach((t) => t.classList.remove("drag-over"));
+      dragSrc = null;
+    });
+    tile.addEventListener("dragover", (e) => {
+      if (!dragSrc || dragSrc.s.id !== s.id) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+      document.querySelectorAll(".ed-tile.drag-over").forEach((t) => t.classList.remove("drag-over"));
+      if (dragSrc.idx !== idx) tile.classList.add("drag-over");
+    });
+    tile.addEventListener("dragleave", () => tile.classList.remove("drag-over"));
+    tile.addEventListener("drop", (e) => {
+      e.preventDefault();
+      tile.classList.remove("drag-over");
+      if (!dragSrc || dragSrc.s.id !== s.id || dragSrc.idx === idx) return;
+      const arr = MED.items(s.id);
+      const [moved] = arr.splice(dragSrc.idx, 1);
+      arr.splice(idx, 0, moved);
+      dragSrc = null;
+      commitMedia(det, s, arr);
+    });
     const media = document.createElement(it.video ? "video" : "img");
     media.src = encodeURI(it.src);
     if (it.video) { media.muted = true; media.setAttribute("playsinline", ""); media.setAttribute("preload", "metadata"); }
@@ -2465,7 +2496,7 @@
     toolbar.className = "ed-mset-toolbar";
     const viewLink = document.createElement("a");
     viewLink.className = "ed-field-view";
-    viewLink.href = siteUrl(s.section, null);
+    viewLink.href = siteUrl(s.section, s.labelKey);
     viewLink.target = "_blank"; viewLink.rel = "noopener";
     viewLink.textContent = t("staff.site.viewOnSite") + " ↗";
     toolbar.appendChild(viewLink);

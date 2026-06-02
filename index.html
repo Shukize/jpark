@@ -34,7 +34,20 @@
   var reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
   var seen = false;
   try { seen = sessionStorage.getItem("jpark.introSeen") === "1"; } catch (e) {}
-  if (seen) { intro.classList.add("is-hidden"); return; }
+
+  // Skip if another tab/window already has the site open (localStorage, 5-min stale window).
+  var TAB_KEY = "jpark.tabOpen";
+  var tabOpen = false;
+  try {
+    var lastTs = parseInt(localStorage.getItem(TAB_KEY) || "0", 10);
+    tabOpen = lastTs > 0 && (Date.now() - lastTs) < 300000;
+    localStorage.setItem(TAB_KEY, String(Date.now()));
+  } catch (e) {}
+  window.addEventListener("beforeunload", function () {
+    try { localStorage.removeItem(TAB_KEY); } catch (e) {}
+  });
+
+  if (seen || tabOpen) { intro.classList.add("is-hidden"); return; }
   document.body.classList.add("intro-active");
 
   var layer = intro.querySelector(".intro-leaves");
@@ -119,7 +132,7 @@
 <!-- ====== HERO ====== -->
 <section class="hero" id="home">
   <div class="hero-media">
-    <img src="images/Tropical%20Pool/48cd9718-cece-4c80-adcd-dd637ed35d00.jpg" alt="J Park Hotel pool and terrace" />
+    <img src="images/Tropical%20Pool/ffcc842a-2003-4239-ae74-0e6c0b10f883.jpg" alt="J Park Hotel pool and terrace" />
     <div class="hero-scrim"></div>
   </div>
   <div class="hero-content reveal">
@@ -441,7 +454,7 @@
     </article>
 
     <article class="room-card reveal" data-room="Grand Deluxe" tabindex="0" role="button" aria-label="Grand Deluxe — view photos">
-      <div class="room-img"><img src="images/Grand%20Deluxe/20260601_074454.jpg" data-i18n-attr="alt:rooms.grandDeluxeName" alt="Grand Deluxe" loading="lazy" /><span class="room-photos" aria-hidden="true">&#128247; 17</span></div>
+      <div class="room-img"><img src="images/Grand%20Deluxe/20260601_074454.jpg" data-i18n-attr="alt:rooms.grandDeluxeName" alt="Grand Deluxe" loading="lazy" /><span class="room-photos" aria-hidden="true">&#128247; 15</span></div>
       <div class="room-body">
         <span class="room-size" data-i18n="rooms.grandDeluxeSize">48 m²</span>
         <h3 data-i18n="rooms.grandDeluxeName">Grand Deluxe</h3>
@@ -486,7 +499,7 @@
   </div>
 
   <div class="fac-grid">
-    <article class="fac-card large reveal" data-lb="fac-pool" tabindex="0" role="button" style="background-image:url('images/Tropical%20Pool/c3ac1733-933b-49de-aa10-7185a21dbe5f.jpg')">
+    <article class="fac-card large reveal" data-lb="fac-pool" tabindex="0" role="button" style="background-image:url('images/Tropical%20Pool/20260601_081436.jpg')">
       <div class="fac-card-text">
         <h3 data-i18n="fac.poolName">Tropical Pool</h3>
         <p data-i18n="fac.poolDesc">A palm-fringed outdoor pool and sun terrace for sun-soaked afternoons.</p>
