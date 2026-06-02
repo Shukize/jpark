@@ -25,7 +25,7 @@
   const ROOM_COUNTS = {
     "Standard Single": 9, "Superior Room": 17, "Prestige Twin Room": 9,
     "Studio Room": 13, "Studio Double Room": 11, "Corner Suite": 11,
-    "Grand Suite Room": 18, "Grand Suite Two Bedrooms": 17
+    "Grand Suite Two Bedrooms": 17
   };
   function roomItems(folder) {
     const n = ROOM_COUNTS[folder] || 1, out = [];
@@ -60,6 +60,7 @@
   ];
 
   const TSUBAKI_ITEMS = [
+    { src: "images/Tsubaki/20260601_073858.jpg", video: false },
     { src: "images/Tsubaki/119059522_2737564009811833_3276458423237956706_n.jpg", video: false },
     { src: "images/Tsubaki/AQMhQMC9GvtxGLkJruddhOPLcKjXwYl7OIbbeUJhZGiN5H1azDdwdOjoAlyV2MX6YqBrAVxDVWfbsNvSfpNaWCPuK_vgs1lCbBNoQ2XhOEv9PQ.mp4", video: true },
     { src: "images/Tsubaki/AQNtQ5IQUAHLuYDynRq2hKj2FmFhnuOu6_9HEP86BzYGE1Fm-DNsUBPCMZsQ5ShYm0w4HTCHHrlFiD_hPKL2J2wKqIOWXXE1_FiCPyUJuM0Fmw.mp4", video: true },
@@ -116,6 +117,11 @@
   ]);
 
   const POOL_ITEMS = imgs([
+    "images/Tropical Pool/20260601_074024.jpg",
+    "images/Tropical Pool/20260601_074038.jpg",
+    "images/Tropical Pool/20260601_074044.jpg",
+    "images/Tropical Pool/20260601_074057.jpg",
+    "images/Tropical Pool/20260601_081436.jpg",
     "images/Tropical Pool/1b23ab2d-a3d1-474c-8944-4c7159f6d91b.jpg",
     "images/Tropical Pool/48cd9718-cece-4c80-adcd-dd637ed35d00.jpg",
     "images/Tropical Pool/c3ac1733-933b-49de-aa10-7185a21dbe5f.jpg",
@@ -132,12 +138,57 @@
   ]);
 
   const GRAND_DELUXE_ITEMS = imgs([
-    "images/Grand Deluxe/3681be26-a5d5-4925-9971-d67732ffda4a.jpg",
+    "images/Grand Deluxe/20260601_074454.jpg",
+    "images/Grand Deluxe/20260601_074541.jpg",
+    "images/Grand Deluxe/20260601_074549.jpg",
+    "images/Grand Deluxe/20260601_074706.jpg",
+    "images/Grand Deluxe/20260601_074712.jpg",
+    "images/Grand Deluxe/20260601_074716.jpg",
+    "images/Grand Deluxe/20260601_074727.jpg",
+    "images/Grand Deluxe/20260601_074739.jpg",
+    "images/Grand Deluxe/20260601_074747.jpg",
+    "images/Grand Deluxe/20260601_074820.jpg",
+    "images/Grand Deluxe/20260601_074828.jpg",
+    "images/Grand Deluxe/20260601_074845.jpg",
+    "images/Grand Deluxe/20260601_074900.jpg",
+    "images/Grand Deluxe/20260601_074922.jpg",
     "images/Grand Deluxe/47e0d242-3c99-4ed0-b48a-91e3c4e711ba.jpg",
-    "images/Grand Deluxe/4a573607-d6c4-45ed-bb23-e83cf4ad6359.jpg",
-    "images/Grand Deluxe/9fa48cad-503d-4bf9-8296-7a90ce34bbd2.jpg",
     "images/Grand Deluxe/c67619ac-3646-462b-8dc7-58e1e6bf73b5.jpg",
     "images/Grand Deluxe/fab7da35-ac57-4ebd-b0a4-ae2981d17c9d.jpg"
+  ]);
+
+  const GRAND_SUITE_ITEMS = imgs([
+    "images/Grand Suite Room/20260601_080206.jpg",
+    "images/Grand Suite Room/20260601_080222.jpg",
+    "images/Grand Suite Room/20260601_080241.jpg",
+    "images/Grand Suite Room/20260601_080249.jpg",
+    "images/Grand Suite Room/20260601_080256.jpg",
+    "images/Grand Suite Room/20260601_080319.jpg",
+    "images/Grand Suite Room/20260601_080328.jpg",
+    "images/Grand Suite Room/20260601_080412.jpg",
+    "images/Grand Suite Room/20260601_080437.jpg",
+    "images/Grand Suite Room/20260601_080550.jpg",
+    "images/Grand Suite Room/20260601_080602.jpg",
+    "images/Grand Suite Room/20260601_080709.jpg",
+    "images/Grand Suite Room/20260601_080749.jpg",
+    "images/Grand Suite Room/room_03.jpg",
+    "images/Grand Suite Room/room_05.jpg",
+    "images/Grand Suite Room/room_07.jpg",
+    "images/Grand Suite Room/room_14.jpg",
+    "images/Grand Suite Room/room_16.jpg",
+    "images/Grand Suite Room/room_17.jpg",
+    "images/Grand Suite Room/room_18.jpg"
+  ]);
+
+  const LOBBY_ITEMS = imgs([
+    "images/Main Lobby/20260601_073611.jpg",
+    "images/Main Lobby/20260601_073624.jpg",
+    "images/Main Lobby/20260601_073634.jpg",
+    "images/Main Lobby/20260601_073650.jpg",
+    "images/Main Lobby/20260601_073813.jpg",
+    "images/Main Lobby/20260601_073905.jpg",
+    "images/Main Lobby/20260601_073917.jpg",
+    "images/Main Lobby/20260601_073928.jpg"
   ]);
 
   const ONSEN_ITEMS = imgs(["images/ea770736-fe38-4c3e-b072-4928f8a2fad9.jpg"]);
@@ -151,7 +202,7 @@
     "images/45c09cb7-8ba5-4ba0-bc3c-42837ef10bf2.jpg",
     "images/New Midnight Coffee Club/587f2a86-cbf1-4cac-9e69-9279d2478323.jpg",
     "images/ea770736-fe38-4c3e-b072-4928f8a2fad9.jpg",
-    "images/Grand Deluxe/9fa48cad-503d-4bf9-8296-7a90ce34bbd2.jpg",
+    "images/Grand Deluxe/20260601_074454.jpg",
     "images/Tropical Pool/ce70057e-42f0-4b44-9f67-18598f22ff3a.jpg"
   ]);
 
@@ -178,8 +229,9 @@
     { id: "room:Studio Room",             labelKey: "rooms.studioName",      section: "rooms", gallery: true, items: roomItems("Studio Room") },
     { id: "room:Studio Double Room",      labelKey: "rooms.studioDoubleName", section: "rooms", gallery: true, items: roomItems("Studio Double Room") },
     { id: "room:Corner Suite",            labelKey: "rooms.cornerName",      section: "rooms", gallery: true, items: roomItems("Corner Suite") },
-    { id: "room:Grand Suite Room",        labelKey: "rooms.grandSuiteName",  section: "rooms", gallery: true, galleryKey: "rooms.grandSuiteName", items: roomItems("Grand Suite Room") },
+    { id: "room:Grand Suite Room",        labelKey: "rooms.grandSuiteName",  section: "rooms", gallery: true, galleryKey: "rooms.grandSuiteName", items: GRAND_SUITE_ITEMS },
     { id: "room:Grand Suite Two Bedrooms", labelKey: "rooms.grandTwoName",   section: "rooms", gallery: true, galleryKey: "rooms.grandTwoName", items: roomItems("Grand Suite Two Bedrooms") },
+    { id: "lobby",        labelKey: "gallery.cat.lobby",      section: "gallery", gallery: true, items: LOBBY_ITEMS },
     { id: "grandDeluxe", labelKey: "gallery.cat.grandDeluxe", section: "gallery", gallery: true, items: GRAND_DELUXE_ITEMS },
     { id: "galleryPreview", labelKey: "media.set.preview", section: "gallery", items: PREVIEW_ITEMS }
   ];
