@@ -117,11 +117,11 @@
   ]);
 
   const POOL_ITEMS = imgs([
+    "images/Tropical Pool/20260601_081436.jpg",
     "images/Tropical Pool/20260601_074024.jpg",
     "images/Tropical Pool/20260601_074038.jpg",
     "images/Tropical Pool/20260601_074044.jpg",
     "images/Tropical Pool/20260601_074057.jpg",
-    "images/Tropical Pool/20260601_081436.jpg",
     "images/Tropical Pool/1b23ab2d-a3d1-474c-8944-4c7159f6d91b.jpg",
     "images/Tropical Pool/48cd9718-cece-4c80-adcd-dd637ed35d00.jpg",
     "images/Tropical Pool/c3ac1733-933b-49de-aa10-7185a21dbe5f.jpg",
@@ -158,26 +158,26 @@
   ]);
 
   const GRAND_SUITE_ITEMS = imgs([
-    "images/Grand Suite Room/20260601_080206.jpg",
-    "images/Grand Suite Room/20260601_080222.jpg",
-    "images/Grand Suite Room/20260601_080241.jpg",
-    "images/Grand Suite Room/20260601_080249.jpg",
-    "images/Grand Suite Room/20260601_080256.jpg",
-    "images/Grand Suite Room/20260601_080319.jpg",
-    "images/Grand Suite Room/20260601_080328.jpg",
-    "images/Grand Suite Room/20260601_080412.jpg",
-    "images/Grand Suite Room/20260601_080437.jpg",
-    "images/Grand Suite Room/20260601_080550.jpg",
-    "images/Grand Suite Room/20260601_080602.jpg",
-    "images/Grand Suite Room/20260601_080709.jpg",
-    "images/Grand Suite Room/20260601_080749.jpg",
-    "images/Grand Suite Room/room_03.jpg",
-    "images/Grand Suite Room/room_05.jpg",
-    "images/Grand Suite Room/room_07.jpg",
-    "images/Grand Suite Room/room_14.jpg",
-    "images/Grand Suite Room/room_16.jpg",
-    "images/Grand Suite Room/room_17.jpg",
-    "images/Grand Suite Room/room_18.jpg"
+    "images/Grand Suite 1 Bedroom/20260601_080206.jpg",
+    "images/Grand Suite 1 Bedroom/20260601_080222.jpg",
+    "images/Grand Suite 1 Bedroom/20260601_080241.jpg",
+    "images/Grand Suite 1 Bedroom/20260601_080249.jpg",
+    "images/Grand Suite 1 Bedroom/20260601_080256.jpg",
+    "images/Grand Suite 1 Bedroom/20260601_080319.jpg",
+    "images/Grand Suite 1 Bedroom/20260601_080328.jpg",
+    "images/Grand Suite 1 Bedroom/20260601_080412.jpg",
+    "images/Grand Suite 1 Bedroom/20260601_080437.jpg",
+    "images/Grand Suite 1 Bedroom/20260601_080550.jpg",
+    "images/Grand Suite 1 Bedroom/20260601_080602.jpg",
+    "images/Grand Suite 1 Bedroom/20260601_080709.jpg",
+    "images/Grand Suite 1 Bedroom/20260601_080749.jpg",
+    "images/Grand Suite 1 Bedroom/room_03.jpg",
+    "images/Grand Suite 1 Bedroom/room_05.jpg",
+    "images/Grand Suite 1 Bedroom/room_07.jpg",
+    "images/Grand Suite 1 Bedroom/room_14.jpg",
+    "images/Grand Suite 1 Bedroom/room_16.jpg",
+    "images/Grand Suite 1 Bedroom/room_17.jpg",
+    "images/Grand Suite 1 Bedroom/room_18.jpg"
   ]);
 
   const LOBBY_ITEMS = imgs([
@@ -194,8 +194,8 @@
   const ONSEN_ITEMS = imgs(["images/ea770736-fe38-4c3e-b072-4928f8a2fad9.jpg"]);
 
   const HERO_ITEMS = imgs(["images/Tropical Pool/48cd9718-cece-4c80-adcd-dd637ed35d00.jpg"]);
-  const ABOUT_MAIN_ITEMS = imgs(["images/383fb6a3-fc47-4029-bfe5-2bd90e2f9345.jpg"]);
-  const ABOUT_SUB_ITEMS = imgs(["images/843e2617-637f-4337-8f46-69ff1e5b6979.jpg"]);
+  const ABOUT_MAIN_ITEMS = imgs(["images/Tropical Pool/ce70057e-42f0-4b44-9f67-18598f22ff3a.jpg"]);
+  const ABOUT_SUB_ITEMS = imgs(["images/Tropical Pool/c3ac1733-933b-49de-aa10-7185a21dbe5f.jpg"]);
 
   const PREVIEW_ITEMS = imgs([
     "images/Tropical Pool/c917232b-159a-4fdc-bc20-12e806f5304b.jpg",
@@ -229,7 +229,7 @@
     { id: "room:Studio Room",             labelKey: "rooms.studioName",      section: "rooms", gallery: true, items: roomItems("Studio Room") },
     { id: "room:Studio Double Room",      labelKey: "rooms.studioDoubleName", section: "rooms", gallery: true, items: roomItems("Studio Double Room") },
     { id: "room:Corner Suite",            labelKey: "rooms.cornerName",      section: "rooms", gallery: true, items: roomItems("Corner Suite") },
-    { id: "room:Grand Suite Room",        labelKey: "rooms.grandSuiteName",  section: "rooms", gallery: true, galleryKey: "rooms.grandSuiteName", items: GRAND_SUITE_ITEMS },
+    { id: "room:Grand Suite 1 Bedroom",   labelKey: "rooms.grandSuiteName",  section: "rooms", gallery: true, galleryKey: "rooms.grandSuiteName", items: GRAND_SUITE_ITEMS },
     { id: "room:Grand Suite Two Bedrooms", labelKey: "rooms.grandTwoName",   section: "rooms", gallery: true, galleryKey: "rooms.grandTwoName", items: roomItems("Grand Suite Two Bedrooms") },
     { id: "lobby",        labelKey: "gallery.cat.lobby",      section: "gallery", gallery: true, items: LOBBY_ITEMS },
     { id: "grandDeluxe", labelKey: "gallery.cat.grandDeluxe", section: "gallery", gallery: true, items: GRAND_DELUXE_ITEMS },

@@ -51,10 +51,10 @@
       amenities: ['Dual-Aspect Views', 'Marble Bathroom', 'Separate Living Room', 'Smart TV', 'Air Conditioning', 'Free Wi-Fi'],
     },
     {
-      name: 'Grand Suite',
+      name: 'Grand Suite 1 Bedroom',
       size: '75 m²',
       maxGuests: 3,
-      img: 'images/Grand%20Suite%20Room/room_01.jpg',
+      img: 'images/Grand%20Suite%201%20Bedroom/20260601_080206.jpg',
       desc: 'An expansive one-bedroom residence with full living and dining areas, a kitchen and premium finishes throughout.',
       amenities: ['King Bed', 'Full Kitchen', 'Living & Dining Room', 'Onsen Access', 'Smart TV', 'Free Wi-Fi'],
     },

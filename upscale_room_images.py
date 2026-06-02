@@ -18,7 +18,7 @@ from pathlib import Path
 ROOM_FOLDERS = [
     "Corner Suite",
     "Deluxe Twin Room",
-    "Grand Suite Room",
+    "Grand Suite 1 Bedroom",
     "Grand Suite Two Bedrooms",
     "Prestige Twin Room",
     "Standard Single",
