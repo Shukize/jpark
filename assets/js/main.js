@@ -136,6 +136,7 @@
     function preloadAround(i) {
       preload(items[i]);
       preload(items[(i + 1) % items.length]);
+      preload(items[(i + 2) % items.length]);
       preload(items[(i - 1 + items.length) % items.length]);
     }
 
@@ -208,7 +209,10 @@
         items = (list || []).slice();
         if (!items.length) return;
         idx = Math.min(Math.max(start || 0, 0), items.length - 1);
-        items.forEach(preload); // warm the whole set so left/right is instant
+        // Eagerly preload the first 5 (current + 4 ahead) so initial swipes are instant.
+        // Stagger the rest to avoid saturating bandwidth before visible images are ready.
+        for (let i = 0; i < Math.min(5, items.length); i++) preload(items[(idx + i) % items.length]);
+        setTimeout(() => items.forEach(preload), 500);
         box.classList.add("open");
         document.body.classList.add("lb-open");
         show(0);

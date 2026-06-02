@@ -425,8 +425,8 @@ body.lb-open { overflow: hidden; }
   0%   { opacity: 0; transform: translateX(-7%) scale(0.86); }
   100% { opacity: 1; transform: translateX(0) scale(1); }
 }
-.lightbox img.anim-next { animation: lbNext .42s var(--ease); }
-.lightbox img.anim-prev { animation: lbPrev .42s var(--ease); }
+.lightbox img.anim-next { animation: lbNext .26s var(--ease); }
+.lightbox img.anim-prev { animation: lbPrev .26s var(--ease); }
 
 /* Video stage: the <video> sizes to its own aspect (bounded by the viewport),
    so portrait phone clips fill tall and clean with no letterboxing, while
@@ -565,7 +565,15 @@ body.intro-active { overflow: hidden; }
   .footer-links { justify-content: flex-start; }
 }
 @media (max-width: 620px) {
-  .room-grid, .dining-grid, .fac-grid { grid-template-columns: 1fr; }
+  .room-grid {
+    display: flex; flex-direction: row;
+    overflow-x: auto; scroll-snap-type: x mandatory;
+    gap: 14px; padding: 4px 4px 16px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .room-grid::-webkit-scrollbar { display: none; }
+  .room-card { flex: 0 0 76vw; scroll-snap-align: start; }
+  .dining-grid, .fac-grid { grid-template-columns: 1fr; }
   .fac-card.large { grid-row: auto; }
   .fac-grid { grid-auto-rows: 230px; }
   .gallery-grid { grid-template-columns: repeat(2, 1fr); }
