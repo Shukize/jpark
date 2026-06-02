@@ -666,22 +666,59 @@
   }
 
   /* ---------- "View on site" highlight ----------
-     Reads #hl=<i18n-key> from the URL (set by the Site Editor) and briefly
-     highlights the matching element so the editor can see exactly what they're editing. */
+     The Site Editor opens the homepage with a hash describing what's being edited:
+       #hl=<i18n-key>[&sec=<section>]  → flash that one text string (falls back to its section)
+       #sec=<section>                  → glow the whole section
+     We scroll there, pulse it, and float a banner so the admin instantly sees the spot. */
   function initHighlight() {
-    const hash = location.hash;
-    if (!hash.startsWith("#hl=")) return;
-    const key = decodeURIComponent(hash.slice(4));
-    const el = document.querySelector("[data-i18n='" + CSS.escape(key) + "']");
+    const raw = (location.hash || "").replace(/^#/, "");
+    if (!raw) return;
+    const params = {};
+    raw.split("&").forEach((p) => {
+      const i = p.indexOf("=");
+      if (i > 0) params[p.slice(0, i)] = decodeURIComponent(p.slice(i + 1));
+    });
+    if (!params.hl && !params.sec) return;
+
+    const I = window.JPark && window.JPark.i18n;
+
+    // Resolve the target: prefer the exact text element, else the section.
+    let el = null, mode = "text";
+    if (params.hl) {
+      el = document.querySelector("[data-i18n='" + CSS.escape(params.hl) + "']");
+    }
+    if (!el && params.sec) { el = document.getElementById(params.sec); mode = "section"; }
     if (!el) return;
-    // Force any lazy-reveal ancestor to become visible before scrolling
+
+    // Force any lazy-reveal wrappers (the target or its ancestors) to show first.
     const revealAncestor = el.closest(".reveal");
     if (revealAncestor) revealAncestor.classList.add("in");
-    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    if (el.querySelectorAll) el.querySelectorAll(".reveal").forEach((r) => r.classList.add("in"));
+
+    // Floating banner so it's obvious this came from the editor.
+    const banner = document.createElement("div");
+    banner.className = "edit-locator";
+    banner.textContent = "✏️ " +
+      (I ? I.t(mode === "section" ? "hl.editingSection" : "hl.editingText")
+         : (mode === "section" ? "Here's the section you're editing" : "Here's the text you're editing"));
+    document.body.appendChild(banner);
+    requestAnimationFrame(() => banner.classList.add("show"));
+    setTimeout(() => { banner.classList.remove("show"); setTimeout(() => banner.remove(), 450); }, 4200);
+
+    if (mode === "section") {
+      // Align the section's top under the fixed header so its heading is visible.
+      const header = document.getElementById("siteHeader");
+      const offset = (header ? header.offsetHeight : 0) + 16;
+      const top = el.getBoundingClientRect().top + window.pageYOffset - offset;
+      window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+    } else {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
     // Short delay so the scroll settles before the flash starts
     setTimeout(() => {
-      el.classList.add("site-hl");
-      setTimeout(() => el.classList.remove("site-hl"), 3000);
+      const cls = mode === "section" ? "site-hl-section" : "site-hl";
+      el.classList.add(cls);
+      setTimeout(() => el.classList.remove(cls), 3200);
     }, 500);
   }
 

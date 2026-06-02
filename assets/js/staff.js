@@ -2195,12 +2195,27 @@
     });
   }
 
-  // Open the public site at a section, optionally highlighting one text key.
+  // Open the public site and tell it what the editor is looking at, so index.html
+  // skips the brand intro and instead highlights exactly that spot:
+  //   #hl=<key>[&sec=<section>]  → flash one text string (falls back to its section)
+  //   #sec=<section>             → glow the whole section
   function siteUrl(section, key) {
     let url = "index.html";
-    if (key) url += "#hl=" + encodeURIComponent(key);
-    else if (section) url += "#" + section;
+    if (key) url += "#hl=" + encodeURIComponent(key) + (section ? "&sec=" + encodeURIComponent(section) : "");
+    else if (section) url += "#sec=" + encodeURIComponent(section);
     return url;
+  }
+
+  // Turn an i18n key into a human-readable field name, e.g.
+  // "rooms.grandSuite1BedName" → "Grand Suite 1 Bed Name".
+  function humanizeKey(key) {
+    const last = String(key).split(".").pop();
+    return last
+      .replace(/([a-z])([A-Z])/g, "$1 $2")
+      .replace(/([A-Za-z])(\d)/g, "$1 $2")
+      .replace(/[_-]+/g, " ")
+      .replace(/^./, (c) => c.toUpperCase())
+      .trim();
   }
 
   /* ---- the big grouped, searchable text editor ---- */
@@ -2269,9 +2284,12 @@
 
     const head = document.createElement("div");
     head.className = "ed-field-head";
-    const keyEl = document.createElement("code");
-    keyEl.className = "ed-field-key";
-    keyEl.textContent = r.key;
+    // Friendly location so the admin knows where this text lives, e.g.
+    // "📍 Rooms › Grand Suite Name". The raw i18n key stays as a tooltip.
+    const loc = document.createElement("span");
+    loc.className = "ed-field-loc";
+    loc.textContent = "📍 " + (group ? t(group.title) + " › " : "") + humanizeKey(r.key);
+    loc.title = r.key;
     const status = document.createElement("span");
     status.className = "ed-field-status";
     const view = document.createElement("a");
@@ -2280,7 +2298,7 @@
     view.target = "_blank";
     view.rel = "noopener";
     view.textContent = t("staff.site.viewOnSite") + " ↗";
-    head.appendChild(keyEl);
+    head.appendChild(loc);
     head.appendChild(status);
     head.appendChild(view);
     row.appendChild(head);
@@ -2332,19 +2350,81 @@
 
   function pickImageFile(cb) {
     const file = document.createElement("input");
-    file.type = "file"; file.accept = "image/*"; file.style.display = "none";
+    file.type = "file"; file.accept = "image/*,video/*"; file.style.display = "none";
     document.body.appendChild(file);
     file.addEventListener("change", () => {
       const f = file.files[0];
       file.remove();
       if (!f) return;
-      if (f.size > 2 * 1024 * 1024) { U.toast(t("staff.site.imgTooBig"), "error"); return; }
+      if (f.size > 4 * 1024 * 1024) {
+        U.toast(t("staff.site.imgTooBig"), "error");
+        return;
+      }
       const reader = new FileReader();
-      reader.onload = (e) => cb({ src: e.target.result, video: false });
-      reader.onerror = () => U.toast(t("staff.site.imgTooBig"), "error");
+      reader.onload = (e) => cb({ src: e.target.result, video: f.type.startsWith("video/") });
+      reader.onerror = () => U.toast("Upload failed.", "error");
       reader.readAsDataURL(f);
     });
     file.click();
+  }
+
+  function openGalleryPicker(cb) {
+    const overlay = document.createElement("div");
+    overlay.className = "gp-overlay";
+    overlay.setAttribute("role", "dialog");
+    overlay.setAttribute("aria-modal", "true");
+
+    const box = document.createElement("div");
+    box.className = "gp-box";
+
+    const head = document.createElement("div");
+    head.className = "gp-head";
+    const titleEl = document.createElement("span");
+    titleEl.className = "gp-title";
+    titleEl.textContent = t("staff.site.galleryPickTitle");
+    const closeBtn = document.createElement("button");
+    closeBtn.type = "button"; closeBtn.className = "gp-close";
+    closeBtn.textContent = "✕"; closeBtn.setAttribute("aria-label", "Close");
+    closeBtn.addEventListener("click", () => overlay.remove());
+    head.appendChild(titleEl); head.appendChild(closeBtn);
+    box.appendChild(head);
+
+    const body = document.createElement("div");
+    body.className = "gp-body";
+    MED.sets().forEach((s) => {
+      const its = MED.items(s.id);
+      if (!its.length) return;
+      const sec = document.createElement("div");
+      sec.className = "gp-section";
+      const lbl = document.createElement("div");
+      lbl.className = "gp-section-label";
+      lbl.textContent = t(s.labelKey);
+      sec.appendChild(lbl);
+      const grid = document.createElement("div");
+      grid.className = "gp-grid";
+      its.forEach((it) => {
+        const thumb = document.createElement("div");
+        thumb.className = "gp-thumb" + (it.video ? " is-video" : "");
+        thumb.setAttribute("role", "button");
+        thumb.setAttribute("tabindex", "0");
+        const media = document.createElement(it.video ? "video" : "img");
+        media.src = encodeURI(it.src);
+        if (it.video) { media.muted = true; media.setAttribute("preload", "metadata"); }
+        else { media.loading = "lazy"; media.alt = ""; }
+        thumb.appendChild(media);
+        function pick() { overlay.remove(); cb({ src: it.src, video: !!it.video }); }
+        thumb.addEventListener("click", pick);
+        thumb.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); pick(); } });
+        grid.appendChild(thumb);
+      });
+      sec.appendChild(grid);
+      body.appendChild(sec);
+    });
+    box.appendChild(body);
+    overlay.appendChild(box);
+    overlay.addEventListener("click", (e) => { if (e.target === overlay) overlay.remove(); });
+    document.body.appendChild(overlay);
+    closeBtn.focus();
   }
 
   function commitMedia(det, s, newItems) {
@@ -2428,12 +2508,15 @@
         pickImageFile((item) => { const arr = items.slice(); arr[idx] = item; commitMedia(det, s, arr); });
       }
     });
+    const gal = btn("⊞", t("staff.site.fromGallery"), () => {
+      openGalleryPicker((item) => { const arr = items.slice(); arr[idx] = item; commitMedia(det, s, arr); });
+    });
     const rem = btn("✕", t("staff.site.remove"), () => {
       const arr = items.slice(); arr.splice(idx, 1); commitMedia(det, s, arr);
     }, "danger");
     if (idx === 0) left.disabled = true;
     if (idx === items.length - 1) right.disabled = true;
-    bar.appendChild(left); bar.appendChild(right); bar.appendChild(rep); bar.appendChild(rem);
+    bar.appendChild(left); bar.appendChild(right); bar.appendChild(rep); bar.appendChild(gal); bar.appendChild(rem);
     tile.appendChild(bar);
     return tile;
   }
@@ -2441,12 +2524,23 @@
   function buildAddTile(det, s) {
     const tile = document.createElement("div");
     tile.className = "ed-tile ed-tile-add";
+
+    const btnRow = document.createElement("div");
+    btnRow.className = "ed-add-btns";
     const up = document.createElement("button");
     up.type = "button"; up.className = "ed-add-up";
     up.textContent = "＋ " + t("staff.site.upload");
     up.addEventListener("click", () => {
       pickImageFile((item) => { const arr = MED.items(s.id); arr.push(item); commitMedia(det, s, arr); });
     });
+    const gal = document.createElement("button");
+    gal.type = "button"; gal.className = "ed-add-gal";
+    gal.textContent = "⊞ " + t("staff.site.fromGallery");
+    gal.addEventListener("click", () => {
+      openGalleryPicker((item) => { const arr = MED.items(s.id); arr.push(item); commitMedia(det, s, arr); });
+    });
+    btnRow.appendChild(up); btnRow.appendChild(gal);
+
     const urlForm = document.createElement("form");
     urlForm.className = "ed-add-url";
     const urlInput = document.createElement("input");
@@ -2460,7 +2554,7 @@
       arr.push({ src: v, video: isVideoUrl(v) });
       commitMedia(det, s, arr);
     });
-    tile.appendChild(up);
+    tile.appendChild(btnRow);
     tile.appendChild(urlForm);
     return tile;
   }

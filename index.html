@@ -35,6 +35,10 @@
   var seen = false;
   try { seen = sessionStorage.getItem("jpark.introSeen") === "1"; } catch (e) {}
 
+  // Arriving from the Site Editor's "View on site" (#hl=… / #sec=…): never play the
+  // brand intro — jump straight to the page so the editor can see what they're editing.
+  var fromEditor = /^#(hl|sec)=/.test(location.hash || "");
+
   // Skip if another tab/window already has the site open (localStorage, 5-min stale window).
   var TAB_KEY = "jpark.tabOpen";
   var tabOpen = false;
@@ -47,7 +51,7 @@
     try { localStorage.removeItem(TAB_KEY); } catch (e) {}
   });
 
-  if (seen || tabOpen) { intro.classList.add("is-hidden"); return; }
+  if (seen || tabOpen || fromEditor) { intro.classList.add("is-hidden"); return; }
   document.body.classList.add("intro-active");
 
   var layer = intro.querySelector(".intro-leaves");

@@ -11,7 +11,7 @@ A multilingual static hotel website for **J Park Hotel · Chonburi, Thailand** �
 - Live chat (guest ↔ front desk, localStorage-based)
 - Staff & admin console (`staff.html`) with internal messaging and a team status board
 - **Site Editor (admin)** — a streamlined, tabbed CMS that edits **every** piece of public text and **every** photo in **every** section:
-  - **Website text** — edit any string per language; one edit **auto-translates into the other four languages** so they stay in sync. Each group shows a thumbnail of where it appears, with "View on site" to jump there and highlight it.
+  - **Website text** — edit any string per language; one edit **auto-translates into the other four languages** so they stay in sync. Every field shows a **plain-language location** (e.g. "📍 Rooms › Grand Suite Name") so you always know where the text lives, and **View on site ↗** opens the homepage straight to that spot — the brand intro is skipped and the exact text (or whole section) is highlighted with a "here's what you're editing" banner.
   - **Photos & videos** — add, replace, reorder (◀ ▶) and remove the photos in any section (hero, about, rooms, dining, facilities, pool, gym, gallery…). Current photos are shown.
   - **Colours**, **show/hide sections**, **announcement banner**
   - **Previous edits** — an audit log of who changed what and when
@@ -64,8 +64,8 @@ Open **Staff console → Site Editor**. Everything updates the live public site 
 
 | Tab | What it does |
 |-----|--------------|
-| **Website text** | Pick the editing language, search or browse grouped sections, and edit any string. Saving **auto-translates** the change into the other four languages via the live translation service so all languages match (you can still hand-edit any language). Each group shows a thumbnail; click it (or a field's **View on site ↗**) to open that spot on the live site and briefly highlight it. |
-| **Photos & videos** | Open any section to **add / replace / reorder / remove** its photos. Uploads (≤ 2 MB, stored as data URLs) or pasted image/video links. The current photos are shown so you always see what's live. |
+| **Website text** | Pick the editing language, search or browse grouped sections, and edit any string. Each field is labelled with its **plain-language location** ("📍 Rooms › Grand Suite Name") and keeps the raw key as a tooltip, so you always know what you're editing. Saving **auto-translates** the change into the other four languages via the live translation service so all languages match (you can still hand-edit any language). Click a group thumbnail, or a field's **View on site ↗**, to open that spot on the live site — the brand intro is skipped and the text (or the whole section) is highlighted with a banner so you see it instantly. |
+| **Photos & videos** | Open any section to **add / replace / reorder / remove** its photos. Uploads (≤ 4 MB, stored as data URLs) or pasted image/video links. The current photos are shown so you always see what's live. |
 | **Colours** | Recolour the whole site (primary / accent / gold). |
 | **Sections** | Show/hide whole sections, post an announcement banner, "Undo all my edits", and "Reset all demo data". |
 | **Previous edits** | Audit log of every change — who, what and when (newest first). |
@@ -354,3 +354,35 @@ demo guest bookings.
 website, guest portal, staff console, Site Editor, and OTA inbox all work
 offline/locally without the backend; they sync to Postgres when the API is
 reachable.
+
+---
+
+## Custom domain — final go-live steps
+
+The code is already **domain-ready** for the chosen primary domain
+`jparkhotelchonburi.com` (no code change needed to switch over):
+
+- [`assets/js/config.js`](assets/js/config.js) routes the apex and `www` of the
+  domain to the Render API (`https://jpark.onrender.com`).
+- [`render.yaml`](render.yaml) already lists both `https://jparkhotelchonburi.com`
+  and `https://www.jparkhotelchonburi.com` in the `FRONTEND_ORIGIN` CORS allowlist.
+- **No `CNAME` file is committed** — that is intentional. Adding it before DNS
+  resolves would break the live GitHub Pages site.
+
+Once the domain is registered (Cloudflare Registrar or Porkbun, ~$10–13/yr), do
+these **manual** steps to finish the plan:
+
+1. **DNS** — at the registrar add four apex `A` records → `185.199.108.153`,
+   `185.199.109.153`, `185.199.110.153`, `185.199.111.153`, plus a `www`
+   `CNAME` → `shukize.github.io`.
+2. **Wait for DNS** — confirm with `nslookup jparkhotelchonburi.com` returning a
+   `185.199.x.x` address before the next step.
+3. **GitHub Pages** — repo → Settings → Pages → Custom domain →
+   `jparkhotelchonburi.com` → Save. GitHub writes the `CNAME` file and issues
+   HTTPS via Let's Encrypt (~15 min).
+4. **Render** — re-sync the blueprint (or confirm the dashboard env), then set
+   `RESEND_API_KEY` and, after verifying the domain in Resend, update
+   `EMAIL_FROM` to `J Park Hotel <noreply@jparkhotelchonburi.com>`.
+
+After step 3 the site is live on the custom domain; the API, CORS allowlist and
+email all follow automatically from the config above.
