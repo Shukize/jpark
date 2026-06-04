@@ -346,29 +346,69 @@
   border-radius: 999px;
 }
 
+/* ---- Rates block ---- */
+.rr-price-block {
+  margin-top: auto;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+.rr-price-label {
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+  margin-bottom: 10px;
+}
+.rr-price-from {
+  font-family: var(--serif, 'Cormorant Garamond', serif);
+  font-size: 1.3rem;
+  font-weight: 600;
+  color: var(--teal-deep);
+}
+.rr-rates {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.rr-rate {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 12px;
+  background: rgba(12, 91, 88, 0.05);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+}
+.rr-rate-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--teal);
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+.rr-rate-val {
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+  text-align: right;
+}
+.rr-rate-val strong {
+  color: var(--teal-deep);
+  font-weight: 700;
+}
+
 .rr-price-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding-top: 18px;
-  border-top: 1px solid var(--line);
-  margin-top: auto;
+  margin-top: 16px;
 }
-.rr-price-label {
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.15em;
-  font-weight: 600;
-  color: var(--ink-soft);
-  margin-bottom: 4px;
-}
-.rr-price-val {
-  font-size: 0.88rem;
+.rr-price-note {
+  font-size: 0.72rem;
   color: var(--ink-soft);
   font-style: italic;
+  line-height: 1.4;
 }
-
 .rr-enquire-btn {
   flex-shrink: 0;
   padding: 11px 22px;
@@ -405,6 +445,77 @@
 }
 .bk-price-note-inner a:hover {
   color: var(--teal-deep);
+}
+
+/* ---- Laundry package ---- */
+.bk-laundry-section {
+  background: var(--ivory);
+  border-top: 1px solid var(--line);
+  padding: clamp(40px, 7vw, 72px) clamp(20px, 6vw, 80px);
+}
+.bk-laundry-wrap {
+  max-width: var(--maxw);
+  margin: 0 auto;
+}
+.bk-laundry-head {
+  text-align: center;
+  max-width: 640px;
+  margin: 0 auto 32px;
+}
+.bk-laundry-title {
+  font-family: var(--serif, 'Cormorant Garamond', serif);
+  font-size: clamp(1.7rem, 3.4vw, 2.3rem);
+  font-weight: 600;
+  color: var(--teal-deep);
+  margin: 8px 0 12px;
+}
+.bk-laundry-lede {
+  font-size: 0.95rem;
+  color: var(--ink-soft);
+  line-height: 1.6;
+}
+.bk-laundry-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 14px;
+  max-width: 900px;
+  margin: 0 auto;
+}
+.bk-laundry-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 18px 14px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: 0 6px 18px rgba(12, 91, 88, 0.05);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.bk-laundry-item:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 24px rgba(12, 91, 88, 0.1);
+}
+.bk-laundry-pcs {
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--teal);
+}
+.bk-laundry-price {
+  font-family: var(--serif, 'Cormorant Garamond', serif);
+  font-size: 1.55rem;
+  font-weight: 600;
+  color: var(--teal-deep);
+}
+.bk-laundry-note {
+  text-align: center;
+  font-size: 0.8rem;
+  font-style: italic;
+  color: var(--ink-soft);
+  margin-top: 26px;
 }
 
 /* ---- Footer ---- */

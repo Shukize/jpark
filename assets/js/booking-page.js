@@ -1,71 +1,115 @@
 (function () {
   'use strict';
 
+  // Room types and 2026 General rates (per room / night, THB).
+  // Each variant: { label, room: Room-only, bf: Room + American Breakfast }.
   var ROOMS = [
     {
-      name: 'Standard Single',
-      size: '24 m²',
-      maxGuests: 1,
-      img: 'images/Standard%20Single/room_01.jpg',
-      desc: 'A smart, light-filled single with a cosy bed, work desk and rainfall shower — ideal for the solo business traveller.',
-      amenities: ['Work Desk', 'Rainfall Shower', 'Smart TV', 'Air Conditioning', 'Free Wi-Fi', 'In-Room Safe'],
-    },
-    {
-      name: 'Superior Room',
-      size: '32 m²',
+      name: 'Studio',
+      size: '37 m²',
       maxGuests: 2,
-      img: 'images/Superior%20Room/room_01.jpg',
-      desc: 'A refined room with a plush queen bed, lounge seating and a sleek bathroom, dressed in a warm, contemporary palette.',
-      amenities: ['Queen Bed', 'Lounge Seating', 'Smart TV', 'Air Conditioning', 'Free Wi-Fi', 'In-Room Safe'],
+      img: 'images/Studio/room_01.jpg',
+      desc: 'A bright, apartment-style studio in single or twin bedding — with a work desk, smart living nook and rainfall shower for an easy stay.',
+      amenities: ['Single or Twin', 'Work Desk', 'Rainfall Shower', 'Smart TV', 'Air Conditioning', 'Free Wi-Fi'],
+      variants: [{ label: 'Single', room: 990, bf: 1110 }, { label: 'Twin', room: 990, bf: 1300 }],
     },
     {
-      name: 'Prestige Twin Room',
-      size: '36 m²',
+      name: 'Studio B4',
+      size: '37 m²',
       maxGuests: 2,
-      img: 'images/Prestige%20Twin%20Room/room_01.jpg',
-      desc: 'An elevated twin with premium bedding, a spacious work area and upgraded amenities for a longer, easier stay.',
-      amenities: ['Twin Beds', 'Premium Bedding', 'Work Desk', 'Smart TV', 'Air Conditioning', 'Free Wi-Fi'],
+      img: 'images/Studio%20B4/room_01.jpg',
+      desc: 'A refreshed Studio in our B4 wing — single or twin bedding, a full kitchenette and a relaxed living corner for comfortable longer stays.',
+      amenities: ['Single or Twin', 'Full Kitchenette', 'Living Corner', 'Smart TV', 'Air Conditioning', 'Free Wi-Fi'],
+      variants: [{ label: 'Single', room: 1070, bf: 1190 }, { label: 'Twin', room: 1070, bf: 1380 }],
     },
     {
-      name: 'Studio Room',
-      size: '38 m²',
+      name: 'Deluxe',
+      size: '44 m²',
       maxGuests: 2,
-      img: 'images/Studio%20Room/room_01.jpg',
-      desc: 'A bright apartment-style studio with a king bed, kitchenette and living nook — designed for comfortable extended stays.',
-      amenities: ['King Bed', 'Kitchenette', 'Living Nook', 'Smart TV', 'Air Conditioning', 'Free Wi-Fi'],
+      img: 'images/Deluxe/room_01.jpg',
+      desc: 'A spacious deluxe room with a plush bed, lounge seating and a sleek bathroom, dressed in a warm, contemporary palette.',
+      amenities: ['Single or Double', 'Lounge Seating', 'Sleek Bathroom', 'Smart TV', 'Air Conditioning', 'Free Wi-Fi'],
+      variants: [{ label: 'Single', room: 1110, bf: 1230 }, { label: 'Double', room: 1110, bf: 1420 }],
     },
     {
-      name: 'Studio Double Room',
-      size: '42 m²',
+      name: 'Grand Deluxe',
+      size: '54 m²',
+      maxGuests: 2,
+      img: 'images/Grand%20Deluxe/room_01.jpg',
+      desc: 'A generously sized deluxe room with a king bed, plush furnishings and premium finishes — perfect for guests seeking elevated comfort.',
+      amenities: ['Single or Double', 'Plush Furnishings', 'Premium Finishes', 'Smart TV', 'Air Conditioning', 'Free Wi-Fi'],
+      variants: [{ label: 'Single', room: 1340, bf: 1460 }, { label: 'Double', room: 1340, bf: 1650 }],
+    },
+    {
+      name: 'Premiere',
+      size: '49 m²',
+      maxGuests: 2,
+      img: 'images/Premiere/room_01.jpg',
+      desc: 'An elevated room in single or twin bedding, with premium linens, a spacious work area and a calm, refined ambience throughout.',
+      amenities: ['Single or Twin', 'Premium Linens', 'Spacious Work Area', 'Smart TV', 'Air Conditioning', 'Free Wi-Fi'],
+      variants: [{ label: 'Single', room: 1160, bf: 1280 }, { label: 'Twin', room: 1160, bf: 1470 }],
+    },
+    {
+      name: 'Grand Premiere',
+      size: '49 m²',
+      maxGuests: 2,
+      img: 'images/Grand%20Premiere/room_01.jpg',
+      desc: 'Our most generous Premiere — single or twin bedding, upgraded amenities and a wide lounge area framed by quiet city views.',
+      amenities: ['Single or Twin', 'Wide Lounge Area', 'Upgraded Amenities', 'Smart TV', 'Air Conditioning', 'Free Wi-Fi'],
+      variants: [{ label: 'Single', room: 1260, bf: 1380 }, { label: 'Twin', room: 1260, bf: 1570 }],
+    },
+    {
+      name: 'Premiere Suite',
+      size: '73 m²',
       maxGuests: 3,
-      img: 'images/Studio%20Double%20Room/room_01.jpg',
-      desc: 'A generous studio with a king bed and a separate double daybed, a full kitchenette and ample room to spread out.',
-      amenities: ['King Bed + Daybed', 'Full Kitchenette', 'Living Area', 'Smart TV', 'Air Conditioning', 'Free Wi-Fi'],
+      img: 'images/Premiere%20Suite/room_01.jpg',
+      desc: 'A one- or two-bedroom suite with a full living and dining area, a separate bedroom and premium finishes — made for relaxed, longer stays.',
+      amenities: ['1 or 2 Bedrooms', 'Living & Dining Area', 'Premium Finishes', 'Smart TV', 'Air Conditioning', 'Free Wi-Fi'],
+      variants: [{ label: '1 Bedroom', room: 2100, bf: 2220 }, { label: '2 Bedrooms', room: 2100, bf: 2410 }],
+    },
+    {
+      name: 'Executive Suite',
+      size: '75 m²',
+      maxGuests: 4,
+      img: 'images/Executive%20Suite/room_01.jpg',
+      desc: 'A refined one- or two-bedroom residence with expansive living and dining spaces, a kitchen and elegant finishes throughout.',
+      amenities: ['1 or 2 Bedrooms', 'Living & Dining Room', 'Kitchen', 'Smart TV', 'Air Conditioning', 'Free Wi-Fi'],
+      variants: [{ label: '1 Bedroom', room: 1850, bf: 1970 }, { label: '2 Bedrooms', room: 2100, bf: 2410 }],
+    },
+    {
+      name: 'Grand Suite',
+      size: '75 m²',
+      maxGuests: 4,
+      img: 'images/Grand%20Suite/room_01.jpg',
+      desc: 'Our flagship residence in one- or two-bedroom layouts — full living and dining areas, a kitchen and the finest finishes, made for families and long stays.',
+      amenities: ['1 or 2 Bedrooms', 'Full Kitchen', 'Living & Dining Room', 'Onsen Access', 'Smart TV', 'Free Wi-Fi'],
+      variants: [{ label: '1 Bedroom', room: 2700, bf: 2820 }, { label: '2 Bedrooms', room: 3000, bf: 3310 }],
+    },
+    {
+      name: 'Prestige',
+      size: '45 m²',
+      maxGuests: 2,
+      img: 'images/Prestige/room_01.jpg',
+      desc: 'A polished room in single or twin bedding, with premium bedding, a generous work area and upgraded amenities for an easy, restful stay.',
+      amenities: ['Single or Twin', 'Premium Bedding', 'Generous Work Area', 'Smart TV', 'Air Conditioning', 'Free Wi-Fi'],
+      variants: [{ label: 'Single', room: 1040, bf: 1160 }, { label: 'Twin', room: 1040, bf: 1350 }],
     },
     {
       name: 'Corner Suite',
-      size: '52 m²',
+      size: '55 m²',
       maxGuests: 2,
       img: 'images/Corner%20Suite/room_01.jpg',
-      desc: 'A wraparound corner retreat with a separate living room, dual-aspect windows and a deep-soaking marble bathroom.',
-      amenities: ['Dual-Aspect Views', 'Marble Bathroom', 'Separate Living Room', 'Smart TV', 'Air Conditioning', 'Free Wi-Fi'],
+      desc: 'A wraparound corner retreat in single or twin bedding, with a separate living room, dual-aspect windows and a deep-soaking marble bathroom.',
+      amenities: ['Single or Twin', 'Dual-Aspect Views', 'Marble Bathroom', 'Separate Living Room', 'Air Conditioning', 'Free Wi-Fi'],
+      variants: [{ label: 'Single', room: 1260, bf: 1380 }, { label: 'Twin', room: 1260, bf: 1570 }],
     },
-    {
-      name: 'Grand Suite 1 Bedroom',
-      size: '75 m²',
-      maxGuests: 3,
-      img: 'images/Grand%20Suite%201%20Bedroom/20260601_080206.jpg',
-      desc: 'An expansive one-bedroom residence with full living and dining areas, a kitchen and premium finishes throughout.',
-      amenities: ['King Bed', 'Full Kitchen', 'Living & Dining Room', 'Onsen Access', 'Smart TV', 'Free Wi-Fi'],
-    },
-    {
-      name: 'Grand Suite · Two Bedrooms',
-      size: '95 m²',
-      maxGuests: 4,
-      img: 'images/Grand%20Suite%20Two%20Bedrooms/room_01.jpg',
-      desc: 'Our flagship two-bedroom residence — two bedrooms, a large living and dining space and twin bathrooms, made for families and long stays.',
-      amenities: ['2 Bedrooms', 'Twin Bathrooms', 'Full Kitchen', 'Living & Dining Room', 'Onsen Access', 'Free Wi-Fi'],
-    },
+  ];
+
+  // Laundry Package (2026) — pieces : price (THB).
+  var LAUNDRY = [
+    { pieces: 3, price: 55 }, { pieces: 4, price: 70 }, { pieces: 5, price: 85 },
+    { pieces: 6, price: 100 }, { pieces: 7, price: 110 },
+    { pieces: 60, price: 900 }, { pieces: 120, price: 1500 },
   ];
 
   // --- DOM ---
@@ -166,6 +210,10 @@
     0, 6
   );
 
+  function baht(n) {
+    return '฿' + n.toLocaleString('en-US');
+  }
+
   // --- Build a room card ---
   function buildCard(room, nights) {
     var article = document.createElement('article');
@@ -176,6 +224,16 @@
       .join('');
 
     var nightNote = nights ? ' · ' + plural(nights, 'night') : '';
+
+    var fromRoom = Math.min.apply(null, room.variants.map(function (v) { return v.room; }));
+    var ratesHTML = room.variants.map(function (v) {
+      return '<div class="rr-rate">' +
+               '<span class="rr-rate-label">' + v.label + '</span>' +
+               '<span class="rr-rate-val">' +
+                 '<strong>' + baht(v.room) + '</strong> room only · ' + baht(v.bf) + ' with breakfast' +
+               '</span>' +
+             '</div>';
+    }).join('');
 
     article.innerHTML =
       '<div class="rr-img">' +
@@ -189,11 +247,12 @@
         '<h2 class="rr-name">' + room.name + '</h2>' +
         '<p class="rr-desc">' + room.desc + '</p>' +
         '<ul class="rr-amenities">' + amenityHTML + '</ul>' +
+        '<div class="rr-price-block">' +
+          '<p class="rr-price-label">From <strong class="rr-price-from">' + baht(fromRoom) + '</strong> per room / night' + nightNote + '</p>' +
+          '<div class="rr-rates">' + ratesHTML + '</div>' +
+        '</div>' +
         '<div class="rr-price-row">' +
-          '<div>' +
-            '<p class="rr-price-label">Price per night' + nightNote + '</p>' +
-            '<p class="rr-price-val">Pricing available soon</p>' +
-          '</div>' +
+          '<span class="rr-price-note">2026 general rate · taxes &amp; service included</span>' +
           '<a href="index.html#contact" class="btn btn-solid rr-enquire-btn">Enquire to Book</a>' +
         '</div>' +
       '</div>';
@@ -215,6 +274,19 @@
     });
     gridEl.hidden = false;
   }
+
+  // --- Render the laundry package price list ---
+  function renderLaundry() {
+    var host = document.getElementById('bkLaundryGrid');
+    if (!host) return;
+    host.innerHTML = LAUNDRY.map(function (l) {
+      return '<div class="bk-laundry-item">' +
+               '<span class="bk-laundry-pcs">' + l.pieces + ' ' + (l.pieces === 1 ? 'piece' : 'pieces') + '</span>' +
+               '<span class="bk-laundry-price">' + baht(l.price) + '</span>' +
+             '</div>';
+    }).join('');
+  }
+  renderLaundry();
 
   // Show all rooms on initial load
   renderRooms(ROOMS, null);

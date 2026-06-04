@@ -21,11 +21,12 @@
   /* ---- helpers to build item lists ---- */
   function imgs(list) { return list.map((s) => ({ src: s, video: false })); }
 
-  /* Room folders -> photo counts (files are room_01.jpg … room_NN.jpg). */
+  /* Room folders -> photo counts (files are room_01.jpg … room_NN.jpg).
+     One folder per room type on the 2026 rate sheet, in sheet order. */
   const ROOM_COUNTS = {
-    "Standard Single": 9, "Superior Room": 17, "Prestige Twin Room": 9,
-    "Studio Room": 13, "Studio Double Room": 11, "Corner Suite": 11,
-    "Grand Suite Two Bedrooms": 17
+    "Studio": 13, "Studio B4": 11, "Deluxe": 11, "Grand Deluxe": 15,
+    "Premiere": 17, "Grand Premiere": 9, "Premiere Suite": 17,
+    "Executive Suite": 20, "Grand Suite": 20, "Prestige": 9, "Corner Suite": 11
   };
   function roomItems(folder) {
     const n = ROOM_COUNTS[folder] || 1, out = [];
@@ -137,47 +138,6 @@
     "images/Gym/e2bb66fc-6cac-45ec-8316-ae1e71d90a0a.jpg"
   ]);
 
-  const GRAND_DELUXE_ITEMS = imgs([
-    "images/Grand Deluxe/20260601_074454.jpg",
-    "images/Grand Deluxe/20260601_074549.jpg",
-    "images/Grand Deluxe/20260601_074706.jpg",
-    "images/Grand Deluxe/20260601_074712.jpg",
-    "images/Grand Deluxe/20260601_074716.jpg",
-    "images/Grand Deluxe/20260601_074727.jpg",
-    "images/Grand Deluxe/20260601_074739.jpg",
-    "images/Grand Deluxe/20260601_074747.jpg",
-    "images/Grand Deluxe/20260601_074828.jpg",
-    "images/Grand Deluxe/20260601_074845.jpg",
-    "images/Grand Deluxe/20260601_074900.jpg",
-    "images/Grand Deluxe/20260601_074922.jpg",
-    "images/Grand Deluxe/47e0d242-3c99-4ed0-b48a-91e3c4e711ba.jpg",
-    "images/Grand Deluxe/c67619ac-3646-462b-8dc7-58e1e6bf73b5.jpg",
-    "images/Grand Deluxe/fab7da35-ac57-4ebd-b0a4-ae2981d17c9d.jpg"
-  ]);
-
-  const GRAND_SUITE_ITEMS = imgs([
-    "images/Grand Suite 1 Bedroom/20260601_080206.jpg",
-    "images/Grand Suite 1 Bedroom/20260601_080222.jpg",
-    "images/Grand Suite 1 Bedroom/20260601_080241.jpg",
-    "images/Grand Suite 1 Bedroom/20260601_080249.jpg",
-    "images/Grand Suite 1 Bedroom/20260601_080256.jpg",
-    "images/Grand Suite 1 Bedroom/20260601_080319.jpg",
-    "images/Grand Suite 1 Bedroom/20260601_080328.jpg",
-    "images/Grand Suite 1 Bedroom/20260601_080412.jpg",
-    "images/Grand Suite 1 Bedroom/20260601_080437.jpg",
-    "images/Grand Suite 1 Bedroom/20260601_080550.jpg",
-    "images/Grand Suite 1 Bedroom/20260601_080602.jpg",
-    "images/Grand Suite 1 Bedroom/20260601_080709.jpg",
-    "images/Grand Suite 1 Bedroom/20260601_080749.jpg",
-    "images/Grand Suite 1 Bedroom/room_03.jpg",
-    "images/Grand Suite 1 Bedroom/room_05.jpg",
-    "images/Grand Suite 1 Bedroom/room_07.jpg",
-    "images/Grand Suite 1 Bedroom/room_14.jpg",
-    "images/Grand Suite 1 Bedroom/room_16.jpg",
-    "images/Grand Suite 1 Bedroom/room_17.jpg",
-    "images/Grand Suite 1 Bedroom/room_18.jpg"
-  ]);
-
   const LOBBY_ITEMS = imgs([
     "images/Main Lobby/20260601_073611.jpg",
     "images/Main Lobby/20260601_073624.jpg",
@@ -200,7 +160,7 @@
     "images/45c09cb7-8ba5-4ba0-bc3c-42837ef10bf2.jpg",
     "images/New Midnight Coffee Club/587f2a86-cbf1-4cac-9e69-9279d2478323.jpg",
     "images/ea770736-fe38-4c3e-b072-4928f8a2fad9.jpg",
-    "images/Grand Deluxe/20260601_074454.jpg",
+    "images/Grand Deluxe/room_01.jpg",
     "images/Tropical Pool/ce70057e-42f0-4b44-9f67-18598f22ff3a.jpg"
   ]);
 
@@ -221,15 +181,17 @@
     { id: "allday",      labelKey: "dining.allDayName",   section: "dining",     gallery: true, galleryKey: "gallery.cat.allday", items: ALLDAY_ITEMS },
     { id: "banquet",     labelKey: "fac.gardenName",      section: "facilities", gallery: true, galleryKey: "gallery.cat.banquet", items: BANQUET_ITEMS },
     { id: "gym",         labelKey: "fac.gymName",         section: "facilities", gallery: true, galleryKey: "gallery.cat.gym", items: GYM_ITEMS },
-    { id: "room:Standard Single",         labelKey: "rooms.singleName",      section: "rooms", gallery: true, items: roomItems("Standard Single") },
-    { id: "room:Superior Room",           labelKey: "rooms.superiorName",    section: "rooms", gallery: true, items: roomItems("Superior Room") },
-    { id: "room:Prestige Twin Room",      labelKey: "rooms.prestigeName",    section: "rooms", gallery: true, items: roomItems("Prestige Twin Room") },
-    { id: "room:Studio Room",             labelKey: "rooms.studioName",      section: "rooms", gallery: true, items: roomItems("Studio Room") },
-    { id: "room:Studio Double Room",      labelKey: "rooms.studioDoubleName", section: "rooms", gallery: true, items: roomItems("Studio Double Room") },
-    { id: "room:Grand Deluxe", labelKey: "rooms.grandDeluxeName", section: "rooms", gallery: true, galleryKey: "rooms.grandDeluxeName", items: GRAND_DELUXE_ITEMS },
-    { id: "room:Corner Suite",            labelKey: "rooms.cornerName",      section: "rooms", gallery: true, items: roomItems("Corner Suite") },
-    { id: "room:Grand Suite · Single Bedroom", labelKey: "rooms.grandSuiteName", section: "rooms", gallery: true, galleryKey: "rooms.grandSuiteName", items: GRAND_SUITE_ITEMS },
-    { id: "room:Grand Suite Two Bedrooms", labelKey: "rooms.grandTwoName",   section: "rooms", gallery: true, galleryKey: "rooms.grandTwoName", items: roomItems("Grand Suite Two Bedrooms") },
+    { id: "room:Studio",          labelKey: "rooms.studioName",        section: "rooms", gallery: true, items: roomItems("Studio") },
+    { id: "room:Studio B4",       labelKey: "rooms.studioB4Name",      section: "rooms", gallery: true, items: roomItems("Studio B4") },
+    { id: "room:Deluxe",          labelKey: "rooms.deluxeName",        section: "rooms", gallery: true, items: roomItems("Deluxe") },
+    { id: "room:Grand Deluxe",    labelKey: "rooms.grandDeluxeName",   section: "rooms", gallery: true, items: roomItems("Grand Deluxe") },
+    { id: "room:Premiere",        labelKey: "rooms.premiereName",      section: "rooms", gallery: true, items: roomItems("Premiere") },
+    { id: "room:Grand Premiere",  labelKey: "rooms.grandPremiereName", section: "rooms", gallery: true, items: roomItems("Grand Premiere") },
+    { id: "room:Premiere Suite",  labelKey: "rooms.premiereSuiteName", section: "rooms", gallery: true, items: roomItems("Premiere Suite") },
+    { id: "room:Executive Suite", labelKey: "rooms.execSuiteName",     section: "rooms", gallery: true, items: roomItems("Executive Suite") },
+    { id: "room:Grand Suite",     labelKey: "rooms.grandSuiteName",    section: "rooms", gallery: true, items: roomItems("Grand Suite") },
+    { id: "room:Prestige",        labelKey: "rooms.prestigeName",      section: "rooms", gallery: true, items: roomItems("Prestige") },
+    { id: "room:Corner Suite",    labelKey: "rooms.cornerName",        section: "rooms", gallery: true, items: roomItems("Corner Suite") },
     { id: "lobby",        labelKey: "gallery.cat.lobby",      section: "gallery", gallery: true, items: LOBBY_ITEMS },
     { id: "galleryPreview", labelKey: "media.set.preview", section: "gallery", items: PREVIEW_ITEMS }
   ];
