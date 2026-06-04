@@ -140,7 +140,13 @@ const I18N = {
     "contact.mapBtn": "เปิดในแผนที่",
     "contact.fbBtn": "Facebook",
     "footer.tag": "การต้อนรับสไตล์ญี่ปุ่น · ชลบุรี ประเทศไทย",
-    "footer.rights": "สงวนลิขสิทธิ์"
+    "footer.rights": "สงวนลิขสิทธิ์",
+    "hb.arrival": "เช็คอิน",
+    "hb.departure": "เช็คเอาต์",
+    "hb.guests": "จำนวนผู้เข้าพัก",
+    "hb.selectDate": "เลือกวันที่",
+    "hb.guest": "คน",
+    "hb.guestPl": "คน"
   },
 
   /* ---------------------- English ---------------------- */
@@ -269,7 +275,13 @@ const I18N = {
     "contact.mapBtn": "Open in Maps",
     "contact.fbBtn": "Facebook",
     "footer.tag": "Japanese-inspired hospitality · Chonburi, Thailand",
-    "footer.rights": "All rights reserved."
+    "footer.rights": "All rights reserved.",
+    "hb.arrival": "Arrival",
+    "hb.departure": "Departure",
+    "hb.guests": "Guests",
+    "hb.selectDate": "Select date",
+    "hb.guest": "guest",
+    "hb.guestPl": "guests"
   },
 
   /* ---------------------- 日本語 ---------------------- */
@@ -398,7 +410,13 @@ const I18N = {
     "contact.mapBtn": "地図を開く",
     "contact.fbBtn": "Facebook",
     "footer.tag": "日本の趣のおもてなし · タイ・チョンブリー",
-    "footer.rights": "All rights reserved."
+    "footer.rights": "All rights reserved.",
+    "hb.arrival": "チェックイン",
+    "hb.departure": "チェックアウト",
+    "hb.guests": "人数",
+    "hb.selectDate": "日付を選択",
+    "hb.guest": "名",
+    "hb.guestPl": "名"
   },
 
   /* ---------------------- 简体中文 ---------------------- */
@@ -527,7 +545,13 @@ const I18N = {
     "contact.mapBtn": "在地图中打开",
     "contact.fbBtn": "Facebook",
     "footer.tag": "日式款待 · 泰国春武里",
-    "footer.rights": "版权所有。"
+    "footer.rights": "版权所有。",
+    "hb.arrival": "入住",
+    "hb.departure": "退房",
+    "hb.guests": "宾客",
+    "hb.selectDate": "选择日期",
+    "hb.guest": "位",
+    "hb.guestPl": "位"
   },
 
   /* ---------------------- 繁體中文 ---------------------- */
@@ -656,7 +680,13 @@ const I18N = {
     "contact.mapBtn": "在地圖中開啟",
     "contact.fbBtn": "Facebook",
     "footer.tag": "日式款待 · 泰國春武里",
-    "footer.rights": "版權所有。"
+    "footer.rights": "版權所有。",
+    "hb.arrival": "入住",
+    "hb.departure": "退房",
+    "hb.guests": "賓客",
+    "hb.selectDate": "選擇日期",
+    "hb.guest": "位",
+    "hb.guestPl": "位"
   }
 };
 

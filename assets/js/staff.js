@@ -32,7 +32,7 @@
   // and a media set whose first photo is shown as the group's thumbnail.
   const EDIT_GROUPS = [
     { title: "staff.site.grpBrand",    prefixes: ["brand.", "nav."],                          section: "home",       thumb: "hero" },
-    { title: "staff.site.grpHero",     prefixes: ["hero."],                                    section: "home",       thumb: "hero" },
+    { title: "staff.site.grpHero",     prefixes: ["hero.", "hb."],                             section: "home",       thumb: "hero" },
     { title: "nav.about",              prefixes: ["about."],                                   section: "about",      thumb: "aboutMain" },
     { title: "nav.rooms",              prefixes: ["rooms."],                                   section: "rooms",      thumb: "room:Standard Single" },
     { title: "nav.facilities",         prefixes: ["fac."],                                     section: "facilities", thumb: "pool" },

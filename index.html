@@ -156,7 +156,7 @@
       <div class="hb-field">
         <span class="hb-icon" aria-hidden="true"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span>
         <div class="hb-field-text">
-          <span class="hb-label">Arrival</span>
+          <span class="hb-label" data-i18n="hb.arrival">Arrival</span>
           <span class="hb-value hb-placeholder" id="hbCheckinVal">Select date</span>
         </div>
         <input type="date" class="hb-date-ghost" id="hbCheckin" aria-label="Arrival date" />
@@ -168,7 +168,7 @@
       <div class="hb-field">
         <span class="hb-icon" aria-hidden="true"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span>
         <div class="hb-field-text">
-          <span class="hb-label">Departure</span>
+          <span class="hb-label" data-i18n="hb.departure">Departure</span>
           <span class="hb-value hb-placeholder" id="hbCheckoutVal">Select date</span>
         </div>
         <input type="date" class="hb-date-ghost" id="hbCheckout" aria-label="Departure date" />
@@ -180,7 +180,7 @@
       <div class="hb-field hb-field-guests">
         <span class="hb-icon" aria-hidden="true"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="7" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg></span>
         <div class="hb-field-text">
-          <span class="hb-label">Guests</span>
+          <span class="hb-label" data-i18n="hb.guests">Guests</span>
           <div class="hb-guests-row">
             <button type="button" class="hb-step" id="hbGuestsDown" aria-label="Fewer guests">&#8722;</button>
             <span class="hb-guests-count" id="hbGuestsCount">2 guests</span>
@@ -190,7 +190,7 @@
       </div>
 
       <!-- Book Now -->
-      <button type="button" class="hb-book-btn" id="hbBookBtn">BOOK NOW &#8250;</button>
+      <button type="button" class="hb-book-btn" id="hbBookBtn" data-i18n="nav.book">BOOK NOW</button>
 
     </div>
   </div>
@@ -203,6 +203,12 @@
   var coVal   = document.getElementById('hbCheckoutVal');
   var gCount  = document.getElementById('hbGuestsCount');
   var gNum    = 2;
+  var ciDate  = null;
+  var coDate  = null;
+
+  var LOCALE_MAP = { 'th': 'th-TH', 'en': 'en-GB', 'ja': 'ja-JP', 'zh-Hans': 'zh-CN', 'zh-Hant': 'zh-TW' };
+  function getLang()  { return (window.JPark && window.JPark.i18n && window.JPark.i18n.getLang()) || 'en'; }
+  function tHb(key, fb) { return (window.JPark && window.JPark.i18n && window.JPark.i18n.t(key)) || fb; }
 
   function todayISO() { return new Date().toISOString().slice(0, 10); }
   function addDay(iso, n) {
@@ -210,18 +216,24 @@
     return d.toISOString().slice(0, 10);
   }
   function fmtDate(iso) {
-    return new Date(iso + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    var locale = LOCALE_MAP[getLang()] || 'en-GB';
+    return new Date(iso + 'T12:00:00').toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' });
+  }
+  function updateGuestCount() {
+    var unit = tHb(gNum === 1 ? 'hb.guest' : 'hb.guestPl', gNum === 1 ? 'guest' : 'guests');
+    gCount.textContent = gNum + ' ' + unit;
+  }
+  function updatePlaceholders() {
+    var ph = tHb('hb.selectDate', 'Select date');
+    if (!ciDate) { ciVal.textContent = ph; } else { ciVal.textContent = fmtDate(ciDate); }
+    if (!coDate) { coVal.textContent = ph; } else { coVal.textContent = fmtDate(coDate); }
   }
 
   ci.min = todayISO();
   co.min = addDay(todayISO(), 1);
 
-  // --- Desktop calendar fix -------------------------------------------------
   // A native <input type="date"> only opens its calendar on desktop when the
-  // little picker icon is clicked. Here that icon is invisible (the input is an
-  // opacity:0 overlay), so on desktop clicking the field did nothing while on
-  // mobile a tap opens the picker natively. showPicker() forces the calendar
-  // open from any click / keyboard activation, so the whole field is clickable.
+  // little picker icon is clicked. showPicker() forces it open from any click.
   function openPicker(inp) {
     if (typeof inp.showPicker === 'function') {
       try { inp.showPicker(); } catch (e) { /* needs user gesture / unsupported */ }
@@ -239,29 +251,37 @@
 
   ci.addEventListener('change', function () {
     if (!this.value) return;
-    ciVal.textContent = fmtDate(this.value);
+    ciDate = this.value;
+    ciVal.textContent = fmtDate(ciDate);
     ciVal.classList.remove('hb-placeholder');
-    co.min = addDay(this.value, 1);
-    if (co.value && co.value <= this.value) {
-      co.value = addDay(this.value, 1);
-      coVal.textContent = fmtDate(co.value);
+    co.min = addDay(ciDate, 1);
+    if (co.value && co.value <= ciDate) {
+      co.value = addDay(ciDate, 1);
+      coDate = co.value;
+      coVal.textContent = fmtDate(coDate);
       coVal.classList.remove('hb-placeholder');
     }
   });
 
   co.addEventListener('change', function () {
     if (!this.value) return;
-    coVal.textContent = fmtDate(this.value);
+    coDate = this.value;
+    coVal.textContent = fmtDate(coDate);
     coVal.classList.remove('hb-placeholder');
   });
 
   document.getElementById('hbGuestsDown').addEventListener('click', function (e) {
     e.stopPropagation();
-    if (gNum > 1) { gNum--; gCount.textContent = gNum + (gNum === 1 ? ' guest' : ' guests'); }
+    if (gNum > 1) { gNum--; updateGuestCount(); }
   });
   document.getElementById('hbGuestsUp').addEventListener('click', function (e) {
     e.stopPropagation();
-    if (gNum < 10) { gNum++; gCount.textContent = gNum + (gNum === 1 ? ' guest' : ' guests'); }
+    if (gNum < 10) { gNum++; updateGuestCount(); }
+  });
+
+  document.addEventListener('jpark:langchange', function () {
+    updateGuestCount();
+    updatePlaceholders();
   });
 
   document.getElementById('hbBookBtn').addEventListener('click', function () {
