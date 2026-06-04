@@ -336,6 +336,8 @@ h1, h2, h3 { font-weight: 500; line-height: 1.12; letter-spacing: 0.01em; }
 .room-img { overflow: hidden; aspect-ratio: 4/3; }
 .room-img img { width: 100%; height: 100%; object-fit: cover; transition: transform .8s var(--ease); }
 .room-card:hover .room-img img { transform: scale(1.07); }
+/* Swipe affordance — hidden on desktop (rooms are a 3-up grid there) */
+.swipe-hint { display: none; }
 .room-body { padding: 26px 26px 30px; position: relative; }
 .room-size {
   position: absolute; top: -16px; right: 22px;
@@ -572,7 +574,33 @@ body.intro-active { overflow: hidden; }
     -webkit-overflow-scrolling: touch;
   }
   .room-grid::-webkit-scrollbar { display: none; }
-  .room-card { flex: 0 0 76vw; scroll-snap-align: start; }
+  .room-card { flex: 0 0 78vw; scroll-snap-align: start; }
+  /* Swipe affordance pill (mobile only) */
+  .swipe-hint {
+    display: flex; align-items: center; gap: 10px;
+    width: fit-content; margin: 0 auto 16px;
+    padding: 9px 18px; border-radius: 999px;
+    background: rgba(12, 91, 88, 0.08);
+    border: 1px solid rgba(12, 91, 88, 0.16);
+    color: var(--teal-deep);
+    font-size: 0.78rem; font-weight: 600; letter-spacing: 0.03em;
+    transition: opacity .45s var(--ease), transform .45s var(--ease);
+  }
+  .swipe-hint .sh-arrows { color: var(--gold); font-weight: 700; }
+  .swipe-hint .sh-left  { animation: swipeNudgeL 1.5s var(--ease) infinite; }
+  .swipe-hint .sh-right { animation: swipeNudgeR 1.5s var(--ease) infinite; }
+  .swipe-hint--hidden { opacity: 0; transform: translateY(-6px); pointer-events: none; }
+  @keyframes swipeNudgeR {
+    0%, 100% { transform: translateX(0); opacity: .55; }
+    50%      { transform: translateX(5px); opacity: 1; }
+  }
+  @keyframes swipeNudgeL {
+    0%, 100% { transform: translateX(0); opacity: .55; }
+    50%      { transform: translateX(-5px); opacity: 1; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .swipe-hint .sh-left, .swipe-hint .sh-right { animation: none; }
+  }
   .dining-grid, .fac-grid { grid-template-columns: 1fr; }
   .fac-card.large { grid-row: auto; }
   .fac-grid { grid-auto-rows: 230px; }

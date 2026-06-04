@@ -454,6 +454,24 @@
     );
   }
 
+  /* On mobile the rooms grid is a horizontal snap-scroller; the hint pill
+     invites a swipe and fades away once the guest scrolls or it's off-screen. */
+  function initSwipeHint() {
+    const grid = document.querySelector(".rooms .room-grid");
+    const hint = document.querySelector(".rooms .swipe-hint");
+    if (!grid || !hint) return;
+    let done = false;
+    function hide() {
+      if (done) return;
+      done = true;
+      hint.classList.add("swipe-hint--hidden");
+      grid.removeEventListener("scroll", hide);
+    }
+    grid.addEventListener("scroll", hide, { passive: true });
+    // Also retire it after a while even if the guest never scrolls.
+    setTimeout(hide, 9000);
+  }
+
   /* ---------- Staff/Admin portal link in the nav (when signed in) ---------- */
   function initNavPortal() {
     const link = document.getElementById("navPortalLink");
@@ -770,6 +788,7 @@
     buildLightbox();
     initGallery();
     initCardGalleries();
+    initSwipeHint();
     initNavPortal();
     initBanquetVideo();
     initAllDayVideo();
