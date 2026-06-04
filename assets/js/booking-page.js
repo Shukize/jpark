@@ -112,6 +112,16 @@
     { pieces: 60, price: 900 }, { pieces: 120, price: 1500 },
   ];
 
+  // Day-use rates (2026) — short 3-hour stays, room : price (THB).
+  var DAYUSE = [
+    { room: 'Studio', price: 500 },
+    { room: 'Deluxe', price: 600 },
+    { room: 'Premiere', price: 700 },
+    { room: 'Grand Premiere', price: 800 },
+    { room: 'Prestige', price: 800 },
+    { room: 'Premiere Suite', price: 900 },
+  ];
+
   // --- DOM ---
   var checkinEl     = document.getElementById('bkCheckin');
   var checkoutEl    = document.getElementById('bkCheckout');
@@ -287,6 +297,19 @@
     }).join('');
   }
   renderLaundry();
+
+  // --- Render the day-use (3-hour) rate list ---
+  function renderDayUse() {
+    var host = document.getElementById('bkDayUseGrid');
+    if (!host) return;
+    host.innerHTML = DAYUSE.map(function (d) {
+      return '<div class="bk-dayuse-item">' +
+               '<span class="bk-dayuse-room">' + d.room + '</span>' +
+               '<span class="bk-dayuse-price">' + baht(d.price) + '</span>' +
+             '</div>';
+    }).join('');
+  }
+  renderDayUse();
 
   // Show all rooms on initial load
   renderRooms(ROOMS, null);
