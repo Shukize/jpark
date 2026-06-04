@@ -338,6 +338,9 @@ h1, h2, h3 { font-weight: 500; line-height: 1.12; letter-spacing: 0.01em; }
 .room-card:hover .room-img img { transform: scale(1.07); }
 /* Swipe affordance — hidden on desktop (rooms are a 3-up grid there) */
 .swipe-hint { display: none; }
+/* Book Now call-to-action below the room grid */
+.rooms-cta { display: flex; justify-content: center; margin-top: 44px; }
+.rooms-cta-btn { padding: 15px 46px; font-size: 0.92rem; letter-spacing: 0.04em; }
 .room-body { padding: 26px 26px 30px; position: relative; }
 .room-size {
   position: absolute; top: -16px; right: 22px;

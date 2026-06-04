@@ -25,13 +25,27 @@
       </span>
     </a>
     <nav class="nav-links bk-nav-links" aria-label="Site navigation">
-      <a href="index.html#rooms">Rooms</a>
-      <a href="index.html#facilities">Facilities</a>
-      <a href="index.html#dining">Dining</a>
-      <a href="index.html#contact">Contact</a>
+      <a href="index.html#rooms" data-i18n="nav.rooms">Rooms</a>
+      <a href="index.html#facilities" data-i18n="nav.facilities">Facilities</a>
+      <a href="index.html#dining" data-i18n="nav.dining">Dining</a>
+      <a href="index.html#contact" data-i18n="nav.contact">Contact</a>
     </nav>
     <div class="nav-actions">
-      <a href="index.html" class="btn btn-ghost dark bk-back-btn">&#8592; Back to Hotel</a>
+      <div class="lang-switch" id="langSwitch">
+        <button class="lang-btn" id="langBtn" aria-haspopup="true" aria-expanded="false">
+          <span class="globe" aria-hidden="true">&#127760;</span>
+          <span id="langCurrent">English</span>
+          <span class="caret" aria-hidden="true">&#9662;</span>
+        </button>
+        <ul class="lang-menu" id="langMenu" role="menu">
+          <li><button data-lang="th" role="menuitem">ไทย</button></li>
+          <li><button data-lang="en" role="menuitem">English</button></li>
+          <li><button data-lang="ja" role="menuitem">日本語</button></li>
+          <li><button data-lang="zh-Hans" role="menuitem">简体中文</button></li>
+          <li><button data-lang="zh-Hant" role="menuitem">繁體中文</button></li>
+        </ul>
+      </div>
+      <a href="index.html" class="btn btn-ghost dark bk-back-btn" data-i18n="bk.back">&#8592; Back to Hotel</a>
     </div>
   </div>
 </header>
@@ -41,9 +55,9 @@
   <img class="bk-hero-img" src="images/Tropical%20Pool/c3ac1733-933b-49de-aa10-7185a21dbe5f.jpg" alt="" />
   <div class="bk-hero-scrim"></div>
   <div class="bk-hero-text">
-    <p class="eyebrow light">Reserve Your Stay</p>
-    <h1 class="bk-hero-title">Find Your Perfect Room</h1>
-    <p class="bk-hero-lede">Eleven room and suite styles — from a smart studio to a two-bedroom grand suite.</p>
+    <p class="eyebrow light" data-i18n="bk.heroEyebrow">Reserve Your Stay</p>
+    <h1 class="bk-hero-title" data-i18n="bk.heroTitle">Find Your Perfect Room</h1>
+    <p class="bk-hero-lede" data-i18n="bk.heroLede">Eleven room and suite styles — from a smart studio to a two-bedroom grand suite.</p>
   </div>
 </div>
 
@@ -53,36 +67,36 @@
     <div class="bk-fields-row">
 
       <div class="bk-field">
-        <label class="bk-label" for="bkCheckin">Check-in</label>
+        <label class="bk-label" for="bkCheckin" data-i18n="bk.checkin">Check-in</label>
         <input class="bk-input" type="date" id="bkCheckin" name="checkin" aria-describedby="bkError" />
       </div>
 
       <div class="bk-arrow" aria-hidden="true">&#8594;</div>
 
       <div class="bk-field">
-        <label class="bk-label" for="bkCheckout">Check-out</label>
+        <label class="bk-label" for="bkCheckout" data-i18n="bk.checkout">Check-out</label>
         <input class="bk-input" type="date" id="bkCheckout" name="checkout" aria-describedby="bkError" />
       </div>
 
       <div class="bk-field bk-field-stepper">
-        <span class="bk-label" id="adultsLabel">Adults</span>
+        <span class="bk-label" id="adultsLabel" data-i18n="bk.adults">Adults</span>
         <div class="bk-stepper" role="group" aria-labelledby="adultsLabel">
-          <button type="button" class="bk-step" id="adultsDown" aria-label="Fewer adults">&#8722;</button>
+          <button type="button" class="bk-step" id="adultsDown" aria-label="Fewer adults" data-i18n-attr="aria-label:bk.fewerAdults">&#8722;</button>
           <span class="bk-step-val" id="adultsVal" aria-live="polite">2</span>
-          <button type="button" class="bk-step" id="adultsUp" aria-label="More adults">+</button>
+          <button type="button" class="bk-step" id="adultsUp" aria-label="More adults" data-i18n-attr="aria-label:bk.moreAdults">+</button>
         </div>
       </div>
 
       <div class="bk-field bk-field-stepper">
-        <span class="bk-label" id="childrenLabel">Children</span>
+        <span class="bk-label" id="childrenLabel" data-i18n="bk.children">Children</span>
         <div class="bk-stepper" role="group" aria-labelledby="childrenLabel">
-          <button type="button" class="bk-step" id="childrenDown" aria-label="Fewer children">&#8722;</button>
+          <button type="button" class="bk-step" id="childrenDown" aria-label="Fewer children" data-i18n-attr="aria-label:bk.fewerChildren">&#8722;</button>
           <span class="bk-step-val" id="childrenVal" aria-live="polite">0</span>
-          <button type="button" class="bk-step" id="childrenUp" aria-label="More children">+</button>
+          <button type="button" class="bk-step" id="childrenUp" aria-label="More children" data-i18n-attr="aria-label:bk.moreChildren">+</button>
         </div>
       </div>
 
-      <button type="button" class="btn btn-solid bk-search-btn" id="bkSearchBtn">
+      <button type="button" class="btn btn-solid bk-search-btn" id="bkSearchBtn" data-i18n="bk.checkAvail">
         Check Availability
       </button>
 
@@ -95,7 +109,7 @@
 <div class="bk-status" id="bkStatus" hidden>
   <div class="bk-status-inner">
     <span class="bk-status-text" id="bkStatusText"></span>
-    <button type="button" class="bk-clear-btn" id="bkClearBtn">Change dates</button>
+    <button type="button" class="bk-clear-btn" id="bkClearBtn" data-i18n="bk.changeDates">Change dates</button>
   </div>
 </div>
 
@@ -103,8 +117,8 @@
 <main class="bk-rooms-section" id="bkRoomsSection">
   <div class="bk-rooms-wrap">
 
-    <p class="bk-hint" id="bkHint">
-      Select your dates and guests above, then click <strong>Check Availability</strong> to filter rooms for your group.
+    <p class="bk-hint" id="bkHint" data-i18n="bk.hint">
+      Select your dates and guests above, then tap Check Availability to filter rooms for your group.
     </p>
 
     <div class="bk-rooms-grid" id="bkRoomsGrid">
@@ -112,7 +126,7 @@
     </div>
 
     <div class="bk-no-rooms" id="bkNoRooms" hidden>
-      <p>No rooms match your current guest count. Please try a smaller group, or <a href="index.html#contact">contact us</a> — we can arrange connecting rooms for larger parties.</p>
+      <p id="bkNoRoomsText">No rooms match your current guest count. Please try a smaller group, or <a href="index.html#contact">contact us</a> — we can arrange connecting rooms for larger parties.</p>
     </div>
 
   </div>
@@ -122,14 +136,14 @@
 <section class="bk-dayuse-section" aria-label="Day use rates">
   <div class="bk-dayuse-wrap">
     <div class="bk-dayuse-head">
-      <p class="eyebrow">Short stays</p>
-      <h2 class="bk-dayuse-title">Day Use Rates</h2>
-      <p class="bk-dayuse-lede">Need a room for just a few hours? Our day-use rate covers a 3-hour stay — perfect for a midday rest, a refresh between journeys or a quiet, private space to work.</p>
+      <p class="eyebrow" data-i18n="bk.dayuseEyebrow">Short stays</p>
+      <h2 class="bk-dayuse-title" data-i18n="bk.dayuseTitle">Day Use Rates</h2>
+      <p class="bk-dayuse-lede" data-i18n="bk.dayuseLede">Need a room for just a few hours? Our day-use rate covers a 3-hour stay — perfect for a midday rest, a refresh between journeys or a quiet, private space to work.</p>
     </div>
     <div class="bk-dayuse-grid" id="bkDayUseGrid">
       <!-- day-use rows injected by booking-page.js -->
     </div>
-    <p class="bk-dayuse-note">Prices in Thai Baht (THB) per 3-hour day-use session, subject to availability.</p>
+    <p class="bk-dayuse-note" data-i18n="bk.dayuseNote">Prices in Thai Baht (THB) per 3-hour day-use session, subject to availability.</p>
   </div>
 </section>
 
@@ -137,14 +151,14 @@
 <section class="bk-laundry-section" aria-label="Laundry package">
   <div class="bk-laundry-wrap">
     <div class="bk-laundry-head">
-      <p class="eyebrow">While you stay</p>
-      <h2 class="bk-laundry-title">Laundry Package</h2>
-      <p class="bk-laundry-lede">Fresh, neatly pressed garments delivered to your room. Choose a package by the number of pieces.</p>
+      <p class="eyebrow" data-i18n="bk.laundryEyebrow">While you stay</p>
+      <h2 class="bk-laundry-title" data-i18n="bk.laundryTitle">Laundry Package</h2>
+      <p class="bk-laundry-lede" data-i18n="bk.laundryLede">Fresh, neatly pressed garments delivered to your room. Choose a package by the number of pieces.</p>
     </div>
     <div class="bk-laundry-grid" id="bkLaundryGrid">
       <!-- laundry rows injected by booking-page.js -->
     </div>
-    <p class="bk-laundry-note">Prices in Thai Baht (THB) per package. Larger 60- and 120-piece packages are ideal for long stays.</p>
+    <p class="bk-laundry-note" data-i18n="bk.laundryNote">Prices in Thai Baht (THB) per package. Larger 60- and 120-piece packages are ideal for long stays.</p>
   </div>
 </section>
 
@@ -152,7 +166,7 @@
 <div class="bk-price-note">
   <div class="bk-price-note-inner">
     <span class="bk-price-icon" aria-hidden="true">&#9432;</span>
-    <p>Rates shown are our 2026 general rates per room, per night. To confirm a reservation, please <a href="tel:+6638053888">call +66 (0)38 053 888</a> or <a href="mailto:info@jparkhotel.com">email info@jparkhotel.com</a> — we are happy to assist.</p>
+    <p id="bkPriceNoteText">Rates shown are our 2026 general rates per room, per night. To confirm a reservation, please <a href="tel:+6638053888">call +66 (0)38 053 888</a> or <a href="mailto:info@jparkhotel.com">email info@jparkhotel.com</a> — we are happy to assist.</p>
   </div>
 </div>
 
@@ -174,6 +188,7 @@
   </div>
 </footer>
 
+<script src="assets/js/i18n.js"></script>
 <script src="assets/js/booking-page.js"></script>
 </body>
 </html>
