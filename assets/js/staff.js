@@ -34,7 +34,7 @@
     { title: "staff.site.grpBrand",    prefixes: ["brand.", "nav."],                          section: "home",       thumb: "hero" },
     { title: "staff.site.grpHero",     prefixes: ["hero.", "hb."],                             section: "home",       thumb: "hero" },
     { title: "nav.about",              prefixes: ["about."],                                   section: "about",      thumb: "aboutMain" },
-    { title: "nav.rooms",              prefixes: ["rooms."],                                   section: "rooms",      thumb: "room:Standard Single" },
+    { title: "nav.rooms",              prefixes: ["rooms."],                                   section: "rooms",      thumb: "room:Studio Single" },
     { title: "nav.facilities",         prefixes: ["fac."],                                     section: "facilities", thumb: "pool" },
     { title: "nav.dining",             prefixes: ["dining.", "menu."],                         section: "dining",     thumb: "tsubaki" },
     { title: "nav.coffee",             prefixes: ["coffee."],                                  section: "coffee",     thumb: "coffee" },

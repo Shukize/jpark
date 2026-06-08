@@ -339,6 +339,26 @@ h1, h2, h3 { font-weight: 500; line-height: 1.12; letter-spacing: 0.01em; }
 /* Swipe affordance — hidden on desktop (rooms are a 3-up grid there) */
 .swipe-hint { display: none; }
 /* Book Now call-to-action below the room grid */
+.rooms-avail-row {
+  display: flex; align-items: center; justify-content: center;
+  gap: 16px; margin: 22px 0 0; flex-wrap: wrap;
+}
+.rooms-avail-badge {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-size: 0.74rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--teal);
+}
+.avail-dot {
+  flex-shrink: 0; width: 8px; height: 8px; border-radius: 50%;
+  background: #2d9a6a; box-shadow: 0 0 0 0 rgba(45,154,106,0.5);
+  animation: avail-pulse 2.2s infinite;
+}
+@keyframes avail-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(45,154,106,0.5); }
+  70%  { box-shadow: 0 0 0 9px rgba(45,154,106,0); }
+  100% { box-shadow: 0 0 0 0 rgba(45,154,106,0); }
+}
+.rooms-book-now { padding: 11px 30px; font-size: 0.82rem; letter-spacing: 0.07em; }
 .rooms-cta { display: flex; justify-content: center; margin-top: 44px; }
 .rooms-cta-btn { padding: 15px 46px; font-size: 0.92rem; letter-spacing: 0.04em; }
 .room-body { padding: 26px 26px 30px; position: relative; }
