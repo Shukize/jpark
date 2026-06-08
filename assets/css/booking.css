@@ -673,3 +673,73 @@
   .rr-enquire-btn { width: 100%; justify-content: center; }
   .bk-status-inner { flex-direction: column; align-items: flex-start; }
 }
+
+/* ====================================================================
+   Tap-to-open room photo badge + "view gallery" hover label
+   ==================================================================== */
+.rr-img { cursor: pointer; }
+.rr-img:focus-visible { outline: 3px solid var(--gold); outline-offset: -3px; }
+.rr-photos {
+  position: absolute; bottom: 12px; right: 12px; z-index: 2;
+  font-size: 0.72rem; font-weight: 600; letter-spacing: 0.06em;
+  padding: 5px 11px; border-radius: 999px;
+  background: rgba(7, 61, 59, 0.8); color: var(--ivory); backdrop-filter: blur(8px);
+}
+.rr-view {
+  position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--ivory); font-family: var(--serif);
+  font-size: 1.15rem; letter-spacing: 0.04em;
+  opacity: 0; background: rgba(6, 32, 31, 0); transition: opacity .3s var(--ease), background .3s var(--ease);
+}
+.rr-img:hover .rr-view, .rr-img:focus-visible .rr-view { opacity: 1; background: rgba(6, 32, 31, 0.3); }
+
+/* ====================================================================
+   Immersive, swipeable room gallery overlay
+   ==================================================================== */
+body.rg-open { overflow: hidden; }
+.rg-overlay {
+  position: fixed; inset: 0; z-index: 1000; display: none;
+  align-items: center; justify-content: center; padding: 28px;
+  background: rgba(6, 32, 31, 0.96); backdrop-filter: blur(4px);
+}
+.rg-overlay.open { display: flex; }
+.rg-stage { max-width: 94vw; max-height: 86vh; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.rg-overlay img { max-width: 94vw; max-height: 86vh; border-radius: 10px; box-shadow: 0 30px 80px rgba(0,0,0,0.55); will-change: transform, opacity; }
+.rg-close {
+  position: absolute; top: 20px; right: 24px; background: none; border: 0;
+  color: var(--ivory); font-size: 2.4rem; line-height: 1; cursor: pointer; z-index: 3;
+  opacity: .85; transition: opacity .25s, transform .25s;
+}
+.rg-close:hover { opacity: 1; transform: rotate(90deg); }
+.rg-nav {
+  position: absolute; top: 50%; transform: translateY(-50%);
+  width: 56px; height: 56px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(247,242,232,0.08); color: var(--ivory);
+  border: 1.5px solid rgba(247,242,232,0.35); font-size: 2rem; line-height: 1;
+  cursor: pointer; z-index: 3; backdrop-filter: blur(6px);
+  transition: background .3s var(--ease), border-color .3s, transform .3s var(--ease);
+}
+.rg-nav:hover { background: var(--gold); border-color: var(--gold); color: var(--teal-deep); transform: translateY(-50%) scale(1.08); }
+.rg-prev { left: clamp(10px, 4vw, 40px); }
+.rg-next { right: clamp(10px, 4vw, 40px); }
+.rg-nav[hidden] { display: none; }
+.rg-cap {
+  position: absolute; bottom: 52px; left: 50%; transform: translateX(-50%);
+  max-width: min(88vw, 640px); text-align: center; color: var(--ivory);
+  font-family: var(--serif); font-size: clamp(.95rem, 2.4vw, 1.15rem);
+  background: rgba(6,32,31,0.55); padding: 8px 20px; border-radius: 999px;
+  backdrop-filter: blur(6px); z-index: 3;
+}
+.rg-cap[hidden] { display: none; }
+.rg-counter {
+  position: absolute; bottom: 22px; left: 50%; transform: translateX(-50%);
+  color: rgba(247,242,232,0.92); font-size: .82rem; letter-spacing: .12em;
+  background: rgba(6,32,31,0.5); padding: 5px 14px; border-radius: 999px;
+}
+.rg-counter[hidden] { display: none; }
+@keyframes rgR { 0% { opacity: 0; transform: translateX(7%) scale(1.12); } 100% { opacity: 1; transform: translateX(0) scale(1); } }
+@keyframes rgL { 0% { opacity: 0; transform: translateX(-7%) scale(0.88); } 100% { opacity: 1; transform: translateX(0) scale(1); } }
+.rg-overlay img.rg-anim-r { animation: rgR .26s var(--ease); }
+.rg-overlay img.rg-anim-l { animation: rgL .26s var(--ease); }

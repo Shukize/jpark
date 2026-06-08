@@ -1,107 +1,100 @@
 (function () {
   'use strict';
 
-  // Room types and 2026 General rates (per room / night, THB).
+  // Room types and 2026 General rates (per room / night, THB), in display order.
   // Each variant: { label, room: Room-only, bf: Room + American Breakfast }.
+  // `folder` matches the media registry set id (room:<folder>) and captions key.
   var ROOMS = [
     {
-      name: 'Studio',
-      size: '37 m²',
-      maxGuests: 2,
-      img: 'images/Studio/room_01.jpg',
-      desc: 'A bright, apartment-style studio in single or twin bedding — with a work desk, smart living nook and rainfall shower for an easy stay.',
-      amenities: ['Single or Twin', 'Work Desk', 'Rainfall Shower', 'Smart TV', 'Air Conditioning', 'Free Wi-Fi'],
-      variants: [{ label: 'Single', room: 990, bf: 1110 }, { label: 'Twin', room: 990, bf: 1300 }],
+      name: 'Studio Single', folder: 'Studio Single',
+      nameKey: 'rooms.studioSingleName', descKey: 'rooms.studioDesc',
+      size: '37 m²', maxGuests: 2,
+      amenities: ['Single Bed', 'Work Desk', 'Rainfall Shower', 'Smart TV', 'Air Conditioning', 'Free Wi-Fi'],
+      variants: [{ label: 'Single', room: 990, bf: 1110 }],
     },
     {
-      name: 'Studio B4',
-      size: '37 m²',
-      maxGuests: 2,
-      img: 'images/Studio%20B4/room_01.jpg',
-      desc: 'A refreshed Studio in our B4 wing — single or twin bedding, a full kitchenette and a relaxed living corner for comfortable longer stays.',
+      name: 'Prestige Single', folder: 'Prestige Single',
+      nameKey: 'rooms.prestigeSingleName', descKey: 'rooms.prestigeDesc',
+      size: '45 m²', maxGuests: 2,
+      amenities: ['Single Bed', 'Premium Bedding', 'Generous Work Area', 'Smart TV', 'Air Conditioning', 'Free Wi-Fi'],
+      variants: [{ label: 'Single', room: 1040, bf: 1160 }],
+    },
+    {
+      name: 'Prestige Twin', folder: 'Prestige Twin',
+      nameKey: 'rooms.prestigeTwinName', descKey: 'rooms.prestigeDesc',
+      size: '45 m²', maxGuests: 2,
+      amenities: ['Twin Beds', 'Premium Bedding', 'Generous Work Area', 'Smart TV', 'Air Conditioning', 'Free Wi-Fi'],
+      variants: [{ label: 'Twin', room: 1040, bf: 1350 }],
+    },
+    {
+      name: 'Studio B4', folder: 'Studio B4',
+      nameKey: 'rooms.studioB4Name', descKey: 'rooms.studioB4Desc',
+      size: '37 m²', maxGuests: 2,
       amenities: ['Single or Twin', 'Full Kitchenette', 'Living Corner', 'Smart TV', 'Air Conditioning', 'Free Wi-Fi'],
       variants: [{ label: 'Single', room: 1070, bf: 1190 }, { label: 'Twin', room: 1070, bf: 1380 }],
     },
     {
-      name: 'Deluxe',
-      size: '44 m²',
-      maxGuests: 2,
-      img: 'images/Deluxe/room_01.jpg',
-      desc: 'A spacious deluxe room with a plush bed, lounge seating and a sleek bathroom, dressed in a warm, contemporary palette.',
+      name: 'Deluxe', folder: 'Deluxe',
+      nameKey: 'rooms.deluxeName', descKey: 'rooms.deluxeDesc',
+      size: '44 m²', maxGuests: 2,
       amenities: ['Single or Double', 'Lounge Seating', 'Sleek Bathroom', 'Smart TV', 'Air Conditioning', 'Free Wi-Fi'],
       variants: [{ label: 'Single', room: 1110, bf: 1230 }, { label: 'Double', room: 1110, bf: 1420 }],
     },
     {
-      name: 'Grand Deluxe',
-      size: '54 m²',
-      maxGuests: 2,
-      img: 'images/Grand%20Deluxe/room_01.jpg',
-      desc: 'A generously sized deluxe room with a king bed, plush furnishings and premium finishes — perfect for guests seeking elevated comfort.',
-      amenities: ['Single or Double', 'Plush Furnishings', 'Premium Finishes', 'Smart TV', 'Air Conditioning', 'Free Wi-Fi'],
-      variants: [{ label: 'Single', room: 1340, bf: 1460 }, { label: 'Double', room: 1340, bf: 1650 }],
+      name: 'Premium Single', folder: 'Premium Single',
+      nameKey: 'rooms.premiumSingleName', descKey: 'rooms.premiereDesc',
+      size: '49 m²', maxGuests: 2,
+      amenities: ['Single Bed', 'Premium Linens', 'Spacious Work Area', 'Smart TV', 'Air Conditioning', 'Free Wi-Fi'],
+      variants: [{ label: 'Single', room: 1160, bf: 1280 }],
     },
     {
-      name: 'Premiere',
-      size: '49 m²',
-      maxGuests: 2,
-      img: 'images/Premiere/room_01.jpg',
-      desc: 'An elevated room in single or twin bedding, with premium linens, a spacious work area and a calm, refined ambience throughout.',
-      amenities: ['Single or Twin', 'Premium Linens', 'Spacious Work Area', 'Smart TV', 'Air Conditioning', 'Free Wi-Fi'],
-      variants: [{ label: 'Single', room: 1160, bf: 1280 }, { label: 'Twin', room: 1160, bf: 1470 }],
+      name: 'Premium Twin', folder: 'Premium Twin',
+      nameKey: 'rooms.premiumTwinName', descKey: 'rooms.premiereDesc',
+      size: '49 m²', maxGuests: 2,
+      amenities: ['Twin Beds', 'Premium Linens', 'Spacious Work Area', 'Smart TV', 'Air Conditioning', 'Free Wi-Fi'],
+      variants: [{ label: 'Twin', room: 1160, bf: 1470 }],
     },
     {
-      name: 'Grand Premiere',
-      size: '49 m²',
-      maxGuests: 2,
-      img: 'images/Grand%20Premiere/room_01.jpg',
-      desc: 'Our most generous Premiere — single or twin bedding, upgraded amenities and a wide lounge area framed by quiet city views.',
+      name: 'Grand Premium', folder: 'Grand Premium',
+      nameKey: 'rooms.grandPremiumName', descKey: 'rooms.grandPremiereDesc',
+      size: '49 m²', maxGuests: 2,
       amenities: ['Single or Twin', 'Wide Lounge Area', 'Upgraded Amenities', 'Smart TV', 'Air Conditioning', 'Free Wi-Fi'],
       variants: [{ label: 'Single', room: 1260, bf: 1380 }, { label: 'Twin', room: 1260, bf: 1570 }],
     },
     {
-      name: 'Premiere Suite',
-      size: '73 m²',
-      maxGuests: 3,
-      img: 'images/Premiere%20Suite/room_01.jpg',
-      desc: 'A one- or two-bedroom suite with a full living and dining area, a separate bedroom and premium finishes — made for relaxed, longer stays.',
+      name: 'Corner Suite', folder: 'Corner Suite',
+      nameKey: 'rooms.cornerName', descKey: 'rooms.cornerDesc',
+      size: '55 m²', maxGuests: 2,
+      amenities: ['Single or Twin', 'Dual-Aspect Views', 'Marble Bathroom', 'Separate Living Room', 'Air Conditioning', 'Free Wi-Fi'],
+      variants: [{ label: 'Single', room: 1260, bf: 1380 }, { label: 'Twin', room: 1260, bf: 1570 }],
+    },
+    {
+      name: 'Grand Deluxe', folder: 'Grand Deluxe',
+      nameKey: 'rooms.grandDeluxeName', descKey: 'rooms.grandDeluxeDesc',
+      size: '54 m²', maxGuests: 2,
+      amenities: ['Single or Double', 'Plush Furnishings', 'Premium Finishes', 'Smart TV', 'Air Conditioning', 'Free Wi-Fi'],
+      variants: [{ label: 'Single', room: 1340, bf: 1460 }, { label: 'Double', room: 1340, bf: 1650 }],
+    },
+    {
+      name: 'Executive Suite 1 Bedroom', folder: 'Executive Suite 1 Bedroom',
+      nameKey: 'rooms.execSuite1brName', descKey: 'rooms.execSuiteDesc',
+      size: '75 m²', maxGuests: 4,
+      amenities: ['1 Bedroom', 'Living & Dining Room', 'Kitchen', 'Smart TV', 'Air Conditioning', 'Free Wi-Fi'],
+      variants: [{ label: '1 Bedroom', room: 1850, bf: 1970 }],
+    },
+    {
+      name: 'Premium Suite', folder: 'Premium Suite',
+      nameKey: 'rooms.premiumSuiteName', descKey: 'rooms.premiereSuiteDesc',
+      size: '73 m²', maxGuests: 3,
       amenities: ['1 or 2 Bedrooms', 'Living & Dining Area', 'Premium Finishes', 'Smart TV', 'Air Conditioning', 'Free Wi-Fi'],
       variants: [{ label: '1 Bedroom', room: 2100, bf: 2220 }, { label: '2 Bedrooms', room: 2100, bf: 2410 }],
     },
     {
-      name: 'Executive Suite',
-      size: '75 m²',
-      maxGuests: 4,
-      img: 'images/Executive%20Suite/room_01.jpg',
-      desc: 'A refined one- or two-bedroom residence with expansive living and dining spaces, a kitchen and elegant finishes throughout.',
-      amenities: ['1 or 2 Bedrooms', 'Living & Dining Room', 'Kitchen', 'Smart TV', 'Air Conditioning', 'Free Wi-Fi'],
-      variants: [{ label: '1 Bedroom', room: 1850, bf: 1970 }, { label: '2 Bedrooms', room: 2100, bf: 2410 }],
-    },
-    {
-      name: 'Grand Suite',
-      size: '75 m²',
-      maxGuests: 4,
-      img: 'images/Grand%20Suite/room_01.jpg',
-      desc: 'Our flagship residence in one- or two-bedroom layouts — full living and dining areas, a kitchen and the finest finishes, made for families and long stays.',
+      name: 'Grand Suite', folder: 'Grand Suite 1 Bedroom',
+      nameKey: 'rooms.grandSuiteName', descKey: 'rooms.grandSuiteDesc',
+      size: '75 m²', maxGuests: 4,
       amenities: ['1 or 2 Bedrooms', 'Full Kitchen', 'Living & Dining Room', 'Onsen Access', 'Smart TV', 'Free Wi-Fi'],
       variants: [{ label: '1 Bedroom', room: 2700, bf: 2820 }, { label: '2 Bedrooms', room: 3000, bf: 3310 }],
-    },
-    {
-      name: 'Prestige',
-      size: '45 m²',
-      maxGuests: 2,
-      img: 'images/Prestige/room_01.jpg',
-      desc: 'A polished room in single or twin bedding, with premium bedding, a generous work area and upgraded amenities for an easy, restful stay.',
-      amenities: ['Single or Twin', 'Premium Bedding', 'Generous Work Area', 'Smart TV', 'Air Conditioning', 'Free Wi-Fi'],
-      variants: [{ label: 'Single', room: 1040, bf: 1160 }, { label: 'Twin', room: 1040, bf: 1350 }],
-    },
-    {
-      name: 'Corner Suite',
-      size: '55 m²',
-      maxGuests: 2,
-      img: 'images/Corner%20Suite/room_01.jpg',
-      desc: 'A wraparound corner retreat in single or twin bedding, with a separate living room, dual-aspect windows and a deep-soaking marble bathroom.',
-      amenities: ['Single or Twin', 'Dual-Aspect Views', 'Marble Bathroom', 'Separate Living Room', 'Air Conditioning', 'Free Wi-Fi'],
-      variants: [{ label: 'Single', room: 1260, bf: 1380 }, { label: 'Twin', room: 1260, bf: 1570 }],
     },
   ];
 
@@ -114,12 +107,12 @@
 
   // Day-use rates (2026) — short 3-hour stays, room : price (THB).
   var DAYUSE = [
-    { room: 'Studio', price: 500 },
-    { room: 'Deluxe', price: 600 },
-    { room: 'Premiere', price: 700 },
-    { room: 'Grand Premiere', price: 800 },
-    { room: 'Prestige', price: 800 },
-    { room: 'Premiere Suite', price: 900 },
+    { nameKey: 'rooms.studioSingleName', price: 500 },
+    { nameKey: 'rooms.deluxeName', price: 600 },
+    { nameKey: 'rooms.premiumSingleName', price: 700 },
+    { nameKey: 'rooms.grandPremiumName', price: 800 },
+    { nameKey: 'rooms.prestigeSingleName', price: 800 },
+    { nameKey: 'rooms.premiumSuiteName', price: 900 },
   ];
 
   // ============================================================
@@ -134,18 +127,116 @@
   function TR(key) { return I ? I.t(key) : key; }
   function curLang() { return I ? I.getLang() : 'en'; }
 
-  // ROOMS[].name / DAYUSE[].room -> base of the shared rooms.* keys
-  var NAME_KEY = {
-    'Studio': 'studio', 'Studio B4': 'studioB4', 'Deluxe': 'deluxe',
-    'Grand Deluxe': 'grandDeluxe', 'Premiere': 'premiere', 'Grand Premiere': 'grandPremiere',
-    'Premiere Suite': 'premiereSuite', 'Executive Suite': 'execSuite', 'Grand Suite': 'grandSuite',
-    'Prestige': 'prestige', 'Corner Suite': 'corner',
-  };
-  function roomName(name) { var k = NAME_KEY[name]; return k ? TR('rooms.' + k + 'Name') : name; }
-  function roomDesc(name) { var k = NAME_KEY[name]; return k ? TR('rooms.' + k + 'Desc') : ''; }
+  // Room name/description come straight from each room's i18n keys.
+  function roomName(room) { return TR(room.nameKey); }
+  function roomDesc(room) { return TR(room.descKey); }
+
+  // Media registry (loaded on this page) + per-photo captions.
+  var M = window.JPark && window.JPark.media;
+  var CAPS = (window.JPark && window.JPark.captions) || {};
+  var enc = window.encodeURI;
+  function roomSetId(room) { return 'room:' + room.folder; }
+  function roomCover(room) {
+    var c = M ? M.cover(roomSetId(room)) : null;
+    return c || ('images/' + room.folder + '/room_01.jpg');
+  }
+  function roomPhotoCount(room) {
+    return M ? M.items(roomSetId(room)).filter(function (it) { return !it.video; }).length : 0;
+  }
+  // Captioned, swipeable entries for a room: { src, cap:"Room · Area" }.
+  function roomGalleryEntries(room) {
+    var id = roomSetId(room);
+    var list = M ? M.items(id) : [];
+    var caps = CAPS[id] || [];
+    var nm = roomName(room);
+    var out = list.filter(function (it) { return !it.video; }).map(function (it, i) {
+      return { src: it.src, cap: caps[i] ? (nm + ' · ' + TR('cap.' + caps[i])) : nm };
+    });
+    return out.length ? out : [{ src: roomCover(room), cap: nm }];
+  }
+
+  // ---- Immersive, swipeable room gallery (self-contained overlay) ----
+  var GAL = (function () {
+    var el = null, imgEl, capEl, counterEl, prevBtn, nextBtn, items = [], idx = 0;
+    function build() {
+      if (el) return;
+      el = document.createElement('div');
+      el.className = 'rg-overlay';
+      el.innerHTML =
+        '<button class="rg-close" aria-label="Close">&times;</button>' +
+        '<button class="rg-nav rg-prev" aria-label="Previous photo">&#8249;</button>' +
+        '<div class="rg-stage"><img alt="" /></div>' +
+        '<button class="rg-nav rg-next" aria-label="Next photo">&#8250;</button>' +
+        '<div class="rg-cap" aria-live="polite"></div>' +
+        '<div class="rg-counter" aria-hidden="true"></div>';
+      document.body.appendChild(el);
+      imgEl = el.querySelector('img');
+      capEl = el.querySelector('.rg-cap');
+      counterEl = el.querySelector('.rg-counter');
+      prevBtn = el.querySelector('.rg-prev');
+      nextBtn = el.querySelector('.rg-next');
+      prevBtn.addEventListener('click', function (e) { e.stopPropagation(); go(-1); });
+      nextBtn.addEventListener('click', function (e) { e.stopPropagation(); go(1); });
+      el.querySelector('.rg-close').addEventListener('click', close);
+      el.addEventListener('click', function (e) {
+        if (e.target === el || e.target.classList.contains('rg-stage')) close();
+      });
+      document.addEventListener('keydown', function (e) {
+        if (!el.classList.contains('open')) return;
+        if (e.key === 'Escape') close();
+        else if (e.key === 'ArrowRight') go(1);
+        else if (e.key === 'ArrowLeft') go(-1);
+      });
+      var sx = null, sy = null;
+      el.addEventListener('touchstart', function (e) {
+        sx = e.touches[0].clientX; sy = e.touches[0].clientY;
+      }, { passive: true });
+      el.addEventListener('touchend', function (e) {
+        if (sx == null) return;
+        var dx = e.changedTouches[0].clientX - sx, dy = e.changedTouches[0].clientY - sy;
+        sx = null;
+        if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) go(dx < 0 ? 1 : -1);
+        else if (dy > 70 && Math.abs(dy) > Math.abs(dx)) close();
+      }, { passive: true });
+    }
+    function preload(i) { var it = items[i]; if (it) { var im = new Image(); im.src = enc(it.src); } }
+    function show(dir) {
+      var it = items[idx];
+      imgEl.classList.remove('rg-anim-l', 'rg-anim-r');
+      void imgEl.offsetWidth;
+      imgEl.src = enc(it.src);
+      imgEl.alt = it.cap || '';
+      if (dir > 0) imgEl.classList.add('rg-anim-r');
+      else if (dir < 0) imgEl.classList.add('rg-anim-l');
+      capEl.textContent = it.cap || '';
+      capEl.hidden = !it.cap;
+      var multi = items.length > 1;
+      prevBtn.hidden = nextBtn.hidden = !multi;
+      counterEl.hidden = !multi;
+      counterEl.textContent = multi ? (idx + 1) + ' / ' + items.length : '';
+      preload((idx + 1) % items.length);
+      preload((idx - 1 + items.length) % items.length);
+    }
+    function go(d) { if (items.length < 2) return; idx = (idx + d + items.length) % items.length; show(d); }
+    function close() { el.classList.remove('open'); document.body.classList.remove('rg-open'); }
+    return {
+      open: function (list, start) {
+        build();
+        items = (list || []).slice();
+        if (!items.length) return;
+        idx = Math.min(Math.max(start || 0, 0), items.length - 1);
+        for (var i = 0; i < Math.min(5, items.length); i++) preload((idx + i) % items.length);
+        el.classList.add('open');
+        document.body.classList.add('rg-open');
+        show(0);
+      },
+      close: close
+    };
+  })();
 
   // English amenity phrase -> translation key
   var AMENITY_KEY = {
+    'Single Bed': 'bk.am.singleBed', 'Twin Beds': 'bk.am.twinBeds', '1 Bedroom': 'bk.am.bedroom1',
     'Single or Twin': 'bk.am.singleOrTwin', 'Work Desk': 'bk.am.workDesk',
     'Rainfall Shower': 'bk.am.rainfallShower', 'Smart TV': 'bk.am.smartTv',
     'Air Conditioning': 'bk.am.airCon', 'Free Wi-Fi': 'bk.am.wifi',
@@ -179,7 +270,7 @@
       'bk.back': '← Back to Hotel',
       'bk.heroEyebrow': 'Reserve Your Stay',
       'bk.heroTitle': 'Find Your Perfect Room',
-      'bk.heroLede': 'Eleven room and suite styles — from a smart studio to a two-bedroom grand suite.',
+      'bk.heroLede': 'Our full collection of rooms and suites — from a smart studio to a two-bedroom grand suite.',
       'bk.checkin': 'Check-in', 'bk.checkout': 'Check-out', 'bk.adults': 'Adults', 'bk.children': 'Children',
       'bk.fewerAdults': 'Fewer adults', 'bk.moreAdults': 'More adults',
       'bk.fewerChildren': 'Fewer children', 'bk.moreChildren': 'More children',
@@ -227,7 +318,7 @@
       'bk.back': '← กลับสู่หน้าโรงแรม',
       'bk.heroEyebrow': 'สำรองที่พักของคุณ',
       'bk.heroTitle': 'ค้นหาห้องพักที่ใช่สำหรับคุณ',
-      'bk.heroLede': 'ห้องพักและห้องสวีทสิบเอ็ดสไตล์ — ตั้งแต่ห้องสตูดิโอกะทัดรัดไปจนถึงแกรนด์สวีทสองห้องนอน',
+      'bk.heroLede': 'ห้องพักและห้องสวีทหลากสไตล์ — ตั้งแต่ห้องสตูดิโอกะทัดรัดไปจนถึงแกรนด์สวีทสองห้องนอน',
       'bk.checkin': 'เช็คอิน', 'bk.checkout': 'เช็คเอาท์', 'bk.adults': 'ผู้ใหญ่', 'bk.children': 'เด็ก',
       'bk.fewerAdults': 'ลดจำนวนผู้ใหญ่', 'bk.moreAdults': 'เพิ่มจำนวนผู้ใหญ่',
       'bk.fewerChildren': 'ลดจำนวนเด็ก', 'bk.moreChildren': 'เพิ่มจำนวนเด็ก',
@@ -275,7 +366,7 @@
       'bk.back': '← ホテルへ戻る',
       'bk.heroEyebrow': 'ご予約',
       'bk.heroTitle': 'ぴったりの客室を見つける',
-      'bk.heroLede': '11タイプの客室・スイート — コンパクトなスタジオから2ベッドルームのグランドスイートまで。',
+      'bk.heroLede': '多彩な客室・スイート — コンパクトなスタジオから2ベッドルームのグランドスイートまで。',
       'bk.checkin': 'チェックイン', 'bk.checkout': 'チェックアウト', 'bk.adults': '大人', 'bk.children': '子供',
       'bk.fewerAdults': '大人を減らす', 'bk.moreAdults': '大人を増やす',
       'bk.fewerChildren': '子供を減らす', 'bk.moreChildren': '子供を増やす',
@@ -323,7 +414,7 @@
       'bk.back': '← 返回酒店',
       'bk.heroEyebrow': '预订您的住宿',
       'bk.heroTitle': '找到您的理想客房',
-      'bk.heroLede': '十一种客房与套房风格——从精巧开间到两卧豪华套房。',
+      'bk.heroLede': '多种客房与套房风格——从精巧开间到两卧豪华套房。',
       'bk.checkin': '入住', 'bk.checkout': '退房', 'bk.adults': '成人', 'bk.children': '儿童',
       'bk.fewerAdults': '减少成人', 'bk.moreAdults': '增加成人',
       'bk.fewerChildren': '减少儿童', 'bk.moreChildren': '增加儿童',
@@ -371,7 +462,7 @@
       'bk.back': '← 返回酒店',
       'bk.heroEyebrow': '預訂您的住宿',
       'bk.heroTitle': '找到您的理想客房',
-      'bk.heroLede': '十一種客房與套房風格——從精巧開間到兩臥豪華套房。',
+      'bk.heroLede': '多種客房與套房風格——從精巧開間到兩臥豪華套房。',
       'bk.checkin': '入住', 'bk.checkout': '退房', 'bk.adults': '成人', 'bk.children': '兒童',
       'bk.fewerAdults': '減少成人', 'bk.moreAdults': '增加成人',
       'bk.fewerChildren': '減少兒童', 'bk.moreChildren': '增加兒童',
@@ -555,11 +646,17 @@
     var priceLabel = TR('bk.fromTpl').replace('{price}',
       '<strong class="rr-price-from">' + baht(fromRoom) + '</strong>') + nightNote;
 
-    var name = roomName(room.name);
+    var name = roomName(room);
+    var photoCount = roomPhotoCount(room);
+    var photoBadge = photoCount > 1
+      ? '<span class="rr-photos" aria-hidden="true">&#128247; ' + photoCount + '</span>' +
+        '<span class="rr-view">' + TR('bk.viewGallery') + '</span>'
+      : '';
 
     article.innerHTML =
-      '<div class="rr-img">' +
-        '<img src="' + room.img + '" alt="' + name + '" loading="lazy" />' +
+      '<div class="rr-img" role="button" tabindex="0" aria-label="' + name + ' — ' + TR('bk.viewGallery') + '">' +
+        '<img src="' + enc(roomCover(room)) + '" alt="' + name + '" loading="lazy" />' +
+        photoBadge +
         '<div class="rr-badges">' +
           '<span class="rr-badge">' + room.size + '</span>' +
           '<span class="rr-badge gold">' + TR('bk.upTo') + ' ' + guestsWord(room.maxGuests) + '</span>' +
@@ -567,7 +664,7 @@
       '</div>' +
       '<div class="rr-body">' +
         '<h2 class="rr-name">' + name + '</h2>' +
-        '<p class="rr-desc">' + roomDesc(room.name) + '</p>' +
+        '<p class="rr-desc">' + roomDesc(room) + '</p>' +
         '<ul class="rr-amenities">' + amenityHTML + '</ul>' +
         '<div class="rr-price-block">' +
           '<p class="rr-price-label">' + priceLabel + '</p>' +
@@ -578,6 +675,14 @@
           '<a href="index.html#contact" class="btn btn-solid rr-enquire-btn">' + TR('bk.enquire') + '</a>' +
         '</div>' +
       '</div>';
+
+    // Tap the photo to open the immersive, swipeable room gallery.
+    var imgWrap = article.querySelector('.rr-img');
+    function openGal() { GAL.open(roomGalleryEntries(room), 0); }
+    imgWrap.addEventListener('click', openGal);
+    imgWrap.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openGal(); }
+    });
 
     return article;
   }
@@ -638,7 +743,7 @@
     if (!host) return;
     host.innerHTML = DAYUSE.map(function (d) {
       return '<div class="bk-dayuse-item">' +
-               '<span class="bk-dayuse-room">' + roomName(d.room) + '</span>' +
+               '<span class="bk-dayuse-room">' + TR(d.nameKey) + '</span>' +
                '<span class="bk-dayuse-price">' + baht(d.price) + '</span>' +
              '</div>';
     }).join('');

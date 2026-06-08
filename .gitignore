@@ -11,3 +11,9 @@ backend/.env
 # Python
 __pycache__/
 *.pyc
+
+# Local-only photo backups (kept on disk, never used on the site)
+*(Backup)/
+
+# Local scratch / contact-sheet workspace
+_work/

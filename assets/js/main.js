@@ -85,20 +85,43 @@
     return M.sets().filter((s) => s.gallery).map((s) => {
       const key = s.galleryKey || s.labelKey;
       const title = (I && I.base) ? I.base(key, "en") : key;
-      return { title: title, key: key, items: M.items(s.id) };
+      return { id: s.id, title: title, key: key, items: M.items(s.id) };
     });
   }
   const GALLERY_MEDIA = buildGalleryMedia();
 
-  function roomImages(folder) { return M ? M.srcs("room:" + folder) : []; }
+  // Per-photo captions ("Room name · Area"), translated live. captions.js holds
+  // a cap.* area key per photo, parallel to each set's item order.
+  function capListFor(setId) {
+    const C = (window.JPark && window.JPark.captions) || {};
+    const caps = C[setId] || [];
+    const I = window.JPark && window.JPark.i18n;
+    const set = M && M.get(setId);
+    const name = (I && set && set.labelKey) ? I.t(set.labelKey) : "";
+    return caps.map((a) => {
+      const area = I ? I.t("cap." + a) : a;
+      return name ? (name + " · " + area) : area;
+    });
+  }
+  // Lightbox entries for a media set, each carrying its caption.
+  function entriesWithCaps(setId) {
+    if (!M) return [];
+    const list = M.items(setId), caps = capListFor(setId);
+    return list.map((it, i) =>
+      it.video ? { localVideo: it.src, cap: caps[i] || "" }
+               : { src: it.src, cap: caps[i] || "" });
+  }
+  function roomImages(folder) { return entriesWithCaps("room:" + folder); }
 
-  // named image sets for facility / dining cards (lightbox entries)
+  // named image sets for facility / dining / building cards (lightbox entries).
+  // building5 is a function so its captions follow the current language.
   const LB_SETS = M ? {
     "fac-pool":  M.entries("pool"),
     "fac-onsen": M.entries("onsen"),
     "fac-gym":   M.entries("gym"),
     "dining-tsubaki": M.entries("tsubaki"),
-    "dining-coffee":  M.entries("coffee")
+    "dining-coffee":  M.entries("coffee"),
+    "building5": function () { return entriesWithCaps("building5"); }
   } : {};
 
   /* ---------- Shared lightbox: prev/next + directional zoom-fade ---------- */
@@ -112,6 +135,7 @@
       '<button class="lb-nav lb-prev" aria-label="Previous image">&#8249;</button>' +
       '<div class="lb-stage"><img alt="" /><div class="lb-video"></div></div>' +
       '<button class="lb-nav lb-next" aria-label="Next image">&#8250;</button>' +
+      '<div class="lb-caption" aria-live="polite"></div>' +
       '<div class="lb-counter" aria-hidden="true"></div>';
     document.body.appendChild(box);
 
@@ -121,11 +145,13 @@
     const nextBtn = box.querySelector(".lb-next");
     const closeBtn = box.querySelector(".lightbox-close");
     const counter = box.querySelector(".lb-counter");
+    const capEl = box.querySelector(".lb-caption");
     let items = [], idx = 0;
 
     // Keep decoded copies warm so prev/next swaps are instant (no load flash).
     const cache = {};
     function srcOf(it) { return typeof it === "string" ? it : (it && it.src); }
+    function capOf(it) { return (it && typeof it === "object" && it.cap) ? it.cap : ""; }
     function preload(it) {
       const s = srcOf(it);
       if (!s || it.localVideo || (it && it.video) || cache[s]) return;
@@ -174,6 +200,9 @@
         else if (dir < 0) img.classList.add("anim-prev");
       }
       preloadAround(idx);
+      const cap = capOf(item);
+      capEl.textContent = cap;
+      capEl.hidden = !cap;
       const multi = items.length > 1;
       prevBtn.hidden = nextBtn.hidden = !multi;
       counter.hidden = !multi;
@@ -290,7 +319,8 @@
 
   function buildFullGallery(host) {
     GALLERY_MEDIA.forEach((cat, ci) => {
-      const lbList = cat.items.map(lbEntry);
+      const hasCaps = !!((window.JPark && window.JPark.captions) || {})[cat.id];
+      const lbList = hasCaps ? entriesWithCaps(cat.id) : cat.items.map(lbEntry);
       const block = document.createElement("div");
       block.className = "gcat reveal in";
       block.id = "gcat-" + ci;
@@ -450,7 +480,10 @@
       bindOpener(card, () => roomImages(card.dataset.room))
     );
     document.querySelectorAll("[data-lb]").forEach((card) =>
-      bindOpener(card, () => LB_SETS[card.dataset.lb])
+      bindOpener(card, () => {
+        const v = LB_SETS[card.dataset.lb];
+        return typeof v === "function" ? v() : v;
+      })
     );
   }
 

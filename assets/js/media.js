@@ -21,23 +21,42 @@
   /* ---- helpers to build item lists ---- */
   function imgs(list) { return list.map((s) => ({ src: s, video: false })); }
 
-  /* Room folders -> photo counts (files are room_01.jpg … room_NN.jpg).
-     One folder per room type on the 2026 rate sheet, in sheet order. */
+  /* Room folders -> photo counts (files are room_01.jpg … room_NN.jpg, best
+     cover first). One folder per room type currently let, in display order. */
   const ROOM_COUNTS = {
-    "Studio": 13, "Studio B4": 11, "Deluxe": 11, "Grand Deluxe": 15,
-    "Premiere": 17, "Grand Premiere": 9, "Premiere Suite": 17,
-    "Executive Suite": 20, "Grand Suite": 20, "Prestige": 9, "Corner Suite": 11
+    "Studio Single": 10, "Prestige Single": 10, "Prestige Twin": 10, "Studio B4": 11,
+    "Deluxe": 12, "Premium Single": 13, "Premium Twin": 11, "Grand Premium": 11,
+    "Corner Suite": 15, "Grand Deluxe": 15, "Executive Suite 1 Bedroom": 20,
+    "Premium Suite": 25, "Grand Suite 1 Bedroom": 20
   };
-  function roomItems(folder) {
-    const n = ROOM_COUNTS[folder] || 1, out = [];
+  function seq(folder, prefix, n) {
+    const out = [];
     for (let i = 1; i <= n; i++) {
-      out.push({ src: "images/" + folder + "/room_" + (i < 10 ? "0" + i : i) + ".jpg", video: false });
+      out.push({ src: "images/" + folder + "/" + prefix + "_" + (i < 10 ? "0" + i : i) + ".jpg", video: false });
     }
     return out;
   }
+  function roomItems(folder) { return seq(folder, "room", ROOM_COUNTS[folder] || 1); }
+
+  /* Building 5 (J Park Hall) — common areas, files b5_01.jpg … b5_11.jpg. */
+  const BUILDING5_ITEMS = seq("B5", "b5", 11);
 
   /* ---- the canonical sets, in the order the Gallery shows them ---- */
   const COFFEE_ITEMS = [
+    { src: "images/New Midnight Coffee Club/20260607_175632.jpg", video: false },
+    { src: "images/New Midnight Coffee Club/20260607_175648.jpg", video: false },
+    { src: "images/New Midnight Coffee Club/20260607_175751.jpg", video: false },
+    { src: "images/New Midnight Coffee Club/20260607_175759.jpg", video: false },
+    { src: "images/New Midnight Coffee Club/20260607_175843.jpg", video: false },
+    { src: "images/New Midnight Coffee Club/20260607_175904.jpg", video: false },
+    { src: "images/New Midnight Coffee Club/20260607_175914.jpg", video: false },
+    { src: "images/New Midnight Coffee Club/20260607_175931.jpg", video: false },
+    { src: "images/New Midnight Coffee Club/20260607_175944.jpg", video: false },
+    { src: "images/New Midnight Coffee Club/20260607_180002.jpg", video: false },
+    { src: "images/New Midnight Coffee Club/20260607_180035.jpg", video: false },
+    { src: "images/New Midnight Coffee Club/20260607_180049.jpg", video: false },
+    { src: "images/New Midnight Coffee Club/20260607_180138.jpg", video: false },
+    { src: "images/New Midnight Coffee Club/20260607_180533.jpg", video: false },
     { src: "images/New Midnight Coffee Club/unnamed.jpg", video: false },
     { src: "images/New Midnight Coffee Club/unnamed5.jpg", video: false },
     { src: "images/New Midnight Coffee Club/unnamed4.png", video: false },
@@ -61,6 +80,21 @@
   ];
 
   const TSUBAKI_ITEMS = [
+    { src: "images/Tsubaki/20260607_173639.jpg", video: false },
+    { src: "images/Tsubaki/20260607_173656.jpg", video: false },
+    { src: "images/Tsubaki/20260607_173703.jpg", video: false },
+    { src: "images/Tsubaki/20260607_173715.jpg", video: false },
+    { src: "images/Tsubaki/20260607_173728.jpg", video: false },
+    { src: "images/Tsubaki/20260607_173752.jpg", video: false },
+    { src: "images/Tsubaki/20260607_173814.jpg", video: false },
+    { src: "images/Tsubaki/20260607_173848.jpg", video: false },
+    { src: "images/Tsubaki/20260607_173856.jpg", video: false },
+    { src: "images/Tsubaki/20260607_173919.jpg", video: false },
+    { src: "images/Tsubaki/20260607_174006.jpg", video: false },
+    { src: "images/Tsubaki/20260607_174019.jpg", video: false },
+    { src: "images/Tsubaki/20260607_174031.jpg", video: false },
+    { src: "images/Tsubaki/20260607_174110.jpg", video: false },
+    { src: "images/Tsubaki/20260607_174201.jpg", video: false },
     { src: "images/Tsubaki/20260601_073858.jpg", video: false },
     { src: "images/Tsubaki/119059522_2737564009811833_3276458423237956706_n.jpg", video: false },
     { src: "images/Tsubaki/AQMhQMC9GvtxGLkJruddhOPLcKjXwYl7OIbbeUJhZGiN5H1azDdwdOjoAlyV2MX6YqBrAVxDVWfbsNvSfpNaWCPuK_vgs1lCbBNoQ2XhOEv9PQ.mp4", video: true },
@@ -158,9 +192,9 @@
   const PREVIEW_ITEMS = imgs([
     "images/Tropical Pool/c917232b-159a-4fdc-bc20-12e806f5304b.jpg",
     "images/45c09cb7-8ba5-4ba0-bc3c-42837ef10bf2.jpg",
-    "images/New Midnight Coffee Club/587f2a86-cbf1-4cac-9e69-9279d2478323.jpg",
+    "images/Premium Suite/room_01.jpg",
     "images/ea770736-fe38-4c3e-b072-4928f8a2fad9.jpg",
-    "images/Grand Deluxe/room_01.jpg",
+    "images/B5/b5_01.jpg",
     "images/Tropical Pool/ce70057e-42f0-4b44-9f67-18598f22ff3a.jpg"
   ]);
 
@@ -181,17 +215,20 @@
     { id: "allday",      labelKey: "dining.allDayName",   section: "dining",     gallery: true, galleryKey: "gallery.cat.allday", items: ALLDAY_ITEMS },
     { id: "banquet",     labelKey: "fac.gardenName",      section: "facilities", gallery: true, galleryKey: "gallery.cat.banquet", items: BANQUET_ITEMS },
     { id: "gym",         labelKey: "fac.gymName",         section: "facilities", gallery: true, galleryKey: "gallery.cat.gym", items: GYM_ITEMS },
-    { id: "room:Studio",          labelKey: "rooms.studioName",        section: "rooms", gallery: true, items: roomItems("Studio") },
+    { id: "room:Studio Single",   labelKey: "rooms.studioSingleName",  section: "rooms", gallery: true, items: roomItems("Studio Single") },
+    { id: "room:Prestige Single", labelKey: "rooms.prestigeSingleName", section: "rooms", gallery: true, items: roomItems("Prestige Single") },
+    { id: "room:Prestige Twin",   labelKey: "rooms.prestigeTwinName",  section: "rooms", gallery: true, items: roomItems("Prestige Twin") },
     { id: "room:Studio B4",       labelKey: "rooms.studioB4Name",      section: "rooms", gallery: true, items: roomItems("Studio B4") },
     { id: "room:Deluxe",          labelKey: "rooms.deluxeName",        section: "rooms", gallery: true, items: roomItems("Deluxe") },
-    { id: "room:Grand Deluxe",    labelKey: "rooms.grandDeluxeName",   section: "rooms", gallery: true, items: roomItems("Grand Deluxe") },
-    { id: "room:Premiere",        labelKey: "rooms.premiereName",      section: "rooms", gallery: true, items: roomItems("Premiere") },
-    { id: "room:Grand Premiere",  labelKey: "rooms.grandPremiereName", section: "rooms", gallery: true, items: roomItems("Grand Premiere") },
-    { id: "room:Premiere Suite",  labelKey: "rooms.premiereSuiteName", section: "rooms", gallery: true, items: roomItems("Premiere Suite") },
-    { id: "room:Executive Suite", labelKey: "rooms.execSuiteName",     section: "rooms", gallery: true, items: roomItems("Executive Suite") },
-    { id: "room:Grand Suite",     labelKey: "rooms.grandSuiteName",    section: "rooms", gallery: true, items: roomItems("Grand Suite") },
-    { id: "room:Prestige",        labelKey: "rooms.prestigeName",      section: "rooms", gallery: true, items: roomItems("Prestige") },
+    { id: "room:Premium Single",  labelKey: "rooms.premiumSingleName", section: "rooms", gallery: true, items: roomItems("Premium Single") },
+    { id: "room:Premium Twin",    labelKey: "rooms.premiumTwinName",   section: "rooms", gallery: true, items: roomItems("Premium Twin") },
+    { id: "room:Grand Premium",   labelKey: "rooms.grandPremiumName",  section: "rooms", gallery: true, items: roomItems("Grand Premium") },
     { id: "room:Corner Suite",    labelKey: "rooms.cornerName",        section: "rooms", gallery: true, items: roomItems("Corner Suite") },
+    { id: "room:Grand Deluxe",    labelKey: "rooms.grandDeluxeName",   section: "rooms", gallery: true, items: roomItems("Grand Deluxe") },
+    { id: "room:Executive Suite 1 Bedroom", labelKey: "rooms.execSuite1brName", section: "rooms", gallery: true, items: roomItems("Executive Suite 1 Bedroom") },
+    { id: "room:Premium Suite",   labelKey: "rooms.premiumSuiteName",  section: "rooms", gallery: true, items: roomItems("Premium Suite") },
+    { id: "room:Grand Suite 1 Bedroom", labelKey: "rooms.grandSuiteName", section: "rooms", gallery: true, items: roomItems("Grand Suite 1 Bedroom") },
+    { id: "building5",    labelKey: "building.galTitle",      section: "building",   gallery: true, galleryKey: "building.galTitle", items: BUILDING5_ITEMS },
     { id: "lobby",        labelKey: "gallery.cat.lobby",      section: "gallery", gallery: true, items: LOBBY_ITEMS },
     { id: "galleryPreview", labelKey: "media.set.preview", section: "gallery", items: PREVIEW_ITEMS }
   ];
