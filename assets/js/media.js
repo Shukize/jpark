@@ -28,7 +28,7 @@
   const ROOM_COUNTS = {
     "Prestige Single": 4, "Prestige Twin": 2,
     "Premium Single": 2, "Premium Twin": 2, "Grand Premium": 5,
-    "Corner Suite": 6, "Grand Deluxe": 5, "Executive Suite 1 Bedroom": 8,
+    "Grand Deluxe": 5,
     "Premium Suite": 7, "Grand Suite 1 Bedroom": 8
   };
   function seq(folder, prefix, n) {
@@ -234,6 +234,24 @@
     "images/Studio B4/room_06.jpg"
   ]);
 
+  /* Corner Suite & Executive Suite — curated subsets. A few unflattering
+     shots (old fridge, worn sofa, cramped utility corners) were removed
+     2026-06-09, so these are explicit lists rather than full room_NN
+     sequences. Keep parallel with captions.js. */
+  const CORNER_SUITE_ITEMS = imgs([
+    "images/Corner Suite/room_01.jpg",
+    "images/Corner Suite/room_03.jpg",
+    "images/Corner Suite/room_04.jpg",
+    "images/Corner Suite/room_05.jpg"
+  ]);
+  const EXEC_SUITE_ITEMS = imgs([
+    "images/Executive Suite 1 Bedroom/room_01.jpg",
+    "images/Executive Suite 1 Bedroom/room_02.jpg",
+    "images/Executive Suite 1 Bedroom/room_04.jpg",
+    "images/Executive Suite 1 Bedroom/room_05.jpg",
+    "images/Executive Suite 1 Bedroom/room_07.jpg"
+  ]);
+
   const HERO_ITEMS = imgs(["images/Tropical Pool/ffcc842a-2003-4239-ae74-0e6c0b10f883.jpg"]);
   const ABOUT_MAIN_ITEMS = imgs(["images/Tropical Pool/ce70057e-42f0-4b44-9f67-18598f22ff3a.jpg"]);
   const ABOUT_SUB_ITEMS = imgs(["images/Tropical Pool/c3ac1733-933b-49de-aa10-7185a21dbe5f.jpg"]);
@@ -274,9 +292,9 @@
     { id: "room:Premium Single",  labelKey: "rooms.premiumSingleName", section: "rooms", gallery: true, items: roomItems("Premium Single") },
     { id: "room:Premium Twin",    labelKey: "rooms.premiumTwinName",   section: "rooms", gallery: true, items: roomItems("Premium Twin") },
     { id: "room:Grand Premium",   labelKey: "rooms.grandPremiumName",  section: "rooms", gallery: true, items: roomItems("Grand Premium") },
-    { id: "room:Corner Suite",    labelKey: "rooms.cornerName",        section: "rooms", gallery: true, items: roomItems("Corner Suite") },
+    { id: "room:Corner Suite",    labelKey: "rooms.cornerName",        section: "rooms", gallery: true, items: CORNER_SUITE_ITEMS },
     { id: "room:Grand Deluxe",    labelKey: "rooms.grandDeluxeName",   section: "rooms", gallery: true, items: roomItems("Grand Deluxe") },
-    { id: "room:Executive Suite 1 Bedroom", labelKey: "rooms.execSuite1brName", section: "rooms", gallery: true, items: roomItems("Executive Suite 1 Bedroom") },
+    { id: "room:Executive Suite 1 Bedroom", labelKey: "rooms.execSuite1brName", section: "rooms", gallery: true, items: EXEC_SUITE_ITEMS },
     { id: "room:Premium Suite",   labelKey: "rooms.premiumSuiteName",  section: "rooms", gallery: true, items: roomItems("Premium Suite") },
     { id: "room:Grand Suite 1 Bedroom", labelKey: "rooms.grandSuiteName", section: "rooms", gallery: true, items: roomItems("Grand Suite 1 Bedroom") },
     { id: "building5",    labelKey: "building.galTitle",      section: "building",   gallery: true, galleryKey: "building.galTitle", items: BUILDING5_ITEMS },

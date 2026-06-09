@@ -54,11 +54,9 @@ window.JPark.captions = {
   ],
   "room:Corner Suite": [
     "livingArea",
-    "workspace",
     "bedroom",
     "kitchenette",
-    "diningArea",
-    "kitchenette"
+    "diningArea"
   ],
   "room:Grand Deluxe": [
     "livingArea",
@@ -70,12 +68,9 @@ window.JPark.captions = {
   "room:Executive Suite 1 Bedroom": [
     "bedroom",
     "livingArea",
-    "kitchenette",
     "bathroom",
     "bedroom",
-    "diningArea",
-    "bedroom",
-    "livingArea"
+    "bedroom"
   ],
   "room:Premium Suite": [
     "livingDining",
