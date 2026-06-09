@@ -14,6 +14,19 @@
   const t = (k) => I.t(k);
   const esc = U.escapeHtml;
 
+  /* Resolve a media-set's display name. If its translation key is missing
+     (t() returns the key unchanged), fall back to a readable name derived
+     from the set id (e.g. "room:Studio Single" -> "Studio Single") so the
+     editor never shows a raw "rooms.xxxName" key. */
+  function setLabel(s) {
+    const key = s.labelKey || "";
+    const v = t(key);
+    if (v && v !== key) return v;
+    const id = s.id || "";
+    if (id.indexOf(":") >= 0) return id.slice(id.indexOf(":") + 1);
+    return v || id;
+  }
+
   const SESSION_KEY = "jpark.staff";
   const DEFAULT_STAFF_PASSWORD = "jparkhotel";
   let nsUserId = null; // staff id mid-way through first-time password setup
@@ -2400,7 +2413,7 @@
       sec.className = "gp-section";
       const lbl = document.createElement("div");
       lbl.className = "gp-section-label";
-      lbl.textContent = t(s.labelKey);
+      lbl.textContent = setLabel(s);
       sec.appendChild(lbl);
       const grid = document.createElement("div");
       grid.className = "gp-grid";
@@ -2591,7 +2604,7 @@
       if (items[0].video) im.muted = true; else im.loading = "lazy";
       th.appendChild(im);
     } else th.classList.add("empty");
-    sum.querySelector(".ed-mset-title").textContent = t(s.labelKey);
+    sum.querySelector(".ed-mset-title").textContent = setLabel(s);
     sum.querySelector(".ed-mset-count").textContent =
       items.length + (MED.isOverridden(s.id) ? " · " + t("staff.site.edited") : "");
     det.appendChild(sum);

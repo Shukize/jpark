@@ -1079,3 +1079,35 @@ body.mobile-view .gcat-grid > .gthumb { flex-basis: calc((100% - 20px) / 3); }
 .dining-img.has-cover-video img, .room-img.has-cover-video img,
 .onsen-feature.has-cover-video img { visibility: hidden; }
 .room-img.has-cover-video .room-photos, .onsen-feature.has-cover-video .onsen-feature-cta { z-index: 2; }
+
+/* ====================================================================
+   SHARED MOBILE BASELINE
+   Applies to every page that loads style.css (index, booking, staff).
+   Keeps touch interaction smooth and prevents the two classic iOS
+   annoyances: text auto-inflation on rotate, and the page zooming in
+   when a form field smaller than 16px is focused.
+   ==================================================================== */
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+/* Calmer tap feedback instead of the default grey flash */
+a, button, summary, [role="button"], input, select, textarea, label {
+  -webkit-tap-highlight-color: rgba(12, 91, 88, 0.12);
+}
+
+@media (max-width: 767px) {
+  /* Any focusable text field renders at >=16px so iOS Safari never
+     zooms the viewport on focus. Covers .field input, .bk-input, login
+     and editor fields alike — including ones added in future. */
+  input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="range"]),
+  select,
+  textarea {
+    font-size: 16px;
+  }
+  /* Momentum scrolling on any horizontal scroller */
+  [class*="-grid"], [class*="-cats"], .gcat-grid {
+    -webkit-overflow-scrolling: touch;
+  }
+  /* Comfortable minimum tap targets for inline controls */
+  .lang-btn, .hamburger, .ann-close, .btn-signout, .btn-signout-side {
+    min-height: 40px;
+  }
+}
