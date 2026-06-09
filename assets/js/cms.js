@@ -11,7 +11,7 @@
   const U = window.JPark.util;
   const MED = window.JPark.media; // photo-set registry (media.js)
 
-  const SECTIONS = ["coffee", "services", "about", "rooms", "facilities", "dining", "concierge", "gallery"];
+  const SECTIONS = ["coffee", "services", "about", "rooms", "facilities", "onsen", "dining", "concierge", "gallery"];
 
   const ADMIN_BAR = {
     en: { text: "You are signed in as Admin — you can edit this website.", link: "Open Site Editor" },
@@ -80,6 +80,11 @@
     for (let i = 0; i < items.length; i++) { if (!items[i].video) return items[i].src; }
     return null;
   }
+  function firstItem(setId) {
+    if (!MED) return null;
+    const items = MED.items(setId);
+    return items && items.length ? items[0] : null;
+  }
   function setImgSrc(sel, src) {
     const el = document.querySelector(sel);
     if (el && src) el.setAttribute("src", encodeURI(src));
@@ -88,33 +93,66 @@
     const el = document.querySelector(sel);
     if (el && src) el.style.backgroundImage = "url('" + encodeURI(src) + "')";
   }
+
+  /* A cover can be a photo OR a video (Site Editor → "Set as cover"). When the
+     chosen cover is a video we mount a muted, looping, autoplay clip filling the
+     cover container and keep the first still as a poster behind it. */
+  function coverVideoEl(src) {
+    const v = document.createElement("video");
+    v.className = "cover-video";
+    v.src = encodeURI(src);
+    v.muted = true; v.loop = true; v.autoplay = true; v.playsInline = true; v.preload = "auto";
+    v.setAttribute("muted", ""); v.setAttribute("playsinline", "");
+    const p = v.play && v.play(); if (p && p.catch) p.catch(() => {});
+    return v;
+  }
+  function applyCover(container, setId, opts) {
+    if (!container) return;
+    opts = opts || {};
+    const item = firstItem(setId);
+    if (!item) return;
+    const old = container.querySelector(".cover-video");
+    if (old) old.remove();
+    const still = firstImage(setId) || (item.video ? null : item.src);
+    if (still) {
+      if (opts.bg) container.style.backgroundImage = "url('" + encodeURI(still) + "')";
+      else { const img = container.querySelector("img"); if (img) img.setAttribute("src", encodeURI(still)); }
+    }
+    if (item.video) {
+      container.classList.add("has-cover-video");
+      container.appendChild(coverVideoEl(item.src));
+    } else {
+      container.classList.remove("has-cover-video");
+    }
+  }
+
   function applyMediaCovers() {
     if (!MED) return;
-    // Single-image slots
-    if (MED.isOverridden("hero"))      setImgSrc(".hero-media img", firstImage("hero"));
-    if (MED.isOverridden("aboutMain")) setImgSrc(".about-img-main", firstImage("aboutMain"));
-    if (MED.isOverridden("aboutSub"))  setImgSrc(".about-img-sub", firstImage("aboutSub"));
-    // Facility card backgrounds
-    if (MED.isOverridden("pool"))    setBg('.fac-card[data-lb="fac-pool"]', firstImage("pool"));
-    if (MED.isOverridden("onsen"))   setBg('.fac-card[data-lb="fac-onsen"]', firstImage("onsen"));
-    if (MED.isOverridden("gym"))     setBg('.fac-card[data-lb="fac-gym"]', firstImage("gym"));
-    if (MED.isOverridden("banquet")) setBg('.fac-card[data-video="banquet"]', firstImage("banquet"));
-    // Dining card photos
-    if (MED.isOverridden("tsubaki")) setImgSrc('.dining-card[data-lb="dining-tsubaki"] .dining-img img', firstImage("tsubaki"));
-    if (MED.isOverridden("coffee"))  setImgSrc('.dining-card[data-lb="dining-coffee"] .dining-img img', firstImage("coffee"));
-    if (MED.isOverridden("allday"))  setImgSrc('.dining-card[data-video="allday"] .dining-img img', firstImage("allday"));
+    const ov = (id) => MED.isOverridden(id);
+    // Hero + dining + rooms + onsen feature: photo-or-video covers
+    if (ov("hero"))    applyCover(document.querySelector(".hero-media"), "hero");
+    if (ov("pool"))    applyCover(document.querySelector('.fac-card[data-lb="fac-pool"]'), "pool", { bg: true });
+    if (ov("gym"))     applyCover(document.querySelector('.fac-card[data-lb="fac-gym"]'), "gym", { bg: true });
+    if (ov("tsubaki")) applyCover(document.querySelector('.dining-card[data-lb="dining-tsubaki"] .dining-img'), "tsubaki");
+    if (ov("coffee"))  applyCover(document.querySelector('.dining-card[data-lb="dining-coffee"] .dining-img'), "coffee");
+    if (ov("onsen")) {
+      applyCover(document.querySelector(".fac-card[data-onsen]"), "onsen", { bg: true });
+      applyCover(document.querySelector(".onsen-feature"), "onsen");
+    }
+    // Single-image slots / sections with their own scroll-video handling
+    if (ov("aboutMain")) setImgSrc(".about-img-main", firstImage("aboutMain"));
+    if (ov("aboutSub"))  setImgSrc(".about-img-sub", firstImage("aboutSub"));
+    if (ov("banquet"))   setBg('.fac-card[data-video="banquet"]', firstImage("banquet"));
+    if (ov("allday"))    setImgSrc('.dining-card[data-video="allday"] .dining-img img', firstImage("allday"));
     // Room thumbnails + photo counts
     MED.sets().filter((s) => s.id.indexOf("room:") === 0).forEach((s) => {
-      if (!MED.isOverridden(s.id)) return;
+      if (!ov(s.id)) return;
       const folder = s.id.slice(5);
       const card = document.querySelector('.room-card[data-room="' + folder + '"]');
       if (!card) return;
-      const img = card.querySelector(".room-img img");
-      const cover = firstImage(s.id);
-      if (img && cover) img.setAttribute("src", encodeURI(cover));
+      applyCover(card.querySelector(".room-img"), s.id);
       const badge = card.querySelector(".room-photos");
-      const n = MED.items(s.id).length;
-      if (badge) badge.textContent = "📷 " + n;
+      if (badge) badge.textContent = "📷 " + MED.items(s.id).length;
     });
   }
 

@@ -5,8 +5,11 @@ window.JPark = window.JPark || {};
 window.JPark.captions = {
   "room:Studio Single": [
     "bedroom",
-    "workspace",
-    "entertainment"
+    "bedroom",
+    "livingArea",
+    "livingArea",
+    "livingArea",
+    "bathroom"
   ],
   "room:Prestige Single": [
     "bedroom",
@@ -20,19 +23,19 @@ window.JPark.captions = {
   ],
   "room:Studio B4": [
     "bedroom",
+    "bedroom",
     "livingArea",
-    "bathroom",
-    "livingArea",
-    "bathroom",
-    "bathroom",
     "teaStation",
     "entertainment",
-    "workspace"
+    "workspace",
+    "bathroom",
+    "bathroom"
   ],
   "room:Deluxe": [
     "bedroom",
+    "bedroom",
     "livingArea",
-    "livingArea"
+    "bathroom"
   ],
   "room:Premium Single": [
     "bedroom",
@@ -101,6 +104,24 @@ window.JPark.captions = {
     "lounge",
     "reception",
     "corridor"
+  ],
+  "onsenMen": [
+    "bath",
+    "bath",
+    "bath",
+    "sauna",
+    "restArea",
+    "restArea",
+    "changingRoom",
+    "changingRoom"
+  ],
+  "onsenWomen": [
+    "bath",
+    "soakingTub",
+    "bath",
+    "bath",
+    "shower",
+    "vanity"
   ],
   "tsubaki": [
     "entrance",

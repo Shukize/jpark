@@ -687,6 +687,77 @@
     });
   }
 
+  /* ---------- Japanese Onsen chooser (Men / Women) ----------
+     Clicking the Facilities "Japanese Onsen" card or the onsen feature opens an
+     animated split — Men on the left, Women on the right — each opening the
+     matching bath gallery in the shared lightbox. */
+  function openOnsenChooser() {
+    if (document.querySelector(".onsen-choose")) return;
+    const I = window.JPark && window.JPark.i18n;
+    const t = (k, fb) => { const v = I ? I.t(k) : null; return (v && v !== k) ? v : fb; };
+    const e = (s) => String(s).replace(/[&<>"']/g, (c) =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+    const menCover = M ? M.cover("onsenMen") : null;
+    const womenCover = M ? M.cover("onsenWomen") : null;
+
+    const ov = document.createElement("div");
+    ov.className = "onsen-choose";
+    ov.setAttribute("role", "dialog");
+    ov.setAttribute("aria-modal", "true");
+    ov.innerHTML =
+      '<button class="onsen-choose-close" aria-label="Close">&times;</button>' +
+      '<div class="onsen-choose-head">' +
+        '<span class="onsen-choose-brand">' + e(t("onsen.brand", "Futamata Onsen")) + "</span>" +
+        '<span class="onsen-choose-title">' + e(t("onsen.choose", "Choose your bath")) + "</span>" +
+      "</div>" +
+      '<div class="onsen-choose-split">' +
+        '<button class="onsen-side onsen-side-men" data-side="men">' +
+          (menCover ? '<span class="onsen-side-bg" style="background-image:url(\'' + enc(menCover) + '\')"></span>' : "") +
+          '<span class="onsen-side-scrim"></span>' +
+          '<span class="onsen-side-label"><span class="osl-jp">男湯</span><span class="osl-en">' + e(t("onsen.men", "Men")) + "</span></span>" +
+        "</button>" +
+        '<button class="onsen-side onsen-side-women" data-side="women">' +
+          (womenCover ? '<span class="onsen-side-bg" style="background-image:url(\'' + enc(womenCover) + '\')"></span>' : "") +
+          '<span class="onsen-side-scrim"></span>' +
+          '<span class="onsen-side-label"><span class="osl-jp">女湯</span><span class="osl-en">' + e(t("onsen.women", "Women")) + "</span></span>" +
+        "</button>" +
+      "</div>";
+    document.body.appendChild(ov);
+    document.body.classList.add("lb-open");
+    requestAnimationFrame(() => ov.classList.add("open"));
+
+    function close() {
+      ov.classList.remove("open");
+      document.body.classList.remove("lb-open");
+      setTimeout(() => ov.remove(), 380);
+    }
+    function pick(side) {
+      const list = entriesWithCaps(side === "men" ? "onsenMen" : "onsenWomen");
+      close();
+      setTimeout(() => { if (LB && list.length) LB.open(list, 0); }, 300);
+    }
+    ov.querySelector(".onsen-choose-close").addEventListener("click", close);
+    ov.addEventListener("click", (ev) => { if (ev.target === ov) close(); });
+    ov.querySelectorAll(".onsen-side").forEach((b) =>
+      b.addEventListener("click", () => pick(b.dataset.side)));
+    document.addEventListener("keydown", function onKey(ev) {
+      if (!document.body.contains(ov)) { document.removeEventListener("keydown", onKey); return; }
+      if (ev.key === "Escape") close();
+    });
+  }
+  function initOnsenChooser() {
+    document.querySelectorAll("[data-onsen]").forEach((el) => {
+      el.addEventListener("click", (ev) => {
+        if (ev.target.closest("a")) return;
+        ev.preventDefault();
+        openOnsenChooser();
+      });
+      el.addEventListener("keydown", (ev) => {
+        if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); openOnsenChooser(); }
+      });
+    });
+  }
+
   /* ---------- Header scroll state ---------- */
   function initHeader() {
     const header = document.getElementById("siteHeader");
@@ -827,6 +898,7 @@
     initAllDayVideo();
     initCoffeeVideo();
     initCoffeeLightbox();
+    initOnsenChooser();
     initReveal();
     initYear();
     initHighlight();

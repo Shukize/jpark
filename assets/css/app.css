@@ -1290,6 +1290,18 @@ body.mobile-view .fac-card.large {
 .ed-add-url input { width: 100%; font-family: var(--sans); font-size: 0.74rem; padding: 6px 8px; border: 1.5px solid var(--line); border-radius: 8px; }
 .ed-add-url input:focus { outline: none; border-color: var(--teal-soft); }
 
+/* ----- cover chooser (each section's main photo/video) ----- */
+.ed-tile-cover { position: absolute; top: 4px; right: 4px; background: var(--gold, #c9a24b); color: #2a2410; font-size: 0.6rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; padding: 2px 7px; border-radius: 999px; box-shadow: 0 1px 4px rgba(0,0,0,.3); }
+.ed-tile-btn.cover { color: #9a7b1f; }
+.ed-tile-btn.cover:not(:disabled):hover { background: var(--gold-light, #e0c178); }
+.ed-cover-bar { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; margin-bottom: 12px; padding: 10px 12px; border: 1px solid var(--line); border-left: 3px solid var(--gold, #c9a24b); border-radius: 10px; background: rgba(201,162,75,.07); }
+.ed-cover-text { display: flex; flex-direction: column; gap: 2px; min-width: 180px; }
+.ed-cover-title { font-weight: 700; font-size: 0.82rem; color: var(--teal-deep); }
+.ed-cover-hint { font-size: 0.72rem; color: var(--ink-soft); line-height: 1.4; }
+.ed-cover-btns { display: flex; gap: 8px; flex-shrink: 0; }
+.ed-cover-up, .ed-cover-gal { border: 1px solid var(--teal-soft); background: var(--paper); color: var(--teal-deep); border-radius: 8px; padding: 8px 12px; font-size: 0.78rem; font-weight: 600; font-family: var(--sans); cursor: pointer; white-space: nowrap; }
+.ed-cover-up:hover, .ed-cover-gal:hover { background: #fff; }
+
 /* ===================== Gallery Picker Modal ===================== */
 .gp-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 20px; }
 .gp-box { background: var(--paper, #f8f5f0); border-radius: 16px; max-width: 860px; width: 100%; max-height: 82vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 8px 40px rgba(0,0,0,.28); }

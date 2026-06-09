@@ -20,7 +20,8 @@
   const SECTIONS = [
     { id: "coffee", label: "nav.coffee" }, { id: "services", label: "nav.services" },
     { id: "about", label: "nav.about" }, { id: "rooms", label: "nav.rooms" },
-    { id: "facilities", label: "nav.facilities" }, { id: "dining", label: "nav.dining" },
+    { id: "facilities", label: "nav.facilities" }, { id: "onsen", label: "nav.onsen" },
+    { id: "dining", label: "nav.dining" },
     { id: "concierge", label: "nav.concierge" }, { id: "gallery", label: "nav.gallery" }
   ];
   const REQ_FILTERS = ["all", "pending", "progress", "done"];
@@ -36,6 +37,7 @@
     { title: "nav.about",              prefixes: ["about."],                                   section: "about",      thumb: "aboutMain" },
     { title: "nav.rooms",              prefixes: ["rooms."],                                   section: "rooms",      thumb: "room:Studio Single" },
     { title: "nav.facilities",         prefixes: ["fac."],                                     section: "facilities", thumb: "pool" },
+    { title: "nav.onsen",              prefixes: ["onsen."],                                   section: "onsen",      thumb: "onsenMen" },
     { title: "nav.dining",             prefixes: ["dining.", "menu."],                         section: "dining",     thumb: "tsubaki" },
     { title: "nav.coffee",             prefixes: ["coffee."],                                  section: "coffee",     thumb: "coffee" },
     { title: "nav.gallery",            prefixes: ["gallery."],                                 section: "gallery",    thumb: "hotel" },
@@ -2478,6 +2480,12 @@
       n.className = "ed-tile-num"; n.textContent = (idx + 1);
       return n;
     })());
+    if (idx === 0) {
+      const cb = document.createElement("span");
+      cb.className = "ed-tile-cover";
+      cb.textContent = "★ " + t("staff.site.coverBadge");
+      tile.appendChild(cb);
+    }
 
     const bar = document.createElement("div");
     bar.className = "ed-tile-bar";
@@ -2511,12 +2519,17 @@
     const gal = btn("⊞", t("staff.site.fromGallery"), () => {
       openGalleryPicker((item) => { const arr = items.slice(); arr[idx] = item; commitMedia(det, s, arr); });
     });
+    const cover = btn("★", t("staff.site.makeCover"), () => {
+      if (idx === 0) return;
+      const arr = items.slice(); const [m] = arr.splice(idx, 1); arr.unshift(m);
+      commitMedia(det, s, arr);
+    }, "cover");
     const rem = btn("✕", t("staff.site.remove"), () => {
       const arr = items.slice(); arr.splice(idx, 1); commitMedia(det, s, arr);
     }, "danger");
-    if (idx === 0) left.disabled = true;
+    if (idx === 0) { left.disabled = true; cover.disabled = true; }
     if (idx === items.length - 1) right.disabled = true;
-    bar.appendChild(left); bar.appendChild(right); bar.appendChild(rep); bar.appendChild(gal); bar.appendChild(rem);
+    bar.appendChild(left); bar.appendChild(right); bar.appendChild(cover); bar.appendChild(rep); bar.appendChild(gal); bar.appendChild(rem);
     tile.appendChild(bar);
     return tile;
   }
@@ -2608,6 +2621,34 @@
       toolbar.appendChild(rs);
     }
     body.appendChild(toolbar);
+
+    // Cover chooser: the section's main photo (or video) on the live site is the
+    // first item. Upload a fresh one or pick from the on-site gallery; either is
+    // placed first (and "★" on any tile promotes it to cover).
+    const coverBar = document.createElement("div");
+    coverBar.className = "ed-cover-bar";
+    const coverText = document.createElement("div");
+    coverText.className = "ed-cover-text";
+    coverText.innerHTML = '<span class="ed-cover-title"></span><span class="ed-cover-hint"></span>';
+    coverText.querySelector(".ed-cover-title").textContent = "★ " + t("staff.site.coverLabel");
+    coverText.querySelector(".ed-cover-hint").textContent = t("staff.site.coverHint");
+    const coverBtns = document.createElement("div");
+    coverBtns.className = "ed-cover-btns";
+    const cUp = document.createElement("button");
+    cUp.type = "button"; cUp.className = "ed-cover-up";
+    cUp.textContent = "＋ " + t("staff.site.coverUpload");
+    cUp.addEventListener("click", () => {
+      pickImageFile((item) => { const arr = MED.items(s.id); arr.unshift(item); commitMedia(det, s, arr); });
+    });
+    const cGal = document.createElement("button");
+    cGal.type = "button"; cGal.className = "ed-cover-gal";
+    cGal.textContent = "⊞ " + t("staff.site.coverFromGallery");
+    cGal.addEventListener("click", () => {
+      openGalleryPicker((item) => { const arr = MED.items(s.id); arr.unshift(item); commitMedia(det, s, arr); });
+    });
+    coverBtns.appendChild(cUp); coverBtns.appendChild(cGal);
+    coverBar.appendChild(coverText); coverBar.appendChild(coverBtns);
+    body.appendChild(coverBar);
 
     const grid = document.createElement("div");
     grid.className = "ed-tiles";
