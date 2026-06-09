@@ -24,10 +24,10 @@
   /* Room folders -> photo counts (files are room_01.jpg … room_NN.jpg, best
      cover first). One folder per room type currently let, in display order. */
   const ROOM_COUNTS = {
-    "Studio Single": 10, "Prestige Single": 10, "Prestige Twin": 10, "Studio B4": 11,
-    "Deluxe": 12, "Premium Single": 13, "Premium Twin": 11, "Grand Premium": 11,
-    "Corner Suite": 15, "Grand Deluxe": 15, "Executive Suite 1 Bedroom": 20,
-    "Premium Suite": 25, "Grand Suite 1 Bedroom": 20
+    "Studio Single": 3, "Prestige Single": 4, "Prestige Twin": 2, "Studio B4": 9,
+    "Deluxe": 3, "Premium Single": 2, "Premium Twin": 2, "Grand Premium": 5,
+    "Corner Suite": 6, "Grand Deluxe": 5, "Executive Suite 1 Bedroom": 8,
+    "Premium Suite": 7, "Grand Suite 1 Bedroom": 8
   };
   function seq(folder, prefix, n) {
     const out = [];
@@ -38,22 +38,18 @@
   }
   function roomItems(folder) { return seq(folder, "room", ROOM_COUNTS[folder] || 1); }
 
-  /* Building 5 (J Park Hall) — common areas, files b5_01.jpg … b5_11.jpg. */
-  const BUILDING5_ITEMS = seq("B5", "b5", 11);
+  /* Building 5 (J Park Hall) — common areas, files b5_01.jpg … b5_07.jpg. */
+  const BUILDING5_ITEMS = seq("B5", "b5", 7);
 
   /* ---- the canonical sets, in the order the Gallery shows them ---- */
   const COFFEE_ITEMS = [
     { src: "images/New Midnight Coffee Club/20260607_175632.jpg", video: false },
-    { src: "images/New Midnight Coffee Club/20260607_175648.jpg", video: false },
     { src: "images/New Midnight Coffee Club/20260607_175751.jpg", video: false },
-    { src: "images/New Midnight Coffee Club/20260607_175759.jpg", video: false },
     { src: "images/New Midnight Coffee Club/20260607_175843.jpg", video: false },
     { src: "images/New Midnight Coffee Club/20260607_175904.jpg", video: false },
     { src: "images/New Midnight Coffee Club/20260607_175914.jpg", video: false },
     { src: "images/New Midnight Coffee Club/20260607_175931.jpg", video: false },
-    { src: "images/New Midnight Coffee Club/20260607_175944.jpg", video: false },
     { src: "images/New Midnight Coffee Club/20260607_180002.jpg", video: false },
-    { src: "images/New Midnight Coffee Club/20260607_180035.jpg", video: false },
     { src: "images/New Midnight Coffee Club/20260607_180049.jpg", video: false },
     { src: "images/New Midnight Coffee Club/20260607_180138.jpg", video: false },
     { src: "images/New Midnight Coffee Club/20260607_180533.jpg", video: false },
@@ -80,22 +76,14 @@
   ];
 
   const TSUBAKI_ITEMS = [
-    { src: "images/Tsubaki/20260607_173639.jpg", video: false },
-    { src: "images/Tsubaki/20260607_173656.jpg", video: false },
     { src: "images/Tsubaki/20260607_173703.jpg", video: false },
+    { src: "images/Tsubaki/20260607_173656.jpg", video: false },
     { src: "images/Tsubaki/20260607_173715.jpg", video: false },
-    { src: "images/Tsubaki/20260607_173728.jpg", video: false },
-    { src: "images/Tsubaki/20260607_173752.jpg", video: false },
     { src: "images/Tsubaki/20260607_173814.jpg", video: false },
+    { src: "images/Tsubaki/20260607_173752.jpg", video: false },
     { src: "images/Tsubaki/20260607_173848.jpg", video: false },
-    { src: "images/Tsubaki/20260607_173856.jpg", video: false },
-    { src: "images/Tsubaki/20260607_173919.jpg", video: false },
     { src: "images/Tsubaki/20260607_174006.jpg", video: false },
     { src: "images/Tsubaki/20260607_174019.jpg", video: false },
-    { src: "images/Tsubaki/20260607_174031.jpg", video: false },
-    { src: "images/Tsubaki/20260607_174110.jpg", video: false },
-    { src: "images/Tsubaki/20260607_174201.jpg", video: false },
-    { src: "images/Tsubaki/20260601_073858.jpg", video: false },
     { src: "images/Tsubaki/119059522_2737564009811833_3276458423237956706_n.jpg", video: false },
     { src: "images/Tsubaki/AQMhQMC9GvtxGLkJruddhOPLcKjXwYl7OIbbeUJhZGiN5H1azDdwdOjoAlyV2MX6YqBrAVxDVWfbsNvSfpNaWCPuK_vgs1lCbBNoQ2XhOEv9PQ.mp4", video: true },
     { src: "images/Tsubaki/AQNtQ5IQUAHLuYDynRq2hKj2FmFhnuOu6_9HEP86BzYGE1Fm-DNsUBPCMZsQ5ShYm0w4HTCHHrlFiD_hPKL2J2wKqIOWXXE1_FiCPyUJuM0Fmw.mp4", video: true },
@@ -173,6 +161,8 @@
   ]);
 
   const LOBBY_ITEMS = imgs([
+    "images/Main Lobby/20260607_174349.jpg",
+    "images/Main Lobby/20260607_174418.jpg",
     "images/Main Lobby/20260601_073611.jpg",
     "images/Main Lobby/20260601_073624.jpg",
     "images/Main Lobby/20260601_073634.jpg",

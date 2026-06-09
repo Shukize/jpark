@@ -119,7 +119,7 @@
     "fac-pool":  M.entries("pool"),
     "fac-onsen": M.entries("onsen"),
     "fac-gym":   M.entries("gym"),
-    "dining-tsubaki": M.entries("tsubaki"),
+    "dining-tsubaki": function () { return entriesWithCaps("tsubaki"); },
     "dining-coffee":  M.entries("coffee"),
     "building5": function () { return entriesWithCaps("building5"); }
   } : {};
