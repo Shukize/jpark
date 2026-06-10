@@ -349,6 +349,7 @@
           img.src = enc(it.src);
           img.alt = catTitle(cat);
           img.loading = "lazy";
+          img.decoding = "async";
           fig.appendChild(img);
         }
         fig.addEventListener("click", () => LB.open(lbList, i));
@@ -371,6 +372,7 @@
       img.src = enc(src);
       img.alt = "J Park Hotel";
       img.loading = "lazy";
+      img.decoding = "async";
       fig.appendChild(img);
       fig.addEventListener("click", () => LB.open(PREVIEW, i));
       grid.appendChild(fig);

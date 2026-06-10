@@ -61,7 +61,7 @@
     { src: "images/New Midnight Coffee Club/20260607_180533.jpg", video: false },
     { src: "images/New Midnight Coffee Club/unnamed.jpg", video: false },
     { src: "images/New Midnight Coffee Club/unnamed5.jpg", video: false },
-    { src: "images/New Midnight Coffee Club/unnamed4.png", video: false },
+    { src: "images/New Midnight Coffee Club/unnamed4.jpg", video: false },
     { src: "images/New Midnight Coffee Club/unnamed1.jpg", video: false },
     { src: "images/New Midnight Coffee Club/587f2a86-cbf1-4cac-9e69-9279d2478323.jpg", video: false },
     { src: "images/New Midnight Coffee Club/533e41e3-da93-4733-b004-9d2ea6f73b93.jpg", video: false },
@@ -110,7 +110,7 @@
     { src: "images/Tsubaki/188685185_2932342887000610_2901834436215404498_n.jpg", video: false },
     { src: "images/Tsubaki/492972572_1857102361657010_8878999124752931017_n.jpg", video: false },
     { src: "images/Tsubaki/494157941_1857101954990384_2463307427033703183_n.jpg", video: false },
-    { src: "images/Tsubaki/299142779_1061028674597720_627657094659192438_n.png", video: false }
+    { src: "images/Tsubaki/299142779_1061028674597720_627657094659192438_n.jpg", video: false }
   ];
 
   const ALLDAY_ITEMS = [
