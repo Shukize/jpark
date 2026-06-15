@@ -1,6 +1,35 @@
 # J Park Hotel Website
 
-A multilingual static hotel website for **J Park Hotel · Chonburi, Thailand** — no build step, no server required. Open `index.html` directly in a browser.
+A multilingual hotel website for **J Park Hotel · Chonburi, Thailand**. The public
+site is static (no build step — `index.html` opens straight in a browser); a small
+Node/Express + Postgres API backs the staff console, guest portal and OTA intake.
+
+---
+
+## Project status (current stage)
+
+**Live in production.** The public site is served by **GitHub Pages**
+(`https://shukize.github.io/jpark/`); the API runs on **Render Starter**
+(`https://jpark.onrender.com`) against a **Neon** Postgres database, with
+transactional email through **Resend**. Auth is a real server-side trust boundary
+(HS256 JWT; the server rejects forged/`alg:none` tokens). Every frontend module is
+**API-first with a localStorage fallback**, so the site keeps working offline.
+
+| Area | State |
+|------|-------|
+| Public website (5 languages, rooms, dining, facilities, gallery) | ✅ Live |
+| Guest portal, live chat, staff/admin console, internal messaging | ✅ Live |
+| Site Editor (admin CMS: text, photos, colours, sections) | ✅ Live |
+| Photos | ✅ Original curated marketing set — one folder per room/area under `images/` |
+| OTA booking intake → Guest Booking inbox + hotel-notice email | ✅ Built (channel webhook, email-forwarding bridge, browser API) |
+| Transactional email delivery | ⚠️ Needs `RESEND_API_KEY` set in Render + a verified sending domain |
+| Custom domain `jparkhotelchonburi.com` | ⏳ Code is domain-ready; registration + DNS + `CNAME` pending |
+
+**Operator to-dos that are not code** (dashboard / DNS): set `RESEND_API_KEY` and
+`OTA_WEBHOOK_SECRET` in Render, verify a Resend sending domain, register the domain
+and point DNS, then rotate the `admin/admin123` demo password. See the
+[Custom domain](#custom-domain--final-go-live-steps) and
+[OTA email forwarding](#-ota-email-forwarding-make-real-bookings-flow-in) sections.
 
 ---
 
@@ -121,34 +150,34 @@ internal messages and live chat.
 
 ### ✅ Does OTA communication work?
 
-**The in-browser intake works and is verified.** Calling `JPark.bookings.ingest(...)`
-or opening the `staff.html#booking=…` deep link reliably normalises a payload,
-de-duplicates on `channel`+`ref`, stores it in the `guestBookings` table, fires a
-notification and syncs across tabs. Four demo bookings are seeded so the inbox is
-populated out of the box. You can confirm it yourself right now: open `staff.html`,
-sign in, open the browser console and run the `JPark.bookings.ingest({…})` example
-below — the booking appears immediately under **Messages → Guest Booking**.
+**Yes — the intake is built end-to-end and there is now a live server.** A booking
+can arrive three ways, all landing in **Messages → Guest Booking** (and, when email
+is configured, sending a hotel-notice + guest confirmation):
 
-**What does _not_ happen automatically:** because this is a 100% client-side site
-with **no server**, an OTA (Agoda/Booking.com/…) has no way to reach the browser
-on its own. OTAs deliver bookings by **email or webhook to a server endpoint** —
-and there isn't one here. So real bookings will **not** flow in by themselves
-until you add the small **bridge** described below. This is a hosting/architecture
-limitation, not a bug: the intake seam is ready and waiting; it just needs
-something to call it.
+1. **Forwarded OTA email** → `POST /api/v1/ota-email` parses it (see
+   [OTA email forwarding](#-ota-email-forwarding-make-real-bookings-flow-in)).
+2. **Channel-manager webhook** → `POST /api/v1/ota-sync` (structured JSON, assigns a
+   physical room and refuses double-bookings).
+3. **Browser API / deep link** → `JPark.bookings.ingest(...)` or
+   `staff.html#booking=…` (handy for testing; persists to the backend when reachable).
 
-**To make live OTA communication work** you need one piece of always-on infrastructure
-(a serverless function, channel-manager webhook, or a Zapier/Make automation) that
-receives the OTA email/webhook and calls `JPark.bookings.ingest()` — or, more
-realistically for a production hotel, a proper backend that stores bookings in a
-database and the page reads from it. See **Integration guide** below.
+You can confirm the browser path right now: open `staff.html`, sign in, open the
+console and run the `JPark.bookings.ingest({…})` example below — the booking appears
+immediately. Four demo bookings are seeded so the inbox is populated out of the box.
+
+**What still needs an operator step:** an OTA can't reach the server on its own — it
+delivers by email or webhook. So you connect **one always-on receiver** (an email
+forwarder or a channel manager) that calls one of the endpoints above. The seam is
+ready and verified; it just needs to be pointed at your reservations inbox. Set
+`RESEND_API_KEY` in Render to turn on the notice/confirmation emails (without it the
+booking still lands in the inbox; the email is just skipped).
 
 ### How a booking gets in
 
-This site is fully client-side, so an OTA booking can't reach the browser on its
-own. A small **bridge** does the linking — typically an email-forwarding rule on
-the hotel's reservations inbox, or a channel-manager webhook — which calls the
-intake seam in `assets/js/bookings.js`. There are two ways to push a booking in:
+The simplest production path is the **email bridge**: an auto-forward rule on the
+hotel's reservations inbox sends each OTA confirmation to a receiver that POSTs it to
+`/api/v1/ota-email`. For testing or a webhook handler that has the page open, you can
+also push a booking straight into the browser intake seam in `assets/js/bookings.js`:
 
 **1. JavaScript API** (e.g. from a webhook handler that has the page open, or the browser console):
 
@@ -188,6 +217,57 @@ and the hash is then cleared so a refresh won't insert it twice.
 A new booking fires a desktop/toast notification and syncs live across open tabs.
 Four demo bookings (Agoda, Booking.com, Airbnb, Trip.com) are seeded so the inbox
 is populated out of the box.
+
+### ⚡ OTA email forwarding (make real bookings flow in)
+
+Every OTA emails the hotel a confirmation. The backend now has a **bridge that turns
+that forwarded email into a booking** in the Guest Booking inbox — and fires the
+hotel-notice email — automatically:
+
+```
+POST  https://jpark.onrender.com/api/v1/ota-email
+Auth:  X-API-Key: <OTA_WEBHOOK_SECRET>     (or append ?key=<secret> to the URL)
+Body:  { "subject": "...", "from": "...", "text": "...", "html": "..." }
+```
+
+It auto-detects the channel (Agoda / Booking.com / Airbnb / Trip.com / Expedia),
+and best-effort extracts the guest, reference, dates, room, occupancy and total.
+**The full raw email is always stored on the booking**, so even if a field can't be
+read the front desk never loses a reservation — they read the original in the inbox
+and correct any blanks (such bookings are flagged *needs review*). Re-forwarding the
+same email is idempotent (de-duplicated on the OTA reference, or a stable hash when
+none is present). Parsing is covered by `backend/test-ota-email.js` (`node test-ota-email.js`).
+
+**To wire it up, pick one always-on receiver that forwards the OTA email here** —
+all free or low-cost:
+
+1. **Cloudflare Email Routing + an Email Worker** *(recommended once the domain is on
+   Cloudflare)* — a few lines of Worker code POST the message JSON to the endpoint.
+2. **Email Parser by Zapier / Make / Mailparser** — no code: forward OTA mail to the
+   parser address, map fields, POST to the endpoint.
+3. **SendGrid / Mailgun Inbound Parse** — point an MX subdomain at the service and it
+   POSTs each inbound email to the endpoint.
+
+Then add a **Gmail/Outlook auto-forward rule** on the reservations inbox
+(`jparkhotel1@gmail.com`) so every Agoda/Booking.com/Airbnb confirmation is forwarded
+to that receiver. That's the whole pipeline: **OTA → hotel inbox → receiver → website
+Guest Booking inbox + notice email.**
+
+> **Two things must be set for delivery to work** (dashboard, not code):
+> `RESEND_API_KEY` in Render (otherwise the notice email is skipped — the booking
+> still lands in the inbox), and `OTA_WEBHOOK_SECRET` in Render so the endpoint only
+> accepts your receiver. Until a Resend **sending domain is verified**, mail only
+> delivers to the Resend account owner.
+
+#### A note on reliability (for a 4–5★ operation)
+
+Email parsing is pragmatic and works today, but OTAs change their templates and an
+email alone can't prevent an **overbooking**. The production-grade path is a **channel
+manager** (Cloudbeds, Hostaway, Beds24, SiteMinder, RMS…) connected to your OTAs: it
+syncs availability/rates both ways and POSTs clean, structured reservations to the
+already-built `POST /api/v1/ota-sync` webhook (which also assigns a physical room and
+refuses double-bookings). Recommended once volume justifies the monthly fee — run the
+email bridge now, move to a channel manager as you scale.
 
 ### ⚡ Integration guide: live OTA notifications
 
@@ -335,7 +415,8 @@ Set these in the Render dashboard (Environment tab — all are `sync:false` in
 | `DELETE /api/messages/:id` | Delete a message (admin only) |
 | `GET/POST /api/employees` | Staff roster management |
 | `GET/PUT /api/content` | Site Editor overrides (text, media, theme) |
-| `GET/POST /api/v1/ota-sync` | OTA webhook intake |
+| `POST /api/v1/ota-sync` | OTA / channel-manager webhook intake (structured JSON, assigns a room) |
+| `POST /api/v1/ota-email` | OTA **email-forwarding** bridge — parses a forwarded confirmation email into the Guest Booking inbox |
 | `POST /api/email` | Send transactional email (Resend); `GET /api/email/status` reports if configured |
 | `GET /health` | Liveness probe |
 

@@ -184,6 +184,100 @@ router.get('/:id', requireAuth, async (req, res) => {
   }
 });
 
+/* Fire the hotel notice + guest confirmation for a freshly-inserted booking.
+   Fire-and-forget: never awaited, never throws into the request path. Only runs
+   for a genuinely new, confirmed booking so webhook / re-forward retries
+   (ON CONFLICT updates, inserted=false) don't re-send. */
+function fireBookingEmails(saved) {
+  if (!saved || !saved.inserted || saved.status !== 'confirmed') return;
+
+  // 1) Notify the hotel front desk (jparkhotel1@gmail.com) for EVERY booking,
+  //    even when the OTA didn't pass a guest email. Mirrors the Guest Booking
+  //    entry that staff also see in the console.
+  const to = hotelRecipients();
+  if (to.length) {
+    const { text, html } = hotelNotice(saved);
+    sendEmail({
+      to,
+      subject: `New booking — ${saved.channel_name || saved.channel || 'Direct'} (${saved.ref})`,
+      text,
+      html,
+      replyTo: saved.guest_email || undefined,
+    }).then((r) => {
+      if (r.ok) console.log(`[guest-bookings] hotel notified at ${to.join(', ')} (${saved.ref})`);
+      else if (!r.skipped) console.warn(`[guest-bookings] hotel notice failed (${saved.ref}): ${r.error}`);
+    }).catch((err) => console.error('[guest-bookings] hotel notice error', err));
+  }
+
+  // 2) Send the guest their confirmation, when the booking carries a guest email.
+  if (saved.guest_email) {
+    const { text, html } = confirmationEmail(saved);
+    sendEmail({
+      to: saved.guest_email,
+      subject: `J Park Hotel — booking confirmed (${saved.ref})`,
+      text,
+      html,
+    }).then((r) => {
+      if (r.ok) console.log(`[guest-bookings] confirmation emailed to ${saved.guest_email} (${saved.ref})`);
+      else if (!r.skipped) console.warn(`[guest-bookings] confirmation email failed (${saved.ref}): ${r.error}`);
+    }).catch((err) => console.error('[guest-bookings] email error', err));
+  }
+}
+
+/* Core ingest: upsert one booking (de-duped on `ref`) and fire its emails.
+   Shared by the POST route below and the OTA email-forwarding bridge
+   (routes/otaEmail.js) so both intake paths behave identically. Accepts both
+   camelCase and snake_case field names. Returns the saved row (with an
+   `inserted` flag). Throws on DB error. */
+async function ingestGuestBooking(b) {
+  b = b || {};
+  const channel = normChannel(b.channel || b.source || 'direct');
+  const ref = b.ref || b.bookingId || b.confirmationCode
+    || ('GB-' + Date.now().toString(36).toUpperCase());
+  const checkIn = b.checkIn || b.check_in;
+  const checkOut = b.checkOut || b.check_out;
+  if (!checkIn || !checkOut) {
+    throw new Error('check_in and check_out are required');
+  }
+  const nights = b.nights || computeNights(checkIn, checkOut);
+
+  const { rows } = await db.query(
+    `INSERT INTO guest_bookings
+       (ref, channel, channel_name, channel_email, guest_name, guest_last_name,
+        guest_email, guest_phone, room, check_in, check_out, nights, adults,
+        children, total, currency, status, lang, confirmation)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
+     ON CONFLICT (ref) DO UPDATE SET
+       status = EXCLUDED.status,
+       updated_at = NOW()
+     RETURNING *, (xmax = 0) AS inserted`,
+    [
+      ref,
+      channel,
+      b.channelName || b.channel_name || channel,
+      b.channelEmail || b.channel_email || null,
+      b.guestName || b.guest_name || 'Guest',
+      (b.guestName || b.guest_name || '').split(' ').pop().toLowerCase() || null,
+      b.guestEmail || b.guest_email || null,
+      b.guestPhone || b.guest_phone || null,
+      b.room || b.roomType || b.room_type || null,
+      checkIn,
+      checkOut,
+      nights,
+      b.adults != null ? b.adults : 1,
+      b.children != null ? b.children : 0,
+      b.total != null ? b.total : null,
+      b.currency || 'THB',
+      b.status || 'confirmed',
+      b.lang || 'en',
+      b.confirmation || b.body || null,
+    ]
+  );
+  const saved = rows[0];
+  fireBookingEmails(saved);
+  return saved;
+}
+
 /* POST /api/guest-bookings — ingest from OTA bridge / channel manager.
    Protected by an optional X-API-Key (see ingestKeyOk): open when
    OTA_WEBHOOK_SECRET is unset, key-gated once it is. */
@@ -191,85 +285,13 @@ router.post('/', async (req, res) => {
   if (!ingestKeyOk(req.get('x-api-key'))) {
     return res.status(401).json({ error: 'Invalid or missing API key' });
   }
-  const b = req.body || {};
-  const channel = normChannel(b.channel || b.source || 'direct');
-  const ref = b.ref || b.bookingId || b.confirmationCode
-    || ('GB-' + Date.now().toString(36).toUpperCase());
-  const nights = b.nights || computeNights(b.checkIn || b.check_in, b.checkOut || b.check_out);
-
   try {
-    const { rows } = await db.query(
-      `INSERT INTO guest_bookings
-         (ref, channel, channel_name, channel_email, guest_name, guest_last_name,
-          guest_email, guest_phone, room, check_in, check_out, nights, adults,
-          children, total, currency, status, lang, confirmation)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
-       ON CONFLICT (ref) DO UPDATE SET
-         status = EXCLUDED.status,
-         updated_at = NOW()
-       RETURNING *, (xmax = 0) AS inserted`,
-      [
-        ref,
-        channel,
-        b.channelName || b.channel_name || channel,
-        b.channelEmail || b.channel_email || null,
-        b.guestName || b.guest_name || 'Guest',
-        (b.guestName || b.guest_name || '').split(' ').pop().toLowerCase() || null,
-        b.guestEmail || b.guest_email || null,
-        b.guestPhone || b.guest_phone || null,
-        b.room || b.roomType || b.room_type || null,
-        b.checkIn || b.check_in,
-        b.checkOut || b.check_out,
-        nights,
-        b.adults != null ? b.adults : 1,
-        b.children != null ? b.children : 0,
-        b.total != null ? b.total : null,
-        b.currency || 'THB',
-        b.status || 'confirmed',
-        b.lang || 'en',
-        b.confirmation || b.body || null,
-      ]
-    );
-    const saved = rows[0];
+    const saved = await ingestGuestBooking(req.body || {});
     res.status(201).json(row2js(saved));
-
-    // Fire-and-forget emails — only for a genuinely new, confirmed booking.
-    // Never blocks or fails the API response; webhook retries (ON CONFLICT
-    // updates) won't re-send because inserted=false.
-    if (saved.inserted && saved.status === 'confirmed') {
-      // 1) Notify the hotel front desk (jparkhotel1@gmail.com) for EVERY booking,
-      //    even when the OTA didn't pass a guest email. Mirrors the Guest Booking
-      //    entry that staff also see in the console.
-      const to = hotelRecipients();
-      if (to.length) {
-        const { text, html } = hotelNotice(saved);
-        sendEmail({
-          to,
-          subject: `New booking — ${saved.channel_name || saved.channel || 'Direct'} (${saved.ref})`,
-          text,
-          html,
-          replyTo: saved.guest_email || undefined,
-        }).then((r) => {
-          if (r.ok) console.log(`[guest-bookings] hotel notified at ${to.join(', ')} (${saved.ref})`);
-          else if (!r.skipped) console.warn(`[guest-bookings] hotel notice failed (${saved.ref}): ${r.error}`);
-        }).catch((err) => console.error('[guest-bookings] hotel notice error', err));
-      }
-
-      // 2) Send the guest their confirmation, when the booking carries a guest email.
-      if (saved.guest_email) {
-        const { text, html } = confirmationEmail(saved);
-        sendEmail({
-          to: saved.guest_email,
-          subject: `J Park Hotel — booking confirmed (${saved.ref})`,
-          text,
-          html,
-        }).then((r) => {
-          if (r.ok) console.log(`[guest-bookings] confirmation emailed to ${saved.guest_email} (${saved.ref})`);
-          else if (!r.skipped) console.warn(`[guest-bookings] confirmation email failed (${saved.ref}): ${r.error}`);
-        }).catch((err) => console.error('[guest-bookings] email error', err));
-      }
-    }
   } catch (e) {
+    if (/check_in and check_out/.test(e.message)) {
+      return res.status(400).json({ error: e.message });
+    }
     console.error('[guest-bookings] create', e);
     res.status(500).json({ error: 'Database error' });
   }
@@ -331,3 +353,5 @@ function computeNights(ci, co) {
 }
 
 module.exports = router;
+// Shared with routes/otaEmail.js (the email-forwarding bridge).
+module.exports.ingestGuestBooking = ingestGuestBooking;
