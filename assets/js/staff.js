@@ -33,7 +33,7 @@
   const SECTIONS = [
     { id: "coffee", label: "nav.coffee" }, { id: "services", label: "nav.services" },
     { id: "about", label: "nav.about" }, { id: "rooms", label: "nav.rooms" },
-    { id: "facilities", label: "nav.facilities" }, { id: "onsen", label: "nav.onsen" },
+    { id: "facilities", label: "nav.facilities" },
     { id: "dining", label: "nav.dining" },
     { id: "concierge", label: "nav.concierge" }, { id: "gallery", label: "nav.gallery" }
   ];
@@ -50,7 +50,6 @@
     { title: "nav.about",              prefixes: ["about."],                                   section: "about",      thumb: "aboutMain" },
     { title: "nav.rooms",              prefixes: ["rooms."],                                   section: "rooms",      thumb: "room:Studio Single" },
     { title: "nav.facilities",         prefixes: ["fac."],                                     section: "facilities", thumb: "pool" },
-    { title: "nav.onsen",              prefixes: ["onsen."],                                   section: "onsen",      thumb: "onsenMen" },
     { title: "nav.dining",             prefixes: ["dining.", "menu."],                         section: "dining",     thumb: "tsubaki" },
     { title: "nav.coffee",             prefixes: ["coffee."],                                  section: "coffee",     thumb: "coffee" },
     { title: "nav.gallery",            prefixes: ["gallery."],                                 section: "gallery",    thumb: "hotel" },

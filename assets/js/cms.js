@@ -11,7 +11,7 @@
   const U = window.JPark.util;
   const MED = window.JPark.media; // photo-set registry (media.js)
 
-  const SECTIONS = ["coffee", "services", "about", "rooms", "facilities", "onsen", "dining", "concierge", "gallery"];
+  const SECTIONS = ["coffee", "services", "about", "rooms", "facilities", "dining", "concierge", "gallery"];
 
   const ADMIN_BAR = {
     en: { text: "You are signed in as Admin — you can edit this website.", link: "Open Site Editor" },
@@ -135,10 +135,6 @@
     if (ov("gym"))     applyCover(document.querySelector('.fac-card[data-lb="fac-gym"]'), "gym", { bg: true });
     if (ov("tsubaki")) applyCover(document.querySelector('.dining-card[data-lb="dining-tsubaki"] .dining-img'), "tsubaki");
     if (ov("coffee"))  applyCover(document.querySelector('.dining-card[data-lb="dining-coffee"] .dining-img'), "coffee");
-    if (ov("onsen")) {
-      applyCover(document.querySelector(".fac-card[data-onsen]"), "onsen", { bg: true });
-      applyCover(document.querySelector(".onsen-feature"), "onsen");
-    }
     // Single-image slots / sections with their own scroll-video handling
     if (ov("aboutMain")) setImgSrc(".about-img-main", firstImage("aboutMain"));
     if (ov("aboutSub"))  setImgSrc(".about-img-sub", firstImage("aboutSub"));

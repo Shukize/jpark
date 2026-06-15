@@ -86,7 +86,7 @@
       const key = s.galleryKey || s.labelKey;
       const title = (I && I.base) ? I.base(key, "en") : key;
       return { id: s.id, title: title, key: key, items: M.items(s.id) };
-    });
+    }).filter((c) => c.items.length); // skip empty sets (e.g. blank Lobby)
   }
   const GALLERY_MEDIA = buildGalleryMedia();
 
