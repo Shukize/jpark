@@ -238,6 +238,13 @@ and correct any blanks (such bookings are flagged *needs review*). Re-forwarding
 same email is idempotent (de-duplicated on the OTA reference, or a stable hash when
 none is present). Parsing is covered by `backend/test-ota-email.js` (`node test-ota-email.js`).
 
+> 📒 **Ready-to-use receiver setups are saved in
+> [`docs/OTA_EMAIL_BRIDGE.md`](docs/OTA_EMAIL_BRIDGE.md)** — a copy-paste Gmail
+> Apps Script ([`tools/ota-gmail-forwarder.gs`](tools/ota-gmail-forwarder.gs),
+> works today) and a Cloudflare Email Worker
+> ([`tools/ota-cloudflare-email-worker.js`](tools/ota-cloudflare-email-worker.js),
+> the free production receiver for `jparkhotel.com`).
+
 **To wire it up, pick one always-on receiver that forwards the OTA email here** —
 all free or low-cost:
 
