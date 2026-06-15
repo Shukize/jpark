@@ -3,6 +3,14 @@
    Values = cap.* keys. Rebuilt 2026-06-09 after the room photo curation. */
 window.JPark = window.JPark || {};
 window.JPark.captions = {
+  "room:Studio Single": [
+    "bedroom",
+    "bedroom",
+    "livingArea",
+    "livingArea",
+    "livingArea",
+    "bathroom"
+  ],
   "room:Prestige Single": [
     "bedroom",
     "workspace",
@@ -15,10 +23,18 @@ window.JPark.captions = {
   ],
   "room:Studio B4": [
     "bedroom",
+    "bedroom",
     "livingArea",
     "teaStation",
     "entertainment",
     "workspace",
+    "bathroom",
+    "bathroom"
+  ],
+  "room:Deluxe": [
+    "bedroom",
+    "bedroom",
+    "livingArea",
     "bathroom"
   ],
   "room:Premium Single": [
@@ -83,5 +99,33 @@ window.JPark.captions = {
     "lounge",
     "reception",
     "corridor"
+  ],
+  "onsenMen": [
+    "bath",
+    "bath",
+    "bath",
+    "sauna",
+    "restArea",
+    "restArea",
+    "changingRoom",
+    "changingRoom"
+  ],
+  "onsenWomen": [
+    "bath",
+    "soakingTub",
+    "bath",
+    "bath",
+    "shower",
+    "vanity"
+  ],
+  "tsubaki": [
+    "entrance",
+    "courtyard",
+    "diningArea",
+    "diningArea",
+    "privateRoom",
+    "privateRoom",
+    "tatamiRoom",
+    "tatamiRoom"
   ]
 };

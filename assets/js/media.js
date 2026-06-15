@@ -45,6 +45,20 @@
 
   /* ---- the canonical sets, in the order the Gallery shows them ---- */
   const COFFEE_ITEMS = [
+    { src: "images/New Midnight Coffee Club/20260609_212910.jpg", video: false },
+    { src: "images/New Midnight Coffee Club/20260609_213409.jpg", video: false },
+    { src: "images/New Midnight Coffee Club/20260609_213016.jpg", video: false },
+    { src: "images/New Midnight Coffee Club/20260609_214121.jpg", video: false },
+    { src: "images/New Midnight Coffee Club/20260607_175632.jpg", video: false },
+    { src: "images/New Midnight Coffee Club/20260607_175751.jpg", video: false },
+    { src: "images/New Midnight Coffee Club/20260607_175843.jpg", video: false },
+    { src: "images/New Midnight Coffee Club/20260607_175904.jpg", video: false },
+    { src: "images/New Midnight Coffee Club/20260607_175914.jpg", video: false },
+    { src: "images/New Midnight Coffee Club/20260607_175931.jpg", video: false },
+    { src: "images/New Midnight Coffee Club/20260607_180002.jpg", video: false },
+    { src: "images/New Midnight Coffee Club/20260607_180049.jpg", video: false },
+    { src: "images/New Midnight Coffee Club/20260607_180138.jpg", video: false },
+    { src: "images/New Midnight Coffee Club/20260607_180533.jpg", video: false },
     { src: "images/New Midnight Coffee Club/unnamed.jpg", video: false },
     { src: "images/New Midnight Coffee Club/unnamed5.jpg", video: false },
     { src: "images/New Midnight Coffee Club/unnamed4.jpg", video: false },
@@ -68,6 +82,14 @@
   ];
 
   const TSUBAKI_ITEMS = [
+    { src: "images/Tsubaki/20260607_173703.jpg", video: false },
+    { src: "images/Tsubaki/20260607_173656.jpg", video: false },
+    { src: "images/Tsubaki/20260607_173715.jpg", video: false },
+    { src: "images/Tsubaki/20260607_173814.jpg", video: false },
+    { src: "images/Tsubaki/20260607_173752.jpg", video: false },
+    { src: "images/Tsubaki/20260607_173848.jpg", video: false },
+    { src: "images/Tsubaki/20260607_174006.jpg", video: false },
+    { src: "images/Tsubaki/20260607_174019.jpg", video: false },
     { src: "images/Tsubaki/119059522_2737564009811833_3276458423237956706_n.jpg", video: false },
     { src: "images/Tsubaki/AQMhQMC9GvtxGLkJruddhOPLcKjXwYl7OIbbeUJhZGiN5H1azDdwdOjoAlyV2MX6YqBrAVxDVWfbsNvSfpNaWCPuK_vgs1lCbBNoQ2XhOEv9PQ.mp4", video: true },
     { src: "images/Tsubaki/AQNtQ5IQUAHLuYDynRq2hKj2FmFhnuOu6_9HEP86BzYGE1Fm-DNsUBPCMZsQ5ShYm0w4HTCHHrlFiD_hPKL2J2wKqIOWXXE1_FiCPyUJuM0Fmw.mp4", video: true },
@@ -124,6 +146,11 @@
   ]);
 
   const POOL_ITEMS = imgs([
+    "images/Tropical Pool/20260601_081436.jpg",
+    "images/Tropical Pool/20260601_074038.jpg",
+    "images/Tropical Pool/20260601_074024.jpg",
+    "images/Tropical Pool/20260601_074044.jpg",
+    "images/Tropical Pool/20260601_074057.jpg",
     "images/Tropical Pool/1b23ab2d-a3d1-474c-8944-4c7159f6d91b.jpg",
     "images/Tropical Pool/48cd9718-cece-4c80-adcd-dd637ed35d00.jpg",
     "images/Tropical Pool/c3ac1733-933b-49de-aa10-7185a21dbe5f.jpg",
@@ -139,28 +166,71 @@
     "images/Gym/e2bb66fc-6cac-45ec-8316-ae1e71d90a0a.jpg"
   ]);
 
-  /* Main Lobby intentionally left blank — the previous lobby gallery was made up
-     entirely of camera photos, which have been removed. No curated originals
-     exist for it, so the set is empty until originals are added. */
-  const LOBBY_ITEMS = [];
+  const LOBBY_ITEMS = imgs([
+    "images/Main Lobby/20260609_170721.jpg",
+    "images/Main Lobby/20260609_170741.jpg",
+    "images/Main Lobby/20260609_170704.jpg",
+    "images/Main Lobby/20260609_170649.jpg",
+    "images/Main Lobby/20260609_170543.jpg",
+    "images/Main Lobby/20260607_174349.jpg",
+    "images/Main Lobby/20260607_174418.jpg",
+    "images/Main Lobby/20260601_073624.jpg",
+    "images/Main Lobby/20260601_073634.jpg",
+    "images/Main Lobby/20260601_073650.jpg",
+    "images/Main Lobby/20260601_073813.jpg",
+    "images/Main Lobby/20260601_073905.jpg",
+    "images/Main Lobby/20260601_073928.jpg"
+  ]);
 
-  /* Room photo sets. Files are room_NN.jpg, best cover first. */
-  const DELUXE_ITEMS = imgs([
-    "images/Deluxe/room_01.jpg",
-    "images/Deluxe/room_02.jpg",
-    "images/Deluxe/room_03.jpg"
+  /* Japanese Onsen (Futamata Onsen) — split men's / women's baths. Curated,
+     bright finishing pass; people-free. The single ONSEN_ITEMS cover drives the
+     Facilities "Japanese Onsen" card. */
+  const ONSEN_MEN_ITEMS = imgs([
+    "images/Onsen Men/20260609_165646.jpg",
+    "images/Onsen Men/20260609_165913.jpg",
+    "images/Onsen Men/20260609_165856.jpg",
+    "images/Onsen Men/20260609_165731.jpg",
+    "images/Onsen Men/20260609_165810.jpg",
+    "images/Onsen Men/20260609_165718.jpg",
+    "images/Onsen Men/20260609_165950.jpg",
+    "images/Onsen Men/20260609_170017.jpg"
   ]);
-  const STUDIO_SINGLE_ITEMS = imgs([
-    "images/Studio Single/room_01.jpg",
-    "images/Studio Single/room_02.jpg",
-    "images/Studio Single/room_03.jpg"
+  const ONSEN_WOMEN_ITEMS = imgs([
+    "images/Onsen Lady/20260609_165120.jpg",
+    "images/Onsen Lady/20260609_165427.jpg",
+    "images/Onsen Lady/20260609_165054.jpg",
+    "images/Onsen Lady/20260609_165133.jpg",
+    "images/Onsen Lady/20260609_165201.jpg",
+    "images/Onsen Lady/20260609_165522.jpg"
   ]);
+  const ONSEN_ITEMS = imgs(["images/Onsen Men/20260609_165646.jpg"]);
+
+  /* Refreshed 2026-06-09 room photo batch (bright/white finishing). Videos
+     last so the still cover (first image) drives card thumbnails. */
+  const DELUXE_ITEMS = [
+    { src: "images/Deluxe/20260609_173341.jpg", video: false },
+    { src: "images/Deluxe/20260609_173310.jpg", video: false },
+    { src: "images/Deluxe/20260609_173427.jpg", video: false },
+    { src: "images/Deluxe/20260609_173203.jpg", video: false },
+    { src: "images/Deluxe/Deluxe.mp4", video: true }
+  ];
+  const STUDIO_SINGLE_ITEMS = [
+    { src: "images/Studio Single/20260609_171513.jpg", video: false },
+    { src: "images/Studio Single/20260609_171322.jpg", video: false },
+    { src: "images/Studio Single/20260609_171244.jpg", video: false },
+    { src: "images/Studio Single/20260609_171256.jpg", video: false },
+    { src: "images/Studio Single/20260609_171355.jpg", video: false },
+    { src: "images/Studio Single/20260609_171617.jpg", video: false },
+    { src: "images/Studio Single/Studio Single.mp4", video: true }
+  ];
   const STUDIO_B4_ITEMS = imgs([
+    "images/Studio B4/20260609_174356.jpg",
     "images/Studio B4/room_01.jpg",
     "images/Studio B4/room_04.jpg",
     "images/Studio B4/room_07.jpg",
     "images/Studio B4/room_08.jpg",
     "images/Studio B4/room_09.jpg",
+    "images/Studio B4/20260609_174153.jpg",
     "images/Studio B4/room_06.jpg"
   ]);
 
@@ -206,6 +276,9 @@
     { id: "aboutSub",    labelKey: "media.set.aboutSub",  section: "about",      single: true,  items: ABOUT_SUB_ITEMS },
     { id: "hotel",       labelKey: "gallery.cat.hotel",   section: "gallery",    gallery: true, items: HOTEL_ITEMS },
     { id: "pool",        labelKey: "fac.poolName",        section: "facilities", gallery: true, items: POOL_ITEMS },
+    { id: "onsen",       labelKey: "fac.onsenName",       section: "facilities", items: ONSEN_ITEMS },
+    { id: "onsenMen",    labelKey: "onsen.menTitle",      section: "onsen", gallery: true, galleryKey: "onsen.menTitle",   items: ONSEN_MEN_ITEMS },
+    { id: "onsenWomen",  labelKey: "onsen.womenTitle",    section: "onsen", gallery: true, galleryKey: "onsen.womenTitle", items: ONSEN_WOMEN_ITEMS },
     { id: "coffee",      labelKey: "dining.coffeeName",   section: "coffee",     gallery: true, galleryKey: "gallery.cat.coffee", items: COFFEE_ITEMS },
     { id: "tsubaki",     labelKey: "dining.tsubakiName",  section: "dining",     gallery: true, galleryKey: "gallery.cat.tsubaki", items: TSUBAKI_ITEMS },
     { id: "allday",      labelKey: "dining.allDayName",   section: "dining",     gallery: true, galleryKey: "gallery.cat.allday", items: ALLDAY_ITEMS },
