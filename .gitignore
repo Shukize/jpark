@@ -14,6 +14,7 @@ __pycache__/
 
 # Local-only photo backups (kept on disk, never used on the site)
 *(Backup)/
+my camera images/
 
 # Local scratch / contact-sheet workspace
 _work/

@@ -25,11 +25,17 @@
      cover first). One folder per room type currently let, in display order. */
   /* room_NN.jpg folders. Studio Single, Studio B4 and Deluxe were refreshed with
      a new 2026-06-09 batch and are defined as explicit item lists below. */
+  /* Counts reflect the room_NN.jpg files that exist on disk. All rooms are Agoda
+     OTA photos, 4K AI-upscaled. The tier rooms below (Premium/Grand/Prestige/
+     Executive) aren't sold under those names on OTAs, so they use the closest
+     Agoda category (Standard/Superior/Premier/Guestroom/Grand Suite). */
   const ROOM_COUNTS = {
-    "Prestige Single": 4, "Prestige Twin": 2,
-    "Premium Single": 2, "Premium Twin": 2, "Grand Premium": 5,
-    "Grand Deluxe": 5,
-    "Premium Suite": 7, "Grand Suite 1 Bedroom": 8
+    "Prestige Single": 9, "Prestige Twin": 9,
+    "Premium Single": 17, "Premium Twin": 7, "Grand Premium": 11,
+    "Grand Deluxe": 11,
+    "Premium Suite": 17, "Grand Suite 1 Bedroom": 18,
+    "Corner Suite": 13, "Deluxe": 11, "Studio Single": 13, "Studio B4": 11,
+    "Executive Suite 1 Bedroom": 17
   };
   function seq(folder, prefix, n) {
     const out = [];
@@ -40,25 +46,12 @@
   }
   function roomItems(folder) { return seq(folder, "room", ROOM_COUNTS[folder] || 1); }
 
-  /* Building 5 (J Park Hall) — common areas, files b5_01.jpg … b5_07.jpg. */
-  const BUILDING5_ITEMS = seq("B5", "b5", 7);
+  /* Building 5 (J Park Hall) — Agoda ballroom/banquet/exterior photos, 4K
+     AI-upscaled, files b5_01.jpg … b5_14.jpg. */
+  const BUILDING5_ITEMS = seq("B5", "b5", 14);
 
   /* ---- the canonical sets, in the order the Gallery shows them ---- */
   const COFFEE_ITEMS = [
-    { src: "images/New Midnight Coffee Club/20260609_212910.jpg", video: false },
-    { src: "images/New Midnight Coffee Club/20260609_213409.jpg", video: false },
-    { src: "images/New Midnight Coffee Club/20260609_213016.jpg", video: false },
-    { src: "images/New Midnight Coffee Club/20260609_214121.jpg", video: false },
-    { src: "images/New Midnight Coffee Club/20260607_175632.jpg", video: false },
-    { src: "images/New Midnight Coffee Club/20260607_175751.jpg", video: false },
-    { src: "images/New Midnight Coffee Club/20260607_175843.jpg", video: false },
-    { src: "images/New Midnight Coffee Club/20260607_175904.jpg", video: false },
-    { src: "images/New Midnight Coffee Club/20260607_175914.jpg", video: false },
-    { src: "images/New Midnight Coffee Club/20260607_175931.jpg", video: false },
-    { src: "images/New Midnight Coffee Club/20260607_180002.jpg", video: false },
-    { src: "images/New Midnight Coffee Club/20260607_180049.jpg", video: false },
-    { src: "images/New Midnight Coffee Club/20260607_180138.jpg", video: false },
-    { src: "images/New Midnight Coffee Club/20260607_180533.jpg", video: false },
     { src: "images/New Midnight Coffee Club/unnamed.jpg", video: false },
     { src: "images/New Midnight Coffee Club/unnamed5.jpg", video: false },
     { src: "images/New Midnight Coffee Club/unnamed4.jpg", video: false },
@@ -82,14 +75,6 @@
   ];
 
   const TSUBAKI_ITEMS = [
-    { src: "images/Tsubaki/20260607_173703.jpg", video: false },
-    { src: "images/Tsubaki/20260607_173656.jpg", video: false },
-    { src: "images/Tsubaki/20260607_173715.jpg", video: false },
-    { src: "images/Tsubaki/20260607_173814.jpg", video: false },
-    { src: "images/Tsubaki/20260607_173752.jpg", video: false },
-    { src: "images/Tsubaki/20260607_173848.jpg", video: false },
-    { src: "images/Tsubaki/20260607_174006.jpg", video: false },
-    { src: "images/Tsubaki/20260607_174019.jpg", video: false },
     { src: "images/Tsubaki/119059522_2737564009811833_3276458423237956706_n.jpg", video: false },
     { src: "images/Tsubaki/AQMhQMC9GvtxGLkJruddhOPLcKjXwYl7OIbbeUJhZGiN5H1azDdwdOjoAlyV2MX6YqBrAVxDVWfbsNvSfpNaWCPuK_vgs1lCbBNoQ2XhOEv9PQ.mp4", video: true },
     { src: "images/Tsubaki/AQNtQ5IQUAHLuYDynRq2hKj2FmFhnuOu6_9HEP86BzYGE1Fm-DNsUBPCMZsQ5ShYm0w4HTCHHrlFiD_hPKL2J2wKqIOWXXE1_FiCPyUJuM0Fmw.mp4", video: true },
@@ -146,11 +131,6 @@
   ]);
 
   const POOL_ITEMS = imgs([
-    "images/Tropical Pool/20260601_081436.jpg",
-    "images/Tropical Pool/20260601_074038.jpg",
-    "images/Tropical Pool/20260601_074024.jpg",
-    "images/Tropical Pool/20260601_074044.jpg",
-    "images/Tropical Pool/20260601_074057.jpg",
     "images/Tropical Pool/1b23ab2d-a3d1-474c-8944-4c7159f6d91b.jpg",
     "images/Tropical Pool/48cd9718-cece-4c80-adcd-dd637ed35d00.jpg",
     "images/Tropical Pool/c3ac1733-933b-49de-aa10-7185a21dbe5f.jpg",
@@ -166,91 +146,49 @@
     "images/Gym/e2bb66fc-6cac-45ec-8316-ae1e71d90a0a.jpg"
   ]);
 
+  /* Main Lobby — Agoda lobby/reception/entrance photos, 4K AI-upscaled. */
   const LOBBY_ITEMS = imgs([
-    "images/Main Lobby/20260609_170721.jpg",
-    "images/Main Lobby/20260609_170741.jpg",
-    "images/Main Lobby/20260609_170704.jpg",
-    "images/Main Lobby/20260609_170649.jpg",
-    "images/Main Lobby/20260609_170543.jpg",
-    "images/Main Lobby/20260607_174349.jpg",
-    "images/Main Lobby/20260607_174418.jpg",
-    "images/Main Lobby/20260601_073624.jpg",
-    "images/Main Lobby/20260601_073634.jpg",
-    "images/Main Lobby/20260601_073650.jpg",
-    "images/Main Lobby/20260601_073813.jpg",
-    "images/Main Lobby/20260601_073905.jpg",
-    "images/Main Lobby/20260601_073928.jpg"
+    "images/Main Lobby/lobby_01.jpg",
+    "images/Main Lobby/lobby_02.jpg",
+    "images/Main Lobby/lobby_03.jpg",
+    "images/Main Lobby/lobby_04.jpg",
+    "images/Main Lobby/lobby_05.jpg",
+    "images/Main Lobby/lobby_06.jpg",
+    "images/Main Lobby/lobby_07.jpg",
+    "images/Main Lobby/lobby_08.jpg"
   ]);
 
   /* Japanese Onsen (Futamata Onsen) — split men's / women's baths. Curated,
      bright finishing pass; people-free. The single ONSEN_ITEMS cover drives the
      Facilities "Japanese Onsen" card. */
+  /* Onsen — Agoda hot-spring / sauna / steam-room photos, 4K AI-upscaled.
+     OTA photos aren't tagged by gender, so all sit in the single Onsen Men set;
+     the women's set has no OTA source and stays empty until photos are added. */
   const ONSEN_MEN_ITEMS = imgs([
-    "images/Onsen Men/20260609_165646.jpg",
-    "images/Onsen Men/20260609_165913.jpg",
-    "images/Onsen Men/20260609_165856.jpg",
-    "images/Onsen Men/20260609_165731.jpg",
-    "images/Onsen Men/20260609_165810.jpg",
-    "images/Onsen Men/20260609_165718.jpg",
-    "images/Onsen Men/20260609_165950.jpg",
-    "images/Onsen Men/20260609_170017.jpg"
+    "images/Onsen Men/onsen_01.jpg",
+    "images/Onsen Men/onsen_02.jpg",
+    "images/Onsen Men/onsen_03.jpg",
+    "images/Onsen Men/onsen_04.jpg",
+    "images/Onsen Men/onsen_05.jpg",
+    "images/Onsen Men/onsen_06.jpg",
+    "images/Onsen Men/onsen_07.jpg",
+    "images/Onsen Men/onsen_08.jpg",
+    "images/Onsen Men/onsen_09.jpg",
+    "images/Onsen Men/onsen_10.jpg",
+    "images/Onsen Men/onsen_11.jpg",
+    "images/Onsen Men/onsen_12.jpg",
+    "images/Onsen Men/onsen_13.jpg",
+    "images/Onsen Men/onsen_14.jpg",
+    "images/Onsen Men/onsen_15.jpg",
+    "images/Onsen Men/onsen_16.jpg",
+    "images/Onsen Men/onsen_17.jpg"
   ]);
-  const ONSEN_WOMEN_ITEMS = imgs([
-    "images/Onsen Lady/20260609_165120.jpg",
-    "images/Onsen Lady/20260609_165427.jpg",
-    "images/Onsen Lady/20260609_165054.jpg",
-    "images/Onsen Lady/20260609_165133.jpg",
-    "images/Onsen Lady/20260609_165201.jpg",
-    "images/Onsen Lady/20260609_165522.jpg"
-  ]);
-  const ONSEN_ITEMS = imgs(["images/Onsen Men/20260609_165646.jpg"]);
+  const ONSEN_WOMEN_ITEMS = imgs([]);
+  const ONSEN_ITEMS = imgs(["images/Onsen Men/onsen_01.jpg"]);
 
-  /* Refreshed 2026-06-09 room photo batch (bright/white finishing). Videos
-     last so the still cover (first image) drives card thumbnails. */
-  const DELUXE_ITEMS = [
-    { src: "images/Deluxe/20260609_173341.jpg", video: false },
-    { src: "images/Deluxe/20260609_173310.jpg", video: false },
-    { src: "images/Deluxe/20260609_173427.jpg", video: false },
-    { src: "images/Deluxe/20260609_173203.jpg", video: false },
-    { src: "images/Deluxe/Deluxe.mp4", video: true }
-  ];
-  const STUDIO_SINGLE_ITEMS = [
-    { src: "images/Studio Single/20260609_171513.jpg", video: false },
-    { src: "images/Studio Single/20260609_171322.jpg", video: false },
-    { src: "images/Studio Single/20260609_171244.jpg", video: false },
-    { src: "images/Studio Single/20260609_171256.jpg", video: false },
-    { src: "images/Studio Single/20260609_171355.jpg", video: false },
-    { src: "images/Studio Single/20260609_171617.jpg", video: false },
-    { src: "images/Studio Single/Studio Single.mp4", video: true }
-  ];
-  const STUDIO_B4_ITEMS = imgs([
-    "images/Studio B4/20260609_174356.jpg",
-    "images/Studio B4/room_01.jpg",
-    "images/Studio B4/room_04.jpg",
-    "images/Studio B4/room_07.jpg",
-    "images/Studio B4/room_08.jpg",
-    "images/Studio B4/room_09.jpg",
-    "images/Studio B4/20260609_174153.jpg",
-    "images/Studio B4/room_06.jpg"
-  ]);
-
-  /* Corner Suite & Executive Suite — curated subsets. A few unflattering
-     shots (old fridge, worn sofa, cramped utility corners) were removed
-     2026-06-09, so these are explicit lists rather than full room_NN
-     sequences. Keep parallel with captions.js. */
-  const CORNER_SUITE_ITEMS = imgs([
-    "images/Corner Suite/room_01.jpg",
-    "images/Corner Suite/room_03.jpg",
-    "images/Corner Suite/room_04.jpg",
-    "images/Corner Suite/room_05.jpg"
-  ]);
-  const EXEC_SUITE_ITEMS = imgs([
-    "images/Executive Suite 1 Bedroom/room_01.jpg",
-    "images/Executive Suite 1 Bedroom/room_02.jpg",
-    "images/Executive Suite 1 Bedroom/room_04.jpg",
-    "images/Executive Suite 1 Bedroom/room_05.jpg",
-    "images/Executive Suite 1 Bedroom/room_07.jpg"
-  ]);
+  /* Deluxe, Studio Single, Studio B4 and Corner Suite are now Agoda OTA photos
+     (4K AI-upscaled), stored as room_NN.jpg and driven by ROOM_COUNTS above.
+     Executive Suite has no OTA match (count 0 / empty) until photos are added. */
 
   const HERO_ITEMS = imgs(["images/Tropical Pool/ffcc842a-2003-4239-ae74-0e6c0b10f883.jpg"]);
   const ABOUT_MAIN_ITEMS = imgs(["images/Tropical Pool/ce70057e-42f0-4b44-9f67-18598f22ff3a.jpg"]);
@@ -259,9 +197,9 @@
   const PREVIEW_ITEMS = imgs([
     "images/Tropical Pool/c917232b-159a-4fdc-bc20-12e806f5304b.jpg",
     "images/45c09cb7-8ba5-4ba0-bc3c-42837ef10bf2.jpg",
-    "images/Premium Suite/room_01.jpg",
+    "images/Grand Suite 1 Bedroom/room_01.jpg",
     "images/ea770736-fe38-4c3e-b072-4928f8a2fad9.jpg",
-    "images/B5/b5_01.jpg",
+    "images/Corner Suite/room_01.jpg",
     "images/Tropical Pool/ce70057e-42f0-4b44-9f67-18598f22ff3a.jpg"
   ]);
 
@@ -284,17 +222,17 @@
     { id: "allday",      labelKey: "dining.allDayName",   section: "dining",     gallery: true, galleryKey: "gallery.cat.allday", items: ALLDAY_ITEMS },
     { id: "banquet",     labelKey: "fac.gardenName",      section: "facilities", gallery: true, galleryKey: "gallery.cat.banquet", items: BANQUET_ITEMS },
     { id: "gym",         labelKey: "fac.gymName",         section: "facilities", gallery: true, galleryKey: "gallery.cat.gym", items: GYM_ITEMS },
-    { id: "room:Studio Single",   labelKey: "rooms.studioSingleName",  section: "rooms", gallery: true, items: STUDIO_SINGLE_ITEMS },
+    { id: "room:Studio Single",   labelKey: "rooms.studioSingleName",  section: "rooms", gallery: true, items: roomItems("Studio Single") },
     { id: "room:Prestige Single", labelKey: "rooms.prestigeSingleName", section: "rooms", gallery: true, items: roomItems("Prestige Single") },
     { id: "room:Prestige Twin",   labelKey: "rooms.prestigeTwinName",  section: "rooms", gallery: true, items: roomItems("Prestige Twin") },
-    { id: "room:Studio B4",       labelKey: "rooms.studioB4Name",      section: "rooms", gallery: true, items: STUDIO_B4_ITEMS },
-    { id: "room:Deluxe",          labelKey: "rooms.deluxeName",        section: "rooms", gallery: true, items: DELUXE_ITEMS },
+    { id: "room:Studio B4",       labelKey: "rooms.studioB4Name",      section: "rooms", gallery: true, items: roomItems("Studio B4") },
+    { id: "room:Deluxe",          labelKey: "rooms.deluxeName",        section: "rooms", gallery: true, items: roomItems("Deluxe") },
     { id: "room:Premium Single",  labelKey: "rooms.premiumSingleName", section: "rooms", gallery: true, items: roomItems("Premium Single") },
     { id: "room:Premium Twin",    labelKey: "rooms.premiumTwinName",   section: "rooms", gallery: true, items: roomItems("Premium Twin") },
     { id: "room:Grand Premium",   labelKey: "rooms.grandPremiumName",  section: "rooms", gallery: true, items: roomItems("Grand Premium") },
-    { id: "room:Corner Suite",    labelKey: "rooms.cornerName",        section: "rooms", gallery: true, items: CORNER_SUITE_ITEMS },
+    { id: "room:Corner Suite",    labelKey: "rooms.cornerName",        section: "rooms", gallery: true, items: roomItems("Corner Suite") },
     { id: "room:Grand Deluxe",    labelKey: "rooms.grandDeluxeName",   section: "rooms", gallery: true, items: roomItems("Grand Deluxe") },
-    { id: "room:Executive Suite 1 Bedroom", labelKey: "rooms.execSuite1brName", section: "rooms", gallery: true, items: EXEC_SUITE_ITEMS },
+    { id: "room:Executive Suite 1 Bedroom", labelKey: "rooms.execSuite1brName", section: "rooms", gallery: true, items: roomItems("Executive Suite 1 Bedroom") },
     { id: "room:Premium Suite",   labelKey: "rooms.premiumSuiteName",  section: "rooms", gallery: true, items: roomItems("Premium Suite") },
     { id: "room:Grand Suite 1 Bedroom", labelKey: "rooms.grandSuiteName", section: "rooms", gallery: true, items: roomItems("Grand Suite 1 Bedroom") },
     { id: "building5",    labelKey: "building.galTitle",      section: "building",   gallery: true, galleryKey: "building.galTitle", items: BUILDING5_ITEMS },
