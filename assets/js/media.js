@@ -165,26 +165,16 @@
      OTA photos aren't tagged by gender, so all sit in the single Onsen Men set;
      the women's set has no OTA source and stays empty until photos are added. */
   const ONSEN_MEN_ITEMS = imgs([
-    "images/Onsen Men/onsen_01.jpg",
-    "images/Onsen Men/onsen_02.jpg",
-    "images/Onsen Men/onsen_03.jpg",
-    "images/Onsen Men/onsen_04.jpg",
-    "images/Onsen Men/onsen_05.jpg",
-    "images/Onsen Men/onsen_06.jpg",
-    "images/Onsen Men/onsen_07.jpg",
-    "images/Onsen Men/onsen_08.jpg",
-    "images/Onsen Men/onsen_09.jpg",
-    "images/Onsen Men/onsen_10.jpg",
-    "images/Onsen Men/onsen_11.jpg",
-    "images/Onsen Men/onsen_12.jpg",
-    "images/Onsen Men/onsen_13.jpg",
-    "images/Onsen Men/onsen_14.jpg",
-    "images/Onsen Men/onsen_15.jpg",
-    "images/Onsen Men/onsen_16.jpg",
-    "images/Onsen Men/onsen_17.jpg"
+    "images/Onsen Men/7103cb46-b226-4d99-90a1-c47c4fc425f5.jpg",
+    "images/Onsen Men/3ce4c1f1-f0a6-4278-a1b4-a37b5638588e.jpg",
+    "images/Onsen Men/4460b5ee-d428-4e64-9085-211723b517db.jpg",
+    "images/Onsen Men/9799a3a7-9ddc-4cbd-873e-cc1b361587a7.jpg",
+    "images/Onsen Men/caeee241-c37e-4ad3-a7e4-2f05c8d08efa.jpg",
+    "images/Onsen Men/d043a556-c486-43c1-b656-31aac285cd9b.jpg",
+    "images/Onsen Men/dfd0e2bd-d1af-4d76-b660-b1d86a550b31.jpg"
   ]);
   const ONSEN_WOMEN_ITEMS = imgs([]);
-  const ONSEN_ITEMS = imgs(["images/Onsen Men/onsen_01.jpg"]);
+  const ONSEN_ITEMS = imgs(["images/Onsen Men/7103cb46-b226-4d99-90a1-c47c4fc425f5.jpg"]);
 
   /* Deluxe, Studio Single, Studio B4 and Corner Suite are now Agoda OTA photos
      (4K AI-upscaled), stored as room_NN.jpg and driven by ROOM_COUNTS above.
