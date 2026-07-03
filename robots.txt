@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /staff.html
+Disallow: /backend/
+Disallow: /_work/
+
+Sitemap: https://jparkhotel.com/sitemap.xml

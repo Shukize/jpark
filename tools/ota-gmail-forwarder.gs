@@ -4,8 +4,8 @@
  * Run this on the Gmail account that receives your OTA confirmation emails.
  * Every 5 minutes it finds new OTA emails and POSTs each one to the hotel API
  * (POST /api/v1/ota-email), which files it in the staff Guest Booking inbox and
- * sends the front-desk notice. Use this until the domain is on Cloudflare
- * (then switch to tools/ota-cloudflare-email-worker.js — instant, also free).
+ * sends the front-desk notice. This is the permanent receiver (jparkhotel.com's
+ * DNS stays on Porkbun, so there's no Cloudflare Email Routing option).
  *
  * SETUP (once):
  *   1. script.google.com → New project → paste this in → Save.

@@ -24,11 +24,10 @@ services:
       - key: DATABASE_URL
         sync: false         # paste the Neon connection string here in the Render dashboard
       - key: FRONTEND_ORIGIN
-        # Comma-separated CORS allowlist. The intended primary custom domain is
-        # jparkhotelchonburi.com; jparkhotel.com is kept until its DNS is fixed,
-        # with GitHub Pages (shukize.github.io) and the Render static site as
-        # fallbacks. Add/remove origins here, then re-sync the blueprint.
-        value: https://jparkhotelchonburi.com,https://www.jparkhotelchonburi.com,https://jparkhotel.com,https://www.jparkhotel.com,https://shukize.github.io
+        # Comma-separated CORS allowlist. jparkhotel.com is the live custom
+        # domain (served by GitHub Pages); shukize.github.io is kept as a
+        # fallback. Add/remove origins here, then re-sync the blueprint.
+        value: https://jparkhotel.com,https://www.jparkhotel.com,https://shukize.github.io
       - key: OTA_WEBHOOK_SECRET
         # Shared secret for inbound OTA traffic. Gates BOTH the channel-manager
         # webhook (POST /api/v1/ota-sync) and the booking-ingest endpoint
@@ -48,7 +47,7 @@ services:
         value: jparkhotel1@gmail.com
 
   # The public website is served solely by GitHub Pages (free) — primary URL
-  # shukize.github.io/jpark, custom domain jparkhotelchonburi.com. The former
+  # shukize.github.io/jpark, custom domain jparkhotel.com. The former
   # Render "jpark-site" static mirror was retired to keep one canonical site;
   # delete that service in the Render dashboard so a blueprint sync won't
   # recreate it.
