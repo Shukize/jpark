@@ -39,8 +39,9 @@ services:
       - key: RESEND_API_KEY
         sync: false         # Resend API key (re_...) for transactional email
       - key: EMAIL_FROM
-        # Until you verify a domain in Resend, use the sandbox sender below.
-        value: J Park Hotel <onboarding@resend.dev>
+        # Domain-verified sender on jparkhotel.com (Resend). If you ever need
+        # to fall back to the sandbox sender, use: onboarding@resend.dev
+        value: J Park Hotel <noreply@jparkhotel.com>
       - key: HOTEL_NOTIFY_EMAIL
         # Front-desk inbox that receives a notice for every new booking that
         # lands in the Guest Booking system. Comma-separate for multiple staff.

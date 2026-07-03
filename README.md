@@ -9,11 +9,12 @@ Node/Express + Postgres API backs the staff console, guest portal and OTA intake
 ## Project status (current stage)
 
 **Live in production.** The public site is served by **GitHub Pages**
-(`https://shukize.github.io/jpark/`); the API runs on **Render Starter**
-(`https://jpark.onrender.com`) against a **Neon** Postgres database, with
-transactional email through **Resend**. Auth is a real server-side trust boundary
-(HS256 JWT; the server rejects forged/`alg:none` tokens). Every frontend module is
-**API-first with a localStorage fallback**, so the site keeps working offline.
+(`https://jparkhotel.com`, custom domain; `https://shukize.github.io/jpark/` also
+resolves); the API runs on **Render Starter** (`https://jpark.onrender.com`)
+against a **Neon** Postgres database, with transactional email through
+**Resend**. Auth is a real server-side trust boundary (HS256 JWT; the server
+rejects forged/`alg:none` tokens). Every frontend module is **API-first with a
+localStorage fallback**, so the site keeps working offline.
 
 | Area | State |
 |------|-------|
@@ -22,14 +23,14 @@ transactional email through **Resend**. Auth is a real server-side trust boundar
 | Site Editor (admin CMS: text, photos, colours, sections) | ✅ Live |
 | Photos | ✅ Original curated marketing set — one folder per room/area under `images/` |
 | OTA booking intake → Guest Booking inbox + hotel-notice email | ✅ Built (channel webhook, email-forwarding bridge, browser API) |
-| Transactional email delivery | ⚠️ Needs `RESEND_API_KEY` set in Render + a verified sending domain |
-| Custom domain `jparkhotelchonburi.com` | ⏳ Code is domain-ready; registration + DNS + `CNAME` pending |
+| Transactional email delivery | ✅ `RESEND_API_KEY` set, sending domain verified, `EMAIL_FROM` on `jparkhotel.com` |
+| Custom domain `jparkhotel.com` | ✅ DNS live at Porkbun, GitHub Pages custom domain + HTTPS active |
 
-**Operator to-dos that are not code** (dashboard / DNS): set `RESEND_API_KEY` and
-`OTA_WEBHOOK_SECRET` in Render, verify a Resend sending domain, register the domain
-and point DNS, then rotate the `admin/admin123` demo password. See the
-[Custom domain](#custom-domain--final-go-live-steps) and
-[OTA email forwarding](#-ota-email-forwarding-make-real-bookings-flow-in) sections.
+**Operator to-dos that are not code:** confirm the DNS/HTTPS cutover has fully
+propagated everywhere (`nslookup jparkhotel.com`), and double-check the staff
+`admin`/`staff` account passwords were actually rotated server-side (not just in a
+browser's local cache). See
+[OTA email forwarding](#-ota-email-forwarding-make-real-bookings-flow-in) below.
 
 ---
 
@@ -54,24 +55,17 @@ and point DNS, then rotate the `admin/admin123` demo password. See the
 
 ---
 
-## Demo logins
+## Guest portal login
 
-### Guest portal (`index.html → Guest Services`)
-
-| Last name   | Room | Booking ref |
-|-------------|------|-------------|
-| Robinson    | 101  | JP-1001     |
-| Miyamoto    | 204  | JP-1002     |
-| Chen        | 312  | JP-1003     |
-
-Enter the last name + room number (case-insensitive) **or** the booking reference.
+Guests sign in at `index.html → Guest Services` with the last name + room number
+(or booking reference) from their real reservation. Sample seed bookings used
+during development are not published here.
 
 ### Staff console (`staff.html`)
 
-| Username | Password  | Role          |
-|----------|-----------|---------------|
-| staff    | staff123  | Front Desk    |
-| admin    | admin123  | Administrator |
+Credentials are managed under **Staff console → Staff** and rotated per deployment —
+no default password is published here. See
+[Staff accounts & passwords](#staff-accounts--passwords) below.
 
 ---
 
@@ -83,7 +77,9 @@ Admins manage accounts under **Staff console → Staff**.
 2. **The new member activates their account** — on the login page they choose **New Staff Account**, enter the username the admin gave them and the temporary password `jparkhotel`, then set their own password. They're signed in immediately. (If someone signs in normally while still on the temporary password, they're sent to set a new one too.)
 3. **Forgot Password / Forgot Username** — links under the Sign in button file a request that appears in **Messages → Password Reset Requests** (admin-only). For a password request the admin can click **Reset to default password**, which puts the account back on `jparkhotel` and re-flags "must change"; the member then re-runs the New Staff Account flow.
 
-> Note: this is a front-end demo. Passwords live in `localStorage` in plain text. In a real deployment, authentication and password hashing must happen on a server.
+> Passwords are hashed server-side (bcrypt) in the `employees` table and verified
+> by the API on every login — see [Backend](#backend-backend). The browser only
+> ever holds a signed JWT, never a password.
 
 ---
 
@@ -445,32 +441,24 @@ reachable.
 
 ---
 
-## Custom domain — final go-live steps
+## Custom domain — live
 
-The code is already **domain-ready** for the chosen primary domain
-`jparkhotelchonburi.com` (no code change needed to switch over):
+The site runs on **`jparkhotel.com`** (transferred to Porkbun; DNS stays at
+Porkbun, not Cloudflare):
 
 - [`assets/js/config.js`](assets/js/config.js) routes the apex and `www` of the
   domain to the Render API (`https://jpark.onrender.com`).
-- [`render.yaml`](render.yaml) already lists both `https://jparkhotelchonburi.com`
-  and `https://www.jparkhotelchonburi.com` in the `FRONTEND_ORIGIN` CORS allowlist.
-- **No `CNAME` file is committed** — that is intentional. Adding it before DNS
-  resolves would break the live GitHub Pages site.
+- [`render.yaml`](render.yaml) lists `https://jparkhotel.com` and
+  `https://www.jparkhotel.com` in the `FRONTEND_ORIGIN` CORS allowlist.
+- DNS at Porkbun: four apex `A` records → `185.199.108.153`, `185.199.109.153`,
+  `185.199.110.153`, `185.199.111.153`, plus a `www` `CNAME` → `shukize.github.io`.
+- GitHub Pages custom domain is set to `jparkhotel.com` with **Enforce HTTPS**
+  enabled (Let's Encrypt cert via GitHub).
+- Resend sending domain is verified; `EMAIL_FROM` is
+  `J Park Hotel <noreply@jparkhotel.com>`.
 
-Once the domain is registered (Cloudflare Registrar or Porkbun, ~$10–13/yr), do
-these **manual** steps to finish the plan:
-
-1. **DNS** — at the registrar add four apex `A` records → `185.199.108.153`,
-   `185.199.109.153`, `185.199.110.153`, `185.199.111.153`, plus a `www`
-   `CNAME` → `shukize.github.io`.
-2. **Wait for DNS** — confirm with `nslookup jparkhotelchonburi.com` returning a
-   `185.199.x.x` address before the next step.
-3. **GitHub Pages** — repo → Settings → Pages → Custom domain →
-   `jparkhotelchonburi.com` → Save. GitHub writes the `CNAME` file and issues
-   HTTPS via Let's Encrypt (~15 min).
-4. **Render** — re-sync the blueprint (or confirm the dashboard env), then set
-   `RESEND_API_KEY` and, after verifying the domain in Resend, update
-   `EMAIL_FROM` to `J Park Hotel <noreply@jparkhotelchonburi.com>`.
-
-After step 3 the site is live on the custom domain; the API, CORS allowlist and
-email all follow automatically from the config above.
+If the site is unreachable on a particular network shortly after a DNS change,
+that's local resolver caching (ISP/carrier), not a config problem — check with
+`nslookup jparkhotel.com` against a public resolver (`8.8.8.8` / `1.1.1.1`) or
+[whatsmydns.net](https://www.whatsmydns.net) to confirm global state before
+assuming something is broken.
