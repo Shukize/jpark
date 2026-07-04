@@ -135,6 +135,21 @@
     opacity: 0.75;
   }
 
+  .admin-login {
+    position: fixed;
+    top: 18px;
+    right: 20px;
+    font-size: 0.72rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    font-weight: 600;
+    color: var(--ink-soft);
+    text-decoration: none;
+    opacity: 0.6;
+    padding: 6px 10px;
+  }
+  .admin-login:hover { opacity: 1; text-decoration: underline; }
+
   @media (prefers-color-scheme: dark) {
     html, body { background: radial-gradient(circle at 50% -10%, #12312f 0%, #0b201f 55%, #081716 100%); color: #ece7db; }
     .card { background: #10302e; box-shadow: 0 24px 70px -20px rgba(0,0,0,0.55); }
@@ -149,6 +164,8 @@
 </style>
 </head>
 <body>
+
+  <a class="admin-login" href="staff.html">Admin Login</a>
 
   <div class="card">
     <div class="brand">

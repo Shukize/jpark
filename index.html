@@ -2,6 +2,16 @@
 <html lang="th">
 <head>
 <meta charset="UTF-8" />
+<script>
+(function () {
+  var host = location.hostname;
+  var apiBase = (host === "localhost" || host === "127.0.0.1") ? "http://localhost:3000" : "https://jpark.onrender.com";
+  fetch(apiBase + "/api/maintenance", { cache: "no-store" })
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (d) { if (d && d.enabled) location.replace("maintenance.html"); })
+    .catch(function () {});
+})();
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>J Park Hotel · Chonburi</title>
 <meta name="description" content="J Park Hotel — a Japanese-inspired hotel in Chonburi, Thailand. Onsen, Tsubaki dining, tropical pool, and the new Midnight Coffee Club." />

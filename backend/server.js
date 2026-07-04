@@ -31,6 +31,7 @@ const ordersRouter          = require('./routes/orders');
 const contentRouter         = require('./routes/content');
 const emailRouter           = require('./routes/email');
 const paymentsRouter        = require('./routes/payments');
+const maintenanceRouter     = require('./routes/maintenance');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -65,6 +66,7 @@ app.use('/api/orders',           ordersRouter);
 app.use('/api/content',          contentRouter);
 app.use('/api/email',            emailRouter);
 app.use('/api/v1',               paymentsRouter);
+app.use('/api/maintenance',      maintenanceRouter);
 
 migrate()
   .then(() => app.listen(PORT, () => console.log(`J Park API listening on port ${PORT}`)))

@@ -488,16 +488,30 @@ reachable.
 
 ---
 
-## Maintenance page
+## Maintenance mode
 
 [`maintenance.html`](maintenance.html) is a small, fully self-contained
 "we'll be back shortly" placeholder (logo, phone, email, address; no
-dependency on any other file in the repo) for planned downtime — e.g. swap
-it in as `index.html` while doing riskier work on the live site. Note this
-is a **manual swap**, not something GitHub Pages does automatically: if
-Pages itself is disabled/unpublished, GitHub serves its own 404 and this
-file can't override that — it only helps while Pages is *on* but you want a
-placeholder shown instead of the real homepage.
+dependency on any other file in the repo) for planned downtime.
+
+**Never unpublish GitHub Pages to take the site down** — if Pages itself is
+disabled/unpublished, GitHub serves its own generic 404 for the whole domain
+and no repo file (including `maintenance.html`) can override that. Pages
+should always stay published.
+
+Instead, maintenance mode is a live toggle, stored in the `site_content`
+table and flipped from the admin-only **Maintenance** panel in the staff
+console (`staff.html`, admin login required):
+
+- `GET /api/maintenance` — public; `index.html` and `booking.html` call this
+  on load and redirect to `maintenance.html` when `enabled` is true.
+- `PUT /api/maintenance` — admin only; flips the flag (see
+  [`backend/routes/maintenance.js`](backend/routes/maintenance.js)).
+
+`staff.html` itself is never gated, so staff/admins can always sign in —
+including to turn maintenance mode back off — regardless of its state.
+`maintenance.html` has a small "Admin Login" link (top-right) straight to
+the staff console for this reason.
 
 ---
 

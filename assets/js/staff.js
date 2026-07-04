@@ -415,7 +415,7 @@
 
   /* ====================  PANELS  ==================== */
   function selectPanel(name) {
-    if ((name === "site" || name === "team") && !isAdmin()) name = "requests";
+    if ((name === "site" || name === "team" || name === "maintenance") && !isAdmin()) name = "requests";
     if (name === "company") name = "messages"; // redirect legacy hash
     panel = name;
     document.querySelectorAll(".nav-item").forEach((b) => b.classList.toggle("active", b.dataset.panel === name));
@@ -433,6 +433,43 @@
     else if (panel === "roster") renderRoster();
     else if (panel === "site") renderSite();
     else if (panel === "team") renderTeam();
+    else if (panel === "maintenance") renderMaintenance();
+  }
+
+  /* ---- maintenance mode (admin) ---- */
+  let maintToggleWired = false;
+  async function renderMaintenance() {
+    if (!isAdmin()) return;
+    const statusEl = document.getElementById("maintStatus");
+    const toggleEl = document.getElementById("maintToggle");
+    if (!statusEl || !toggleEl) return;
+
+    function paintStatus(enabled) {
+      statusEl.textContent = t(enabled ? "staff.maint.status.on" : "staff.maint.status.off");
+      toggleEl.checked = enabled;
+    }
+
+    const res = await J.api.get("/api/maintenance");
+    paintStatus(!J.api.isOffline(res) && res.enabled);
+
+    if (!maintToggleWired) {
+      maintToggleWired = true;
+      toggleEl.addEventListener("change", async (e) => {
+        const enabled = e.target.checked;
+        const confirmMsg = t(enabled ? "staff.maint.confirmOn" : "staff.maint.confirmOff");
+        if (!confirm(confirmMsg)) { e.target.checked = !enabled; return; }
+        toggleEl.disabled = true;
+        const res2 = await J.api.put("/api/maintenance", { enabled });
+        toggleEl.disabled = false;
+        if (J.api.isOffline(res2) || res2.error) {
+          U.toast(t("staff.maint.error"), "error");
+          e.target.checked = !enabled;
+          return;
+        }
+        paintStatus(res2.enabled);
+        U.toast(t("staff.maint.saved"), "success");
+      });
+    }
   }
 
   /* Team Status & Shifts — modular card board (assets/js/employee-card.js).

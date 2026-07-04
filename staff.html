@@ -159,6 +159,10 @@
         <span class="ni-ico" aria-hidden="true">👥</span>
         <span class="ni-label" data-i18n="staff.nav.team">Staff</span>
       </button>
+      <button class="nav-item admin-only" data-panel="maintenance">
+        <span class="ni-ico" aria-hidden="true">🚧</span>
+        <span class="ni-label" data-i18n="staff.nav.maintenance">Maintenance</span>
+      </button>
     </nav>
 
     <div class="ds-spacer"></div>
@@ -406,6 +410,20 @@
             <button type="button" class="btn" id="teamUndoBtn" data-i18n="staff.team.undo">Undo</button>
           </div>
         </div>
+      </div>
+    </section>
+
+    <!-- maintenance mode (admin) -->
+    <section class="dash-panel" id="panel-maintenance">
+      <h2 data-i18n="staff.maint.title">Maintenance Mode</h2>
+      <p class="panel-lede" data-i18n="staff.maint.lede">When enabled, guests see a maintenance notice instead of the live site. Staff can still sign in here.</p>
+
+      <div class="team-card">
+        <p id="maintStatus" class="ed-hint"></p>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+          <input type="checkbox" id="maintToggle" />
+          <span data-i18n="staff.maint.toggle">Enable maintenance mode</span>
+        </label>
       </div>
     </section>
   </main>

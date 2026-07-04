@@ -235,3 +235,7 @@ CREATE TABLE IF NOT EXISTS site_content (
 );
 
 INSERT INTO site_content (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
+
+-- Site-wide maintenance mode: when TRUE, guest pages (index.html, booking.html)
+-- redirect to maintenance.html. Toggled from the admin-only panel in staff.html.
+ALTER TABLE site_content ADD COLUMN IF NOT EXISTS maintenance_mode BOOLEAN NOT NULL DEFAULT FALSE;

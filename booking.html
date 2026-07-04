@@ -2,6 +2,16 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
+<script>
+(function () {
+  var host = location.hostname;
+  var apiBase = (host === "localhost" || host === "127.0.0.1") ? "http://localhost:3000" : "https://jpark.onrender.com";
+  fetch(apiBase + "/api/maintenance", { cache: "no-store" })
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (d) { if (d && d.enabled) location.replace("maintenance.html"); })
+    .catch(function () {});
+})();
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Book Your Stay · J Park Hotel · Chonburi</title>
 <meta name="description" content="Choose your dates and browse our full collection of room and suite styles at J Park Hotel, Chonburi, with 2026 rates. Tap any room to view its photo gallery, then contact us to confirm your reservation." />
