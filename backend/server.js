@@ -30,9 +30,15 @@ const chatRouter            = require('./routes/chat');
 const ordersRouter          = require('./routes/orders');
 const contentRouter         = require('./routes/content');
 const emailRouter           = require('./routes/email');
+const paymentsRouter        = require('./routes/payments');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Render always sits in front of this app as a reverse proxy — trust its
+// X-Forwarded-For so req.ip reflects the real guest IP (used by the
+// payments rate limiter).
+app.set('trust proxy', true);
 
 const allowedOrigins = (process.env.FRONTEND_ORIGIN || '*')
   .split(',').map((o) => o.trim()).filter(Boolean);
@@ -58,6 +64,7 @@ app.use('/api/chat',             chatRouter);
 app.use('/api/orders',           ordersRouter);
 app.use('/api/content',          contentRouter);
 app.use('/api/email',            emailRouter);
+app.use('/api/v1',               paymentsRouter);
 
 migrate()
   .then(() => app.listen(PORT, () => console.log(`J Park API listening on port ${PORT}`)))

@@ -23,6 +23,7 @@ localStorage fallback**, so the site keeps working offline.
 | Site Editor (admin CMS: text, photos, colours, sections) | ✅ Live |
 | Photos | ✅ Original curated marketing set — one folder per room/area under `images/` |
 | OTA booking intake → Guest Booking inbox + hotel-notice email | ✅ Built (channel webhook, email-forwarding bridge, browser API) |
+| **In-site online booking + payment** (card & PromptPay via Omise/Opn) | ✅ Built — needs a live Omise account + keys, see [Online booking & payments](#online-booking--payments) |
 | Transactional email delivery | ✅ `RESEND_API_KEY` set, sending domain verified, `EMAIL_FROM` on `jparkhotel.com` |
 | Custom domain `jparkhotel.com` | ✅ DNS live at Porkbun, GitHub Pages custom domain + HTTPS active |
 
@@ -46,7 +47,8 @@ browser's local cache). See
   - **Colours**, **show/hide sections**, **announcement banner**
   - **Previous edits** — an audit log of who changed what and when
 - **Self-service staff login** — Forgot Password, Forgot Username, and New Staff Account flows
-- **Guest Booking inbox** — OTA reservations (Agoda, Booking.com, Airbnb, Trip.com…) land in Messages, auto-translated
+- **Online booking + payment** (`booking.html`) — guests pick a room, enter their details, and pay online by card or PromptPay QR (Omise/Opn Payments); a 200 THB key-card deposit (cash only, at check-in) is stated up front and in the confirmation email — see [Online booking & payments](#online-booking--payments)
+- **Guest Booking inbox** — OTA reservations (Agoda, Booking.com, Airbnb, Trip.com…) *and* direct website bookings land in Messages, auto-translated, with a payment status badge on direct bookings
 - **Password Reset Requests** inbox for admins
 - **Message actions** — Reply, Forward, Star, **Delete** and **Report** on every internal message; Star, Forward and **Delete** (admin) on booking confirmations; a **Starred** folder (⭐) collects starred items across both inboxes; reported messages are flagged for admin review
 - **Auto shift status** — each employee's on-shift / off-shift state updates automatically from their shift field and the current ICT clock (no manual toggling needed); `on_break` remains a manual state
@@ -304,6 +306,40 @@ Start with Option 1 (email + Lambda) — it's low-friction and works universally
 
 ---
 
+## Online booking & payments
+
+`booking.html` is a full, streamlined booking flow, not just a rate browser:
+guest picks dates/room on the page → taps **Book Now** → enters guest details →
+pays online by **card or PromptPay QR** (via **Omise/Opn Payments**, Thailand's
+standard card acquirer — settles in THB to a Thai bank account) → gets an
+instant on-screen + emailed confirmation. A **200 THB key-card deposit,
+collected in cash only at check-in and refunded at check-out**, is called out
+in the payment step and in every booking-confirmation email (OTA and direct
+alike) — it's a separate, unrelated line item from the online room payment.
+
+- The server, never the browser, computes the authoritative price
+  (`backend/lib/roomRates.js`) — the client only says which room/dates it
+  wants.
+- A lightweight **overbooking guard**: a fixed room count per type
+  (`ROOM_INVENTORY` in `roomRates.js` — **placeholder numbers, must be set to
+  the real counts before go-live**) is checked against confirmed + in-progress
+  bookings for the requested dates.
+- Card payments that need 3-D Secure redirect to the bank and back
+  automatically; PromptPay shows a QR and polls until paid. Both land in the
+  same `guest_bookings` table and the same staff **Guest Booking** inbox as
+  OTA reservations, with a `channel: "direct"` and a payment status badge
+  (Card/PromptPay — Paid / Awaiting payment / Failed).
+- **Not live yet** — no Omise account/keys exist. Until `OMISE_PUBLIC_KEY` /
+  `OMISE_SECRET_KEY` are set, the booking page's payment step shows a
+  "launching soon" message and the existing call/email fallback; nothing is
+  broken by leaving it unset.
+
+Full setup (creating the Omise account, env vars, the webhook, Omise's test
+card numbers, correcting the room counts, going live) is in
+[`docs/PAYMENTS_SETUP.md`](docs/PAYMENTS_SETUP.md).
+
+---
+
 ## Team Status board — auto shift status
 
 Each employee card shows a live on-shift / off-shift status derived from their **shift** field (`HH:MM–HH:MM`) and the current **Indochina Time (ICT, UTC+7)** clock:
@@ -404,6 +440,12 @@ Set these in the Render dashboard (Environment tab — all are `sync:false` in
 - `RESEND_API_KEY` — Resend API key (`re_…`); leave blank to disable email
 - `EMAIL_FROM` — sender, e.g. `J Park Hotel <onboarding@resend.dev>` until you
   verify your own domain in Resend
+- `OMISE_PUBLIC_KEY` / `OMISE_SECRET_KEY` — Omise/Opn Payments keys for online
+  booking payments; leave blank to keep online payment disabled (see
+  [Online booking & payments](#online-booking--payments) and
+  [`docs/PAYMENTS_SETUP.md`](docs/PAYMENTS_SETUP.md))
+- `OMISE_WEBHOOK_SECRET` — optional extra shared-secret check on the Omise
+  webhook URL
 
 | Route | Purpose |
 |-------|---------|
@@ -420,6 +462,11 @@ Set these in the Render dashboard (Environment tab — all are `sync:false` in
 | `GET/PUT /api/content` | Site Editor overrides (text, media, theme) |
 | `POST /api/v1/ota-sync` | OTA / channel-manager webhook intake (structured JSON, assigns a room) |
 | `POST /api/v1/ota-email` | OTA **email-forwarding** bridge — parses a forwarded confirmation email into the Guest Booking inbox |
+| `GET /api/v1/payments/config` | Returns the Omise public key (or `null` if not yet configured) |
+| `GET /api/v1/booking-availability` | Remaining room count per type for a date range (overbooking guard) |
+| `POST /api/v1/payments/charge` | Creates a direct booking + charges it (card or PromptPay) via Omise |
+| `GET /api/v1/payments/status/:id` | Polled by the booking page while a PromptPay QR / 3-D Secure redirect is pending |
+| `POST /api/v1/payments/webhook` | Omise event receiver — confirms PromptPay/3-D-Secure payments and fires the emails |
 | `POST /api/email` | Send transactional email (Resend); `GET /api/email/status` reports if configured |
 | `GET /health` | Liveness probe |
 
@@ -438,6 +485,19 @@ demo guest bookings.
 website, guest portal, staff console, Site Editor, and OTA inbox all work
 offline/locally without the backend; they sync to Postgres when the API is
 reachable.
+
+---
+
+## Maintenance page
+
+[`maintenance.html`](maintenance.html) is a small, fully self-contained
+"we'll be back shortly" placeholder (logo, phone, email, address; no
+dependency on any other file in the repo) for planned downtime — e.g. swap
+it in as `index.html` while doing riskier work on the live site. Note this
+is a **manual swap**, not something GitHub Pages does automatically: if
+Pages itself is disabled/unpublished, GitHub serves its own 404 and this
+file can't override that — it only helps while Pages is *on* but you want a
+placeholder shown instead of the real homepage.
 
 ---
 

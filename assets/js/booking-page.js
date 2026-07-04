@@ -286,8 +286,8 @@
       'bk.laundryLede': 'Fresh, neatly pressed garments delivered to your room. Choose a package by the number of pieces.',
       'bk.laundryNote': 'Prices in Thai Baht (THB) per package. Larger 60- and 120-piece packages are ideal for long stays.',
       'bk.priceNote1': 'Rates shown are our 2026 general rates per room, per night. To confirm a reservation, please ',
-      'bk.priceCall': 'call +66 (0)38 053 888', 'bk.priceNote2': ' or ',
-      'bk.priceEmail': 'email info@jparkhotel.com', 'bk.priceNote3': ' — we are happy to assist.',
+      'bk.priceCall': 'call +66 086 326 0664', 'bk.priceNote2': ' or ',
+      'bk.priceEmail': 'email jparkhotel1@gmail.com', 'bk.priceNote3': ' — we are happy to assist.',
       'bk.upTo': 'Up to', 'bk.guest': 'guest', 'bk.guests': 'guests',
       'bk.fromTpl': 'From {price} per room / night', 'bk.night': 'night', 'bk.nights': 'nights',
       'bk.roomOnly': 'room only', 'bk.withBreakfast': 'with breakfast',
@@ -334,8 +334,8 @@
       'bk.laundryLede': 'เสื้อผ้าสะอาดรีดเรียบ ส่งถึงห้องพักของคุณ เลือกแพ็กเกจตามจำนวนชิ้น',
       'bk.laundryNote': 'ราคาเป็นเงินบาท (THB) ต่อแพ็กเกจ แพ็กเกจ 60 และ 120 ชิ้นเหมาะสำหรับการเข้าพักระยะยาว',
       'bk.priceNote1': 'ราคาที่แสดงเป็นอัตราทั่วไปปี 2026 ต่อห้อง ต่อคืน หากต้องการยืนยันการจอง กรุณา',
-      'bk.priceCall': 'โทร +66 (0)38 053 888', 'bk.priceNote2': ' หรือ ',
-      'bk.priceEmail': 'อีเมล info@jparkhotel.com', 'bk.priceNote3': ' — เรายินดีให้บริการ',
+      'bk.priceCall': 'โทร +66 086 326 0664', 'bk.priceNote2': ' หรือ ',
+      'bk.priceEmail': 'อีเมล jparkhotel1@gmail.com', 'bk.priceNote3': ' — เรายินดีให้บริการ',
       'bk.upTo': 'รองรับสูงสุด', 'bk.guest': 'ท่าน', 'bk.guests': 'ท่าน',
       'bk.fromTpl': 'เริ่มต้น {price} ต่อห้อง / คืน', 'bk.night': 'คืน', 'bk.nights': 'คืน',
       'bk.roomOnly': 'เฉพาะห้องพัก', 'bk.withBreakfast': 'รวมอาหารเช้า',
@@ -382,8 +382,8 @@
       'bk.laundryLede': '清潔にプレスした衣類をお部屋までお届けします。点数に応じてパッケージをお選びください。',
       'bk.laundryNote': '料金は1パッケージあたりのタイバーツ（THB）表示です。60点・120点の大型パッケージは長期滞在に最適です。',
       'bk.priceNote1': '表示料金は2026年の一般料金（1室1泊あたり）です。ご予約の確定は、',
-      'bk.priceCall': 'お電話 +66 (0)38 053 888', 'bk.priceNote2': ' または ',
-      'bk.priceEmail': 'メール info@jparkhotel.com', 'bk.priceNote3': ' までお気軽にどうぞ。',
+      'bk.priceCall': 'お電話 +66 086 326 0664', 'bk.priceNote2': ' または ',
+      'bk.priceEmail': 'メール jparkhotel1@gmail.com', 'bk.priceNote3': ' までお気軽にどうぞ。',
       'bk.upTo': '最大', 'bk.guest': '名', 'bk.guests': '名',
       'bk.fromTpl': '{price}〜 / 1室1泊', 'bk.night': '泊', 'bk.nights': '泊',
       'bk.roomOnly': '室料のみ', 'bk.withBreakfast': '朝食付き',
@@ -430,8 +430,8 @@
       'bk.laundryLede': '清新熨烫平整的衣物送至您的房间。按件数选择套餐。',
       'bk.laundryNote': '价格以泰铢（THB）计，每套餐计。60 件和 120 件的大套餐非常适合长期入住。',
       'bk.priceNote1': '所示价格为我们 2026 年每间每晚的一般房价。如需确认预订，请',
-      'bk.priceCall': '致电 +66 (0)38 053 888', 'bk.priceNote2': ' 或 ',
-      'bk.priceEmail': '发送邮件至 info@jparkhotel.com', 'bk.priceNote3': ' — 我们很乐意为您服务。',
+      'bk.priceCall': '致电 +66 086 326 0664', 'bk.priceNote2': ' 或 ',
+      'bk.priceEmail': '发送邮件至 jparkhotel1@gmail.com', 'bk.priceNote3': ' — 我们很乐意为您服务。',
       'bk.upTo': '最多', 'bk.guest': '位', 'bk.guests': '位',
       'bk.fromTpl': '{price} 起 / 每间每晚', 'bk.night': '晚', 'bk.nights': '晚',
       'bk.roomOnly': '仅房费', 'bk.withBreakfast': '含早餐',
@@ -478,8 +478,8 @@
       'bk.laundryLede': '清新熨燙平整的衣物送至您的房間。按件數選擇套餐。',
       'bk.laundryNote': '價格以泰銖（THB）計，每套餐計。60 件和 120 件的大套餐非常適合長期入住。',
       'bk.priceNote1': '所示價格為我們 2026 年每間每晚的一般房價。如需確認預訂，請',
-      'bk.priceCall': '致電 +66 (0)38 053 888', 'bk.priceNote2': ' 或 ',
-      'bk.priceEmail': '發送郵件至 info@jparkhotel.com', 'bk.priceNote3': ' — 我們很樂意為您服務。',
+      'bk.priceCall': '致電 +66 086 326 0664', 'bk.priceNote2': ' 或 ',
+      'bk.priceEmail': '發送郵件至 jparkhotel1@gmail.com', 'bk.priceNote3': ' — 我們很樂意為您服務。',
       'bk.upTo': '最多', 'bk.guest': '位', 'bk.guests': '位',
       'bk.fromTpl': '{price} 起 / 每間每晚', 'bk.night': '晚', 'bk.nights': '晚',
       'bk.roomOnly': '僅房費', 'bk.withBreakfast': '含早餐',
@@ -507,6 +507,19 @@
     },
   };
   if (I) I.registerI18n(BK_I18N);
+
+  // Booking-flow strings used directly by this file's room cards. The larger
+  // guest-details/payment-modal vocabulary is registered by
+  // assets/js/booking-payment.js instead, keeping each file responsible for
+  // its own copy — both merge into the same shared i18n dictionary.
+  var BK_PAY_I18N = {
+    en:      { 'bk.pay.bookNow': 'Book Now', 'bk.pay.preferCall': 'Prefer to call?', 'bk.pay.soldOut': 'Sold out for these dates' },
+    th:      { 'bk.pay.bookNow': 'จองเลย', 'bk.pay.preferCall': 'ต้องการโทรจองหรือไม่?', 'bk.pay.soldOut': 'เต็มสำหรับวันที่เลือก' },
+    ja:      { 'bk.pay.bookNow': '今すぐ予約', 'bk.pay.preferCall': 'お電話でのご予約をご希望ですか？', 'bk.pay.soldOut': 'この日程は満室です' },
+    'zh-Hans': { 'bk.pay.bookNow': '立即预订', 'bk.pay.preferCall': '想电话预订？', 'bk.pay.soldOut': '所选日期已订满' },
+    'zh-Hant': { 'bk.pay.bookNow': '立即預訂', 'bk.pay.preferCall': '想電話預訂？', 'bk.pay.soldOut': '所選日期已訂滿' },
+  };
+  if (I) I.registerI18n(BK_PAY_I18N);
 
   // --- DOM ---
   var checkinEl     = document.getElementById('bkCheckin');
@@ -625,6 +638,7 @@
   function buildCard(room, nights) {
     var article = document.createElement('article');
     article.className = 'rr-card';
+    article.dataset.room = room.name;
 
     var amenityHTML = room.amenities
       .map(function (a) { return '<li>' + amenityText(a) + '</li>'; })
@@ -661,6 +675,7 @@
           '<span class="rr-badge">' + room.size + '</span>' +
           '<span class="rr-badge gold">' + TR('bk.upTo') + ' ' + guestsWord(room.maxGuests) + '</span>' +
         '</div>' +
+        '<span class="rr-soldout-badge" hidden>' + TR('bk.pay.soldOut') + '</span>' +
       '</div>' +
       '<div class="rr-body">' +
         '<h2 class="rr-name">' + name + '</h2>' +
@@ -672,7 +687,10 @@
         '</div>' +
         '<div class="rr-price-row">' +
           '<span class="rr-price-note">' + TR('bk.rateIncl') + '</span>' +
-          '<a href="index.html#contact" class="btn btn-solid rr-enquire-btn">' + TR('bk.enquire') + '</a>' +
+          '<div class="rr-cta-group">' +
+            '<button type="button" class="btn btn-solid rr-book-btn">' + TR('bk.pay.bookNow') + '</button>' +
+            '<a href="tel:+66863260664" class="rr-call-link">' + TR('bk.pay.preferCall') + '</a>' +
+          '</div>' +
         '</div>' +
       '</div>';
 
@@ -682,6 +700,34 @@
     imgWrap.addEventListener('click', openGal);
     imgWrap.addEventListener('keydown', function (e) {
       if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openGal(); }
+    });
+
+    // "Book Now" hands off to the payment flow (assets/js/booking-payment.js),
+    // which is loaded after this file — looked up at click time, not here, so
+    // load order between the two files doesn't matter.
+    var bookBtn = article.querySelector('.rr-book-btn');
+    bookBtn.addEventListener('click', function () {
+      if (!statusState) {
+        errorEl.textContent = TR('bk.errDates');
+        errorEl.hidden = false;
+        checkinEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        checkinEl.focus();
+        return;
+      }
+      var flow = window.JPark && window.JPark.bookingFlow;
+      if (!flow) return;
+      flow.open({
+        room: room.name,
+        roomDisplayName: name,
+        size: room.size,
+        maxGuests: room.maxGuests,
+        variants: room.variants,
+        checkIn: statusState.ci,
+        checkOut: statusState.co,
+        nights: statusState.nights,
+        adults: statusState.adults,
+        children: statusState.children,
+      });
     });
 
     return article;
@@ -719,9 +765,9 @@
     if (!priceNoteEl) return;
     priceNoteEl.innerHTML =
       TR('bk.priceNote1') +
-      '<a href="tel:+6638053888">' + TR('bk.priceCall') + '</a>' +
+      '<a href="tel:+66863260664">' + TR('bk.priceCall') + '</a>' +
       TR('bk.priceNote2') +
-      '<a href="mailto:info@jparkhotel.com">' + TR('bk.priceEmail') + '</a>' +
+      '<a href="mailto:jparkhotel1@gmail.com">' + TR('bk.priceEmail') + '</a>' +
       TR('bk.priceNote3');
   }
 
@@ -768,6 +814,35 @@
   // --- Search status bar ---
   // Remembered so the summary text can be repainted on a language switch.
   var statusState = null; // { ci, co, nights, adults, children }
+
+  // Read-only accessor so assets/js/booking-payment.js can pick up the
+  // guest's chosen dates/guests without duplicating this page's date logic.
+  window.JPark = window.JPark || {};
+  window.JPark.bookingSearchState = function () { return statusState; };
+
+  // Mark any room sold out for the searched dates (capacity filtering above
+  // only rules out rooms too small for the party — this closes the gap for
+  // rooms that fit but have zero physical units left for those nights).
+  function applyAvailability(checkIn, checkOut) {
+    var API = window.JPark && window.JPark.api;
+    if (!API) return;
+    API.get('/api/v1/booking-availability?checkIn=' + encodeURIComponent(checkIn) + '&checkOut=' + encodeURIComponent(checkOut))
+      .then(function (result) {
+        if (!result || result.error) return; // fail open: don't block booking on a network hiccup
+        Array.prototype.forEach.call(gridEl.querySelectorAll('.rr-card'), function (card) {
+          var room = card.dataset.room;
+          var remaining = result[room];
+          var soldOut = remaining != null && remaining <= 0;
+          card.classList.toggle('rr-soldout', soldOut);
+          var badge = card.querySelector('.rr-soldout-badge');
+          if (badge) badge.hidden = !soldOut;
+          var bookBtn = card.querySelector('.rr-book-btn');
+          if (bookBtn) bookBtn.disabled = soldOut;
+        });
+      })
+      .catch(function () {});
+  }
+
   function refreshStatus() {
     if (!statusState || statusEl.hidden) return;
     var s = statusState;
@@ -808,6 +883,7 @@
     refreshStatus();
 
     renderRooms(filtered, nights);
+    applyAvailability(ci, co);
 
     setTimeout(function () {
       gridEl.scrollIntoView({ behavior: 'smooth', block: 'start' });

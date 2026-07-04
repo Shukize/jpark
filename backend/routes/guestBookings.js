@@ -46,10 +46,21 @@ function hotelRecipients() {
 // Build a hotel-facing "new booking" notice from a booking row. Sent to the front
 // desk inbox so staff see every OTA / direct reservation as it arrives, mirroring
 // the Guest Booking entry in the staff console.
+function paymentLabel(bk) {
+  if (!bk.payment_status || bk.payment_status === 'n/a') return null;
+  const method = bk.payment_method === 'promptpay' ? 'PromptPay' : bk.payment_method === 'card' ? 'Card' : bk.payment_provider || 'Online';
+  const statusWord = bk.payment_status === 'paid' ? 'Paid'
+    : bk.payment_status === 'pending' ? 'Awaiting payment'
+    : bk.payment_status === 'failed' ? 'Failed'
+    : bk.payment_status;
+  return `${method} — ${statusWord}`;
+}
+
 function hotelNotice(bk) {
   const money = bk.total != null ? `${bk.total} ${bk.currency || 'THB'}` : '—';
   const guests = `${bk.adults} adult(s), ${bk.children} child(ren)`;
   const via = bk.channel_name || bk.channel || 'Direct';
+  const payment = paymentLabel(bk);
   const lines = [
     `New booking via ${via}.`,
     '',
@@ -63,6 +74,7 @@ function hotelNotice(bk) {
     `Nights: ${bk.nights}`,
     `Guests: ${guests}`,
     `Total: ${money}`,
+    ...(payment ? [`Payment: ${payment}`] : []),
     '',
     'This reservation is now in the Guest Booking inbox of the staff console.',
   ];
@@ -81,6 +93,7 @@ function hotelNotice(bk) {
     `<tr><td style="padding:4px 12px 4px 0;color:#555">Nights</td><td style="padding:4px 0">${bk.nights}</td></tr>` +
     `<tr><td style="padding:4px 12px 4px 0;color:#555">Guests</td><td style="padding:4px 0">${guests}</td></tr>` +
     `<tr><td style="padding:4px 12px 4px 0;color:#555">Total</td><td style="padding:4px 0">${money}</td></tr>` +
+    (payment ? `<tr><td style="padding:4px 12px 4px 0;color:#555">Payment</td><td style="padding:4px 0">${payment}</td></tr>` : '') +
     `</table>` +
     `<p style="color:#555">This reservation is now in the <strong>Guest Booking</strong> inbox of the staff console.</p>` +
     `</div>`;
@@ -89,8 +102,16 @@ function hotelNotice(bk) {
 
 // Build a plain confirmation email from a booking row. Kept simple and English;
 // the staff console can still send a localised follow-up via POST /api/email.
+const DEPOSIT_NOTE_TEXT =
+  'Please note: a 200 THB deposit for your room key card is collected in cash at check-in (cash only) and refunded in full at check-out.';
+const DEPOSIT_NOTE_HTML =
+  '<p style="background:#fbf3df;border:1px solid #e0c178;border-radius:8px;padding:10px 14px;color:#5a4a1a">' +
+  '<strong>Please note:</strong> a 200 THB deposit for your room key card is collected in <strong>cash only</strong> at check-in, and refunded in full at check-out.' +
+  '</p>';
+
 function confirmationEmail(bk) {
   const money = bk.total != null ? `${bk.total} ${bk.currency || 'THB'}` : '—';
+  const payment = paymentLabel(bk);
   const lines = [
     `Dear ${bk.guest_name || 'Guest'},`,
     '',
@@ -103,6 +124,9 @@ function confirmationEmail(bk) {
     `Nights: ${bk.nights}`,
     `Guests: ${bk.adults} adult(s), ${bk.children} child(ren)`,
     `Total: ${money}`,
+    ...(payment ? [`Payment: ${payment}`] : []),
+    '',
+    DEPOSIT_NOTE_TEXT,
     '',
     'We look forward to welcoming you. Reply to this email if you need anything before arrival.',
     '',
@@ -122,7 +146,9 @@ function confirmationEmail(bk) {
     `<tr><td style="padding:4px 12px 4px 0;color:#555">Nights</td><td style="padding:4px 0">${bk.nights}</td></tr>` +
     `<tr><td style="padding:4px 12px 4px 0;color:#555">Guests</td><td style="padding:4px 0">${bk.adults} adult(s), ${bk.children} child(ren)</td></tr>` +
     `<tr><td style="padding:4px 12px 4px 0;color:#555">Total</td><td style="padding:4px 0">${money}</td></tr>` +
+    (payment ? `<tr><td style="padding:4px 12px 4px 0;color:#555">Payment</td><td style="padding:4px 0">${payment}</td></tr>` : '') +
     `</table>` +
+    DEPOSIT_NOTE_HTML +
     `<p>We look forward to welcoming you. Just reply to this email if you need anything before arrival.</p>` +
     `<p style="color:#0f766e;font-weight:bold;margin-top:24px">J Park Hotel, Chonburi</p>` +
     `</div>`;
@@ -151,6 +177,10 @@ function row2js(r) {
     status: r.status,
     lang: r.lang,
     confirmation: r.confirmation,
+    paymentProvider: r.payment_provider,
+    paymentMethod: r.payment_method,
+    paymentStatus: r.payment_status,
+    paymentChargeId: r.payment_charge_id,
     readBy: r.read_by || [],
     createdAt: new Date(r.created_at).getTime(),
     updatedAt: r.updated_at ? new Date(r.updated_at).getTime() : null,
@@ -245,8 +275,9 @@ async function ingestGuestBooking(b) {
     `INSERT INTO guest_bookings
        (ref, channel, channel_name, channel_email, guest_name, guest_last_name,
         guest_email, guest_phone, room, check_in, check_out, nights, adults,
-        children, total, currency, status, lang, confirmation)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
+        children, total, currency, status, lang, confirmation,
+        payment_provider, payment_method, payment_status, payment_charge_id)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)
      ON CONFLICT (ref) DO UPDATE SET
        status = EXCLUDED.status,
        updated_at = NOW()
@@ -271,6 +302,10 @@ async function ingestGuestBooking(b) {
       b.status || 'confirmed',
       b.lang || 'en',
       b.confirmation || b.body || null,
+      b.paymentProvider || b.payment_provider || null,
+      b.paymentMethod || b.payment_method || null,
+      b.paymentStatus || b.payment_status || 'n/a',
+      b.paymentChargeId || b.payment_charge_id || null,
     ]
   );
   const saved = rows[0];
@@ -353,5 +388,13 @@ function computeNights(ci, co) {
 }
 
 module.exports = router;
-// Shared with routes/otaEmail.js (the email-forwarding bridge).
+// Shared with routes/otaEmail.js (the email-forwarding bridge) and
+// routes/payments.js (the online booking + card/PromptPay flow), so every
+// intake path renders identically in the staff console and sends the same
+// hotel-notice / guest-confirmation emails (including the deposit note).
 module.exports.ingestGuestBooking = ingestGuestBooking;
+module.exports.row2js = row2js;
+module.exports.fireBookingEmails = fireBookingEmails;
+module.exports.hotelNotice = hotelNotice;
+module.exports.confirmationEmail = confirmationEmail;
+module.exports.computeNights = computeNights;

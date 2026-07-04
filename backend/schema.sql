@@ -163,6 +163,18 @@ CREATE TRIGGER trg_guest_bookings_updated_at
   BEFORE UPDATE ON guest_bookings
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
+-- Payment columns (online booking + Omise/Opn Payments). NULL / 'n/a' for
+-- OTA and manual bookings, which never go through the site's own payment flow.
+ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS payment_provider  VARCHAR(20);
+ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS payment_method    VARCHAR(20);
+ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS payment_status    VARCHAR(20) NOT NULL DEFAULT 'n/a';
+ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS payment_charge_id VARCHAR(100);
+
+-- Used by the availability check (payments.js) to count overlapping bookings
+-- per room type for a date range.
+CREATE INDEX IF NOT EXISTS idx_guest_bookings_room_dates
+  ON guest_bookings (room, check_in, check_out);
+
 -- ── Chat messages (guest ↔ front-desk) ──────────────────────────────────────
 CREATE TABLE IF NOT EXISTS chat_messages (
   id                  SERIAL       PRIMARY KEY,

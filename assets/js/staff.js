@@ -1660,6 +1660,19 @@
     const v = t(k);
     return v === k ? (s.charAt(0).toUpperCase() + s.slice(1)) : v;
   }
+  // Payment method + status for bookings taken through the site's own
+  // Omise checkout — blank for OTA/manual bookings (paymentStatus "n/a"),
+  // so staff can tell at a glance whether a "direct" booking was actually paid.
+  function bkPaymentLabel(b) {
+    if (!b.paymentStatus || b.paymentStatus === "n/a") return "";
+    const methodKey = b.paymentMethod === "promptpay" ? "msg.bk.payment.promptpay"
+      : b.paymentMethod === "card" ? "msg.bk.payment.card" : "";
+    const method = methodKey ? t(methodKey) : (b.paymentProvider || "");
+    const statusKey = "msg.bk.payment.status." + b.paymentStatus;
+    const statusVal = t(statusKey);
+    const status = statusVal === statusKey ? b.paymentStatus : statusVal;
+    return method ? (method + " — " + status) : status;
+  }
 
   function renderBookingList() {
     const listArea = document.getElementById("msgListArea");
@@ -1733,6 +1746,7 @@
     fields += bookingField("msg.bk.adults", b.adults);
     if (b.children) fields += bookingField("msg.bk.children", b.children);
     fields += bookingField("msg.bk.total", totalStr);
+    fields += bookingField("msg.bk.payment", bkPaymentLabel(b));
     fields += bookingField("msg.bk.statusLabel", bkStatusLabel(b.status));
 
     detailArea.innerHTML =

@@ -46,6 +46,22 @@ services:
         # Front-desk inbox that receives a notice for every new booking that
         # lands in the Guest Booking system. Comma-separate for multiple staff.
         value: jparkhotel1@gmail.com
+      - key: OMISE_PUBLIC_KEY
+        # Omise/Opn Payments public key (pkey_test_... or pkey_...). Safe to
+        # expose to the browser — used client-side to tokenize card numbers.
+        # Until this is set, the booking page's online-payment step stays
+        # disabled and falls back to the existing call/email note.
+        sync: false
+      - key: OMISE_SECRET_KEY
+        # Omise/Opn Payments secret key (skey_test_... or skey_...). Server-side
+        # only — never expose this to the frontend.
+        sync: false
+      - key: OMISE_WEBHOOK_SECRET
+        # Optional shared secret appended to the Omise webhook URL as ?key=...
+        # (e.g. https://jpark.onrender.com/api/v1/payments/webhook?key=...).
+        # Leave unset for local/demo; every webhook is re-verified against the
+        # Omise API regardless, so this is a secondary, not primary, guard.
+        sync: false
 
   # The public website is served solely by GitHub Pages (free) — primary URL
   # shukize.github.io/jpark, custom domain jparkhotel.com. The former
