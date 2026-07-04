@@ -39,6 +39,9 @@
     justify-content: center;
     padding: 32px 20px;
   }
+  @media (max-width: 480px) {
+    body { padding-top: 64px; }
+  }
   .card {
     width: 100%;
     max-width: 480px;
@@ -92,10 +95,6 @@
     color: var(--ink-soft);
     font-size: 0.95rem;
     line-height: 1.6;
-    margin: 0 0 6px;
-  }
-  .lede.th {
-    font-size: 0.9rem;
     margin: 0 0 26px;
   }
 
@@ -150,6 +149,59 @@
   }
   .admin-login:hover { opacity: 1; text-decoration: underline; }
 
+  .lang-switch {
+    position: fixed;
+    top: 14px;
+    left: 16px;
+  }
+  .lang-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 7px 12px;
+    font-family: var(--sans);
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--ink);
+    cursor: pointer;
+  }
+  .lang-btn .globe { font-size: 0.9rem; }
+  .lang-btn .caret { font-size: 0.6rem; opacity: 0.6; }
+  .lang-menu {
+    list-style: none;
+    margin: 6px 0 0;
+    padding: 6px;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    min-width: 140px;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    box-shadow: 0 16px 40px -12px rgba(7, 61, 59, 0.28);
+    display: none;
+  }
+  .lang-menu.open { display: block; }
+  .lang-menu li + li { margin-top: 2px; }
+  .lang-menu button {
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: 0;
+    border-radius: 8px;
+    padding: 7px 10px;
+    font-family: var(--sans);
+    font-size: 0.82rem;
+    color: var(--ink);
+    cursor: pointer;
+  }
+  .lang-menu button:hover { background: var(--ivory); }
+  .lang-menu button[aria-current="true"] { color: var(--teal-deep); font-weight: 700; }
+
   @media (prefers-color-scheme: dark) {
     html, body { background: radial-gradient(circle at 50% -10%, #12312f 0%, #0b201f 55%, #081716 100%); color: #ece7db; }
     .card { background: #10302e; box-shadow: 0 24px 70px -20px rgba(0,0,0,0.55); }
@@ -160,12 +212,31 @@
     .contact { border-color: rgba(255,255,255,0.14); }
     .maint-icon { background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.14); }
     .footer-note { color: #cfc9b8; }
+    .lang-btn, .lang-menu { background: #10302e; border-color: rgba(255,255,255,0.14); color: #ece7db; }
+    .lang-menu button { color: #ece7db; }
+    .lang-menu button:hover { background: rgba(255,255,255,0.08); }
+    .lang-menu button[aria-current="true"] { color: var(--gold-light); }
   }
 </style>
 </head>
 <body>
 
-  <a class="admin-login" href="staff.html">Admin Login</a>
+  <div class="lang-switch" id="langSwitch">
+    <button class="lang-btn" id="langBtn" aria-haspopup="true" aria-expanded="false">
+      <span class="globe" aria-hidden="true">&#127760;</span>
+      <span id="langCurrent">ไทย</span>
+      <span class="caret" aria-hidden="true">&#9662;</span>
+    </button>
+    <ul class="lang-menu" id="langMenu" role="menu">
+      <li><button type="button" data-lang="th" role="menuitem">ไทย</button></li>
+      <li><button type="button" data-lang="en" role="menuitem">English</button></li>
+      <li><button type="button" data-lang="ja" role="menuitem">日本語</button></li>
+      <li><button type="button" data-lang="zh-Hans" role="menuitem">简体中文</button></li>
+      <li><button type="button" data-lang="zh-Hant" role="menuitem">繁體中文</button></li>
+    </ul>
+  </div>
+
+  <a class="admin-login" href="staff.html"><span id="mAdminLogin">Admin Login</span></a>
 
   <div class="card">
     <div class="brand">
@@ -178,21 +249,20 @@
 
     <div class="maint-icon" aria-hidden="true">🛠️</div>
 
-    <h1>We'll be back shortly</h1>
-    <p class="lede">Our website is currently undergoing scheduled maintenance. Thank you for your patience — please check back again soon.</p>
-    <p class="lede th">เว็บไซต์ของเรากำลังอยู่ระหว่างการปรับปรุง ขออภัยในความไม่สะดวก กรุณากลับมาเยี่ยมชมอีกครั้งในภายหลัง</p>
+    <h1 id="mTitle">We'll be back shortly</h1>
+    <p class="lede" id="mLede">Our website is currently undergoing scheduled maintenance. Thank you for your patience — please check back again soon.</p>
 
     <div class="contact">
       <div class="contact-row">
-        <span class="contact-label">Phone</span>
+        <span class="contact-label" id="mPhoneLabel">Phone</span>
         <a href="tel:+66863260664">+66 086 326 0664</a>
       </div>
       <div class="contact-row">
-        <span class="contact-label">Email</span>
+        <span class="contact-label" id="mEmailLabel">Email</span>
         <a href="mailto:jparkhotel1@gmail.com">jparkhotel1@gmail.com</a>
       </div>
       <div class="contact-row">
-        <span class="contact-label">Address</span>
+        <span class="contact-label" id="mAddressLabel">Address</span>
         88/88 Thanon Sukprayun, Na Pa,<br />Mueang Chonburi District, Chon Buri 20000, Thailand
       </div>
     </div>
@@ -200,6 +270,111 @@
     <p class="footer-note">&copy; <span id="yr"></span> J Park Hotel, Chonburi</p>
   </div>
 
-  <script>document.getElementById('yr').textContent = new Date().getFullYear();</script>
+  <script>
+  (function () {
+    "use strict";
+
+    var T = {
+      en: {
+        title: "We'll be back shortly",
+        lede: "Our website is currently undergoing scheduled maintenance. Thank you for your patience — please check back again soon.",
+        phone: "Phone", email: "Email", address: "Address", adminLogin: "Admin Login"
+      },
+      th: {
+        title: "เว็บไซต์ปิดปรับปรุงชั่วคราว",
+        lede: "เว็บไซต์ของเรากำลังอยู่ระหว่างการปรับปรุง ขออภัยในความไม่สะดวก กรุณากลับมาเยี่ยมชมอีกครั้งในภายหลัง",
+        phone: "โทรศัพท์", email: "อีเมล", address: "ที่อยู่", adminLogin: "เข้าสู่ระบบผู้ดูแล"
+      },
+      ja: {
+        title: "ただいまメンテナンス中です",
+        lede: "現在、当ウェブサイトは計画的なメンテナンスのため一時的にご利用いただけません。ご迷惑をおかけしますが、しばらくしてから再度アクセスください。",
+        phone: "電話番号", email: "メール", address: "住所", adminLogin: "管理者ログイン"
+      },
+      "zh-Hans": {
+        title: "网站维护中",
+        lede: "我们的网站目前正在进行例行维护。给您带来不便，敬请谅解，请稍后再访问。",
+        phone: "电话", email: "邮箱", address: "地址", adminLogin: "管理员登录"
+      },
+      "zh-Hant": {
+        title: "網站維護中",
+        lede: "我們的網站目前正在進行例行維護。造成不便，敬請見諒，請稍後再訪問。",
+        phone: "電話", email: "電子郵件", address: "地址", adminLogin: "管理員登入"
+      }
+    };
+    var LABELS = { th: "ไทย", en: "English", ja: "日本語", "zh-Hans": "简体中文", "zh-Hant": "繁體中文" };
+    var SUPPORTED = ["th", "en", "ja", "zh-Hans", "zh-Hant"];
+
+    function normalise(raw) {
+      if (!raw) return null;
+      var l = raw.toLowerCase();
+      if (l.indexOf("th") === 0) return "th";
+      if (l.indexOf("ja") === 0) return "ja";
+      if (l.indexOf("en") === 0) return "en";
+      if (l.indexOf("zh") === 0) {
+        if (l.indexOf("hant") >= 0 || l.indexOf("tw") >= 0 || l.indexOf("hk") >= 0 || l.indexOf("mo") >= 0) return "zh-Hant";
+        return "zh-Hans";
+      }
+      return null;
+    }
+
+    function detect() {
+      var saved = null;
+      try { saved = localStorage.getItem("jpark.lang"); } catch (_) {}
+      if (saved && SUPPORTED.indexOf(saved) >= 0) return saved;
+      var cands = (navigator.languages && navigator.languages.length) ? navigator.languages : [navigator.language];
+      for (var i = 0; i < cands.length; i++) {
+        var m = normalise(cands[i]);
+        if (m) return m;
+      }
+      return "th";
+    }
+
+    function apply(lang) {
+      var d = T[lang] || T.th;
+      document.documentElement.lang = lang;
+      document.getElementById("mTitle").textContent = d.title;
+      document.getElementById("mLede").textContent = d.lede;
+      document.getElementById("mPhoneLabel").textContent = d.phone;
+      document.getElementById("mEmailLabel").textContent = d.email;
+      document.getElementById("mAddressLabel").textContent = d.address;
+      document.getElementById("mAdminLogin").textContent = d.adminLogin;
+      document.getElementById("langCurrent").textContent = LABELS[lang];
+      var buttons = document.querySelectorAll("#langMenu button");
+      for (var i = 0; i < buttons.length; i++) {
+        buttons[i].setAttribute("aria-current", buttons[i].getAttribute("data-lang") === lang ? "true" : "false");
+      }
+    }
+
+    function setLang(lang) {
+      try { localStorage.setItem("jpark.lang", lang); } catch (_) {}
+      apply(lang);
+    }
+
+    document.addEventListener("DOMContentLoaded", function () {
+      apply(detect());
+      document.getElementById("yr").textContent = new Date().getFullYear();
+
+      var btn = document.getElementById("langBtn");
+      var menu = document.getElementById("langMenu");
+      btn.addEventListener("click", function (e) {
+        e.stopPropagation();
+        var open = menu.classList.toggle("open");
+        btn.setAttribute("aria-expanded", open ? "true" : "false");
+      });
+      var buttons = document.querySelectorAll("#langMenu button");
+      for (var i = 0; i < buttons.length; i++) {
+        buttons[i].addEventListener("click", function (e) {
+          setLang(e.currentTarget.getAttribute("data-lang"));
+          menu.classList.remove("open");
+          btn.setAttribute("aria-expanded", "false");
+        });
+      }
+      document.addEventListener("click", function () {
+        menu.classList.remove("open");
+        btn.setAttribute("aria-expanded", "false");
+      });
+    });
+  })();
+  </script>
 </body>
 </html>
