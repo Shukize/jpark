@@ -396,5 +396,6 @@ module.exports.ingestGuestBooking = ingestGuestBooking;
 module.exports.row2js = row2js;
 module.exports.fireBookingEmails = fireBookingEmails;
 module.exports.hotelNotice = hotelNotice;
+module.exports.hotelRecipients = hotelRecipients;
 module.exports.confirmationEmail = confirmationEmail;
 module.exports.computeNights = computeNights;

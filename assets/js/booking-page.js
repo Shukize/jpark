@@ -4,6 +4,14 @@
   // Room types and 2026 General rates (per room / night, THB), in display order.
   // Each variant: { label, room: Room-only, bf: Room + American Breakfast }.
   // `folder` matches the media registry set id (room:<folder>) and captions key.
+  //
+  // These are FALLBACK/BASE numbers, live-overridden at load time by
+  // applyRateOverrides() below (fetched from GET /api/rates — the same admin
+  // edits saved via the Site Editor's Rates tab that backend/lib/rateOverrides.js
+  // uses as the real, authoritative price). Adding a brand-new room/variant
+  // still means editing this array AND the matching ROOMS object in
+  // backend/lib/roomRates.js by hand — overrides only ever adjust numbers for
+  // a room+variant key that already exists in both files.
   var ROOMS = [
     {
       name: 'Studio Single', folder: 'Studio Single',
@@ -11,6 +19,14 @@
       size: '37 m²', maxGuests: 2,
       amenities: ['Single Bed', 'Work Desk', 'Rainfall Shower', 'Smart TV', 'Air Conditioning', 'Free Wi-Fi'],
       variants: [{ label: 'Single', room: 990, bf: 1110 }],
+    },
+    {
+      // folder aliases 'Studio Single' — same physical room, no dedicated photo set.
+      name: 'Studio Twin', folder: 'Studio Single',
+      nameKey: 'rooms.studioTwinName', descKey: 'rooms.studioDesc',
+      size: '37 m²', maxGuests: 2,
+      amenities: ['Twin Beds', 'Work Desk', 'Rainfall Shower', 'Smart TV', 'Air Conditioning', 'Free Wi-Fi'],
+      variants: [{ label: 'Twin', room: 990, bf: 1300 }],
     },
     {
       name: 'Prestige Single', folder: 'Prestige Single',
@@ -80,7 +96,7 @@
       nameKey: 'rooms.execSuite1brName', descKey: 'rooms.execSuiteDesc',
       size: '75 m²', maxGuests: 4,
       amenities: ['1 Bedroom', 'Living & Dining Room', 'Kitchen', 'Smart TV', 'Air Conditioning', 'Free Wi-Fi'],
-      variants: [{ label: '1 Bedroom', room: 1850, bf: 1970 }],
+      variants: [{ label: '1 Bedroom', room: 1850, bf: 1970 }, { label: '2 Bedrooms', room: 2100, bf: 2410 }],
     },
     {
       name: 'Premium Suite', folder: 'Premium Suite',
@@ -810,6 +826,37 @@
 
   // Initial paint
   renderAll();
+
+  // Merge live admin rate overrides (backend/routes/rates.js, edited via the
+  // Site Editor's Rates tab) into the static ROOMS mirror. Mutates variant
+  // objects in place so booking-payment.js's state (captured from these same
+  // objects at "Book Now" click time) automatically reflects the merge too.
+  // Purely a display convenience — the real charge is always recomputed
+  // server-side from the same source (backend/lib/rateOverrides.js),
+  // independent of what this fetch returns.
+  function applyRateOverrides(rooms) {
+    if (!rooms || typeof rooms !== 'object') return;
+    ROOMS.forEach(function (room) {
+      var effective = rooms[room.name];
+      if (!effective || !effective.variants) return;
+      room.variants.forEach(function (v) {
+        var ov = effective.variants.filter(function (ev) { return ev.label === v.label; })[0];
+        if (!ov) return;
+        if (typeof ov.room === 'number' && isFinite(ov.room) && ov.room > 0 && ov.room <= 100000) v.room = ov.room;
+        if (typeof ov.bf === 'number' && isFinite(ov.bf) && ov.bf > 0 && ov.bf <= 100000) v.bf = ov.bf;
+      });
+    });
+  }
+
+  (function loadRates() {
+    var API = window.JPark && window.JPark.api;
+    if (!API) return;
+    API.get('/api/rates').then(function (res) {
+      if (!res || res.error) return; // fail closed to the static defaults already in ROOMS
+      applyRateOverrides(res.rooms);
+      renderAll(); // repaint any already-drawn cards with corrected prices
+    }).catch(function () {});
+  })();
 
   // --- Search status bar ---
   // Remembered so the summary text can be repainted on a language switch.

@@ -9,8 +9,9 @@
 
    Security notes:
    - The client only ever tells us WHICH room/variant/dates it wants; the
-     price is always recomputed here from lib/roomRates.js. Never trust a
-     client-supplied amount.
+     price is always recomputed here from lib/rateOverrides.js (which merges
+     lib/roomRates.js's static base rates with any live admin edits saved via
+     the Site Editor's Rates tab). Never trust a client-supplied amount.
    - Card numbers never reach this server — only the Omise.js browser
      token (tokn_...) does.
    - Omise webhooks are not cryptographically signed, so on receipt we
@@ -21,10 +22,14 @@ const crypto = require('crypto');
 const db = require('../db');
 const omise = require('../lib/omise');
 const roomRates = require('../lib/roomRates');
+const rateOverrides = require('../lib/rateOverrides');
+const { sendEmail } = require('../mailer');
 const {
   row2js,
   fireBookingEmails,
   computeNights,
+  hotelNotice,
+  hotelRecipients,
 } = require('./guestBookings');
 
 const router = express.Router();
@@ -66,8 +71,8 @@ function safeReturnUri(candidateOrigin, bookingId) {
   return `${origin}/booking.html?omise_return=1&bookingId=${encodeURIComponent(bookingId)}`;
 }
 
-function computeTotal(room, variantLabel, breakfast, nights) {
-  const variant = roomRates.getVariant(room, variantLabel);
+async function computeTotal(room, variantLabel, breakfast, nights) {
+  const variant = await rateOverrides.getEffectiveVariant(room, variantLabel);
   if (!variant) return null;
   const rate = breakfast ? variant.bf : variant.room;
   return rate * nights;
@@ -158,7 +163,7 @@ router.post('/payments/charge', async (req, res) => {
   }
 
   const nights = computeNights(checkIn, checkOut);
-  const total = computeTotal(room, variantLabel, breakfast, nights);
+  const total = await computeTotal(room, variantLabel, breakfast, nights);
   if (total == null) return res.status(400).json({ error: 'Unknown room variant' });
   const amountSatang = Math.round(total * 100);
 
@@ -279,6 +284,164 @@ router.post('/payments/charge', async (req, res) => {
   } catch (e) {
     try { await client.query('ROLLBACK'); } catch (_) {}
     console.error('[payments] charge', e);
+    res.status(500).json({ error: 'Database error' });
+  } finally {
+    client.release();
+  }
+});
+
+// A pending manual booking never goes through fireBookingEmails() (that
+// helper only ever fires for status 'confirmed') so it sends its own pair:
+// the same hotel front-desk notice every other booking gets, plus a guest
+// acknowledgment explaining payment is still owed, not yet confirmed.
+function manualGuestEmail(bk) {
+  const money = bk.total != null ? `${bk.total} ${bk.currency || 'THB'}` : '—';
+  const methodWord = bk.payment_method === 'cash' ? 'cash at check-in' : 'PromptPay';
+  const lines = [
+    `Dear ${bk.guest_name || 'Guest'},`,
+    '',
+    `Thank you for your reservation request at J Park Hotel, Chonburi (Ref: ${bk.ref}).`,
+    '',
+    `Room: ${bk.room || '—'}`,
+    `Check-in: ${bk.check_in}`,
+    `Check-out: ${bk.check_out}`,
+    `Nights: ${bk.nights}`,
+    `Guests: ${bk.adults} adult(s), ${bk.children} child(ren)`,
+    `Total: ${money} (payable by ${methodWord})`,
+    '',
+    'This reservation is PENDING until we confirm your payment — please complete it via the PromptPay QR shown on the booking page, or have cash ready at check-in.',
+    '',
+    'Please note: a separate 200 THB deposit for your room key card is collected in cash only at check-in, and refunded in full at check-out.',
+    '',
+    'We will confirm your reservation by phone or email once payment is received. Reply to this email if you need anything before then.',
+    '',
+    'J Park Hotel, Chonburi',
+  ];
+  const text = lines.join('\n');
+  const html =
+    `<div style="font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;line-height:1.5">` +
+    `<h2 style="color:#0f766e;margin:0 0 12px">Reservation request received</h2>` +
+    `<p>Dear ${bk.guest_name || 'Guest'},</p>` +
+    `<p>Thank you for your reservation request at <strong>J Park Hotel, Chonburi</strong> (Ref: <strong>${bk.ref}</strong>).</p>` +
+    `<table style="border-collapse:collapse;margin:16px 0">` +
+    `<tr><td style="padding:4px 12px 4px 0;color:#555">Room</td><td style="padding:4px 0">${bk.room || '—'}</td></tr>` +
+    `<tr><td style="padding:4px 12px 4px 0;color:#555">Check-in</td><td style="padding:4px 0">${bk.check_in}</td></tr>` +
+    `<tr><td style="padding:4px 12px 4px 0;color:#555">Check-out</td><td style="padding:4px 0">${bk.check_out}</td></tr>` +
+    `<tr><td style="padding:4px 12px 4px 0;color:#555">Nights</td><td style="padding:4px 0">${bk.nights}</td></tr>` +
+    `<tr><td style="padding:4px 12px 4px 0;color:#555">Guests</td><td style="padding:4px 0">${bk.adults} adult(s), ${bk.children} child(ren)</td></tr>` +
+    `<tr><td style="padding:4px 12px 4px 0;color:#555">Total</td><td style="padding:4px 0">${money} (payable by ${methodWord})</td></tr>` +
+    `</table>` +
+    `<p style="background:#fbf3df;border:1px solid #e0c178;border-radius:8px;padding:10px 14px;color:#5a4a1a">` +
+    `<strong>This reservation is pending</strong> until we confirm your payment — please complete it via the PromptPay QR shown on the booking page, or have cash ready at check-in.</p>` +
+    `<p style="background:#fbf3df;border:1px solid #e0c178;border-radius:8px;padding:10px 14px;color:#5a4a1a">` +
+    `<strong>Please note:</strong> a separate 200 THB deposit for your room key card is collected in <strong>cash only</strong> at check-in, and refunded in full at check-out.</p>` +
+    `<p>We will confirm your reservation by phone or email once payment is received.</p>` +
+    `<p style="color:#0f766e;font-weight:bold;margin-top:24px">J Park Hotel, Chonburi</p>` +
+    `</div>`;
+  return { text, html };
+}
+
+function sendManualBookingEmails(saved) {
+  const to = hotelRecipients();
+  if (to.length) {
+    const { text, html } = hotelNotice(saved);
+    sendEmail({
+      to,
+      subject: `New booking request (pending) — Direct (${saved.ref})`,
+      text,
+      html,
+      replyTo: saved.guest_email || undefined,
+    }).catch((err) => console.error('[payments] manual-booking hotel notice error', err));
+  }
+  if (saved.guest_email) {
+    const { text, html } = manualGuestEmail(saved);
+    sendEmail({
+      to: saved.guest_email,
+      subject: `J Park Hotel — reservation request received (${saved.ref})`,
+      text,
+      html,
+    }).catch((err) => console.error('[payments] manual-booking guest email error', err));
+  }
+}
+
+/* POST /payments/manual-booking — interim flow for while Omise isn't
+   configured (or whenever a guest prefers to pay by the hotel's static
+   PromptPay QR or cash on arrival instead of the card/Omise-PromptPay
+   flow). Takes no payment itself: it records a PENDING booking that holds
+   the room via the same overlap/inventory guard as /payments/charge, and
+   emails both the front desk and the guest so staff can confirm by hand
+   once payment is verified. Reuses computeTotal() so the recorded total
+   already reflects any live admin rate overrides, same as the paid flow. */
+router.post('/payments/manual-booking', async (req, res) => {
+  const ip = req.ip || 'unknown';
+  if (rateLimited(ip)) {
+    return res.status(429).json({ error: 'Too many requests. Please try again later.' });
+  }
+
+  const b = req.body || {};
+  const guest = b.guest || {};
+  const { room, variantLabel, checkIn, checkOut } = b;
+  const breakfast = Boolean(b.breakfast);
+  const adults = b.adults != null ? Number(b.adults) : 1;
+  const children = b.children != null ? Number(b.children) : 0;
+  const method = b.method === 'cash' ? 'cash' : 'promptpay_manual';
+
+  if (!room || !variantLabel || !checkIn || !checkOut) {
+    return res.status(400).json({ error: 'room, variantLabel, checkIn and checkOut are required' });
+  }
+  if (!guest.firstName || !guest.email) {
+    return res.status(400).json({ error: 'Guest name and email are required' });
+  }
+
+  const roomInfo = roomRates.getRoom(room);
+  if (!roomInfo) return res.status(400).json({ error: 'Unknown room type' });
+  if (adults + children > roomInfo.maxGuests) {
+    return res.status(400).json({ error: 'Too many guests for this room type' });
+  }
+
+  const nights = computeNights(checkIn, checkOut);
+  const total = await computeTotal(room, variantLabel, breakfast, nights);
+  if (total == null) return res.status(400).json({ error: 'Unknown room variant' });
+
+  const guestName = String(guest.firstName || 'Guest').trim();
+  const guestLastName = guest.lastName ? String(guest.lastName).trim() : null;
+
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('SELECT pg_advisory_xact_lock(hashtext($1)::bigint)', [room]);
+
+    const cnt = await countOverlapping(client, room, checkIn, checkOut);
+    if (cnt >= roomRates.getInventory(room)) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({ error: 'Sorry, this room type is fully booked for those dates.' });
+    }
+
+    const ref = genRef();
+    const { rows } = await client.query(
+      `INSERT INTO guest_bookings
+         (ref, channel, channel_name, guest_name, guest_last_name, guest_email, guest_phone,
+          room, check_in, check_out, nights, adults, children, total, currency, status, lang,
+          payment_provider, payment_method, payment_status)
+       VALUES ($1,'direct','Direct (Website)',$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'THB','pending',$13,
+               'manual',$14,'pending')
+       RETURNING *`,
+      [
+        ref, guestName, guestLastName, guest.email, guest.phone || null,
+        room, checkIn, checkOut, nights, adults, children, total,
+        b.lang || 'en',
+        method,
+      ]
+    );
+    await client.query('COMMIT');
+    const saved = rows[0];
+
+    sendManualBookingEmails(saved);
+
+    res.status(201).json({ status: 'pending_manual', booking: row2js(saved) });
+  } catch (e) {
+    try { await client.query('ROLLBACK'); } catch (_) {}
+    console.error('[payments] manual-booking', e);
     res.status(500).json({ error: 'Database error' });
   } finally {
     client.release();

@@ -234,7 +234,12 @@ h1, h2, h3 { font-weight: 500; line-height: 1.12; letter-spacing: 0.01em; }
 .hb-value { font-size: 0.9rem; font-weight: 500; color: var(--ivory); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .hb-value.hb-placeholder { font-size: 0.84rem; font-weight: 400; color: rgba(247,242,232,0.38); }
 .hb-date-ghost { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; z-index: 3; font-size: 16px; }
-.hb-guests-row { display: flex; align-items: center; gap: 10px; }
+/* .hb-field-text (parent) sets pointer-events:none so clicks on the
+   Arrival/Departure text pass through to the invisible .hb-date-ghost input
+   on top of it — but the Guests stepper lives in that same wrapper class and
+   has no ghost input to fall through to, so it needs pointer-events
+   explicitly restored or its +/- buttons are inert. */
+.hb-guests-row { display: flex; align-items: center; gap: 10px; pointer-events: auto; }
 .hb-step {
   position: relative; z-index: 4;
   width: 24px; height: 24px; border-radius: 50%;

@@ -239,3 +239,13 @@ INSERT INTO site_content (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
 -- Site-wide maintenance mode: when TRUE, guest pages (index.html, booking.html)
 -- redirect to maintenance.html. Toggled from the admin-only panel in staff.html.
 ALTER TABLE site_content ADD COLUMN IF NOT EXISTS maintenance_mode BOOLEAN NOT NULL DEFAULT FALSE;
+
+-- Admin-editable room-rate overrides (room-only/breakfast prices per room +
+-- variant), saved from the Site Editor's Rates tab. Shape:
+--   { [roomName]: { [variantLabel]: { room: number, bf: number } } }
+-- Sparse — a room/variant with no override simply doesn't appear. Only ever
+-- overrides numbers for room/variant keys that already exist in
+-- backend/lib/roomRates.js — never injects new room/variant keys, and never
+-- touches maxGuests or inventory. See backend/lib/rateOverrides.js and
+-- backend/routes/rates.js for the validation/merge rules.
+ALTER TABLE site_content ADD COLUMN IF NOT EXISTS rates JSONB NOT NULL DEFAULT '{}';

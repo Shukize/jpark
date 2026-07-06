@@ -94,10 +94,13 @@ Open **Staff console → Site Editor**. Everything updates the live public site 
 | **Website text** | Pick the editing language, search or browse grouped sections, and edit any string. Each field is labelled with its **plain-language location** ("📍 Rooms › Grand Suite Name") and keeps the raw key as a tooltip, so you always know what you're editing. Saving **auto-translates** the change into the other four languages via the live translation service so all languages match (you can still hand-edit any language). Click a group thumbnail, or a field's **View on site ↗**, to open that spot on the live site — the brand intro is skipped and the text (or the whole section) is highlighted with a banner so you see it instantly. |
 | **Photos & videos** | Open any section to **add / replace / reorder / remove** its photos. Uploads (≤ 4 MB, stored as data URLs) or pasted image/video links. The current photos are shown so you always see what's live. |
 | **Colours** | Recolour the whole site (primary / accent / gold). |
+| **Rates** | Edit room-only and room-with-breakfast prices per room type and bed configuration. Unlike every other tab, this is **not** cosmetic: Save writes straight to the database (`GET`/`PUT /api/rates`) and is used immediately to compute real guest charges (`backend/routes/payments.js` via `backend/lib/rateOverrides.js`). There is no "Undo all my edits" for rates — check a number before saving. |
 | **Sections** | Show/hide whole sections, post an announcement banner, "Undo all my edits", and "Reset all demo data". |
 | **Previous edits** | Audit log of every change — who, what and when (newest first). |
 
-Edits are stored in the `content` table in `localStorage`: text in `content.overrides[lang][key]`, photos in `content.media[setId]`, plus `content.theme`, `content.hidden` and `content.editLog`. **Undo all my edits** clears them and restores the shipped defaults. Auto-translation needs an internet connection; if it's unavailable the other languages keep their current text and can be edited by hand.
+Website text, photo/gallery and colour edits are stored in the `content` table in `localStorage`: text in `content.overrides[lang][key]`, photos in `content.media[setId]`, plus `content.theme`, `content.hidden` and `content.editLog`. **Undo all my edits** clears them and restores the shipped defaults for those tabs. Auto-translation needs an internet connection; if it's unavailable the other languages keep their current text and can be edited by hand.
+
+**Room rates are the one exception.** They live in a dedicated `rates` column on the server's `site_content` table, not in `localStorage` — edits are saved via `PUT /api/rates` (admin-only, validated against the known room/variant list and a sane price range) and read back via `GET /api/rates`, which both `booking.html` and the Rates tab use so the displayed price always matches what a guest is actually charged. They are unaffected by "Undo all my edits."
 
 ---
 
@@ -318,21 +321,31 @@ in the payment step and in every booking-confirmation email (OTA and direct
 alike) — it's a separate, unrelated line item from the online room payment.
 
 - The server, never the browser, computes the authoritative price
-  (`backend/lib/roomRates.js`) — the client only says which room/dates it
-  wants.
+  (`backend/lib/rateOverrides.js`, merging the static base rates in
+  `backend/lib/roomRates.js` with any live admin edits from the Site
+  Editor's **Rates** tab) — the client only says which room/dates it wants.
 - A lightweight **overbooking guard**: a fixed room count per type
-  (`ROOM_INVENTORY` in `roomRates.js` — **placeholder numbers, must be set to
-  the real counts before go-live**) is checked against confirmed + in-progress
-  bookings for the requested dates.
+  (`ROOM_INVENTORY` in `roomRates.js`) is checked against confirmed +
+  in-progress bookings for the requested dates. Set intentionally high (999)
+  per type — the owner doesn't consider overbooking a real risk for this
+  property — so it never realistically blocks a booking; lower the numbers
+  if that changes.
 - Card payments that need 3-D Secure redirect to the bank and back
   automatically; PromptPay shows a QR and polls until paid. Both land in the
   same `guest_bookings` table and the same staff **Guest Booking** inbox as
   OTA reservations, with a `channel: "direct"` and a payment status badge
   (Card/PromptPay — Paid / Awaiting payment / Failed).
-- **Not live yet** — no Omise account/keys exist. Until `OMISE_PUBLIC_KEY` /
-  `OMISE_SECRET_KEY` are set, the booking page's payment step shows a
-  "launching soon" message and the existing call/email fallback; nothing is
-  broken by leaving it unset.
+- **Card/Omise-PromptPay checkout isn't live yet** — no Omise account/keys
+  exist. Until `OMISE_PUBLIC_KEY` / `OMISE_SECRET_KEY` are set, the booking
+  page's payment step instead shows the hotel's static **PromptPay QR**
+  (`images/promptpay-qr.png`) plus a cash-on-arrival option
+  (`assets/js/booking-payment.js`'s `renderManual()`). Submitting this form
+  posts to `POST /api/v1/payments/manual-booking`, which takes no payment
+  itself — it holds the room (same overlap/inventory guard as the paid
+  flow) and records a `pending` booking with `payment_provider: 'manual'`
+  for staff to confirm by hand once they see a matching PromptPay transfer
+  or collect cash at check-in. Both the front desk and the guest get an
+  email explaining the booking is pending, not confirmed.
 
 Full setup (creating the Omise account, env vars, the webhook, Omise's test
 card numbers, correcting the room counts, going live) is in
@@ -460,6 +473,8 @@ Set these in the Render dashboard (Environment tab — all are `sync:false` in
 | `DELETE /api/messages/:id` | Delete a message (admin only) |
 | `GET/POST /api/employees` | Staff roster management |
 | `GET/PUT /api/content` | Site Editor overrides (text, media, theme) |
+| `GET/PUT /api/rates` | Site Editor **Rates** tab — live room-rate overrides; `GET` is public (read by `booking.html` too), `PUT` is admin-only and validated (see [`backend/routes/rates.js`](backend/routes/rates.js)) |
+| `POST /api/v1/payments/manual-booking` | Interim PromptPay-QR/cash booking flow used while Omise isn't configured — records a *pending* booking for staff to confirm by hand (see [Online booking & payments](#online-booking--payments)) |
 | `POST /api/v1/ota-sync` | OTA / channel-manager webhook intake (structured JSON, assigns a room) |
 | `POST /api/v1/ota-email` | OTA **email-forwarding** bridge — parses a forwarded confirmation email into the Guest Booking inbox |
 | `GET /api/v1/payments/config` | Returns the Omise public key (or `null` if not yet configured) |

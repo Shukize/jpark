@@ -279,6 +279,7 @@
             <li><b data-i18n="staff.guide.s4t">Manage photos &amp; videos</b><span data-i18n="staff.guide.s4b">On the Photos &amp; videos tab, open any section to add, replace, reorder, or remove photos and videos. Upload a photo from your computer or paste an image or video link.</span></li>
             <li><b data-i18n="staff.guide.s5t">Colours &amp; sections</b><span data-i18n="staff.guide.s5b">Recolour the whole site on the Colours tab, and show/hide sections or post an announcement banner on the Sections tab.</span></li>
             <li><b data-i18n="staff.guide.s6t">See the history</b><span data-i18n="staff.guide.s6b">The Previous edits tab lists every change with who made it and when, so the team can track what has been updated.</span></li>
+            <li><b data-i18n="staff.guide.s7t">Rates are live, not cosmetic</b><span data-i18n="staff.guide.s7b">Unlike every other tab, changes on the Rates tab affect real guest charges the moment you click Save — there is no draft step and no "Undo all my edits" safety net for rates.</span></li>
           </ol>
           <div class="guide-tip">
             <b data-i18n="staff.guide.tipTitle">Good to know</b>
@@ -286,6 +287,7 @@
               <li data-i18n="staff.guide.tip1">Open the website in a second tab and keep it beside this one — your edits appear there live as you save.</li>
               <li data-i18n="staff.guide.tip2">A field left exactly as the original stores nothing — only your real changes are kept.</li>
               <li data-i18n="staff.guide.tip3">Auto-translation uses an online service; if it is unavailable the other languages keep their current text and you can edit them by hand.</li>
+              <li data-i18n="staff.guide.tip4">The Rates tab is the one exception to "nothing is permanent" — double-check a number before saving, since it takes effect on the very next booking.</li>
             </ul>
           </div>
           <a href="index.html" target="_blank" rel="noopener" class="btn btn-ghost dark" data-i18n="staff.guide.openSite">Open the website ↗</a>
@@ -297,6 +299,7 @@
         <button type="button" class="ed-tab active" data-edtab="text" data-i18n="staff.site.tabText">Website text</button>
         <button type="button" class="ed-tab" data-edtab="photos" data-i18n="staff.site.tabPhotos">Photos &amp; videos</button>
         <button type="button" class="ed-tab" data-edtab="theme" data-i18n="staff.site.tabTheme">Colours</button>
+        <button type="button" class="ed-tab" data-edtab="rates" data-i18n="staff.site.tabRates">Rates</button>
         <button type="button" class="ed-tab" data-edtab="layout" data-i18n="staff.site.tabLayout">Sections</button>
         <button type="button" class="ed-tab" data-edtab="history" data-i18n="staff.site.tabHistory">Previous edits</button>
       </div>
@@ -337,6 +340,16 @@
           <h3 data-i18n="staff.site.theme">Colours &amp; theme</h3>
           <div class="ed-colors" id="edColors"></div>
           <button class="btn btn-ghost dark" id="edResetTheme" data-i18n="staff.site.resetTheme">Reset colours</button>
+        </div>
+      </div>
+
+      <!-- RATES TAB -->
+      <div class="ed-tabpane" data-edpane="rates">
+        <div class="editor-card">
+          <h3 data-i18n="staff.site.rates">Room rates</h3>
+          <p class="ed-hint" data-i18n="staff.site.ratesHint">Room-only and room-with-breakfast prices per room type and bed configuration, in Thai Baht per night. Unlike every other tab, changes here affect real guest charges immediately once saved — there is no draft or preview step.</p>
+          <div id="edRates"></div>
+          <button type="button" class="btn btn-solid" id="edRatesSave" data-i18n="staff.site.ratesSave">Save rates</button>
         </div>
       </div>
 

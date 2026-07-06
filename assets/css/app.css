@@ -532,6 +532,14 @@ textarea.ed-field-input { resize: vertical; line-height: 1.5; }
 .ed-color { display: flex; align-items: center; gap: 10px; font-size: 0.9rem; font-weight: 500; color: var(--ink); cursor: pointer; }
 .ed-color input[type="color"] { width: 46px; height: 36px; border: 1.5px solid var(--line); border-radius: 10px; background: #fff; cursor: pointer; padding: 2px; }
 
+/* ---------- Site Editor: rates ---------- */
+#edRates { display: flex; flex-direction: column; gap: 10px; margin-bottom: 18px; }
+.ed-rate-row { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; background: var(--paper); padding: 10px 14px; border-radius: 10px; }
+.ed-rate-label { flex: 1 1 260px; font-size: 0.88rem; font-weight: 600; color: var(--ink); }
+.ed-rate-field { display: flex; flex-direction: column; gap: 4px; font-size: 0.76rem; color: var(--ink-soft); }
+.ed-rate-field input { width: 110px; padding: 6px 8px; border: 1.5px solid var(--line); border-radius: 8px; font-size: 0.9rem; }
+.ed-rate-field input.ed-rate-invalid { border-color: var(--terracotta-d, #b8552e); }
+
 @media (max-width: 760px) {
   .ed-toolbar { flex-direction: column; }
   .ed-img { flex-direction: column; }

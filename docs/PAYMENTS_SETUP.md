@@ -2,7 +2,8 @@
 
 How the booking page's "Book Now" flow takes real card and PromptPay
 payments. Code lives in `backend/lib/omise.js`, `backend/lib/roomRates.js`,
-`backend/routes/payments.js`, and `assets/js/booking-payment.js`.
+`backend/lib/rateOverrides.js`, `backend/routes/payments.js`, and
+`assets/js/booking-payment.js`.
 
 ---
 
@@ -10,9 +11,13 @@ payments. Code lives in `backend/lib/omise.js`, `backend/lib/roomRates.js`,
 
 No Omise account exists yet. Until `OMISE_PUBLIC_KEY` / `OMISE_SECRET_KEY`
 are set, `GET /api/v1/payments/config` returns `publicKey: null` and the
-booking page's "Book Now" button shows a "launching soon" message with the
-existing call/email fallback — the site behaves exactly as it does today.
-Nothing breaks by leaving this unset.
+booking page's "Book Now" button shows the hotel's static PromptPay QR
+(`images/promptpay-qr.png`) with a cash-on-arrival option instead of the
+card/Omise-PromptPay form (`assets/js/booking-payment.js`'s `renderManual()`).
+Submitting it posts to `POST /api/v1/payments/manual-booking`
+(`backend/routes/payments.js`) — no charge is taken; it records a `pending`
+booking for staff to confirm by hand once payment is verified. Nothing
+breaks by leaving Omise unset.
 
 ## 1. Create the Omise account
 
@@ -76,14 +81,14 @@ Verify after a test booking:
 - The booking shows up in staff.html → Messages → Guest Booking, with the
   same payment line visible in the detail view.
 
-## 5. Correct the room inventory counts before go-live
+## 5. Room inventory counts
 
-`backend/lib/roomRates.js`'s `ROOM_INVENTORY` map is seeded with
-placeholder counts (5 per standard room, 3 per suite) purely so the
-overbooking check has *something* to compare against. **Replace these with
-the real number of physical rooms of each type** — wrong numbers here don't
-crash anything, but too low blocks bookings that should be allowed, and too
-high risks overselling a room type.
+`backend/lib/roomRates.js`'s `ROOM_INVENTORY` map feeds the overbooking
+guard. The owner has said overbooking isn't a real concern for this
+property, so every room type is set to a high placeholder (999) — the guard
+stays wired up (so nothing has to change in the payment code) but never
+realistically blocks a booking. If that changes, replace the 999s with the
+real physical room counts per type.
 
 ## 6. Go live
 

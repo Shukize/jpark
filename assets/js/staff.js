@@ -53,6 +53,7 @@
     { title: "nav.onsen",              prefixes: ["onsen."],                                   section: "onsen",      thumb: "onsenMen" },
     { title: "nav.dining",             prefixes: ["dining.", "menu."],                         section: "dining",     thumb: "tsubaki" },
     { title: "nav.coffee",             prefixes: ["coffee."],                                  section: "coffee",     thumb: "coffee" },
+    { title: "staff.site.grpChat",     prefixes: ["chat."],                                    section: "coffee",     thumb: "coffee" },
     { title: "nav.gallery",            prefixes: ["gallery."],                                 section: "gallery",    thumb: "hotel" },
     { title: "staff.site.grpServices", prefixes: ["services.", "matrix.", "rs.", "gate.", "track."], section: "services", thumb: "hotel" },
     { title: "nav.concierge",          prefixes: ["conc."],                                    section: "concierge",  thumb: "hotel" },
@@ -2161,6 +2162,7 @@
     renderContentGroups();
     renderMediaSets();
     renderColors();
+    renderRates();
     renderAnnouncements();
     renderSectionToggles();
     renderHistory();
@@ -2809,6 +2811,110 @@
     S.write("content", c);
     renderColors();
     U.toast(t("staff.site.saved"), "success");
+  }
+
+  /* ---- room rates (Site Editor "Rates" tab) ----
+     Unlike every other Site Editor tab, this data is server-authoritative
+     (site_content.rates via GET/PUT /api/rates, backend/routes/rates.js) —
+     it's the real price backend/routes/payments.js charges guests, not a
+     cosmetic localStorage-only override. Loaded once and cached; Save
+     submits the whole tab's current values in one PUT (not autosave-on-blur,
+     so a fat-fingered field can never silently go live). */
+  const RATE_MIN = 0;
+  const RATE_MAX = 100000;
+  let ratesData = null; // { [room]: { maxGuests, variants: [{label, room, bf, overridden}] } }
+  let ratesWired = false;
+
+  function validRateInput(n) {
+    return typeof n === "number" && isFinite(n) && n > RATE_MIN && n <= RATE_MAX;
+  }
+
+  async function renderRates() {
+    const wrap = document.getElementById("edRates");
+    if (!wrap) return;
+    if (!ratesData) {
+      wrap.innerHTML = '<p class="muted">' + esc(t("staff.site.ratesLoading")) + "</p>";
+      const res = await J.api.get("/api/rates");
+      if (J.api.isOffline(res) || !res || res.error || !res.rooms) {
+        wrap.innerHTML = '<p class="muted">' + esc(t("staff.site.ratesError")) + "</p>";
+        return;
+      }
+      ratesData = res.rooms;
+    }
+    buildRatesRows(wrap);
+    wireRatesSave();
+  }
+
+  function buildRatesRows(wrap) {
+    wrap.innerHTML = "";
+    Object.keys(ratesData).forEach((roomName) => {
+      const room = ratesData[roomName];
+      (room.variants || []).forEach((v) => {
+        const row = document.createElement("div");
+        row.className = "ed-rate-row";
+
+        const label = document.createElement("div");
+        label.className = "ed-rate-label";
+        label.textContent = roomName + " — " + v.label + (v.overridden ? " *" : "");
+        row.appendChild(label);
+
+        const roomField = document.createElement("label");
+        roomField.className = "ed-rate-field";
+        const roomInput = document.createElement("input");
+        roomInput.type = "number"; roomInput.min = "1"; roomInput.max = String(RATE_MAX);
+        roomInput.value = v.room;
+        roomInput.dataset.room = roomName; roomInput.dataset.variant = v.label; roomInput.dataset.field = "room";
+        roomField.appendChild(document.createTextNode(t("staff.site.ratesRoomOnly")));
+        roomField.appendChild(roomInput);
+
+        const bfField = document.createElement("label");
+        bfField.className = "ed-rate-field";
+        const bfInput = document.createElement("input");
+        bfInput.type = "number"; bfInput.min = "1"; bfInput.max = String(RATE_MAX);
+        bfInput.value = v.bf;
+        bfInput.dataset.room = roomName; bfInput.dataset.variant = v.label; bfInput.dataset.field = "bf";
+        bfField.appendChild(document.createTextNode(t("staff.site.ratesWithBreakfast")));
+        bfField.appendChild(bfInput);
+
+        row.appendChild(roomField);
+        row.appendChild(bfField);
+        wrap.appendChild(row);
+      });
+    });
+  }
+
+  function wireRatesSave() {
+    const btn = document.getElementById("edRatesSave");
+    if (!btn || ratesWired) return;
+    ratesWired = true;
+    btn.addEventListener("click", async () => {
+      const wrap = document.getElementById("edRates");
+      if (!wrap) return;
+      const inputs = wrap.querySelectorAll("input[data-room]");
+      const payload = {};
+      let hasError = false;
+      inputs.forEach((inp) => {
+        inp.classList.remove("ed-rate-invalid");
+        const val = Number(inp.value);
+        if (!validRateInput(val)) { inp.classList.add("ed-rate-invalid"); hasError = true; return; }
+        const r = inp.dataset.room, v = inp.dataset.variant, f = inp.dataset.field;
+        payload[r] = payload[r] || {};
+        payload[r][v] = payload[r][v] || {};
+        payload[r][v][f] = val;
+      });
+      if (hasError) { U.toast(t("staff.site.ratesError"), "error"); return; }
+
+      btn.disabled = true;
+      const res = await J.api.put("/api/rates", { rates: payload });
+      btn.disabled = false;
+      if (J.api.isOffline(res) || !res || res.error) {
+        U.toast((res && res.error) || t("staff.site.ratesError"), "error");
+        return;
+      }
+      ratesData = res.rooms;
+      buildRatesRows(wrap);
+      U.toast(t("staff.site.ratesSaved"), "success");
+    });
   }
 
   /* ---- announcements ---- */

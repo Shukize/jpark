@@ -9,6 +9,11 @@
    Card payments that require 3-D Secure redirect the whole page to the
    issuing bank and back (?omise_return=1&bookingId=...); on load this file
    detects that and resumes by polling the booking's payment status.
+
+   While Omise isn't configured (no publicKey — see loadConfig/open below),
+   renderManual() replaces the card/PromptPay form with a static PromptPay
+   QR + cash option that posts to POST /api/v1/payments/manual-booking
+   instead of /payments/charge — see backend/routes/payments.js.
    ============================================================ */
 (function () {
   'use strict';
@@ -53,6 +58,13 @@
       'bk.pay.done': 'Done',
       'bk.pay.unavailableTitle': 'Online payment is launching soon',
       'bk.pay.unavailableText': 'We are not yet taking online payments for this room. Please call or email us and we will gladly confirm your reservation directly.',
+      'bk.pay.manualTitle': 'Reserve now, pay by PromptPay or cash',
+      'bk.pay.manualQrCaption': 'Scan with your banking app to pay by PromptPay, or pay cash at check-in — we will confirm your reservation by phone or email.',
+      'bk.pay.manualMethodPromptpay': 'I’ll pay by PromptPay (scan the QR)',
+      'bk.pay.manualMethodCash': 'I’ll pay cash on arrival',
+      'bk.pay.manualSubmit': 'Send reservation request',
+      'bk.pay.manualSuccessTitle': 'Request received — pending confirmation',
+      'bk.pay.manualSuccessNote': 'Please complete payment via the PromptPay QR or cash as indicated above. We will confirm your reservation by phone or email once payment is received.',
       'bk.pay.err.required': 'Please fill in your first name and email.',
       'bk.pay.err.cardFields': 'Please fill in all card details.',
       'bk.pay.err.cardGeneric': 'Your card could not be processed. Please check the details and try again.',
@@ -84,6 +96,13 @@
       'bk.pay.done': 'เสร็จสิ้น',
       'bk.pay.unavailableTitle': 'การชำระเงินออนไลน์กำลังจะเปิดให้บริการเร็วๆ นี้',
       'bk.pay.unavailableText': 'เรายังไม่เปิดรับชำระเงินออนไลน์สำหรับห้องนี้ กรุณาโทรหรืออีเมลถึงเรา เรายินดียืนยันการจองให้ท่านโดยตรง',
+      'bk.pay.manualTitle': 'จองเลย ชำระด้วยพร้อมเพย์หรือเงินสด',
+      'bk.pay.manualQrCaption': 'สแกนด้วยแอปธนาคารของท่านเพื่อชำระผ่านพร้อมเพย์ หรือชำระเป็นเงินสด ณ วันเช็คอิน — เราจะยืนยันการจองของท่านทางโทรศัพท์หรืออีเมล',
+      'bk.pay.manualMethodPromptpay': 'ชำระด้วยพร้อมเพย์ (สแกน QR)',
+      'bk.pay.manualMethodCash': 'ชำระเป็นเงินสดเมื่อถึงที่พัก',
+      'bk.pay.manualSubmit': 'ส่งคำขอจอง',
+      'bk.pay.manualSuccessTitle': 'ได้รับคำขอแล้ว — รอการยืนยัน',
+      'bk.pay.manualSuccessNote': 'กรุณาชำระเงินผ่าน QR พร้อมเพย์หรือเงินสดตามที่ระบุไว้ข้างต้น เราจะยืนยันการจองของท่านทางโทรศัพท์หรืออีเมลเมื่อได้รับการชำระเงินแล้ว',
       'bk.pay.err.required': 'กรุณากรอกชื่อและอีเมลของท่าน',
       'bk.pay.err.cardFields': 'กรุณากรอกข้อมูลบัตรให้ครบถ้วน',
       'bk.pay.err.cardGeneric': 'ไม่สามารถดำเนินการกับบัตรของท่านได้ กรุณาตรวจสอบข้อมูลแล้วลองใหม่',
@@ -115,6 +134,13 @@
       'bk.pay.done': '完了',
       'bk.pay.unavailableTitle': 'オンライン決済は近日公開予定です',
       'bk.pay.unavailableText': 'この客室のオンライン決済はまだ対応しておりません。お電話またはメールにてご連絡いただければ、直接ご予約を確定いたします。',
+      'bk.pay.manualTitle': '今すぐご予約 — プロンプトペイまたは現金でお支払い',
+      'bk.pay.manualQrCaption': '銀行アプリでQRコードをスキャンしてプロンプトペイでお支払いいただくか、チェックイン時に現金でお支払いください — お電話またはメールにてご予約を確認いたします。',
+      'bk.pay.manualMethodPromptpay': 'プロンプトペイで支払う（QRをスキャン）',
+      'bk.pay.manualMethodCash': '到着時に現金で支払う',
+      'bk.pay.manualSubmit': '予約リクエストを送信',
+      'bk.pay.manualSuccessTitle': 'リクエストを受け付けました — 確認待ち',
+      'bk.pay.manualSuccessNote': '上記のプロンプトペイQRまたは現金にてお支払いください。お支払い確認後、お電話またはメールにてご予約を確定いたします。',
       'bk.pay.err.required': 'お名前とメールアドレスをご入力ください。',
       'bk.pay.err.cardFields': 'カード情報をすべてご入力ください。',
       'bk.pay.err.cardGeneric': 'カードを処理できませんでした。内容をご確認のうえ再度お試しください。',
@@ -146,6 +172,13 @@
       'bk.pay.done': '完成',
       'bk.pay.unavailableTitle': '在线支付即将上线',
       'bk.pay.unavailableText': '此房型暂未开放在线支付，请致电或发送邮件给我们，我们将很乐意为您直接确认预订。',
+      'bk.pay.manualTitle': '立即预订，使用 PromptPay 或现金支付',
+      'bk.pay.manualQrCaption': '使用您的银行App扫描二维码以PromptPay支付，或于入住时支付现金——我们将通过电话或邮件为您确认预订。',
+      'bk.pay.manualMethodPromptpay': '使用 PromptPay 支付（扫描二维码）',
+      'bk.pay.manualMethodCash': '到店支付现金',
+      'bk.pay.manualSubmit': '发送预订请求',
+      'bk.pay.manualSuccessTitle': '已收到请求 — 待确认',
+      'bk.pay.manualSuccessNote': '请通过上述PromptPay二维码或现金完成付款。收到付款后，我们将通过电话或邮件为您确认预订。',
       'bk.pay.err.required': '请填写您的名字和电子邮箱。',
       'bk.pay.err.cardFields': '请填写完整的银行卡信息。',
       'bk.pay.err.cardGeneric': '无法处理您的银行卡，请检查信息后重试。',
@@ -177,6 +210,13 @@
       'bk.pay.done': '完成',
       'bk.pay.unavailableTitle': '線上付款即將上線',
       'bk.pay.unavailableText': '此房型暫未開放線上付款，請致電或發送郵件給我們，我們將很樂意為您直接確認預訂。',
+      'bk.pay.manualTitle': '立即預訂，使用 PromptPay 或現金付款',
+      'bk.pay.manualQrCaption': '使用您的銀行App掃描二維碼以PromptPay付款，或於入住時支付現金——我們將透過電話或郵件為您確認預訂。',
+      'bk.pay.manualMethodPromptpay': '使用 PromptPay 付款（掃描二維碼）',
+      'bk.pay.manualMethodCash': '到店支付現金',
+      'bk.pay.manualSubmit': '傳送預訂請求',
+      'bk.pay.manualSuccessTitle': '已收到請求 — 待確認',
+      'bk.pay.manualSuccessNote': '請透過上述PromptPay二維碼或現金完成付款。收到付款後，我們將透過電話或郵件為您確認預訂。',
       'bk.pay.err.required': '請填寫您的名字和電子郵箱。',
       'bk.pay.err.cardFields': '請填寫完整的銀行卡資訊。',
       'bk.pay.err.cardGeneric': '無法處理您的銀行卡，請檢查資訊後重試。',
@@ -263,19 +303,157 @@
   function currentRate() { var v = currentVariant(); return state.breakfast ? v.bf : v.room; }
   function currentTotal() { return currentRate() * state.nights; }
 
-  function renderUnavailable() {
+  // Shown instead of the card/PromptPay form while Omise isn't configured
+  // (no publicKey — see open()). Rather than just telling the guest to call
+  // or email (the old behavior), this collects the same room/guest details
+  // and lets them scan the hotel's static PromptPay QR or pay cash on
+  // arrival; POST /api/v1/payments/manual-booking records a *pending*
+  // booking for staff to confirm by hand once payment is verified — see
+  // backend/routes/payments.js for that endpoint.
+  function renderManual() {
+    var v = currentVariant();
+    var guestsStr = countWord(state.adults, 'bk.gAdult1', 'bk.gAdultN') +
+      (state.children > 0 ? ' · ' + countWord(state.children, 'bk.gChild1', 'bk.gChildN') : '');
+
+    var variantHTML = state.variants.length > 1
+      ? '<div class="bkp-field"><label class="bkp-label">' + TR('bk.pay.roomType') + '</label>' +
+          '<div class="bkp-radio-row" id="bkpVariantRow">' +
+          state.variants.map(function (vv, i) {
+            return '<label class="bkp-radio"><input type="radio" name="bkpVariant" value="' + i + '"' +
+              (i === state.variantIndex ? ' checked' : '') + '> ' + esc(vv.label) + '</label>';
+          }).join('') +
+          '</div></div>'
+      : '';
+
     box.innerHTML =
       '<div class="bkp-head"><span class="bkp-title">' + esc(state.roomDisplayName) + '</span>' +
         '<button type="button" class="bkp-close" aria-label="' + TR('bk.pay.close') + '">&times;</button></div>' +
-      '<div class="bkp-body"><div class="bkp-view">' +
-        '<h3 class="bkp-unavail-title">' + TR('bk.pay.unavailableTitle') + '</h3>' +
-        '<p>' + TR('bk.pay.unavailableText') + '</p>' +
-        '<p class="bkp-fallback-note">' +
+      '<div class="bkp-body">' +
+      '<div class="bkp-view" id="bkpViewForm">' +
+
+        '<div class="bkp-summary">' +
+          '<div class="bkp-summary-row"><span>' + fmtDate(state.checkIn) + ' &rarr; ' + fmtDate(state.checkOut) + '</span><span>' + nightsWord(state.nights) + '</span></div>' +
+          '<div class="bkp-summary-row bkp-summary-guests">' + guestsStr + '</div>' +
+        '</div>' +
+
+        '<h3 class="bkp-unavail-title">' + TR('bk.pay.manualTitle') + '</h3>' +
+
+        variantHTML +
+
+        '<div class="bkp-field"><div class="bkp-radio-row" id="bkpBreakfastRow">' +
+          '<label class="bkp-radio"><input type="radio" name="bkpBreakfast" value="0"' + (!state.breakfast ? ' checked' : '') + '> ' + TR('bk.roomOnly') + ' — ' + money(v.room) + '</label>' +
+          '<label class="bkp-radio"><input type="radio" name="bkpBreakfast" value="1"' + (state.breakfast ? ' checked' : '') + '> ' + TR('bk.withBreakfast') + ' — ' + money(v.bf) + '</label>' +
+        '</div></div>' +
+
+        '<div class="bkp-total-row"><span>' + TR('bk.pay.total') + '</span><strong id="bkpTotal">' + money(currentTotal()) + '</strong></div>' +
+
+        '<div class="bkp-guest-fields">' +
+          '<p class="bkp-section-label">' + TR('bk.pay.guestDetails') + '</p>' +
+          '<div class="bkp-grid-2">' +
+            '<div class="bkp-field"><label>' + TR('bk.pay.firstName') + '</label><input id="bkpFirstName" autocomplete="given-name"></div>' +
+            '<div class="bkp-field"><label>' + TR('bk.pay.lastName') + '</label><input id="bkpLastName" autocomplete="family-name"></div>' +
+          '</div>' +
+          '<div class="bkp-field"><label>' + TR('bk.pay.email') + '</label><input type="email" id="bkpEmail" autocomplete="email"></div>' +
+          '<div class="bkp-field"><label>' + TR('bk.pay.phone') + '</label><input type="tel" id="bkpPhone" autocomplete="tel"></div>' +
+          '<div class="bkp-field"><label>' + TR('bk.pay.note') + '</label><textarea id="bkpNote" rows="2" placeholder="' + esc(TR('bk.pay.notePlaceholder')) + '"></textarea></div>' +
+        '</div>' +
+
+        '<div class="bkp-deposit-note"><strong>' + TR('bk.pay.depositTitle') + ':</strong> ' + TR('bk.pay.depositNote') + '</div>' +
+
+        '<div class="bkp-manual-qr">' +
+          '<img src="images/promptpay-qr.jpg" alt="PromptPay QR code" class="bkp-qr-img" />' +
+          '<p class="bkp-pp-note">' + TR('bk.pay.manualQrCaption') + '</p>' +
+        '</div>' +
+
+        '<div class="bkp-field"><div class="bkp-radio-row" id="bkpManualMethodRow">' +
+          '<label class="bkp-radio"><input type="radio" name="bkpManualMethod" value="promptpay_manual" checked> ' + TR('bk.pay.manualMethodPromptpay') + '</label>' +
+          '<label class="bkp-radio"><input type="radio" name="bkpManualMethod" value="cash"> ' + TR('bk.pay.manualMethodCash') + '</label>' +
+        '</div></div>' +
+
+        '<p class="bkp-form-error" id="bkpFormError" hidden></p>' +
+
+        '<button type="button" class="btn btn-solid bkp-submit-btn" id="bkpSubmitBtn">' + TR('bk.pay.manualSubmit') + '</button>' +
+        '<p class="bkp-fallback-note">' + TR('bk.pay.fallback1') +
           '<a href="tel:+66863260664">' + TR('bk.pay.fallbackCall') + '</a>' + TR('bk.pay.fallback2') +
           '<a href="mailto:jparkhotel1@gmail.com">' + TR('bk.pay.fallbackEmail') + '</a>' + TR('bk.pay.fallback3') +
         '</p>' +
-      '</div></div>';
+      '</div>' +
+      resultViewsHTML() +
+      '</div>';
+
+    wireManualForm();
+  }
+
+  function updateManualTotals() {
+    var totalEl = qs('#bkpTotal');
+    if (totalEl) totalEl.textContent = money(currentTotal());
+    var v = currentVariant();
+    var row = qs('#bkpBreakfastRow');
+    if (row) {
+      var labels = row.querySelectorAll('.bkp-radio');
+      if (labels[0]) labels[0].lastChild.textContent = ' ' + TR('bk.roomOnly') + ' — ' + money(v.room);
+      if (labels[1]) labels[1].lastChild.textContent = ' ' + TR('bk.withBreakfast') + ' — ' + money(v.bf);
+    }
+  }
+
+  function wireManualForm() {
     qs('.bkp-close').addEventListener('click', close);
+    var variantRow = qs('#bkpVariantRow');
+    if (variantRow) {
+      variantRow.addEventListener('change', function (e) {
+        if (e.target.name === 'bkpVariant') {
+          state.variantIndex = parseInt(e.target.value, 10);
+          updateManualTotals();
+        }
+      });
+    }
+    qs('#bkpBreakfastRow').addEventListener('change', function (e) {
+      if (e.target.name === 'bkpBreakfast') {
+        state.breakfast = e.target.value === '1';
+        updateManualTotals();
+      }
+    });
+    qs('#bkpSubmitBtn').addEventListener('click', onManualSubmit);
+  }
+
+  function setManualSubmitting(isSubmitting) {
+    var btn = qs('#bkpSubmitBtn');
+    if (btn) {
+      btn.disabled = isSubmitting;
+      btn.textContent = isSubmitting ? TR('bk.pay.processingText') : TR('bk.pay.manualSubmit');
+    }
+  }
+
+  function onManualSubmit() {
+    clearFormError();
+    if (!validateGuestFields()) return;
+    var methodEl = box.querySelector('input[name="bkpManualMethod"]:checked');
+    var method = methodEl ? methodEl.value : 'promptpay_manual';
+    var v = currentVariant();
+    var body = {
+      room: state.room,
+      variantLabel: v.label,
+      breakfast: state.breakfast,
+      checkIn: state.checkIn,
+      checkOut: state.checkOut,
+      adults: state.adults,
+      children: state.children,
+      guest: guestPayload(),
+      lang: I ? I.getLang() : 'en',
+      method: method,
+    };
+    setManualSubmitting(true);
+    window.JPark.api.post('/api/v1/payments/manual-booking', body).then(function (r) {
+      if (!r || r.error) {
+        setManualSubmitting(false);
+        showFormError((r && r.status === 409) ? TR('bk.pay.err.soldOut') : ((r && r.error) || TR('bk.pay.err.generic')));
+        return;
+      }
+      showSuccess(r.booking.ref, { pending: true });
+    }).catch(function () {
+      setManualSubmitting(false);
+      showFormError(TR('bk.pay.err.network'));
+    });
   }
 
   function renderForm() {
@@ -576,10 +754,20 @@
     pollStatus(bookingId);
   }
 
-  function showSuccess(ref) {
+  // `opts.pending` swaps in the "request received, awaiting confirmation"
+  // copy used by the manual PromptPay/cash flow (renderManual/onManualSubmit)
+  // in place of the default "booking confirmed" copy used by the Omise
+  // card/PromptPay flow.
+  function showSuccess(ref, opts) {
     showView('bkpViewSuccess');
     var refEl = qs('#bkpRefText');
     if (refEl) refEl.textContent = ref;
+    if (opts && opts.pending) {
+      var titleEl = qs('#bkpViewSuccess h3');
+      var noteEl = qs('#bkpViewSuccess .bkp-success-note');
+      if (titleEl) titleEl.textContent = TR('bk.pay.manualSuccessTitle');
+      if (noteEl) noteEl.textContent = TR('bk.pay.manualSuccessNote');
+    }
     var doneBtn = qs('#bkpDoneBtn');
     if (doneBtn) doneBtn.addEventListener('click', close);
   }
@@ -643,7 +831,7 @@
     loadConfig().then(function (cfg) {
       if (!state) return; // closed before config resolved
       if (!cfg || !cfg.publicKey) {
-        renderUnavailable();
+        renderManual();
       } else {
         renderForm();
       }
