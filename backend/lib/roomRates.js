@@ -19,23 +19,42 @@
    kept in sync by hand for anything beyond a plain number tweak.
    ============================================================ */
 
-// name -> { maxGuests, variants: [{ label, room, bf }] }
-// `room` = room-only THB/night, `bf` = room + breakfast THB/night.
+// Two flat, room-wide surcharges (THB/night), layered on top of a variant's
+// room/bf rate based on total guest count (adults+children). Both numbers
+// happen to match a pattern already baked into every room's own bf delta
+// (every "2-breakfast" variant is exactly +190 over its "1-breakfast"
+// sibling — see git history / the 2026 rate card) — a 3rd breakfast guest
+// continues that same +190 step. These two numbers are also admin-editable
+// via the Site Editor's Rates tab (site_content.surcharges) — see
+// backend/lib/rateOverrides.js's getEffectiveSurcharges().
+const DEFAULT_SURCHARGES = {
+  extraBed: 500,            // physical rollaway bed for a 3rd guest, per night
+  extraBreakfastGuest: 190, // each guest beyond the variant's base 2, per night, when breakfast is selected
+};
+
+// name -> { maxGuests, extraBedAvailable, variants: [{ label, room, bf }] }
+// `room` = room-only THB/night, `bf` = room + breakfast THB/night (for the
+// variant's base occupancy — 1 guest for Single/1 Bedroom, 2 for Twin/
+// Double/2 Bedrooms). `extraBedAvailable`: whether a 3rd guest can be added
+// via a paid rollaway bed (DEFAULT_SURCHARGES.extraBed) — false for rooms
+// too small to physically fit one; those rooms can still take a 3rd guest
+// (maxGuests already reflects that) but only pay the breakfast surcharge,
+// never the bed surcharge. See backend/routes/payments.js's computeTotal().
 const ROOMS = {
-  'Studio Single':              { maxGuests: 2, variants: [{ label: 'Single', room: 990,  bf: 1110 }] },
-  'Studio Twin':                { maxGuests: 2, variants: [{ label: 'Twin',   room: 990,  bf: 1300 }] },
-  'Prestige Single':            { maxGuests: 2, variants: [{ label: 'Single', room: 1040, bf: 1160 }] },
-  'Prestige Twin':              { maxGuests: 2, variants: [{ label: 'Twin',   room: 1040, bf: 1350 }] },
-  'Studio B4':                  { maxGuests: 2, variants: [{ label: 'Single', room: 1070, bf: 1190 }, { label: 'Twin', room: 1070, bf: 1380 }] },
-  'Deluxe':                     { maxGuests: 2, variants: [{ label: 'Single', room: 1110, bf: 1230 }, { label: 'Double', room: 1110, bf: 1420 }] },
-  'Premium Single':             { maxGuests: 2, variants: [{ label: 'Single', room: 1160, bf: 1280 }] },
-  'Premium Twin':                { maxGuests: 2, variants: [{ label: 'Twin', room: 1160, bf: 1470 }] },
-  'Grand Premium':              { maxGuests: 2, variants: [{ label: 'Single', room: 1260, bf: 1380 }, { label: 'Twin', room: 1260, bf: 1570 }] },
-  'Corner Suite':                { maxGuests: 2, variants: [{ label: 'Single', room: 1260, bf: 1380 }, { label: 'Twin', room: 1260, bf: 1570 }] },
-  'Grand Deluxe':                { maxGuests: 2, variants: [{ label: 'Single', room: 1340, bf: 1460 }, { label: 'Double', room: 1340, bf: 1650 }] },
-  'Executive Suite 1 Bedroom':  { maxGuests: 4, variants: [{ label: '1 Bedroom', room: 1850, bf: 1970 }, { label: '2 Bedrooms', room: 2100, bf: 2410 }] },
-  'Premium Suite':               { maxGuests: 3, variants: [{ label: '1 Bedroom', room: 2100, bf: 2220 }, { label: '2 Bedrooms', room: 2100, bf: 2410 }] },
-  'Grand Suite':                 { maxGuests: 4, variants: [{ label: '1 Bedroom', room: 2700, bf: 2820 }, { label: '2 Bedrooms', room: 3000, bf: 3310 }] },
+  'Studio Single':              { maxGuests: 3, extraBedAvailable: true,  variants: [{ label: 'Single', room: 990,  bf: 1110 }] },
+  'Studio Twin':                { maxGuests: 3, extraBedAvailable: true,  variants: [{ label: 'Twin',   room: 990,  bf: 1300 }] },
+  'Prestige Single':            { maxGuests: 3, extraBedAvailable: false, variants: [{ label: 'Single', room: 1040, bf: 1160 }] },
+  'Prestige Twin':              { maxGuests: 3, extraBedAvailable: false, variants: [{ label: 'Twin',   room: 1040, bf: 1350 }] },
+  'Studio B4':                  { maxGuests: 3, extraBedAvailable: true,  variants: [{ label: 'Single', room: 1070, bf: 1190 }, { label: 'Twin', room: 1070, bf: 1380 }] },
+  'Deluxe':                     { maxGuests: 3, extraBedAvailable: true,  variants: [{ label: 'Single', room: 1110, bf: 1230 }, { label: 'Double', room: 1110, bf: 1420 }] },
+  'Premium Single':             { maxGuests: 3, extraBedAvailable: true,  variants: [{ label: 'Single', room: 1160, bf: 1280 }] },
+  'Premium Twin':                { maxGuests: 3, extraBedAvailable: true,  variants: [{ label: 'Twin', room: 1160, bf: 1470 }] },
+  'Grand Premium':              { maxGuests: 3, extraBedAvailable: true,  variants: [{ label: 'Single', room: 1260, bf: 1380 }, { label: 'Twin', room: 1260, bf: 1570 }] },
+  'Corner Suite':                { maxGuests: 3, extraBedAvailable: false, variants: [{ label: 'Single', room: 1260, bf: 1380 }, { label: 'Twin', room: 1260, bf: 1570 }] },
+  'Grand Deluxe':                { maxGuests: 3, extraBedAvailable: true,  variants: [{ label: 'Single', room: 1340, bf: 1460 }, { label: 'Double', room: 1340, bf: 1650 }] },
+  'Executive Suite 1 Bedroom':  { maxGuests: 4, extraBedAvailable: false, variants: [{ label: '1 Bedroom', room: 1850, bf: 1970 }, { label: '2 Bedrooms', room: 2100, bf: 2410 }] },
+  'Premium Suite':               { maxGuests: 3, extraBedAvailable: false, variants: [{ label: '1 Bedroom', room: 2100, bf: 2220 }, { label: '2 Bedrooms', room: 2100, bf: 2410 }] },
+  'Grand Suite':                 { maxGuests: 4, extraBedAvailable: false, variants: [{ label: '1 Bedroom', room: 2700, bf: 2820 }, { label: '2 Bedrooms', room: 3000, bf: 3310 }] },
 };
 
 // Physical room count per type. The owner has said overbooking isn't a
@@ -59,6 +78,24 @@ const ROOM_INVENTORY = {
   'Grand Suite': 999,
 };
 
+// Day-use rates (2026) — short 3-hour stays, flat THB price (not per-night,
+// no breakfast/extra-guest surcharges). Mirrors assets/js/booking-page.js's
+// DAYUSE array by hand (same no-shared-build-step caveat as ROOMS above).
+// Used by POST /api/v1/payments/dayuse-booking to price a day-use request
+// authoritatively rather than trusting the client.
+const DAYUSE = {
+  'Studio Single': 500,
+  'Deluxe': 600,
+  'Premium Single': 700,
+  'Grand Premium': 800,
+  'Prestige Single': 800,
+  'Premium Suite': 900,
+};
+
+function getDayUsePrice(room) {
+  return Object.prototype.hasOwnProperty.call(DAYUSE, room) ? DAYUSE[room] : null;
+}
+
 function getRoom(name) {
   return Object.prototype.hasOwnProperty.call(ROOMS, name) ? ROOMS[name] : null;
 }
@@ -77,4 +114,4 @@ function roomKeys() {
   return Object.keys(ROOMS);
 }
 
-module.exports = { ROOMS, ROOM_INVENTORY, getRoom, getVariant, getInventory, roomKeys };
+module.exports = { ROOMS, ROOM_INVENTORY, DEFAULT_SURCHARGES, DAYUSE, getRoom, getVariant, getInventory, roomKeys, getDayUsePrice };

@@ -396,6 +396,13 @@
   font-weight: 700;
 }
 
+.rr-extra-guest-note {
+  font-size: 0.74rem;
+  color: var(--ink-soft);
+  margin: 10px 0 0;
+  line-height: 1.45;
+}
+
 .rr-price-row {
   display: flex;
   align-items: center;
@@ -538,6 +545,36 @@
   font-weight: 600;
   color: var(--teal-deep);
 }
+.bk-dayuse-book-btn {
+  padding: 8px 22px;
+  font-size: 0.8rem;
+}
+
+/* ---- Short-stay / day-use banner (search page, above the search bar) ---- */
+.bk-dayuse-banner {
+  background: var(--gold-light, #e8cf8f);
+  padding: 10px clamp(20px, 6vw, 80px);
+}
+.bk-dayuse-banner-inner {
+  max-width: var(--maxw);
+  margin: 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px 14px;
+  font-size: 0.85rem;
+  color: #5a4a1a;
+  text-align: center;
+}
+.bk-dayuse-banner-icon { font-size: 1rem; }
+.bk-dayuse-banner-link {
+  font-weight: 700;
+  color: var(--teal-deep);
+  text-decoration: underline;
+  white-space: nowrap;
+}
+.bk-dayuse-banner-link:hover { color: var(--teal); }
 .bk-dayuse-note {
   text-align: center;
   font-size: 0.8rem;
@@ -861,6 +898,10 @@ body.bk-pay-open { overflow: hidden; }
 }
 .bkp-radio:has(input:checked) { border-color: var(--teal); background: rgba(12, 91, 88, 0.06); }
 .bkp-radio input { accent-color: var(--teal); }
+
+.bkp-surcharge-line {
+  font-size: 0.8rem; color: var(--ink-soft); text-align: right; padding: 1px 2px;
+}
 
 .bkp-total-row {
   display: flex; align-items: center; justify-content: space-between;

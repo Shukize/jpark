@@ -12,7 +12,7 @@ payments. Code lives in `backend/lib/omise.js`, `backend/lib/roomRates.js`,
 No Omise account exists yet. Until `OMISE_PUBLIC_KEY` / `OMISE_SECRET_KEY`
 are set, `GET /api/v1/payments/config` returns `publicKey: null` and the
 booking page's "Book Now" button shows the hotel's static PromptPay QR
-(`images/promptpay-qr.png`) with a cash-on-arrival option instead of the
+(`images/promptpay-qr.jpg`) with a cash-on-arrival option instead of the
 card/Omise-PromptPay form (`assets/js/booking-payment.js`'s `renderManual()`).
 Submitting it posts to `POST /api/v1/payments/manual-booking`
 (`backend/routes/payments.js`) — no charge is taken; it records a `pending`

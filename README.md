@@ -324,6 +324,17 @@ alike) — it's a separate, unrelated line item from the online room payment.
   (`backend/lib/rateOverrides.js`, merging the static base rates in
   `backend/lib/roomRates.js` with any live admin edits from the Site
   Editor's **Rates** tab) — the client only says which room/dates it wants.
+- **3rd-guest surcharges**: every room's `room`/`bf` rate covers its base
+  occupancy (1 guest for a Single/1-Bedroom variant, 2 for a Twin/Double/
+  2-Bedroom variant). A 3rd guest adds a flat **+190 THB/night** breakfast
+  surcharge when breakfast is selected, and — for rooms that can physically
+  fit one (`extraBedAvailable: true`) — a flat **+500 THB/night** rollaway
+  bed surcharge. Corner Suite and both Prestige rooms can't fit an extra bed
+  (`extraBedAvailable: false`) but can still take a 3rd guest for the
+  breakfast surcharge only. Both amounts are admin-editable in the Site
+  Editor's Rates tab ("3rd guest surcharges") and applied identically on the
+  server (`backend/lib/rateOverrides.js`'s `computeGuestSurcharge()`) and the
+  client display (`window.JPark.pricing` in `assets/js/booking-page.js`).
 - A lightweight **overbooking guard**: a fixed room count per type
   (`ROOM_INVENTORY` in `roomRates.js`) is checked against confirmed +
   in-progress bookings for the requested dates. Set intentionally high (999)
@@ -338,7 +349,7 @@ alike) — it's a separate, unrelated line item from the online room payment.
 - **Card/Omise-PromptPay checkout isn't live yet** — no Omise account/keys
   exist. Until `OMISE_PUBLIC_KEY` / `OMISE_SECRET_KEY` are set, the booking
   page's payment step instead shows the hotel's static **PromptPay QR**
-  (`images/promptpay-qr.png`) plus a cash-on-arrival option
+  (`images/promptpay-qr.jpg`) plus a cash-on-arrival option
   (`assets/js/booking-payment.js`'s `renderManual()`). Submitting this form
   posts to `POST /api/v1/payments/manual-booking`, which takes no payment
   itself — it holds the room (same overlap/inventory guard as the paid
@@ -346,6 +357,17 @@ alike) — it's a separate, unrelated line item from the online room payment.
   for staff to confirm by hand once they see a matching PromptPay transfer
   or collect cash at check-in. Both the front desk and the guest get an
   email explaining the booking is pending, not confirmed.
+- **Day-use (3-hour) stays are bookable, not just informational.** A gold
+  banner near the top of `booking.html` ("Only need a few hours?") links
+  down to the Day Use Rates section, and each rate row has its own **Book**
+  button (`assets/js/booking-page.js`'s `renderDayUse()`). It opens a small,
+  dedicated flow (`assets/js/booking-payment.js`'s `openDayUse()`) — a
+  preferred date + free-text preferred time, guest details, and the same
+  PromptPay-QR/cash choice as the manual overnight flow — that posts to
+  `POST /api/v1/payments/dayuse-booking`. This always goes through the
+  manual/pending path (regardless of whether Omise is configured) since a
+  day-use slot always needs front-desk confirmation of the exact time; it
+  deliberately skips the overlap/inventory guard for the same reason.
 
 Full setup (creating the Omise account, env vars, the webhook, Omise's test
 card numbers, correcting the room counts, going live) is in
@@ -475,6 +497,7 @@ Set these in the Render dashboard (Environment tab — all are `sync:false` in
 | `GET/PUT /api/content` | Site Editor overrides (text, media, theme) |
 | `GET/PUT /api/rates` | Site Editor **Rates** tab — live room-rate overrides; `GET` is public (read by `booking.html` too), `PUT` is admin-only and validated (see [`backend/routes/rates.js`](backend/routes/rates.js)) |
 | `POST /api/v1/payments/manual-booking` | Interim PromptPay-QR/cash booking flow used while Omise isn't configured — records a *pending* booking for staff to confirm by hand (see [Online booking & payments](#online-booking--payments)) |
+| `POST /api/v1/payments/dayuse-booking` | Requests a 3-hour day-use session (flat rate, PromptPay-QR/cash) — records a *pending* booking; never runs the overlap/inventory guard since a day-use slot is always confirmed by staff |
 | `POST /api/v1/ota-sync` | OTA / channel-manager webhook intake (structured JSON, assigns a room) |
 | `POST /api/v1/ota-email` | OTA **email-forwarding** bridge — parses a forwarded confirmation email into the Guest Booking inbox |
 | `GET /api/v1/payments/config` | Returns the Omise public key (or `null` if not yet configured) |

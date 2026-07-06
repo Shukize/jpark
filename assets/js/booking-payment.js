@@ -48,6 +48,7 @@
       'bk.pay.expMonth': 'MM', 'bk.pay.expYear': 'YYYY', 'bk.pay.cvc': 'CVC',
       'bk.pay.promptpayNote': 'After you tap Pay, scan the QR code with your banking app to complete payment instantly.',
       'bk.pay.total': 'Total', 'bk.pay.payBtn': 'Pay {amount}', 'bk.pay.generateQr': 'Generate PromptPay QR',
+      'bk.pay.extraBedLine': 'Extra bed (3rd guest)', 'bk.pay.extraBreakfastLine': 'Extra breakfast guest',
       'bk.pay.fallback1': 'Prefer not to pay online? ', 'bk.pay.fallbackCall': 'Call us',
       'bk.pay.fallback2': ' or ', 'bk.pay.fallbackEmail': 'email us', 'bk.pay.fallback3': ' instead.',
       'bk.pay.processingText': 'Processing your payment…', 'bk.pay.verifyingText': 'Verifying your payment, please wait…',
@@ -86,6 +87,7 @@
       'bk.pay.expMonth': 'เดือน', 'bk.pay.expYear': 'ปี', 'bk.pay.cvc': 'CVC',
       'bk.pay.promptpayNote': 'หลังจากกดชำระเงิน ให้สแกน QR โค้ดด้วยแอปธนาคารของท่านเพื่อชำระเงินทันที',
       'bk.pay.total': 'ยอดรวม', 'bk.pay.payBtn': 'ชำระ {amount}', 'bk.pay.generateQr': 'สร้าง QR พร้อมเพย์',
+      'bk.pay.extraBedLine': 'เตียงเสริม (ผู้เข้าพักคนที่ 3)', 'bk.pay.extraBreakfastLine': 'อาหารเช้าเพิ่มเติม',
       'bk.pay.fallback1': 'ไม่สะดวกชำระออนไลน์? ', 'bk.pay.fallbackCall': 'โทรหาเรา',
       'bk.pay.fallback2': ' หรือ ', 'bk.pay.fallbackEmail': 'ส่งอีเมลถึงเรา', 'bk.pay.fallback3': ' แทนได้',
       'bk.pay.processingText': 'กำลังดำเนินการชำระเงิน…', 'bk.pay.verifyingText': 'กำลังตรวจสอบการชำระเงิน กรุณารอสักครู่…',
@@ -124,6 +126,7 @@
       'bk.pay.expMonth': '月', 'bk.pay.expYear': '年', 'bk.pay.cvc': 'セキュリティコード',
       'bk.pay.promptpayNote': 'お支払いをタップした後、銀行アプリでQRコードをスキャンして即座にお支払いください。',
       'bk.pay.total': '合計', 'bk.pay.payBtn': '{amount} を支払う', 'bk.pay.generateQr': 'プロンプトペイQRを発行',
+      'bk.pay.extraBedLine': 'エキストラベッド（3人目）', 'bk.pay.extraBreakfastLine': '追加の朝食',
       'bk.pay.fallback1': 'オンライン決済をご希望でない場合は ', 'bk.pay.fallbackCall': 'お電話',
       'bk.pay.fallback2': ' または ', 'bk.pay.fallbackEmail': 'メール', 'bk.pay.fallback3': ' にてご連絡ください。',
       'bk.pay.processingText': 'お支払いを処理しています…', 'bk.pay.verifyingText': 'お支払いを確認しています。しばらくお待ちください…',
@@ -162,6 +165,7 @@
       'bk.pay.expMonth': '月', 'bk.pay.expYear': '年', 'bk.pay.cvc': '安全码',
       'bk.pay.promptpayNote': '点击支付后，请使用您的银行App扫描二维码即可立即完成支付。',
       'bk.pay.total': '总计', 'bk.pay.payBtn': '支付 {amount}', 'bk.pay.generateQr': '生成 PromptPay 二维码',
+      'bk.pay.extraBedLine': '加床（第3位客人）', 'bk.pay.extraBreakfastLine': '额外早餐',
       'bk.pay.fallback1': '不想在线支付？ ', 'bk.pay.fallbackCall': '致电我们',
       'bk.pay.fallback2': ' 或 ', 'bk.pay.fallbackEmail': '发送邮件', 'bk.pay.fallback3': ' 均可。',
       'bk.pay.processingText': '正在处理您的付款…', 'bk.pay.verifyingText': '正在核实您的付款，请稍候…',
@@ -200,6 +204,7 @@
       'bk.pay.expMonth': '月', 'bk.pay.expYear': '年', 'bk.pay.cvc': '安全碼',
       'bk.pay.promptpayNote': '點擊付款後，請使用您的銀行App掃描二維碼即可立即完成付款。',
       'bk.pay.total': '總計', 'bk.pay.payBtn': '支付 {amount}', 'bk.pay.generateQr': '產生 PromptPay 二維碼',
+      'bk.pay.extraBedLine': '加床（第3位客人）', 'bk.pay.extraBreakfastLine': '額外早餐',
       'bk.pay.fallback1': '不想線上付款？ ', 'bk.pay.fallbackCall': '致電我們',
       'bk.pay.fallback2': ' 或 ', 'bk.pay.fallbackEmail': '發送郵件', 'bk.pay.fallback3': ' 均可。',
       'bk.pay.processingText': '正在處理您的付款…', 'bk.pay.verifyingText': '正在核實您的付款，請稍候…',
@@ -301,7 +306,37 @@
 
   function currentVariant() { return state.variants[state.variantIndex]; }
   function currentRate() { var v = currentVariant(); return state.breakfast ? v.bf : v.room; }
-  function currentTotal() { return currentRate() * state.nights; }
+  // Per-night surcharge for guests beyond the base 2 a variant's rate
+  // already covers — same formula backend/lib/rateOverrides.js's
+  // computeGuestSurcharge() uses server-side, shared via
+  // window.JPark.pricing (booking-page.js) so this is never a second,
+  // divergent copy of the formula. Purely a display estimate: the real
+  // charge is always recomputed server-side.
+  function currentSurcharge() {
+    var P = window.JPark && window.JPark.pricing;
+    if (!P) return 0;
+    var totalGuests = (state.adults || 0) + (state.children || 0);
+    return P.computeGuestSurcharge({ extraBedAvailable: state.extraBedAvailable }, totalGuests, state.breakfast);
+  }
+  function currentTotal() { return (currentRate() + currentSurcharge()) * state.nights; }
+
+  // 0-2 lines describing the per-night surcharges currently in effect (only
+  // ever non-empty for a 3rd guest — see currentSurcharge()).
+  function surchargeNotesHTML() {
+    var P = window.JPark && window.JPark.pricing;
+    if (!P) return '';
+    var totalGuests = (state.adults || 0) + (state.children || 0);
+    if (totalGuests <= 2) return '';
+    var surcharges = P.getSurcharges();
+    var lines = [];
+    if (state.breakfast) {
+      lines.push('<div class="bkp-surcharge-line">+ ' + TR('bk.pay.extraBreakfastLine') + ': ' + money(surcharges.extraBreakfastGuest) + '</div>');
+    }
+    if (state.extraBedAvailable) {
+      lines.push('<div class="bkp-surcharge-line">+ ' + TR('bk.pay.extraBedLine') + ': ' + money(surcharges.extraBed) + '</div>');
+    }
+    return lines.join('');
+  }
 
   // Shown instead of the card/PromptPay form while Omise isn't configured
   // (no publicKey — see open()). Rather than just telling the guest to call
@@ -345,6 +380,7 @@
           '<label class="bkp-radio"><input type="radio" name="bkpBreakfast" value="1"' + (state.breakfast ? ' checked' : '') + '> ' + TR('bk.withBreakfast') + ' — ' + money(v.bf) + '</label>' +
         '</div></div>' +
 
+        '<div id="bkpSurchargeNotes">' + surchargeNotesHTML() + '</div>' +
         '<div class="bkp-total-row"><span>' + TR('bk.pay.total') + '</span><strong id="bkpTotal">' + money(currentTotal()) + '</strong></div>' +
 
         '<div class="bkp-guest-fields">' +
@@ -387,6 +423,8 @@
   function updateManualTotals() {
     var totalEl = qs('#bkpTotal');
     if (totalEl) totalEl.textContent = money(currentTotal());
+    var notesEl = qs('#bkpSurchargeNotes');
+    if (notesEl) notesEl.innerHTML = surchargeNotesHTML();
     var v = currentVariant();
     var row = qs('#bkpBreakfastRow');
     if (row) {
@@ -489,6 +527,7 @@
           '<label class="bkp-radio"><input type="radio" name="bkpBreakfast" value="1"' + (state.breakfast ? ' checked' : '') + '> ' + TR('bk.withBreakfast') + ' — ' + money(v.bf) + '</label>' +
         '</div></div>' +
 
+        '<div id="bkpSurchargeNotes">' + surchargeNotesHTML() + '</div>' +
         '<div class="bkp-total-row"><span>' + TR('bk.pay.total') + '</span><strong id="bkpTotal">' + money(currentTotal()) + '</strong></div>' +
 
         '<div class="bkp-guest-fields">' +
@@ -573,6 +612,8 @@
   function updateTotals() {
     var totalEl = qs('#bkpTotal');
     if (totalEl) totalEl.textContent = money(currentTotal());
+    var notesEl = qs('#bkpSurchargeNotes');
+    if (notesEl) notesEl.innerHTML = surchargeNotesHTML();
     var submitBtn = qs('#bkpSubmitBtn');
     if (submitBtn) submitBtn.textContent = payBtnLabel();
     var v = currentVariant();
@@ -765,8 +806,8 @@
     if (opts && opts.pending) {
       var titleEl = qs('#bkpViewSuccess h3');
       var noteEl = qs('#bkpViewSuccess .bkp-success-note');
-      if (titleEl) titleEl.textContent = TR('bk.pay.manualSuccessTitle');
-      if (noteEl) noteEl.textContent = TR('bk.pay.manualSuccessNote');
+      if (titleEl) titleEl.textContent = TR(opts.titleKey || 'bk.pay.manualSuccessTitle');
+      if (noteEl) noteEl.textContent = TR(opts.noteKey || 'bk.pay.manualSuccessNote');
     }
     var doneBtn = qs('#bkpDoneBtn');
     if (doneBtn) doneBtn.addEventListener('click', close);
@@ -814,6 +855,7 @@
       room: ctx.room,
       roomDisplayName: ctx.roomDisplayName,
       maxGuests: ctx.maxGuests,
+      extraBedAvailable: ctx.extraBedAvailable,
       variants: ctx.variants,
       checkIn: ctx.checkIn,
       checkOut: ctx.checkOut,
@@ -838,7 +880,110 @@
     });
   }
 
-  window.JPark.bookingFlow = { open: open };
+  // ============================================================
+  //  Day-use (3-hour) booking — a much simpler sibling flow to open()/
+  //  renderForm() above: a flat price (no nights, no breakfast/extra-guest
+  //  surcharges, no variant choice), a single preferred date + free-text
+  //  preferred time (front desk assigns/confirms the exact slot — see
+  //  POST /api/v1/payments/dayuse-booking), and always goes through the
+  //  same manual PromptPay-QR/cash request pattern as renderManual()
+  //  regardless of whether Omise is configured, since a day-use slot
+  //  always needs a human to confirm availability anyway.
+  // ============================================================
+  function openDayUse(ctx) {
+    build();
+    state = { dayUse: true, room: ctx.room, roomDisplayName: ctx.roomDisplayName, price: ctx.price };
+    overlay.hidden = false;
+    document.body.classList.add('bk-pay-open');
+    renderDayUseForm();
+  }
+
+  function todayISO() { return new Date().toISOString().slice(0, 10); }
+
+  function renderDayUseForm() {
+    box.innerHTML =
+      '<div class="bkp-head"><span class="bkp-title">' + esc(state.roomDisplayName) + '</span>' +
+        '<button type="button" class="bkp-close" aria-label="' + TR('bk.pay.close') + '">&times;</button></div>' +
+      '<div class="bkp-body">' +
+      '<div class="bkp-view" id="bkpViewForm">' +
+        '<h3 class="bkp-unavail-title">' + TR('bk.dayuse.title') + '</h3>' +
+
+        '<div class="bkp-field"><label>' + TR('bk.dayuse.dateLabel') + '</label><input type="date" id="bkpDayUseDate" min="' + todayISO() + '"></div>' +
+        '<div class="bkp-field"><label>' + TR('bk.dayuse.timeLabel') + '</label><input type="text" id="bkpDayUseTime" placeholder="' + esc(TR('bk.dayuse.timePlaceholder')) + '"></div>' +
+
+        '<div class="bkp-total-row"><span>' + TR('bk.pay.total') + '</span><strong>' + money(state.price) + '</strong></div>' +
+
+        '<div class="bkp-guest-fields">' +
+          '<p class="bkp-section-label">' + TR('bk.pay.guestDetails') + '</p>' +
+          '<div class="bkp-grid-2">' +
+            '<div class="bkp-field"><label>' + TR('bk.pay.firstName') + '</label><input id="bkpFirstName" autocomplete="given-name"></div>' +
+            '<div class="bkp-field"><label>' + TR('bk.pay.lastName') + '</label><input id="bkpLastName" autocomplete="family-name"></div>' +
+          '</div>' +
+          '<div class="bkp-field"><label>' + TR('bk.pay.email') + '</label><input type="email" id="bkpEmail" autocomplete="email"></div>' +
+          '<div class="bkp-field"><label>' + TR('bk.pay.phone') + '</label><input type="tel" id="bkpPhone" autocomplete="tel"></div>' +
+        '</div>' +
+
+        '<div class="bkp-manual-qr">' +
+          '<img src="images/promptpay-qr.jpg" alt="PromptPay QR code" class="bkp-qr-img" />' +
+          '<p class="bkp-pp-note">' + TR('bk.pay.manualQrCaption') + '</p>' +
+        '</div>' +
+
+        '<div class="bkp-field"><div class="bkp-radio-row" id="bkpManualMethodRow">' +
+          '<label class="bkp-radio"><input type="radio" name="bkpManualMethod" value="promptpay_manual" checked> ' + TR('bk.pay.manualMethodPromptpay') + '</label>' +
+          '<label class="bkp-radio"><input type="radio" name="bkpManualMethod" value="cash"> ' + TR('bk.pay.manualMethodCash') + '</label>' +
+        '</div></div>' +
+
+        '<p class="bkp-form-error" id="bkpFormError" hidden></p>' +
+
+        '<button type="button" class="btn btn-solid bkp-submit-btn" id="bkpSubmitBtn">' + TR('bk.dayuse.submit') + '</button>' +
+      '</div>' +
+      resultViewsHTML() +
+      '</div>';
+
+    qs('.bkp-close').addEventListener('click', close);
+    qs('#bkpSubmitBtn').addEventListener('click', onDayUseSubmit);
+  }
+
+  function setDayUseSubmitting(isSubmitting) {
+    var btn = qs('#bkpSubmitBtn');
+    if (btn) {
+      btn.disabled = isSubmitting;
+      btn.textContent = isSubmitting ? TR('bk.pay.processingText') : TR('bk.dayuse.submit');
+    }
+  }
+
+  function onDayUseSubmit() {
+    clearFormError();
+    if (!validateGuestFields()) return;
+    var date = val('bkpDayUseDate');
+    if (!date) {
+      showFormError(TR('bk.pay.err.required'));
+      return;
+    }
+    var methodEl = box.querySelector('input[name="bkpManualMethod"]:checked');
+    var body = {
+      room: state.room,
+      date: date,
+      preferredTime: val('bkpDayUseTime'),
+      guest: guestPayload(),
+      lang: I ? I.getLang() : 'en',
+      method: methodEl ? methodEl.value : 'promptpay_manual',
+    };
+    setDayUseSubmitting(true);
+    window.JPark.api.post('/api/v1/payments/dayuse-booking', body).then(function (r) {
+      if (!r || r.error) {
+        setDayUseSubmitting(false);
+        showFormError((r && r.error) || TR('bk.pay.err.generic'));
+        return;
+      }
+      showSuccess(r.booking.ref, { pending: true, titleKey: 'bk.dayuse.successTitle', noteKey: 'bk.dayuse.successNote' });
+    }).catch(function () {
+      setDayUseSubmitting(false);
+      showFormError(TR('bk.pay.err.network'));
+    });
+  }
+
+  window.JPark.bookingFlow = { open: open, openDayUse: openDayUse };
 
   // ---- Resume after a 3-D Secure redirect back to booking.html ----
   document.addEventListener('DOMContentLoaded', function () {

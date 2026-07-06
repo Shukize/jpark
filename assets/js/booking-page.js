@@ -16,7 +16,7 @@
     {
       name: 'Studio Single', folder: 'Studio Single',
       nameKey: 'rooms.studioSingleName', descKey: 'rooms.studioDesc',
-      size: '37 m²', maxGuests: 2,
+      size: '37 m²', maxGuests: 3, extraBedAvailable: true,
       amenities: ['Single Bed', 'Work Desk', 'Rainfall Shower', 'Smart TV', 'Air Conditioning', 'Free Wi-Fi'],
       variants: [{ label: 'Single', room: 990, bf: 1110 }],
     },
@@ -24,91 +24,91 @@
       // folder aliases 'Studio Single' — same physical room, no dedicated photo set.
       name: 'Studio Twin', folder: 'Studio Single',
       nameKey: 'rooms.studioTwinName', descKey: 'rooms.studioDesc',
-      size: '37 m²', maxGuests: 2,
+      size: '37 m²', maxGuests: 3, extraBedAvailable: true,
       amenities: ['Twin Beds', 'Work Desk', 'Rainfall Shower', 'Smart TV', 'Air Conditioning', 'Free Wi-Fi'],
       variants: [{ label: 'Twin', room: 990, bf: 1300 }],
     },
     {
       name: 'Prestige Single', folder: 'Prestige Single',
       nameKey: 'rooms.prestigeSingleName', descKey: 'rooms.prestigeDesc',
-      size: '45 m²', maxGuests: 2,
+      size: '45 m²', maxGuests: 3, extraBedAvailable: false,
       amenities: ['Single Bed', 'Premium Bedding', 'Generous Work Area', 'Smart TV', 'Air Conditioning', 'Free Wi-Fi'],
       variants: [{ label: 'Single', room: 1040, bf: 1160 }],
     },
     {
       name: 'Prestige Twin', folder: 'Prestige Twin',
       nameKey: 'rooms.prestigeTwinName', descKey: 'rooms.prestigeDesc',
-      size: '45 m²', maxGuests: 2,
+      size: '45 m²', maxGuests: 3, extraBedAvailable: false,
       amenities: ['Twin Beds', 'Premium Bedding', 'Generous Work Area', 'Smart TV', 'Air Conditioning', 'Free Wi-Fi'],
       variants: [{ label: 'Twin', room: 1040, bf: 1350 }],
     },
     {
       name: 'Studio B4', folder: 'Studio B4',
       nameKey: 'rooms.studioB4Name', descKey: 'rooms.studioB4Desc',
-      size: '37 m²', maxGuests: 2,
+      size: '37 m²', maxGuests: 3, extraBedAvailable: true,
       amenities: ['Single or Twin', 'Full Kitchenette', 'Living Corner', 'Smart TV', 'Air Conditioning', 'Free Wi-Fi'],
       variants: [{ label: 'Single', room: 1070, bf: 1190 }, { label: 'Twin', room: 1070, bf: 1380 }],
     },
     {
       name: 'Deluxe', folder: 'Deluxe',
       nameKey: 'rooms.deluxeName', descKey: 'rooms.deluxeDesc',
-      size: '44 m²', maxGuests: 2,
+      size: '44 m²', maxGuests: 3, extraBedAvailable: true,
       amenities: ['Single or Double', 'Lounge Seating', 'Sleek Bathroom', 'Smart TV', 'Air Conditioning', 'Free Wi-Fi'],
       variants: [{ label: 'Single', room: 1110, bf: 1230 }, { label: 'Double', room: 1110, bf: 1420 }],
     },
     {
       name: 'Premium Single', folder: 'Premium Single',
       nameKey: 'rooms.premiumSingleName', descKey: 'rooms.premiereDesc',
-      size: '49 m²', maxGuests: 2,
+      size: '49 m²', maxGuests: 3, extraBedAvailable: true,
       amenities: ['Single Bed', 'Premium Linens', 'Spacious Work Area', 'Smart TV', 'Air Conditioning', 'Free Wi-Fi'],
       variants: [{ label: 'Single', room: 1160, bf: 1280 }],
     },
     {
       name: 'Premium Twin', folder: 'Premium Twin',
       nameKey: 'rooms.premiumTwinName', descKey: 'rooms.premiereDesc',
-      size: '49 m²', maxGuests: 2,
+      size: '49 m²', maxGuests: 3, extraBedAvailable: true,
       amenities: ['Twin Beds', 'Premium Linens', 'Spacious Work Area', 'Smart TV', 'Air Conditioning', 'Free Wi-Fi'],
       variants: [{ label: 'Twin', room: 1160, bf: 1470 }],
     },
     {
       name: 'Grand Premium', folder: 'Grand Premium',
       nameKey: 'rooms.grandPremiumName', descKey: 'rooms.grandPremiereDesc',
-      size: '49 m²', maxGuests: 2,
+      size: '49 m²', maxGuests: 3, extraBedAvailable: true,
       amenities: ['Single or Twin', 'Wide Lounge Area', 'Upgraded Amenities', 'Smart TV', 'Air Conditioning', 'Free Wi-Fi'],
       variants: [{ label: 'Single', room: 1260, bf: 1380 }, { label: 'Twin', room: 1260, bf: 1570 }],
     },
     {
       name: 'Corner Suite', folder: 'Corner Suite',
       nameKey: 'rooms.cornerName', descKey: 'rooms.cornerDesc',
-      size: '55 m²', maxGuests: 2,
+      size: '55 m²', maxGuests: 3, extraBedAvailable: false,
       amenities: ['Single or Twin', 'Dual-Aspect Views', 'Marble Bathroom', 'Separate Living Room', 'Air Conditioning', 'Free Wi-Fi'],
       variants: [{ label: 'Single', room: 1260, bf: 1380 }, { label: 'Twin', room: 1260, bf: 1570 }],
     },
     {
       name: 'Grand Deluxe', folder: 'Grand Deluxe',
       nameKey: 'rooms.grandDeluxeName', descKey: 'rooms.grandDeluxeDesc',
-      size: '54 m²', maxGuests: 2,
+      size: '54 m²', maxGuests: 3, extraBedAvailable: true,
       amenities: ['Single or Double', 'Plush Furnishings', 'Premium Finishes', 'Smart TV', 'Air Conditioning', 'Free Wi-Fi'],
       variants: [{ label: 'Single', room: 1340, bf: 1460 }, { label: 'Double', room: 1340, bf: 1650 }],
     },
     {
       name: 'Executive Suite 1 Bedroom', folder: 'Executive Suite 1 Bedroom',
       nameKey: 'rooms.execSuite1brName', descKey: 'rooms.execSuiteDesc',
-      size: '75 m²', maxGuests: 4,
+      size: '75 m²', maxGuests: 4, extraBedAvailable: false,
       amenities: ['1 Bedroom', 'Living & Dining Room', 'Kitchen', 'Smart TV', 'Air Conditioning', 'Free Wi-Fi'],
       variants: [{ label: '1 Bedroom', room: 1850, bf: 1970 }, { label: '2 Bedrooms', room: 2100, bf: 2410 }],
     },
     {
       name: 'Premium Suite', folder: 'Premium Suite',
       nameKey: 'rooms.premiumSuiteName', descKey: 'rooms.premiereSuiteDesc',
-      size: '73 m²', maxGuests: 3,
+      size: '73 m²', maxGuests: 3, extraBedAvailable: false,
       amenities: ['1 or 2 Bedrooms', 'Living & Dining Area', 'Premium Finishes', 'Smart TV', 'Air Conditioning', 'Free Wi-Fi'],
       variants: [{ label: '1 Bedroom', room: 2100, bf: 2220 }, { label: '2 Bedrooms', room: 2100, bf: 2410 }],
     },
     {
       name: 'Grand Suite', folder: 'Grand Suite 1 Bedroom',
       nameKey: 'rooms.grandSuiteName', descKey: 'rooms.grandSuiteDesc',
-      size: '75 m²', maxGuests: 4,
+      size: '75 m²', maxGuests: 4, extraBedAvailable: false,
       amenities: ['1 or 2 Bedrooms', 'Full Kitchen', 'Living & Dining Room', 'Onsen Access', 'Smart TV', 'Free Wi-Fi'],
       variants: [{ label: '1 Bedroom', room: 2700, bf: 2820 }, { label: '2 Bedrooms', room: 3000, bf: 3310 }],
     },
@@ -121,14 +121,18 @@
     { pieces: 60, price: 900 }, { pieces: 120, price: 1500 },
   ];
 
-  // Day-use rates (2026) — short 3-hour stays, room : price (THB).
+  // Day-use rates (2026) — short 3-hour stays, room : price (THB). `room`
+  // matches a real key in ROOMS/backend/lib/roomRates.js's DAYUSE mirror, so
+  // a day-use request can be validated/priced authoritatively server-side
+  // (see POST /api/v1/payments/dayuse-booking) the same way overnight
+  // bookings are — never trust the client's price.
   var DAYUSE = [
-    { nameKey: 'rooms.studioSingleName', price: 500 },
-    { nameKey: 'rooms.deluxeName', price: 600 },
-    { nameKey: 'rooms.premiumSingleName', price: 700 },
-    { nameKey: 'rooms.grandPremiumName', price: 800 },
-    { nameKey: 'rooms.prestigeSingleName', price: 800 },
-    { nameKey: 'rooms.premiumSuiteName', price: 900 },
+    { room: 'Studio Single', nameKey: 'rooms.studioSingleName', price: 500 },
+    { room: 'Deluxe', nameKey: 'rooms.deluxeName', price: 600 },
+    { room: 'Premium Single', nameKey: 'rooms.premiumSingleName', price: 700 },
+    { room: 'Grand Premium', nameKey: 'rooms.grandPremiumName', price: 800 },
+    { room: 'Prestige Single', nameKey: 'rooms.prestigeSingleName', price: 800 },
+    { room: 'Premium Suite', nameKey: 'rooms.premiumSuiteName', price: 900 },
   ];
 
   // ============================================================
@@ -298,6 +302,14 @@
       'bk.dayuseEyebrow': 'Short stays', 'bk.dayuseTitle': 'Day Use Rates',
       'bk.dayuseLede': 'Need a room for just a few hours? Our day-use rate covers a 3-hour stay — perfect for a midday rest, a refresh between journeys or a quiet, private space to work.',
       'bk.dayuseNote': 'Prices in Thai Baht (THB) per 3-hour day-use session, subject to availability.',
+      'bk.dayuseBook': 'Book', 'bk.dayuseBannerText': 'Only need a few hours? Short (day-use) stays are also available.',
+      'bk.dayuseBannerLink': 'See day-use rates ↓',
+      'bk.dayuse.title': 'Day-use booking', 'bk.dayuse.dateLabel': 'Preferred date',
+      'bk.dayuse.timeLabel': 'Preferred time (we will confirm availability)',
+      'bk.dayuse.timePlaceholder': 'e.g. 1:00 PM – 4:00 PM',
+      'bk.dayuse.submit': 'Send day-use request',
+      'bk.dayuse.successTitle': 'Day-use request received — pending confirmation',
+      'bk.dayuse.successNote': 'We will confirm your day-use time slot by phone or email — please complete payment via the PromptPay QR or cash as indicated above once confirmed.',
       'bk.laundryEyebrow': 'While you stay', 'bk.laundryTitle': 'Laundry Package',
       'bk.laundryLede': 'Fresh, neatly pressed garments delivered to your room. Choose a package by the number of pieces.',
       'bk.laundryNote': 'Prices in Thai Baht (THB) per package. Larger 60- and 120-piece packages are ideal for long stays.',
@@ -308,6 +320,8 @@
       'bk.fromTpl': 'From {price} per room / night', 'bk.night': 'night', 'bk.nights': 'nights',
       'bk.roomOnly': 'room only', 'bk.withBreakfast': 'with breakfast',
       'bk.rateIncl': '2026 general rate · taxes & service included', 'bk.enquire': 'Enquire to Book',
+      'bk.extraGuestBed': '3rd guest: +{bed} extra bed, +{bf} breakfast if selected',
+      'bk.extraGuestNoBed': 'No extra bed available for a 3rd guest, but breakfast can be added for +{bf}',
       'bk.piece': 'piece', 'bk.pieces': 'pieces',
       'bk.gAdult1': 'adult', 'bk.gAdultN': 'adults', 'bk.gChild1': 'child', 'bk.gChildN': 'children',
       'bk.var.single': 'Single', 'bk.var.twin': 'Twin', 'bk.var.double': 'Double',
@@ -346,6 +360,14 @@
       'bk.dayuseEyebrow': 'เข้าพักระยะสั้น', 'bk.dayuseTitle': 'อัตราค่าเข้าพักรายชั่วโมง',
       'bk.dayuseLede': 'ต้องการห้องพักเพียงไม่กี่ชั่วโมง? อัตราเดย์ยูสของเราครอบคลุมการเข้าพัก 3 ชั่วโมง — เหมาะสำหรับพักผ่อนช่วงกลางวัน เติมความสดชื่นระหว่างการเดินทาง หรือพื้นที่ส่วนตัวเงียบสงบสำหรับทำงาน',
       'bk.dayuseNote': 'ราคาเป็นเงินบาท (THB) ต่อการเข้าพักแบบเดย์ยูส 3 ชั่วโมง ขึ้นอยู่กับห้องว่าง',
+      'bk.dayuseBook': 'จอง', 'bk.dayuseBannerText': 'ต้องการห้องพักเพียงไม่กี่ชั่วโมง? เรามีบริการเข้าพักระยะสั้น (เดย์ยูส) ด้วย',
+      'bk.dayuseBannerLink': 'ดูอัตราเดย์ยูส ↓',
+      'bk.dayuse.title': 'จองแบบเดย์ยูส', 'bk.dayuse.dateLabel': 'วันที่ต้องการ',
+      'bk.dayuse.timeLabel': 'ช่วงเวลาที่ต้องการ (เราจะยืนยันห้องว่าง)',
+      'bk.dayuse.timePlaceholder': 'เช่น 13:00 – 16:00 น.',
+      'bk.dayuse.submit': 'ส่งคำขอเดย์ยูส',
+      'bk.dayuse.successTitle': 'ได้รับคำขอเดย์ยูสแล้ว — รอการยืนยัน',
+      'bk.dayuse.successNote': 'เราจะยืนยันช่วงเวลาเดย์ยูสของท่านทางโทรศัพท์หรืออีเมล — กรุณาชำระเงินผ่าน QR พร้อมเพย์หรือเงินสดตามที่ระบุไว้ข้างต้นเมื่อได้รับการยืนยันแล้ว',
       'bk.laundryEyebrow': 'ระหว่างการเข้าพัก', 'bk.laundryTitle': 'แพ็กเกจซักรีด',
       'bk.laundryLede': 'เสื้อผ้าสะอาดรีดเรียบ ส่งถึงห้องพักของคุณ เลือกแพ็กเกจตามจำนวนชิ้น',
       'bk.laundryNote': 'ราคาเป็นเงินบาท (THB) ต่อแพ็กเกจ แพ็กเกจ 60 และ 120 ชิ้นเหมาะสำหรับการเข้าพักระยะยาว',
@@ -356,6 +378,8 @@
       'bk.fromTpl': 'เริ่มต้น {price} ต่อห้อง / คืน', 'bk.night': 'คืน', 'bk.nights': 'คืน',
       'bk.roomOnly': 'เฉพาะห้องพัก', 'bk.withBreakfast': 'รวมอาหารเช้า',
       'bk.rateIncl': 'อัตราทั่วไปปี 2026 · รวมภาษีและค่าบริการ', 'bk.enquire': 'สอบถามเพื่อจอง',
+      'bk.extraGuestBed': 'ผู้เข้าพักคนที่ 3: เตียงเสริม +{bed} และอาหารเช้า +{bf} หากเลือก',
+      'bk.extraGuestNoBed': 'ห้องนี้ไม่มีเตียงเสริมสำหรับผู้เข้าพักคนที่ 3 แต่สามารถเพิ่มอาหารเช้าได้ +{bf}',
       'bk.piece': 'ชิ้น', 'bk.pieces': 'ชิ้น',
       'bk.gAdult1': 'ผู้ใหญ่', 'bk.gAdultN': 'ผู้ใหญ่', 'bk.gChild1': 'เด็ก', 'bk.gChildN': 'เด็ก',
       'bk.var.single': 'เตียงเดี่ยว', 'bk.var.twin': 'เตียงคู่แฝด', 'bk.var.double': 'เตียงคู่',
@@ -394,6 +418,14 @@
       'bk.dayuseEyebrow': '短時間のご利用', 'bk.dayuseTitle': 'デイユース料金',
       'bk.dayuseLede': '数時間だけ客室が必要ですか？デイユース料金は3時間のご利用に対応 — 日中の休息、移動の合間のリフレッシュ、静かなワークスペースに最適です。',
       'bk.dayuseNote': '料金は3時間のデイユース1回あたりのタイバーツ（THB）表示で、空室状況によります。',
+      'bk.dayuseBook': '予約', 'bk.dayuseBannerText': '数時間だけご利用ですか？デイユース（短時間利用）もご用意しております。',
+      'bk.dayuseBannerLink': 'デイユース料金を見る ↓',
+      'bk.dayuse.title': 'デイユースのご予約', 'bk.dayuse.dateLabel': 'ご希望日',
+      'bk.dayuse.timeLabel': 'ご希望時間帯（空室状況を確認のうえご連絡します）',
+      'bk.dayuse.timePlaceholder': '例：13:00〜16:00',
+      'bk.dayuse.submit': 'デイユースのリクエストを送信',
+      'bk.dayuse.successTitle': 'デイユースのリクエストを受け付けました — 確認待ち',
+      'bk.dayuse.successNote': 'デイユースのお時間はお電話またはメールにて確認いたします — 確認後、上記のプロンプトペイQRまたは現金にてお支払いください。',
       'bk.laundryEyebrow': 'ご滞在中に', 'bk.laundryTitle': 'ランドリーパッケージ',
       'bk.laundryLede': '清潔にプレスした衣類をお部屋までお届けします。点数に応じてパッケージをお選びください。',
       'bk.laundryNote': '料金は1パッケージあたりのタイバーツ（THB）表示です。60点・120点の大型パッケージは長期滞在に最適です。',
@@ -404,6 +436,8 @@
       'bk.fromTpl': '{price}〜 / 1室1泊', 'bk.night': '泊', 'bk.nights': '泊',
       'bk.roomOnly': '室料のみ', 'bk.withBreakfast': '朝食付き',
       'bk.rateIncl': '2026年一般料金 · 税・サービス料込み', 'bk.enquire': '予約を問い合わせる',
+      'bk.extraGuestBed': '3人目のご宿泊者: エキストラベッド +{bed}、朝食を選択の場合は +{bf}',
+      'bk.extraGuestNoBed': 'この客室は3人目用のエキストラベッドはご用意できませんが、朝食は +{bf} で追加可能です',
       'bk.piece': '点', 'bk.pieces': '点',
       'bk.gAdult1': '大人', 'bk.gAdultN': '大人', 'bk.gChild1': '子供', 'bk.gChildN': '子供',
       'bk.var.single': 'シングル', 'bk.var.twin': 'ツイン', 'bk.var.double': 'ダブル',
@@ -442,6 +476,14 @@
       'bk.dayuseEyebrow': '短时入住', 'bk.dayuseTitle': '钟点房价格',
       'bk.dayuseLede': '只需几个小时的客房？我们的钟点房价格涵盖 3 小时入住——非常适合午间小憩、旅途中的放松，或安静私密的办公空间。',
       'bk.dayuseNote': '价格以泰铢（THB）计，每次 3 小时钟点房，视空房情况而定。',
+      'bk.dayuseBook': '预订', 'bk.dayuseBannerText': '只需几个小时？我们也提供钟点房（短时）住宿。',
+      'bk.dayuseBannerLink': '查看钟点房价格 ↓',
+      'bk.dayuse.title': '预订钟点房', 'bk.dayuse.dateLabel': '希望日期',
+      'bk.dayuse.timeLabel': '希望时间段（我们将确认空房情况）',
+      'bk.dayuse.timePlaceholder': '例如 13:00–16:00',
+      'bk.dayuse.submit': '发送钟点房请求',
+      'bk.dayuse.successTitle': '已收到钟点房请求 — 待确认',
+      'bk.dayuse.successNote': '我们将通过电话或邮件确认您的钟点房时段——确认后请通过上述PromptPay二维码或现金完成付款。',
       'bk.laundryEyebrow': '入住期间', 'bk.laundryTitle': '洗衣套餐',
       'bk.laundryLede': '清新熨烫平整的衣物送至您的房间。按件数选择套餐。',
       'bk.laundryNote': '价格以泰铢（THB）计，每套餐计。60 件和 120 件的大套餐非常适合长期入住。',
@@ -452,6 +494,8 @@
       'bk.fromTpl': '{price} 起 / 每间每晚', 'bk.night': '晚', 'bk.nights': '晚',
       'bk.roomOnly': '仅房费', 'bk.withBreakfast': '含早餐',
       'bk.rateIncl': '2026 年一般房价 · 含税及服务费', 'bk.enquire': '咨询预订',
+      'bk.extraGuestBed': '第3位客人：加床 +{bed}，如选早餐则 +{bf}',
+      'bk.extraGuestNoBed': '此房型无法为第3位客人加床，但可加购早餐 +{bf}',
       'bk.piece': '件', 'bk.pieces': '件',
       'bk.gAdult1': '成人', 'bk.gAdultN': '成人', 'bk.gChild1': '儿童', 'bk.gChildN': '儿童',
       'bk.var.single': '单人床', 'bk.var.twin': '双床', 'bk.var.double': '大床',
@@ -490,6 +534,14 @@
       'bk.dayuseEyebrow': '短時入住', 'bk.dayuseTitle': '鐘點房價格',
       'bk.dayuseLede': '只需幾個小時的客房？我們的鐘點房價格涵蓋 3 小時入住——非常適合午間小憩、旅途中的放鬆，或安靜私密的辦公空間。',
       'bk.dayuseNote': '價格以泰銖（THB）計，每次 3 小時鐘點房，視空房情況而定。',
+      'bk.dayuseBook': '預訂', 'bk.dayuseBannerText': '只需幾個小時？我們也提供鐘點房（短時）住宿。',
+      'bk.dayuseBannerLink': '查看鐘點房價格 ↓',
+      'bk.dayuse.title': '預訂鐘點房', 'bk.dayuse.dateLabel': '希望日期',
+      'bk.dayuse.timeLabel': '希望時段（我們將確認空房情況）',
+      'bk.dayuse.timePlaceholder': '例如 13:00–16:00',
+      'bk.dayuse.submit': '傳送鐘點房請求',
+      'bk.dayuse.successTitle': '已收到鐘點房請求 — 待確認',
+      'bk.dayuse.successNote': '我們將透過電話或郵件確認您的鐘點房時段——確認後請透過上述PromptPay二維碼或現金完成付款。',
       'bk.laundryEyebrow': '入住期間', 'bk.laundryTitle': '洗衣套餐',
       'bk.laundryLede': '清新熨燙平整的衣物送至您的房間。按件數選擇套餐。',
       'bk.laundryNote': '價格以泰銖（THB）計，每套餐計。60 件和 120 件的大套餐非常適合長期入住。',
@@ -500,6 +552,8 @@
       'bk.fromTpl': '{price} 起 / 每間每晚', 'bk.night': '晚', 'bk.nights': '晚',
       'bk.roomOnly': '僅房費', 'bk.withBreakfast': '含早餐',
       'bk.rateIncl': '2026 年一般房價 · 含稅及服務費', 'bk.enquire': '諮詢預訂',
+      'bk.extraGuestBed': '第3位客人：加床 +{bed}，如選早餐則 +{bf}',
+      'bk.extraGuestNoBed': '此房型無法為第3位客人加床，但可加購早餐 +{bf}',
       'bk.piece': '件', 'bk.pieces': '件',
       'bk.gAdult1': '成人', 'bk.gAdultN': '成人', 'bk.gChild1': '兒童', 'bk.gChildN': '兒童',
       'bk.var.single': '單人床', 'bk.var.twin': '雙床', 'bk.var.double': '大床',
@@ -676,6 +730,14 @@
     var priceLabel = TR('bk.fromTpl').replace('{price}',
       '<strong class="rr-price-from">' + baht(fromRoom) + '</strong>') + nightNote;
 
+    var extraGuestNote = room.maxGuests > 2
+      ? '<p class="rr-extra-guest-note">' +
+          (room.extraBedAvailable
+            ? TR('bk.extraGuestBed').replace('{bed}', baht(SURCHARGES.extraBed)).replace('{bf}', baht(SURCHARGES.extraBreakfastGuest))
+            : TR('bk.extraGuestNoBed').replace('{bf}', baht(SURCHARGES.extraBreakfastGuest))) +
+        '</p>'
+      : '';
+
     var name = roomName(room);
     var photoCount = roomPhotoCount(room);
     var photoBadge = photoCount > 1
@@ -700,6 +762,7 @@
         '<div class="rr-price-block">' +
           '<p class="rr-price-label">' + priceLabel + '</p>' +
           '<div class="rr-rates">' + ratesHTML + '</div>' +
+          extraGuestNote +
         '</div>' +
         '<div class="rr-price-row">' +
           '<span class="rr-price-note">' + TR('bk.rateIncl') + '</span>' +
@@ -737,6 +800,7 @@
         roomDisplayName: name,
         size: room.size,
         maxGuests: room.maxGuests,
+        extraBedAvailable: room.extraBedAvailable,
         variants: room.variants,
         checkIn: statusState.ci,
         checkOut: statusState.co,
@@ -803,12 +867,21 @@
   function renderDayUse() {
     var host = document.getElementById('bkDayUseGrid');
     if (!host) return;
-    host.innerHTML = DAYUSE.map(function (d) {
+    host.innerHTML = DAYUSE.map(function (d, i) {
       return '<div class="bk-dayuse-item">' +
                '<span class="bk-dayuse-room">' + TR(d.nameKey) + '</span>' +
                '<span class="bk-dayuse-price">' + baht(d.price) + '</span>' +
+               '<button type="button" class="btn btn-solid bk-dayuse-book-btn" data-dayuse-index="' + i + '">' + TR('bk.dayuseBook') + '</button>' +
              '</div>';
     }).join('');
+    Array.prototype.forEach.call(host.querySelectorAll('.bk-dayuse-book-btn'), function (btn) {
+      btn.addEventListener('click', function () {
+        var d = DAYUSE[parseInt(btn.dataset.dayuseIndex, 10)];
+        var flow = window.JPark && window.JPark.bookingFlow;
+        if (!flow || !flow.openDayUse) return;
+        flow.openDayUse({ room: d.room, roomDisplayName: TR(d.nameKey), price: d.price });
+      });
+    });
   }
 
   // Paint everything in the current language (initial load + on switch).
@@ -826,6 +899,30 @@
 
   // Initial paint
   renderAll();
+
+  // Two flat, room-wide surcharges (THB/night) added on top of a variant's
+  // room/bf rate based on guest count beyond the base 2 a variant already
+  // covers — mirrors backend/lib/roomRates.js's DEFAULT_SURCHARGES exactly,
+  // live-overridden below by the same GET /api/rates fetch that overrides
+  // room prices. Exposed via window.JPark.pricing so booking-payment.js
+  // computes the exact same display total the server will charge, without
+  // duplicating the formula.
+  var SURCHARGES = { extraBed: 500, extraBreakfastGuest: 190 };
+
+  function computeGuestSurcharge(room, totalGuests, breakfast) {
+    var extraGuests = Math.max(0, (Number(totalGuests) || 0) - 2);
+    if (extraGuests <= 0) return 0;
+    var total = 0;
+    if (breakfast) total += extraGuests * SURCHARGES.extraBreakfastGuest;
+    if (room.extraBedAvailable) total += extraGuests * SURCHARGES.extraBed;
+    return total;
+  }
+
+  window.JPark = window.JPark || {};
+  window.JPark.pricing = {
+    computeGuestSurcharge: computeGuestSurcharge,
+    getSurcharges: function () { return SURCHARGES; },
+  };
 
   // Merge live admin rate overrides (backend/routes/rates.js, edited via the
   // Site Editor's Rates tab) into the static ROOMS mirror. Mutates variant
@@ -848,12 +945,21 @@
     });
   }
 
+  function applySurcharges(surcharges) {
+    if (!surcharges || typeof surcharges !== 'object') return;
+    ['extraBed', 'extraBreakfastGuest'].forEach(function (key) {
+      var val = surcharges[key];
+      if (typeof val === 'number' && isFinite(val) && val > 0 && val <= 100000) SURCHARGES[key] = val;
+    });
+  }
+
   (function loadRates() {
     var API = window.JPark && window.JPark.api;
     if (!API) return;
     API.get('/api/rates').then(function (res) {
       if (!res || res.error) return; // fail closed to the static defaults already in ROOMS
       applyRateOverrides(res.rooms);
+      applySurcharges(res.surcharges);
       renderAll(); // repaint any already-drawn cards with corrected prices
     }).catch(function () {});
   })();

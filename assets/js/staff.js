@@ -2822,7 +2822,8 @@
      so a fat-fingered field can never silently go live). */
   const RATE_MIN = 0;
   const RATE_MAX = 100000;
-  let ratesData = null; // { [room]: { maxGuests, variants: [{label, room, bf, overridden}] } }
+  let ratesData = null; // { [room]: { maxGuests, extraBedAvailable, variants: [{label, room, bf, overridden}] } }
+  let ratesSurcharges = null; // { extraBed, extraBreakfastGuest }
   let ratesWired = false;
 
   function validRateInput(n) {
@@ -2840,13 +2841,50 @@
         return;
       }
       ratesData = res.rooms;
+      ratesSurcharges = res.surcharges || { extraBed: 500, extraBreakfastGuest: 190 };
     }
     buildRatesRows(wrap);
     wireRatesSave();
   }
 
+  // Two flat, room-wide surcharges (not per room+variant) applied to a 3rd
+  // guest — see backend/lib/roomRates.js's DEFAULT_SURCHARGES. Rendered as
+  // their own small section above the per-room rows.
+  function buildSurchargeFields(wrap) {
+    const section = document.createElement("div");
+    section.className = "ed-rate-surcharges";
+
+    const heading = document.createElement("div");
+    heading.className = "ed-rate-label";
+    heading.textContent = t("staff.site.ratesSurchargesTitle");
+    section.appendChild(heading);
+
+    const bedField = document.createElement("label");
+    bedField.className = "ed-rate-field";
+    const bedInput = document.createElement("input");
+    bedInput.type = "number"; bedInput.min = "1"; bedInput.max = String(RATE_MAX);
+    bedInput.value = ratesSurcharges.extraBed;
+    bedInput.dataset.surcharge = "extraBed";
+    bedField.appendChild(document.createTextNode(t("staff.site.ratesSurchargeBed")));
+    bedField.appendChild(bedInput);
+
+    const bfField = document.createElement("label");
+    bfField.className = "ed-rate-field";
+    const bfInput = document.createElement("input");
+    bfInput.type = "number"; bfInput.min = "1"; bfInput.max = String(RATE_MAX);
+    bfInput.value = ratesSurcharges.extraBreakfastGuest;
+    bfInput.dataset.surcharge = "extraBreakfastGuest";
+    bfField.appendChild(document.createTextNode(t("staff.site.ratesSurchargeBreakfast")));
+    bfField.appendChild(bfInput);
+
+    section.appendChild(bedField);
+    section.appendChild(bfField);
+    wrap.appendChild(section);
+  }
+
   function buildRatesRows(wrap) {
     wrap.innerHTML = "";
+    buildSurchargeFields(wrap);
     Object.keys(ratesData).forEach((roomName) => {
       const room = ratesData[roomName];
       (room.variants || []).forEach((v) => {
@@ -2890,10 +2928,10 @@
     btn.addEventListener("click", async () => {
       const wrap = document.getElementById("edRates");
       if (!wrap) return;
-      const inputs = wrap.querySelectorAll("input[data-room]");
-      const payload = {};
       let hasError = false;
-      inputs.forEach((inp) => {
+
+      const payload = {};
+      wrap.querySelectorAll("input[data-room]").forEach((inp) => {
         inp.classList.remove("ed-rate-invalid");
         const val = Number(inp.value);
         if (!validRateInput(val)) { inp.classList.add("ed-rate-invalid"); hasError = true; return; }
@@ -2902,16 +2940,26 @@
         payload[r][v] = payload[r][v] || {};
         payload[r][v][f] = val;
       });
+
+      const surchargePayload = {};
+      wrap.querySelectorAll("input[data-surcharge]").forEach((inp) => {
+        inp.classList.remove("ed-rate-invalid");
+        const val = Number(inp.value);
+        if (!validRateInput(val)) { inp.classList.add("ed-rate-invalid"); hasError = true; return; }
+        surchargePayload[inp.dataset.surcharge] = val;
+      });
+
       if (hasError) { U.toast(t("staff.site.ratesError"), "error"); return; }
 
       btn.disabled = true;
-      const res = await J.api.put("/api/rates", { rates: payload });
+      const res = await J.api.put("/api/rates", { rates: payload, surcharges: surchargePayload });
       btn.disabled = false;
       if (J.api.isOffline(res) || !res || res.error) {
         U.toast((res && res.error) || t("staff.site.ratesError"), "error");
         return;
       }
       ratesData = res.rooms;
+      ratesSurcharges = res.surcharges || ratesSurcharges;
       buildRatesRows(wrap);
       U.toast(t("staff.site.ratesSaved"), "success");
     });

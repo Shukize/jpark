@@ -4,6 +4,8 @@
      GET  /api/v1/payments/config          -> { publicKey, promptpayEnabled }
      GET  /api/v1/booking-availability     -> { [room]: remainingCount }
      POST /api/v1/payments/charge          -> create booking + charge (card or PromptPay)
+     POST /api/v1/payments/manual-booking  -> pending overnight booking (PromptPay-QR/cash, no Omise charge)
+     POST /api/v1/payments/dayuse-booking  -> pending 3-hour day-use request (flat rate, no Omise charge)
      GET  /api/v1/payments/status/:id      -> poll payment status
      POST /api/v1/payments/webhook         -> Omise event receiver
 
@@ -71,11 +73,22 @@ function safeReturnUri(candidateOrigin, bookingId) {
   return `${origin}/booking.html?omise_return=1&bookingId=${encodeURIComponent(bookingId)}`;
 }
 
-async function computeTotal(room, variantLabel, breakfast, nights) {
-  const variant = await rateOverrides.getEffectiveVariant(room, variantLabel);
+// `totalGuests` (adults+children) drives two optional per-night surcharges
+// on top of the variant's own room/bf rate (which already covers the
+// variant's base occupancy — 1 for Single/1 Bedroom, 2 for Twin/Double/2
+// Bedrooms): an extra breakfast guest (+surcharges.extraBreakfastGuest, only
+// when breakfast is selected) and a physical extra bed
+// (+surcharges.extraBed, only for rooms with extraBedAvailable) — see
+// backend/lib/rateOverrides.js's computeGuestSurcharge().
+async function computeTotal(room, variantLabel, breakfast, nights, totalGuests) {
+  const effectiveRoom = await rateOverrides.getEffectiveRoom(room);
+  if (!effectiveRoom) return null;
+  const variant = effectiveRoom.variants.find((v) => v.label === variantLabel);
   if (!variant) return null;
+  const surcharges = await rateOverrides.getEffectiveSurcharges();
   const rate = breakfast ? variant.bf : variant.room;
-  return rate * nights;
+  const perNight = rate + rateOverrides.computeGuestSurcharge(effectiveRoom, totalGuests, breakfast, surcharges);
+  return perNight * nights;
 }
 
 // Count bookings that hold a room of this type over the requested date
@@ -163,7 +176,7 @@ router.post('/payments/charge', async (req, res) => {
   }
 
   const nights = computeNights(checkIn, checkOut);
-  const total = await computeTotal(room, variantLabel, breakfast, nights);
+  const total = await computeTotal(room, variantLabel, breakfast, nights, adults + children);
   if (total == null) return res.status(400).json({ error: 'Unknown room variant' });
   const amountSatang = Math.round(total * 100);
 
@@ -400,7 +413,7 @@ router.post('/payments/manual-booking', async (req, res) => {
   }
 
   const nights = computeNights(checkIn, checkOut);
-  const total = await computeTotal(room, variantLabel, breakfast, nights);
+  const total = await computeTotal(room, variantLabel, breakfast, nights, adults + children);
   if (total == null) return res.status(400).json({ error: 'Unknown room variant' });
 
   const guestName = String(guest.firstName || 'Guest').trim();
@@ -445,6 +458,126 @@ router.post('/payments/manual-booking', async (req, res) => {
     res.status(500).json({ error: 'Database error' });
   } finally {
     client.release();
+  }
+});
+
+// Day-use guest email: distinct from manualGuestEmail() because a day-use
+// stay has a preferred TIME (not a check-in/check-out night range) and a
+// flat price, not a per-night total.
+function dayUseGuestEmail(bk, preferredTime) {
+  const money = bk.total != null ? `${bk.total} ${bk.currency || 'THB'}` : '—';
+  const methodWord = bk.payment_method === 'cash' ? 'cash at arrival' : 'PromptPay';
+  const lines = [
+    `Dear ${bk.guest_name || 'Guest'},`,
+    '',
+    `Thank you for your day-use request at J Park Hotel, Chonburi (Ref: ${bk.ref}).`,
+    '',
+    `Room: ${bk.room || '—'}`,
+    `Date: ${bk.check_in}`,
+    `Preferred time: ${preferredTime || 'Not specified — we will contact you to confirm'}`,
+    `Total (3-hour day-use): ${money} (payable by ${methodWord})`,
+    '',
+    'This request is PENDING until we confirm your exact time slot and payment — please complete payment via the PromptPay QR or cash as indicated once confirmed.',
+    '',
+    'We will contact you by phone or email shortly to confirm availability.',
+    '',
+    'J Park Hotel, Chonburi',
+  ];
+  const text = lines.join('\n');
+  const html =
+    `<div style="font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;line-height:1.5">` +
+    `<h2 style="color:#0f766e;margin:0 0 12px">Day-use request received</h2>` +
+    `<p>Dear ${bk.guest_name || 'Guest'},</p>` +
+    `<p>Thank you for your day-use request at <strong>J Park Hotel, Chonburi</strong> (Ref: <strong>${bk.ref}</strong>).</p>` +
+    `<table style="border-collapse:collapse;margin:16px 0">` +
+    `<tr><td style="padding:4px 12px 4px 0;color:#555">Room</td><td style="padding:4px 0">${bk.room || '—'}</td></tr>` +
+    `<tr><td style="padding:4px 12px 4px 0;color:#555">Date</td><td style="padding:4px 0">${bk.check_in}</td></tr>` +
+    `<tr><td style="padding:4px 12px 4px 0;color:#555">Preferred time</td><td style="padding:4px 0">${preferredTime || 'Not specified'}</td></tr>` +
+    `<tr><td style="padding:4px 12px 4px 0;color:#555">Total</td><td style="padding:4px 0">${money} (payable by ${methodWord})</td></tr>` +
+    `</table>` +
+    `<p style="background:#fbf3df;border:1px solid #e0c178;border-radius:8px;padding:10px 14px;color:#5a4a1a">` +
+    `<strong>This request is pending</strong> until we confirm your exact time slot and payment.</p>` +
+    `<p>We will contact you by phone or email shortly to confirm availability.</p>` +
+    `<p style="color:#0f766e;font-weight:bold;margin-top:24px">J Park Hotel, Chonburi</p>` +
+    `</div>`;
+  return { text, html };
+}
+
+/* POST /payments/dayuse-booking — request a 3-hour day-use session (flat
+   rate, no nights, no breakfast/extra-guest surcharges). Day-use requests
+   are always "subject to availability" (front desk assigns the exact time
+   slot), so — unlike overnight bookings — this deliberately does NOT run
+   the overlap/inventory guard: check_in and check_out are stored equal,
+   which countOverlapping()'s strict `check_in < check_out` condition never
+   matches, so day-use rows never block or get blocked by anything. */
+router.post('/payments/dayuse-booking', async (req, res) => {
+  const ip = req.ip || 'unknown';
+  if (rateLimited(ip)) {
+    return res.status(429).json({ error: 'Too many requests. Please try again later.' });
+  }
+
+  const b = req.body || {};
+  const guest = b.guest || {};
+  const { room, date } = b;
+  const preferredTime = typeof b.preferredTime === 'string' ? b.preferredTime.trim().slice(0, 200) : '';
+  const method = b.method === 'cash' ? 'cash' : 'promptpay_manual';
+
+  if (!room || !date) {
+    return res.status(400).json({ error: 'room and date are required' });
+  }
+  if (!guest.firstName || !guest.email) {
+    return res.status(400).json({ error: 'Guest name and email are required' });
+  }
+  const price = roomRates.getDayUsePrice(room);
+  if (price == null) return res.status(400).json({ error: 'Unknown day-use room type' });
+
+  const guestName = String(guest.firstName || 'Guest').trim();
+  const guestLastName = guest.lastName ? String(guest.lastName).trim() : null;
+  const ref = genRef();
+
+  try {
+    const { rows } = await db.query(
+      `INSERT INTO guest_bookings
+         (ref, channel, channel_name, guest_name, guest_last_name, guest_email, guest_phone,
+          room, check_in, check_out, nights, adults, children, total, currency, status, lang,
+          payment_provider, payment_method, payment_status)
+       VALUES ($1,'direct','Direct (Website)',$2,$3,$4,$5,$6,$7,$7,1,1,0,$8,'THB','pending',$9,
+               'manual',$10,'pending')
+       RETURNING *`,
+      [
+        ref, guestName, guestLastName, guest.email, guest.phone || null,
+        room + ' (Day Use)', date, price,
+        b.lang || 'en',
+        method,
+      ]
+    );
+    const saved = rows[0];
+
+    const to = hotelRecipients();
+    if (to.length) {
+      const { text, html } = hotelNotice(saved);
+      sendEmail({
+        to,
+        subject: `New day-use request (pending) — Direct (${saved.ref})`,
+        text: text + `\nPreferred time: ${preferredTime || 'Not specified'}`,
+        html: html.replace('</table>', `<tr><td style="padding:4px 12px 4px 0;color:#555">Preferred time</td><td style="padding:4px 0">${preferredTime || 'Not specified'}</td></tr></table>`),
+        replyTo: saved.guest_email || undefined,
+      }).catch((err) => console.error('[payments] dayuse hotel notice error', err));
+    }
+    if (saved.guest_email) {
+      const { text, html } = dayUseGuestEmail(saved, preferredTime);
+      sendEmail({
+        to: saved.guest_email,
+        subject: `J Park Hotel — day-use request received (${saved.ref})`,
+        text,
+        html,
+      }).catch((err) => console.error('[payments] dayuse guest email error', err));
+    }
+
+    res.status(201).json({ status: 'pending_manual', booking: row2js(saved) });
+  } catch (e) {
+    console.error('[payments] dayuse-booking', e);
+    res.status(500).json({ error: 'Database error' });
   }
 });
 

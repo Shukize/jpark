@@ -249,3 +249,12 @@ ALTER TABLE site_content ADD COLUMN IF NOT EXISTS maintenance_mode BOOLEAN NOT N
 -- touches maxGuests or inventory. See backend/lib/rateOverrides.js and
 -- backend/routes/rates.js for the validation/merge rules.
 ALTER TABLE site_content ADD COLUMN IF NOT EXISTS rates JSONB NOT NULL DEFAULT '{}';
+
+-- Admin-editable flat surcharges (THB/night), applied on top of a room's
+-- rate based on guest count beyond the base 2 a variant's room/bf rate
+-- already covers: `extraBed` for a 3rd guest's rollaway bed (only charged
+-- for rooms with extraBedAvailable), `extraBreakfastGuest` for each extra
+-- guest's breakfast when breakfast is selected. Defaults mirror
+-- backend/lib/roomRates.js's DEFAULT_SURCHARGES. See
+-- backend/lib/rateOverrides.js's getEffectiveSurcharges()/computeGuestSurcharge().
+ALTER TABLE site_content ADD COLUMN IF NOT EXISTS surcharges JSONB NOT NULL DEFAULT '{"extraBed":500,"extraBreakfastGuest":190}';

@@ -539,6 +539,7 @@ textarea.ed-field-input { resize: vertical; line-height: 1.5; }
 .ed-rate-field { display: flex; flex-direction: column; gap: 4px; font-size: 0.76rem; color: var(--ink-soft); }
 .ed-rate-field input { width: 110px; padding: 6px 8px; border: 1.5px solid var(--line); border-radius: 8px; font-size: 0.9rem; }
 .ed-rate-field input.ed-rate-invalid { border-color: var(--terracotta-d, #b8552e); }
+.ed-rate-surcharges { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; background: rgba(201,162,75,0.12); border: 1px solid var(--gold, #c9a24b); padding: 10px 14px; border-radius: 10px; }
 
 @media (max-width: 760px) {
   .ed-toolbar { flex-direction: column; }
