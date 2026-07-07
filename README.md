@@ -28,9 +28,13 @@ localStorage fallback**, so the site keeps working offline.
 | Custom domain `jparkhotel.com` | ✅ DNS live at Porkbun, GitHub Pages custom domain + HTTPS active |
 
 **Operator to-dos that are not code:** confirm the DNS/HTTPS cutover has fully
-propagated everywhere (`nslookup jparkhotel.com`), and double-check the staff
-`admin`/`staff` account passwords were actually rotated server-side (not just in a
-browser's local cache). See
+propagated everywhere (`nslookup jparkhotel.com`, or [whatsmydns.net](https://www.whatsmydns.net)
+from a network/device that doesn't already resolve it), confirm any retired
+Render services (the old `jpark-site` static mirror, the free `jpark-db`) are
+actually deleted in the Render dashboard, and decide if/when to set up a real
+Omise account (see [Online booking & payments](#online-booking--payments)).
+Default staff credentials no longer need manual rotation — see
+[Staff accounts & passwords](#staff-accounts--passwords). See also
 [OTA email forwarding](#-ota-email-forwarding-make-real-bookings-flow-in) below.
 
 ---
@@ -78,6 +82,8 @@ Admins manage accounts under **Staff console → Staff**.
 1. **Admin adds a member** — enter a full name + username and pick a role. No password is set by the admin; new accounts start on the shared temporary password **`jparkhotel`** and are flagged "must change password".
 2. **The new member activates their account** — on the login page they choose **New Staff Account**, enter the username the admin gave them and the temporary password `jparkhotel`, then set their own password. They're signed in immediately. (If someone signs in normally while still on the temporary password, they're sent to set a new one too.)
 3. **Forgot Password / Forgot Username** — links under the Sign in button file a request that appears in **Messages → Password Reset Requests** (admin-only). For a password request the admin can click **Reset to default password**, which puts the account back on `jparkhotel` and re-flags "must change"; the member then re-runs the New Staff Account flow.
+
+**The two original seed accounts (`admin`, `staff`) self-rotate.** `backend/migrate.js` runs on every server boot and checks whether either account's stored password hash still matches the well-known bootstrap default (published in this repo's source, so it can never be treated as a real secret). If it does, the account is automatically rotated to a fresh random one-time password, flagged "must change password", and the new temporary password is logged **once** to the server's stdout (visible under Render → Logs) — nowhere else. There is no admin UI for this first rotation; it only runs the one time a seed account is still on its bootstrap default.
 
 > Passwords are hashed server-side (bcrypt) in the `employees` table and verified
 > by the API on every login — see [Backend](#backend-backend). The browser only
@@ -239,18 +245,18 @@ and correct any blanks (such bookings are flagged *needs review*). Re-forwarding
 same email is idempotent (de-duplicated on the OTA reference, or a stable hash when
 none is present). Parsing is covered by `backend/test-ota-email.js` (`node test-ota-email.js`).
 
-> 📒 **Ready-to-use receiver setups are saved in
-> [`docs/OTA_EMAIL_BRIDGE.md`](docs/OTA_EMAIL_BRIDGE.md)** — a copy-paste Gmail
-> Apps Script ([`tools/ota-gmail-forwarder.gs`](tools/ota-gmail-forwarder.gs),
-> works today) and a Cloudflare Email Worker
-> ([`tools/ota-cloudflare-email-worker.js`](tools/ota-cloudflare-email-worker.js),
-> the free production receiver for `jparkhotel.com`).
+> 📒 **The permanent receiver is a ready-to-use Gmail Apps Script**, saved in
+> [`docs/OTA_EMAIL_BRIDGE.md`](docs/OTA_EMAIL_BRIDGE.md) and
+> [`tools/ota-gmail-forwarder.gs`](tools/ota-gmail-forwarder.gs) — installed and
+> verified live on `jparkhotel1@gmail.com` (a 5-minute trigger scans for new OTA
+> mail and POSTs each one here). A Cloudflare Email Worker was considered
+> instead, but `jparkhotel.com`'s DNS stays at Porkbun (not Cloudflare) by
+> choice, so the Gmail script is the permanent receiver, not an interim one.
 
 **To wire it up, pick one always-on receiver that forwards the OTA email here** —
 all free or low-cost:
 
-1. **Cloudflare Email Routing + an Email Worker** *(recommended once the domain is on
-   Cloudflare)* — a few lines of Worker code POST the message JSON to the endpoint.
+1. **Gmail auto-forward + Apps Script** *(what this site actually runs)* — see above.
 2. **Email Parser by Zapier / Make / Mailparser** — no code: forward OTA mail to the
    parser address, map fields, POST to the endpoint.
 3. **SendGrid / Mailgun Inbound Parse** — point an MX subdomain at the service and it
@@ -261,11 +267,11 @@ Then add a **Gmail/Outlook auto-forward rule** on the reservations inbox
 to that receiver. That's the whole pipeline: **OTA → hotel inbox → receiver → website
 Guest Booking inbox + notice email.**
 
-> **Two things must be set for delivery to work** (dashboard, not code):
-> `RESEND_API_KEY` in Render (otherwise the notice email is skipped — the booking
-> still lands in the inbox), and `OTA_WEBHOOK_SECRET` in Render so the endpoint only
-> accepts your receiver. Until a Resend **sending domain is verified**, mail only
-> delivers to the Resend account owner.
+> **Both are already set in production**: `RESEND_API_KEY` (email delivery — the
+> Resend sending domain is verified, so mail delivers to real recipients, not just
+> the account owner) and `OTA_WEBHOOK_SECRET` (the server now refuses to boot in
+> production without it, since it gates this endpoint and `/api/guest-bookings`
+> against unauthenticated requests).
 
 #### A note on reliability (for a 4–5★ operation)
 
@@ -482,6 +488,23 @@ Set these in the Render dashboard (Environment tab — all are `sync:false` in
 - `OMISE_WEBHOOK_SECRET` — optional extra shared-secret check on the Omise
   webhook URL
 
+**Security hardening (2026-07-07):** the server now fails closed at boot in
+production if either `AUTH_TOKEN_SECRET` or `OTA_WEBHOOK_SECRET` is unset —
+both gate real trust boundaries (forging staff tokens / spamming the OTA
+booking-ingest endpoints). Request bodies are capped per route
+(`backend/server.js`) instead of one blanket 4MB limit — 4MB only for the
+Site Editor's image uploads, smaller caps everywhere else. `POST
+/api/guest-bookings` and `POST /api/v1/ota-email` are rate-limited (120
+req/10min per IP — generous enough for the Gmail-forwarder bridge's backlog
+bursts) via the shared `backend/lib/rateLimit.js`, matching the existing
+payments rate limiter. The Neon Postgres connection (`backend/db.js`) now
+verifies its TLS certificate (`rejectUnauthorized: true`) instead of
+accepting any certificate. `render.yaml`'s `buildCommand` now runs
+`npm test` (the self-contained `backend/test-ota-email.js` parser suite)
+before deploying, and `.github/workflows/deploy.yml` runs `node --check` on
+every file in `assets/js/` before publishing to Pages — so a syntax error or
+a broken OTA parser can no longer reach production.
+
 | Route | Purpose |
 |-------|---------|
 | `POST /api/auth/login` | Staff/admin login — returns a signed JWT |
@@ -515,9 +538,13 @@ cd backend
 DATABASE_URL=postgres://... node server.js
 ```
 
-`migrate.js` runs automatically on startup — it creates all tables and seeds
-bcrypt-hashed demo accounts (`admin`/`admin123`, `staff`/`staff123`) plus 8
-demo guest bookings.
+`migrate.js` runs automatically on startup — it creates all tables, seeds two
+staff accounts (`admin`, `staff`) and 8 demo guest bookings. The two seed
+accounts do **not** stay on a fixed default password: on first boot (or
+whenever the stored hash still matches the bootstrap default), `migrate.js`
+rotates each to a fresh random one-time password, forces "must change
+password", and logs the new temporary password once to stdout — see
+[Staff accounts & passwords](#staff-accounts--passwords).
 
 **Every frontend module is API-first with localStorage fallback** — the public
 website, guest portal, staff console, Site Editor, and OTA inbox all work

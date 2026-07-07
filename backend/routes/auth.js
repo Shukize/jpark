@@ -66,17 +66,13 @@ router.post('/login', async (req, res) => {
     if (!emp || !emp.active)
       return res.status(401).json({ error: 'Invalid credentials' });
 
-    if (!emp.password_hash) {
-      // Account exists but no password hash yet — fall back to demo plaintext
-      // comparison so the system remains functional before bcrypt is seeded.
-      const fallback = password === 'admin123' && emp.role === 'admin'
-        || password === 'staff123';
-      if (!fallback) return res.status(401).json({ error: 'Invalid credentials' });
-    } else {
-      if (!bcrypt) return res.status(500).json({ error: 'bcrypt not available' });
-      const ok = await bcrypt.compare(password, emp.password_hash);
-      if (!ok) return res.status(401).json({ error: 'Invalid credentials' });
-    }
+    // migrate.js's seedAuth() always ensures a real bcrypt hash exists before
+    // the server starts accepting traffic — a null hash here means the
+    // account hasn't been provisioned yet, not "use the default password".
+    if (!emp.password_hash) return res.status(401).json({ error: 'Invalid credentials' });
+    if (!bcrypt) return res.status(500).json({ error: 'bcrypt not available' });
+    const ok = await bcrypt.compare(password, emp.password_hash);
+    if (!ok) return res.status(401).json({ error: 'Invalid credentials' });
 
     const token = mintToken(emp);
     res.json({

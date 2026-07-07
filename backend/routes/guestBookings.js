@@ -11,8 +11,14 @@ const crypto = require('crypto');
 const db = require('../db');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const { sendEmail } = require('../mailer');
+const { makeLimiter } = require('../lib/rateLimit');
 
 const router = express.Router();
+
+// Generous limit — the Gmail-forwarder OTA bridge is known to burst dozens
+// of requests when clearing a backlog (a single run has ingested 105 real
+// bookings), so this only needs to bound a genuine flood, not normal use.
+const rateLimited = makeLimiter(120, 10 * 60 * 1000);
 
 // Optional shared-secret gate for the public ingest endpoint (POST below).
 // A channel manager / OTA bridge authenticates server-to-server with
@@ -317,6 +323,9 @@ async function ingestGuestBooking(b) {
    Protected by an optional X-API-Key (see ingestKeyOk): open when
    OTA_WEBHOOK_SECRET is unset, key-gated once it is. */
 router.post('/', async (req, res) => {
+  if (rateLimited(req.ip)) {
+    return res.status(429).json({ error: 'Too many requests. Please try again later.' });
+  }
   if (!ingestKeyOk(req.get('x-api-key'))) {
     return res.status(401).json({ error: 'Invalid or missing API key' });
   }

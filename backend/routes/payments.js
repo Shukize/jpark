@@ -25,6 +25,7 @@ const db = require('../db');
 const omise = require('../lib/omise');
 const roomRates = require('../lib/roomRates');
 const rateOverrides = require('../lib/rateOverrides');
+const { makeLimiter } = require('../lib/rateLimit');
 const { sendEmail } = require('../mailer');
 const {
   row2js,
@@ -38,22 +39,9 @@ const router = express.Router();
 
 const PENDING_HOLD_MINUTES = 20;
 
-// ---------------------------------------------------------------
-// Minimal in-memory sliding-window rate limit. This is the only endpoint
-// in the app that can trigger a real charge, so — unlike the rest of the
-// (rate-limit-free) backend — it gets a guard against card-testing abuse.
-// ---------------------------------------------------------------
-const RATE_LIMIT_MAX = 10;
-const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
-const attemptsByIp = new Map();
-
-function rateLimited(ip) {
-  const now = Date.now();
-  const attempts = (attemptsByIp.get(ip) || []).filter((t) => now - t < RATE_LIMIT_WINDOW_MS);
-  attempts.push(now);
-  attemptsByIp.set(ip, attempts);
-  return attempts.length > RATE_LIMIT_MAX;
-}
+// This is the only endpoint in the app that can trigger a real charge, so it
+// gets a guard against card-testing abuse: 10 attempts / 10 minutes per IP.
+const rateLimited = makeLimiter(10, 10 * 60 * 1000);
 
 function genRef() {
   return 'JP-' + Date.now().toString(36).toUpperCase() + '-' + crypto.randomBytes(2).toString('hex').toUpperCase();

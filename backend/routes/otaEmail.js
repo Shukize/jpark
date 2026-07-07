@@ -34,8 +34,15 @@ const express = require('express');
 const crypto = require('crypto');
 const { ingestGuestBooking } = require('./guestBookings');
 const { parseOtaEmail } = require('../lib/otaEmailParser');
+const { makeLimiter } = require('../lib/rateLimit');
 
 const router = express.Router();
+
+// Generous limit — the Gmail-forwarder bridge (tools/ota-gmail-forwarder.gs)
+// is known to burst dozens of requests when clearing a backlog (a single
+// run has ingested 105 real bookings), so this only needs to bound a
+// genuine flood, not normal use.
+const rateLimited = makeLimiter(120, 10 * 60 * 1000);
 
 function keyOk(req) {
   const expected = process.env.OTA_WEBHOOK_SECRET || '';
@@ -67,6 +74,9 @@ function todayISO(offsetDays = 0) {
 }
 
 router.post('/', async (req, res) => {
+  if (rateLimited(req.ip)) {
+    return res.status(429).json({ error: 'Too many requests. Please try again later.' });
+  }
   if (!keyOk(req)) {
     return res.status(401).json({ error: 'Invalid or missing API key' });
   }

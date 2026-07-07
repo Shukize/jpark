@@ -1,15 +1,21 @@
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const db = require('./db');
 
-/* Seed demo staff passwords with bcrypt on first run or when missing. */
+/* Seed staff accounts on first run, and rotate them off the well-known
+   default password (admin123 / staff123 — public in this source file) if
+   they're still on it. A fresh random temp password is generated, hashed,
+   and logged once to stdout (Render → Logs) so the owner can log in once
+   and set a real password via the existing must_change_password flow —
+   the same mechanism the admin "reset password" feature already uses. */
 async function seedAuth() {
   let bcrypt;
   try { bcrypt = require('bcrypt'); } catch (_) { return; }
 
   const SEED = [
-    { id: 'u_admin', username: 'admin', password: 'admin123', role: 'admin' },
-    { id: 'u_staff', username: 'staff', password: 'staff123', role: 'frontdesk' },
+    { id: 'u_admin', username: 'admin', defaultPassword: 'admin123', role: 'admin' },
+    { id: 'u_staff', username: 'staff', defaultPassword: 'staff123', role: 'frontdesk' },
   ];
 
   for (const s of SEED) {
@@ -17,13 +23,26 @@ async function seedAuth() {
       'SELECT username, password_hash FROM employees WHERE id = $1',
       [s.id]
     );
-    if (!rows.length || rows[0].password_hash) continue; // already hashed
-    const hash = await bcrypt.hash(s.password, 10);
+    if (!rows.length) continue;
+
+    const existingHash = rows[0].password_hash;
+    const stillOnDefault = existingHash
+      ? await bcrypt.compare(s.defaultPassword, existingHash)
+      : true; // no hash yet — first boot
+    if (existingHash && !stillOnDefault) continue; // owner already rotated it
+
+    const tempPassword = crypto.randomBytes(9).toString('base64url');
+    const hash = await bcrypt.hash(tempPassword, 10);
     await db.query(
       `UPDATE employees
-          SET username = $1, password_hash = $2
+          SET username = $1, password_hash = $2, must_change_password = TRUE
         WHERE id = $3`,
       [s.username, hash, s.id]
+    );
+    console.log(
+      `[migrate] SECURITY: "${s.username}" was still on its default password — ` +
+      `rotated to a one-time temporary password: ${tempPassword} ` +
+      `(must be changed on first login)`
     );
   }
 }

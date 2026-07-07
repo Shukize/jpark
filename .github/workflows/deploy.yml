@@ -23,6 +23,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # No build step publishes this repo byte-for-byte, so a single syntax
+      # error in any hand-written JS file would otherwise ship straight to
+      # production (this has happened before — a stray character silently
+      # broke every app string). Fail the deploy instead.
+      - name: Check JS syntax
+        run: |
+          for f in assets/js/*.js; do
+            echo "checking $f"
+            node --check "$f" || exit 1
+          done
+
       - uses: actions/configure-pages@v5
         with:
           # Enable Pages (in "GitHub Actions" mode) on first run instead of

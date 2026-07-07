@@ -6,7 +6,12 @@ desktop.ini
 *.swp
 .vs/
 node_modules/
-backend/.env
+
+# Environment secrets — ignore any .env file anywhere in the repo, but keep
+# the committed .env.example templates.
+.env
+*.env
+!*.env.example
 
 # Python
 __pycache__/
