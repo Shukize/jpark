@@ -42,6 +42,7 @@ const emailRouter           = require('./routes/email');
 const paymentsRouter        = require('./routes/payments');
 const maintenanceRouter     = require('./routes/maintenance');
 const ratesRouter           = require('./routes/rates');
+const hotelAdsRouter        = require('./routes/hotelAds');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -85,6 +86,7 @@ app.use('/api/email',            bodyDefault,  emailRouter);
 app.use('/api/v1',               bodyPayments, paymentsRouter);
 app.use('/api/maintenance',      bodyDefault,  maintenanceRouter);
 app.use('/api/rates',            bodyDefault,  ratesRouter);
+app.use('/api/v1/hotel-ads',                   hotelAdsRouter);   // GET-only feed, no body parser needed
 
 migrate()
   .then(() => app.listen(PORT, () => console.log(`J Park API listening on port ${PORT}`)))

@@ -24,6 +24,7 @@ const db = require('../db');
 const omise = require('../lib/omise');
 const roomRates = require('../lib/roomRates');
 const rateOverrides = require('../lib/rateOverrides');
+const { countOverlapping } = require('../lib/availability');
 const { makeLimiter } = require('../lib/rateLimit');
 const { sendEmail } = require('../mailer');
 const {
@@ -35,8 +36,6 @@ const {
 } = require('./guestBookings');
 
 const router = express.Router();
-
-const PENDING_HOLD_MINUTES = 20;
 
 // This is the only endpoint in the app that can trigger a real charge, so it
 // gets a guard against card-testing abuse: 10 attempts / 10 minutes per IP.
@@ -62,26 +61,6 @@ async function computeTotal(room, variantLabel, breakfast, nights, totalGuests) 
   const rate = breakfast ? variant.bf : variant.room;
   const perNight = rate + rateOverrides.computeGuestSurcharge(effectiveRoom, totalGuests, breakfast, surcharges);
   return perNight * nights;
-}
-
-// Count bookings that hold a room of this type over the requested date
-// range: confirmed bookings, plus still-pending ones inside their hold
-// window (so two guests can't both grab the last room while one is mid
-// PromptPay-scan or 3-D Secure challenge). `queryable` is either the pool
-// or a transaction client, so callers can run this inside a lock.
-async function countOverlapping(queryable, room, checkIn, checkOut) {
-  const { rows } = await queryable.query(
-    `SELECT COUNT(*)::int AS cnt
-       FROM guest_bookings
-      WHERE room = $1
-        AND check_in < $3 AND check_out > $2
-        AND (
-          status = 'confirmed'
-          OR (status = 'pending' AND created_at > NOW() - INTERVAL '${PENDING_HOLD_MINUTES} minutes')
-        )`,
-    [room, checkIn, checkOut]
-  );
-  return rows[0].cnt;
 }
 
 /* GET /payments/config */

@@ -963,6 +963,52 @@
     });
   }
 
+  // Injects/updates a Hotel + AggregateOffer JSON-LD block reflecting the
+  // current room-only price range across ROOMS (static fallback on first
+  // call, live-override-corrected after loadRates() below resolves) — a
+  // free, additive SEO signal; booking.html previously had no structured
+  // data at all. Independent of, and not required by, the Google Hotel Ads
+  // feed (backend/routes/hotelAds.js) — this is for general search/rich
+  // results, not the price-comparison module specifically.
+  function injectPricingSchema() {
+    var prices = [];
+    ROOMS.forEach(function (room) {
+      room.variants.forEach(function (v) { if (typeof v.room === 'number') prices.push(v.room); });
+    });
+    if (!prices.length) return;
+    var data = {
+      '@context': 'https://schema.org',
+      '@type': 'Hotel',
+      name: 'J Park Hotel',
+      url: 'https://jparkhotel.com/booking.html',
+      telephone: '+66-86-326-0664',
+      address: {
+        '@type': 'PostalAddress',
+        streetAddress: '88/88 Thanon Sukprayun, Na Pa',
+        addressLocality: 'Mueang Chonburi District',
+        addressRegion: 'Chon Buri',
+        postalCode: '20000',
+        addressCountry: 'TH',
+      },
+      makesOffer: {
+        '@type': 'AggregateOffer',
+        priceCurrency: 'THB',
+        lowPrice: Math.min.apply(null, prices),
+        highPrice: Math.max.apply(null, prices),
+        offerCount: prices.length,
+      },
+    };
+    var el = document.getElementById('bkPricingSchema');
+    if (!el) {
+      el = document.createElement('script');
+      el.type = 'application/ld+json';
+      el.id = 'bkPricingSchema';
+      document.head.appendChild(el);
+    }
+    el.textContent = JSON.stringify(data);
+  }
+  injectPricingSchema();
+
   (function loadRates() {
     var API = window.JPark && window.JPark.api;
     if (!API) return;
@@ -972,6 +1018,7 @@
       applySurcharges(res.surcharges);
       applyDayUseOverrides(res.dayUse);
       renderAll(); // repaint any already-drawn cards with corrected prices
+      injectPricingSchema(); // refresh with live-override-corrected prices
     }).catch(function () {});
   })();
 
@@ -1082,12 +1129,21 @@
     checkinEl.focus();
   });
 
-  // --- Pre-fill from URL params (when arriving from hero booking bar) ---
+  // Same slugify() as backend/lib/hotelAdsIds.js — intentionally duplicated
+  // here rather than shared, since this static frontend has no build step
+  // to pull a Node module into. Keep the two in sync if either changes.
+  function slugify(s) {
+    return String(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+  }
+
+  // --- Pre-fill from URL params (when arriving from hero booking bar, or
+  // from a Google Hotel Ads deep link naming a specific room via ?room=) ---
   (function () {
     var p = new URLSearchParams(window.location.search);
     var ci = p.get('checkin');
     var co = p.get('checkout');
     var g  = parseInt(p.get('guests'), 10);
+    var roomSlug = p.get('room');
 
     if (ci) {
       checkinEl.value = ci;
@@ -1100,7 +1156,19 @@
     }
 
     if (ci && co && co > ci) {
-      searchBtn.click();
+      searchBtn.click(); // renders room cards synchronously before returning
+
+      if (roomSlug) {
+        var match = ROOMS.filter(function (r) { return slugify(r.name) === roomSlug; })[0];
+        var card = match && gridEl.querySelector('[data-room="' + CSS.escape(match.name) + '"]');
+        if (card) {
+          card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          var bookBtn = card.querySelector('.rr-book-btn');
+          if (bookBtn) bookBtn.click();
+        }
+        // No match, or filtered out by guest count: no-op — the plain
+        // date/guest search above has already run.
+      }
     }
   }());
 
