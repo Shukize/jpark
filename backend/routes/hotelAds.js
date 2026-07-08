@@ -37,8 +37,8 @@
    in routes/rates.js — Google's crawler infra needs to reach this without
    a login flow, and it's the same pricing already public on /api/rates and
    the booking page). Optional shared-secret ?key= via crypto.timingSafeEqual
-   (same pattern as payments.js's Omise-webhook key check), open by default
-   if HOTEL_ADS_FEED_SECRET is unset.
+   (same pattern as the OTA webhook key checks elsewhere in this backend),
+   open by default if HOTEL_ADS_FEED_SECRET is unset.
    ============================================================ */
 const express = require('express');
 const crypto = require('crypto');

@@ -1703,13 +1703,92 @@
   // so staff can tell at a glance whether a "direct" booking was actually paid.
   function bkPaymentLabel(b) {
     if (!b.paymentStatus || b.paymentStatus === "n/a") return "";
-    const methodKey = b.paymentMethod === "promptpay" ? "msg.bk.payment.promptpay"
-      : b.paymentMethod === "card" ? "msg.bk.payment.card" : "";
+    const methodKey = b.paymentMethod === "cash" ? "msg.bk.payment.cash"
+      : b.paymentMethod === "card" ? "msg.bk.payment.card"
+      : b.paymentMethod === "promptpay_instore" ? "msg.bk.payment.promptpay_instore"
+      : b.paymentMethod === "pay_at_checkin" ? "msg.bk.payment.pay_at_checkin"
+      : b.paymentMethod === "promptpay" ? "msg.bk.payment.promptpay" // legacy rows
+      : "";
     const method = methodKey ? t(methodKey) : (b.paymentProvider || "");
     const statusKey = "msg.bk.payment.status." + b.paymentStatus;
     const statusVal = t(statusKey);
     const status = statusVal === statusKey ? b.paymentStatus : statusVal;
     return method ? (method + " — " + status) : status;
+  }
+
+  /* Front-desk-only actions on a direct/pay-at-checkin booking: assign the
+     physical room number, and record how in-person payment was received.
+     OTA-sourced bookings never go through this flow, so these controls are
+     scoped to b.channel === "direct" in renderBookingDetail(). */
+  function updateBookingLocal(id, patch) {
+    const all = S.list("guestBookings");
+    const i = all.findIndex((x) => x.id === id);
+    if (i >= 0) {
+      all[i] = Object.assign({}, all[i], patch);
+      S.write("guestBookings", all);
+    }
+  }
+
+  function bkFrontDeskHTML(b) {
+    const paid = b.paymentStatus === "paid";
+    const roomRow =
+      '<div class="bk-frontdesk-row">' +
+        '<label class="bkd-label">' + esc(t("msg.bk.roomNumber")) + '</label>' +
+        '<input type="text" class="bk-frontdesk-input" id="bkdRoomNumberInput" maxlength="10" ' +
+          'placeholder="' + esc(t("msg.bk.roomNumberPlaceholder")) + '" value="' + esc(b.roomNumber || "") + '">' +
+        '<button class="mda-action-btn" id="bkdSaveRoomBtn">' + esc(t("msg.bk.assignRoom")) + "</button>" +
+      "</div>";
+    const paymentRow = paid
+      ? '<div class="bk-frontdesk-row bk-frontdesk-paid">✓ ' + esc(t("msg.bk.paymentReceivedConfirm")) + ": " + esc(bkPaymentLabel(b)) + "</div>"
+      : '<div class="bk-frontdesk-row">' +
+          '<label class="bkd-label">' + esc(t("msg.bk.payment")) + '</label>' +
+          '<select class="bk-frontdesk-select" id="bkdPaymentMethodSelect">' +
+            '<option value="cash">' + esc(t("msg.bk.payment.cash")) + "</option>" +
+            '<option value="card">' + esc(t("msg.bk.payment.card")) + "</option>" +
+            '<option value="promptpay_instore">' + esc(t("msg.bk.payment.promptpay_instore")) + "</option>" +
+          "</select>" +
+          '<button class="mda-action-btn" id="bkdMarkPaidBtn">' + esc(t("msg.bk.markPaymentReceived")) + "</button>" +
+        "</div>";
+    return '<div class="bk-frontdesk">' + roomRow + paymentRow + "</div>";
+  }
+
+  function wireBkFrontDesk(detailArea, b) {
+    const saveRoomBtn = detailArea.querySelector("#bkdSaveRoomBtn");
+    if (saveRoomBtn) {
+      saveRoomBtn.addEventListener("click", () => {
+        const input = detailArea.querySelector("#bkdRoomNumberInput");
+        const roomNumber = input ? input.value.trim() : "";
+        const API = window.JPark && window.JPark.api;
+        if (!API) return;
+        saveRoomBtn.disabled = true;
+        API.patch("/api/guest-bookings/" + b.id, { roomNumber }).then((r) => {
+          if (r && !r.error) {
+            updateBookingLocal(b.id, { roomNumber: r.roomNumber });
+            renderBookingDetail(b.id);
+          } else {
+            saveRoomBtn.disabled = false;
+          }
+        }).catch(() => { saveRoomBtn.disabled = false; });
+      });
+    }
+    const markPaidBtn = detailArea.querySelector("#bkdMarkPaidBtn");
+    if (markPaidBtn) {
+      markPaidBtn.addEventListener("click", () => {
+        const select = detailArea.querySelector("#bkdPaymentMethodSelect");
+        const paymentMethod = select ? select.value : "cash";
+        const API = window.JPark && window.JPark.api;
+        if (!API) return;
+        markPaidBtn.disabled = true;
+        API.patch("/api/guest-bookings/" + b.id, { paymentMethod }).then((r) => {
+          if (r && !r.error) {
+            updateBookingLocal(b.id, { paymentMethod: r.paymentMethod, paymentStatus: r.paymentStatus });
+            renderBookingDetail(b.id);
+          } else {
+            markPaidBtn.disabled = false;
+          }
+        }).catch(() => { markPaidBtn.disabled = false; });
+      });
+    }
   }
 
   function renderBookingList() {
@@ -1778,6 +1857,7 @@
     fields += bookingField("msg.bk.phone", b.guestPhone);
     fields += bookingField("msg.bk.ref", b.ref);
     fields += bookingField("msg.bk.room", b.room);
+    fields += bookingField("msg.bk.roomNumber", b.roomNumber);
     fields += bookingField("msg.bk.checkin", b.checkIn);
     fields += bookingField("msg.bk.checkout", b.checkOut);
     fields += bookingField("msg.bk.nights", b.nights);
@@ -1800,6 +1880,7 @@
         '<div class="mda-time">' + esc(new Date(b.createdAt).toLocaleString()) + "</div>" +
       "</div>" +
       '<div class="bk-detail-grid">' + fields + "</div>" +
+      (b.channel === "direct" ? bkFrontDeskHTML(b) : "") +
       '<div class="bk-confirm-label">' + esc(t("msg.bk.confirmation")) + "</div>" +
       '<div class="tr-note msg-tr-note" style="display:none"></div>' +
       '<div class="msg-detail-body bk-confirm-body"></div>' +
@@ -1826,6 +1907,8 @@
         }
       });
     }
+
+    if (b.channel === "direct") wireBkFrontDesk(detailArea, b);
 
     detailArea.querySelector("#mdaBkForward").addEventListener("click", () => openForwardBooking(b));
     detailArea.querySelector("#mdaBkStar").addEventListener("click", () => {

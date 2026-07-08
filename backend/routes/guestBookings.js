@@ -54,7 +54,12 @@ function hotelRecipients() {
 // the Guest Booking entry in the staff console.
 function paymentLabel(bk) {
   if (!bk.payment_status || bk.payment_status === 'n/a') return null;
-  const method = bk.payment_method === 'promptpay' ? 'PromptPay' : bk.payment_method === 'card' ? 'Card' : bk.payment_provider || 'Online';
+  const method = bk.payment_method === 'cash' ? 'Cash'
+    : bk.payment_method === 'card' ? 'Card'
+    : bk.payment_method === 'promptpay_instore' ? 'PromptPay (in person)'
+    : bk.payment_method === 'pay_at_checkin' ? 'Pay at check-in (cash / card / PromptPay)'
+    : bk.payment_method === 'promptpay' ? 'PromptPay' // legacy rows from the retired online-Omise flow
+    : bk.payment_provider || 'Online';
   const statusWord = bk.payment_status === 'paid' ? 'Paid'
     : bk.payment_status === 'pending' ? 'Awaiting payment'
     : bk.payment_status === 'failed' ? 'Failed'
@@ -62,11 +67,27 @@ function paymentLabel(bk) {
   return `${method} — ${statusWord}`;
 }
 
+// A prominent, guest-facing "here's what you owe and how to pay it" callout
+// — distinct from the terse `Payment: {label}` row above, which stays a
+// uniform one-liner across every booking type in the inbox. Only shown for
+// a reservation still awaiting its in-person payment (see routes/payments.js
+// POST /reservations, which always creates bookings in this state).
+function balanceDueNote(bk) {
+  if (bk.payment_method !== 'pay_at_checkin' || bk.payment_status !== 'pending') return null;
+  const money = bk.total != null ? `${bk.total} ${bk.currency || 'THB'}` : '—';
+  return {
+    text: `Balance due: ${money}. Payable in person at check-in by cash, credit/debit card, or PromptPay QR at our front desk.`,
+    html: `<p style="background:#eef6f4;border:1px solid #a9d6cb;border-radius:8px;padding:10px 14px;color:#0f4a3e">` +
+      `<strong>Balance due: ${money}.</strong> Payable in person at check-in by cash, credit/debit card, or PromptPay QR at our front desk.</p>`,
+  };
+}
+
 function hotelNotice(bk) {
   const money = bk.total != null ? `${bk.total} ${bk.currency || 'THB'}` : '—';
   const guests = `${bk.adults} adult(s), ${bk.children} child(ren)`;
   const via = bk.channel_name || bk.channel || 'Direct';
   const payment = paymentLabel(bk);
+  const balanceDue = balanceDueNote(bk);
   const lines = [
     `New booking via ${via}.`,
     '',
@@ -81,6 +102,7 @@ function hotelNotice(bk) {
     `Guests: ${guests}`,
     `Total: ${money}`,
     ...(payment ? [`Payment: ${payment}`] : []),
+    ...(balanceDue ? ['', balanceDue.text] : []),
     '',
     'This reservation is now in the Guest Booking inbox of the staff console.',
   ];
@@ -101,6 +123,7 @@ function hotelNotice(bk) {
     `<tr><td style="padding:4px 12px 4px 0;color:#555">Total</td><td style="padding:4px 0">${money}</td></tr>` +
     (payment ? `<tr><td style="padding:4px 12px 4px 0;color:#555">Payment</td><td style="padding:4px 0">${payment}</td></tr>` : '') +
     `</table>` +
+    (balanceDue ? balanceDue.html : '') +
     `<p style="color:#555">This reservation is now in the <strong>Guest Booking</strong> inbox of the staff console.</p>` +
     `</div>`;
   return { text, html };
@@ -118,6 +141,7 @@ const DEPOSIT_NOTE_HTML =
 function confirmationEmail(bk) {
   const money = bk.total != null ? `${bk.total} ${bk.currency || 'THB'}` : '—';
   const payment = paymentLabel(bk);
+  const balanceDue = balanceDueNote(bk);
   const lines = [
     `Dear ${bk.guest_name || 'Guest'},`,
     '',
@@ -131,6 +155,7 @@ function confirmationEmail(bk) {
     `Guests: ${bk.adults} adult(s), ${bk.children} child(ren)`,
     `Total: ${money}`,
     ...(payment ? [`Payment: ${payment}`] : []),
+    ...(balanceDue ? ['', balanceDue.text] : []),
     '',
     DEPOSIT_NOTE_TEXT,
     '',
@@ -154,6 +179,7 @@ function confirmationEmail(bk) {
     `<tr><td style="padding:4px 12px 4px 0;color:#555">Total</td><td style="padding:4px 0">${money}</td></tr>` +
     (payment ? `<tr><td style="padding:4px 12px 4px 0;color:#555">Payment</td><td style="padding:4px 0">${payment}</td></tr>` : '') +
     `</table>` +
+    (balanceDue ? balanceDue.html : '') +
     DEPOSIT_NOTE_HTML +
     `<p>We look forward to welcoming you. Just reply to this email if you need anything before arrival.</p>` +
     `<p style="color:#0f766e;font-weight:bold;margin-top:24px">J Park Hotel, Chonburi</p>` +
@@ -173,6 +199,7 @@ function row2js(r) {
     guestEmail: r.guest_email,
     guestPhone: r.guest_phone,
     room: r.room,
+    roomNumber: r.room_number,
     checkIn: r.check_in,
     checkOut: r.check_out,
     nights: r.nights,
@@ -341,9 +368,15 @@ router.post('/', async (req, res) => {
   }
 });
 
-/* PATCH /api/guest-bookings/:id */
-router.patch('/:id', async (req, res) => {
-  const { status, readBy, userId } = req.body || {};
+// Staff can only ever move a payment forward to "paid" via this endpoint —
+// never trust a client-supplied paymentMethod string beyond this allow-list.
+const ALLOWED_PAYMENT_METHODS = ['cash', 'card', 'promptpay_instore'];
+
+/* PATCH /api/guest-bookings/:id — requires staff auth: beyond the original
+   mark-read/status use, this now also assigns the physical room number and
+   records in-person payment, both front-desk-only actions. */
+router.patch('/:id', requireAuth, async (req, res) => {
+  const { status, readBy, userId, roomNumber, paymentMethod } = req.body || {};
   try {
     if (userId) {
       // mark read for this user
@@ -358,6 +391,22 @@ router.patch('/:id', async (req, res) => {
       await db.query(
         'UPDATE guest_bookings SET status = $1 WHERE id = $2',
         [status, req.params.id]
+      );
+    }
+    if (roomNumber !== undefined) {
+      const rn = String(roomNumber).trim().slice(0, 10);
+      await db.query(
+        'UPDATE guest_bookings SET room_number = $1 WHERE id = $2',
+        [rn || null, req.params.id]
+      );
+    }
+    if (paymentMethod !== undefined) {
+      if (!ALLOWED_PAYMENT_METHODS.includes(paymentMethod)) {
+        return res.status(400).json({ error: 'Invalid paymentMethod' });
+      }
+      await db.query(
+        `UPDATE guest_bookings SET payment_method = $1, payment_status = 'paid' WHERE id = $2`,
+        [paymentMethod, req.params.id]
       );
     }
     const { rows } = await db.query('SELECT * FROM guest_bookings WHERE id = $1', [req.params.id]);

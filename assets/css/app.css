@@ -1011,6 +1011,21 @@ body.mobile-view .fac-card.large {
 .bkd-row { display: contents; }
 .bkd-label { font-size: 0.84rem; color: #888; white-space: nowrap; }
 .bkd-value { font-size: 0.9rem; color: #1a1a1a; font-weight: 600; word-break: break-word; }
+
+/* Front-desk actions on a direct booking: assign the physical room number,
+   record in-person payment. Shown above the confirmation email body. */
+.bk-frontdesk {
+  display: flex; flex-direction: column; gap: 10px;
+  margin-bottom: 22px; padding: 14px 16px; max-width: 580px;
+  background: #f8f9fd; border: 1px solid #e2e7f5; border-radius: 10px;
+}
+.bk-frontdesk-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.bk-frontdesk-input, .bk-frontdesk-select {
+  padding: 6px 10px; border-radius: 8px; border: 1px solid #d8dff0;
+  font-size: 0.85rem; color: #1a1a1a;
+}
+.bk-frontdesk-input { width: 100px; }
+.bk-frontdesk-paid { color: #1a7f4b; font-weight: 600; font-size: 0.88rem; }
 .bk-confirm-label {
   font-size: 0.74rem; text-transform: uppercase; letter-spacing: .07em;
   color: #aaa; font-weight: 700; margin-bottom: 12px;

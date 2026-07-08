@@ -170,6 +170,13 @@ ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS payment_method    VARCHAR(20
 ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS payment_status    VARCHAR(20) NOT NULL DEFAULT 'n/a';
 ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS payment_charge_id VARCHAR(100);
 
+-- Physical room number assigned by front-desk staff at check-in (distinct
+-- from `room`, which is a room-TYPE string like "Deluxe"). NULL until staff
+-- assign it via the staff console. Not a FK to the separate, unrelated
+-- rooms/bookings tables above, which belong only to the OTA channel-manager
+-- webhook (routes/otaSync.js) — guest_bookings never joins against those.
+ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS room_number VARCHAR(10);
+
 -- Used by the availability check (payments.js) to count overlapping bookings
 -- per room type for a date range.
 CREATE INDEX IF NOT EXISTS idx_guest_bookings_room_dates

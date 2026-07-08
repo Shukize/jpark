@@ -23,16 +23,15 @@ localStorage fallback**, so the site keeps working offline.
 | Site Editor (admin CMS: text, photos, colours, sections) | ✅ Live |
 | Photos | ✅ Original curated marketing set — one folder per room/area under `images/` |
 | OTA booking intake → Guest Booking inbox + hotel-notice email | ✅ Built (channel webhook, email-forwarding bridge, browser API) |
-| **In-site online booking + payment** (PromptPay QR only — card/cash are in-person) | ✅ Built — needs a live Omise account + keys, see [Online booking & payments](#online-booking--payments) |
+| **In-site online booking** (no online payment — guests pay in person at check-in) | ✅ Live, see [Online booking & payments](#online-booking--payments) |
 | Transactional email delivery | ✅ `RESEND_API_KEY` set, sending domain verified, `EMAIL_FROM` on `jparkhotel.com` |
 | Custom domain `jparkhotel.com` | ✅ DNS live at Porkbun, GitHub Pages custom domain + HTTPS active |
 
 **Operator to-dos that are not code:** confirm the DNS/HTTPS cutover has fully
 propagated everywhere (`nslookup jparkhotel.com`, or [whatsmydns.net](https://www.whatsmydns.net)
-from a network/device that doesn't already resolve it), confirm any retired
+from a network/device that doesn't already resolve it), and confirm any retired
 Render services (the old `jpark-site` static mirror, the free `jpark-db`) are
-actually deleted in the Render dashboard, and decide if/when to set up a real
-Omise account (see [Online booking & payments](#online-booking--payments)).
+actually deleted in the Render dashboard.
 Default staff credentials no longer need manual rotation — see
 [Staff accounts & passwords](#staff-accounts--passwords). See also
 [OTA email forwarding](#-ota-email-forwarding-make-real-bookings-flow-in) below.
@@ -51,7 +50,7 @@ Default staff credentials no longer need manual rotation — see
   - **Colours**, **show/hide sections**, **announcement banner**
   - **Previous edits** — an audit log of who changed what and when
 - **Self-service staff login** — Forgot Password, Forgot Username, and New Staff Account flows
-- **Online booking + payment** (`booking.html`) — guests pick a room, enter their details, and pay online by **PromptPay QR** (via Omise/Opn Payments) — the only online payment method; card and cash are handled in person at check-in. A 200 THB key-card deposit (cash only, at check-in) is stated up front and in the confirmation email — see [Online booking & payments](#online-booking--payments)
+- **Online booking, no online payment** (`booking.html`) — guests pick a room and enter their details; the reservation is confirmed immediately and emailed with a balance due. **No payment is ever collected online** — the guest pays in person at check-in by cash, credit/debit card, or PromptPay QR at the front desk, where staff also assign the guest's physical room number. A 200 THB key-card deposit (cash only, at check-in) is stated up front and in the confirmation email — see [Online booking & payments](#online-booking--payments)
 - **Guest Booking inbox** — OTA reservations (Agoda, Booking.com, Airbnb, Trip.com…) *and* direct website bookings land in Messages, auto-translated, with a payment status badge on direct bookings
 - **Password Reset Requests** inbox for admins
 - **Message actions** — Reply, Forward, Star, **Delete** and **Report** on every internal message; Star, Forward and **Delete** (admin) on booking confirmations; a **Starred** folder (⭐) collects starred items across both inboxes; reported messages are flagged for admin review
@@ -318,17 +317,17 @@ Start with Option 1 (email + Lambda) — it's low-friction and works universally
 ## Online booking & payments
 
 `booking.html` is a full, streamlined booking flow, not just a rate browser:
-guest picks dates/room on the page → taps **Book Now** → enters guest details →
-pays online by **PromptPay QR** (via **Omise/Opn Payments**, Thailand's
-standard payment acquirer — settles in THB to a Thai bank account) → gets an
-instant on-screen + emailed confirmation. **PromptPay QR is the only online
-payment method, by permanent owner decision** — a guest who wants to pay by
-card or cash does so in person (call/visit/at check-in), not through the
-booking flow; this stays true even after a live Omise account is set up, not
-just while it's unconfigured. A **200 THB key-card deposit, collected in cash
-only at check-in and refunded at check-out**, is called out in the payment
-step and in every booking-confirmation email (OTA and direct alike) — it's a
-separate, unrelated line item from the online room payment.
+guest picks dates/room on the page → taps **Book Now** → enters guest details
+→ taps **Confirm reservation** → gets an instant on-screen + emailed
+confirmation. **No payment is ever collected online, by permanent owner
+decision.** The reservation is confirmed immediately (it holds the room-type
+inventory the same way a paid booking would); the guest settles the balance
+in person at check-in by **cash, credit/debit card, or PromptPay QR** at the
+front desk, where staff also assign the guest's physical room number and
+record the payment received. A **200 THB key-card deposit, collected in cash
+only at check-in and refunded at check-out**, is called out in the
+confirmation step and in every booking-confirmation email (OTA and direct
+alike) — it's a separate, unrelated line item from the room balance.
 
 - The server, never the browser, computes the authoritative price
   (`backend/lib/rateOverrides.js`, merging the static base rates in
@@ -351,38 +350,74 @@ separate, unrelated line item from the online room payment.
   per type — the owner doesn't consider overbooking a real risk for this
   property — so it never realistically blocks a booking; lower the numbers
   if that changes.
-- PromptPay shows a QR and polls until paid. Confirmed bookings land in the
-  same `guest_bookings` table and the same staff **Guest Booking** inbox as
-  OTA reservations, with a `channel: "direct"` and a payment status badge
-  (PromptPay — Paid / Awaiting payment / Failed).
-- **Omise-PromptPay checkout isn't live yet** — no Omise account/keys
-  exist. Until `OMISE_PUBLIC_KEY` / `OMISE_SECRET_KEY` are set, the booking
-  page's payment step instead shows the hotel's static **PromptPay QR**
-  (`images/promptpay-qr.jpg`) (`assets/js/booking-payment.js`'s
-  `renderManual()`). Submitting this form posts to
-  `POST /api/v1/payments/manual-booking`, which takes no payment itself — it
-  holds the room (same overlap/inventory guard as the paid flow) and
-  records a `pending` booking with `payment_provider: 'manual'` for staff to
-  confirm by hand once they see a matching PromptPay transfer. Both the
-  front desk and the guest get an email explaining the booking is pending,
-  not confirmed.
+- Submitting the reservation form (`assets/js/booking-payment.js`) posts to
+  `POST /api/v1/reservations`, which holds the room (overlap/inventory
+  guard), inserts an already-`confirmed` row with `payment_provider:
+  'in_person'` / `payment_method: 'pay_at_checkin'` / `payment_status:
+  'pending'`, and immediately emails both the front desk and the guest —
+  the guest email states the balance due and that it's payable in person.
+  Confirmed bookings land in the same `guest_bookings` table and the same
+  staff **Guest Booking** inbox as OTA reservations, with a `channel:
+  "direct"` and a payment status badge (e.g. "Pay at check-in — Awaiting
+  payment").
+- **Front-desk check-in, in the staff console:** opening a direct booking in
+  the Guest Booking inbox shows a room-number field (staff type in the
+  physical room assigned) and a payment-method selector (Cash / Card /
+  PromptPay in person) with a "Mark payment received" button — both PATCH
+  `/api/guest-bookings/:id` (`assets/js/staff.js`). This is the point where
+  the specific physical room is actually confirmed and payment is recorded.
 - **Day-use (3-hour) stays are bookable, not just informational.** A gold
   banner near the top of `booking.html` ("Only need a few hours?") links
   down to the Day Use Rates section, and each rate row has its own **Book**
   button (`assets/js/booking-page.js`'s `renderDayUse()`). It opens a small,
   dedicated flow (`assets/js/booking-payment.js`'s `openDayUse()`) — a
   preferred date + free-text preferred time and guest details — that posts
-  to `POST /api/v1/payments/dayuse-booking`. This always goes through the
-  manual/pending PromptPay path (regardless of whether Omise is configured)
-  since a day-use slot always needs front-desk confirmation of the exact
-  time; it deliberately skips the overlap/inventory guard for the same
-  reason. Day-use prices are admin-editable in the Site Editor's **Rates**
-  tab, the same way overnight rates are (`backend/lib/rateOverrides.js`'s
-  `getEffectiveDayUsePrice()`).
+  to `POST /api/v1/payments/dayuse-booking`. This always stays `pending`
+  (regardless of the reservation flow above) since a day-use slot always
+  needs front-desk confirmation of the exact time; it deliberately skips the
+  overlap/inventory guard for the same reason. Payment is likewise in person
+  once the time slot is confirmed. Day-use prices are admin-editable in the
+  Site Editor's **Rates** tab, the same way overnight rates are
+  (`backend/lib/rateOverrides.js`'s `getEffectiveDayUsePrice()`).
 
-Full setup (creating the Omise account, env vars, the webhook, testing
-PromptPay in Test mode, correcting the room counts, going live) is in
-[`docs/PAYMENTS_SETUP.md`](docs/PAYMENTS_SETUP.md).
+### If the owner ever wants online payment back
+
+An earlier version of this site *did* collect payment online (PromptPay QR,
+via Omise/Opn Payments) before the owner made online-payment removal
+permanent policy — see [Online booking & payments](#online-booking--payments)
+above. That integration was fully removed (not just disabled) to keep the
+codebase honest about the current policy, but nothing about today's schema
+or booking flow makes it hard to bring back if the decision changes:
+
+- **Where the old code lived**, as of the last commit before removal
+  (`2492c27`, "Add free direct-connect Google Hotel Ads feed"): `backend/lib/omise.js`
+  (the Omise API client), the `GET /payments/config` / `POST /payments/charge`
+  / `GET /payments/status/:id` / `POST /payments/webhook` routes in
+  `backend/routes/payments.js`, the `OMISE_PUBLIC_KEY` / `OMISE_SECRET_KEY` /
+  `OMISE_WEBHOOK_SECRET` env vars in `render.yaml`, the live-PromptPay QR
+  view (`renderForm`/`sendCharge`/`showQr`/`pollStatus`) in
+  `assets/js/booking-payment.js`, and the original setup walkthrough in
+  `docs/PAYMENTS_SETUP.md`. Recover any of it with, e.g.:
+  `git show 2492c27:backend/lib/omise.js > backend/lib/omise.js`.
+- **What still fits today's schema**: `guest_bookings` already has
+  `payment_provider` / `payment_method` / `payment_status` /
+  `payment_charge_id` columns (`backend/schema.sql`) built for exactly this —
+  a restored online-charge flow would set `payment_provider: 'omise'`,
+  `payment_method: 'promptpay'`, and flip `payment_status` from `'pending'`
+  to `'paid'` on webhook confirmation, same as before. The new `room_number`
+  column and the staff console's room-assignment/mark-paid actions
+  (added when online payment was removed) are unaffected either way — a
+  guest who paid online at booking time would just arrive at check-in with
+  `payment_status` already `'paid'`, so staff would only need to assign the
+  room number, not also record payment.
+- **What to rebuild, not just restore**: a live Omise/Opn account and API
+  keys (the old integration was built but never actually turned on — see
+  `git show 2492c27:docs/PAYMENTS_SETUP.md` for the original account-setup
+  steps), and a decision on whether the guest-facing copy should present
+  online payment as optional (alongside pay-at-checkin) or mandatory — the
+  old version made it the *only* online method with PromptPay QR, but did
+  not remove pay-in-person as a fallback, so a hybrid is the more natural
+  restore than reverting this policy wholesale.
 
 ---
 
@@ -486,12 +521,6 @@ Set these in the Render dashboard (Environment tab — all are `sync:false` in
 - `RESEND_API_KEY` — Resend API key (`re_…`); leave blank to disable email
 - `EMAIL_FROM` — sender, e.g. `J Park Hotel <onboarding@resend.dev>` until you
   verify your own domain in Resend
-- `OMISE_PUBLIC_KEY` / `OMISE_SECRET_KEY` — Omise/Opn Payments keys for online
-  booking payments; leave blank to keep online payment disabled (see
-  [Online booking & payments](#online-booking--payments) and
-  [`docs/PAYMENTS_SETUP.md`](docs/PAYMENTS_SETUP.md))
-- `OMISE_WEBHOOK_SECRET` — optional extra shared-secret check on the Omise
-  webhook URL
 
 **Security hardening (2026-07-07):** the server now fails closed at boot in
 production if either `AUTH_TOKEN_SECRET` or `OTA_WEBHOOK_SECRET` is unset —
@@ -524,15 +553,12 @@ a broken OTA parser can no longer reach production.
 | `GET/POST /api/employees` | Staff roster management |
 | `GET/PUT /api/content` | Site Editor overrides (text, media, theme) |
 | `GET/PUT /api/rates` | Site Editor **Rates** tab — live room-rate, surcharge and Day Use overrides; `GET` is public (read by `booking.html` too), `PUT` is admin-only and validated (see [`backend/routes/rates.js`](backend/routes/rates.js)) |
-| `POST /api/v1/payments/manual-booking` | Interim PromptPay-QR booking flow used while Omise isn't configured — records a *pending* booking for staff to confirm by hand (see [Online booking & payments](#online-booking--payments)) |
-| `POST /api/v1/payments/dayuse-booking` | Requests a 3-hour day-use session (flat rate, PromptPay QR) — records a *pending* booking; never runs the overlap/inventory guard since a day-use slot is always confirmed by staff |
+| `POST /api/v1/reservations` | Creates an immediately-*confirmed* direct booking, no payment taken — holds the room-type inventory and emails the balance due (see [Online booking & payments](#online-booking--payments)) |
+| `POST /api/v1/payments/dayuse-booking` | Requests a 3-hour day-use session (flat rate) — records a *pending* booking; never runs the overlap/inventory guard since a day-use slot is always confirmed by staff |
 | `POST /api/v1/ota-sync` | OTA / channel-manager webhook intake (structured JSON, assigns a room) |
 | `POST /api/v1/ota-email` | OTA **email-forwarding** bridge — parses a forwarded confirmation email into the Guest Booking inbox |
-| `GET /api/v1/payments/config` | Returns the Omise public key (or `null` if not yet configured) |
 | `GET /api/v1/booking-availability` | Remaining room count per type for a date range (overbooking guard) |
-| `POST /api/v1/payments/charge` | Creates a direct booking + charges it via Omise PromptPay — the only online payment method |
-| `GET /api/v1/payments/status/:id` | Polled by the booking page while a PromptPay QR is pending |
-| `POST /api/v1/payments/webhook` | Omise event receiver — confirms PromptPay payments and fires the emails |
+| `PATCH /api/guest-bookings/:id` | Staff-only: mark read, assign a physical room number, or record in-person payment (cash/card/PromptPay) received at check-in |
 | `POST /api/email` | Send transactional email (Resend); `GET /api/email/status` reports if configured |
 | `GET /health` | Liveness probe |
 
