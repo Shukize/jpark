@@ -1,10 +1,11 @@
 /* ============================================================
    J Park Hotel — online booking payments (Omise / Opn Payments).
-   Mounted at /api/v1 in server.js:
+   PromptPay QR is the only online payment method, by permanent policy —
+   card and cash are in-person-only. Mounted at /api/v1 in server.js:
      GET  /api/v1/payments/config          -> { publicKey, promptpayEnabled }
      GET  /api/v1/booking-availability     -> { [room]: remainingCount }
-     POST /api/v1/payments/charge          -> create booking + charge (card or PromptPay)
-     POST /api/v1/payments/manual-booking  -> pending overnight booking (PromptPay-QR/cash, no Omise charge)
+     POST /api/v1/payments/charge          -> create booking + PromptPay charge
+     POST /api/v1/payments/manual-booking  -> pending overnight booking (PromptPay QR, no Omise charge)
      POST /api/v1/payments/dayuse-booking  -> pending 3-hour day-use request (flat rate, no Omise charge)
      GET  /api/v1/payments/status/:id      -> poll payment status
      POST /api/v1/payments/webhook         -> Omise event receiver
@@ -14,8 +15,6 @@
      price is always recomputed here from lib/rateOverrides.js (which merges
      lib/roomRates.js's static base rates with any live admin edits saved via
      the Site Editor's Rates tab). Never trust a client-supplied amount.
-   - Card numbers never reach this server — only the Omise.js browser
-     token (tokn_...) does.
    - Omise webhooks are not cryptographically signed, so on receipt we
      re-fetch the charge from Omise's own API before trusting its status.
    ============================================================ */
@@ -45,20 +44,6 @@ const rateLimited = makeLimiter(10, 10 * 60 * 1000);
 
 function genRef() {
   return 'JP-' + Date.now().toString(36).toUpperCase() + '-' + crypto.randomBytes(2).toString('hex').toUpperCase();
-}
-
-// Only ever redirect back to a known, configured front-end origin — never
-// an attacker-supplied return_uri (open-redirect guard for the 3-D Secure
-// card flow).
-function allowedFrontendOrigins() {
-  return (process.env.FRONTEND_ORIGIN || 'https://jparkhotel.com,https://www.jparkhotel.com,https://shukize.github.io')
-    .split(',').map((s) => s.trim()).filter(Boolean);
-}
-
-function safeReturnUri(candidateOrigin, bookingId) {
-  const allowed = allowedFrontendOrigins();
-  const origin = allowed.includes(candidateOrigin) ? candidateOrigin : allowed[0];
-  return `${origin}/booking.html?omise_return=1&bookingId=${encodeURIComponent(bookingId)}`;
 }
 
 // `totalGuests` (adults+children) drives two optional per-night surcharges
@@ -150,11 +135,8 @@ router.post('/payments/charge', async (req, res) => {
   if (!guest.firstName || !guest.email) {
     return res.status(400).json({ error: 'Guest name and email are required' });
   }
-  if (method !== 'card' && method !== 'promptpay') {
-    return res.status(400).json({ error: 'method must be "card" or "promptpay"' });
-  }
-  if (method === 'card' && !b.token) {
-    return res.status(400).json({ error: 'Missing card token' });
+  if (method !== 'promptpay') {
+    return res.status(400).json({ error: 'method must be "promptpay"' });
   }
 
   const roomInfo = roomRates.getRoom(room);
@@ -186,62 +168,6 @@ router.post('/payments/charge', async (req, res) => {
 
     const ref = genRef();
 
-    if (method === 'card') {
-      let charge;
-      try {
-        charge = await omise.createCardCharge({
-          amountSatang,
-          currency: 'thb',
-          token: b.token,
-          description,
-          metadata,
-          returnUri: safeReturnUri(b.returnOrigin, ref),
-        });
-      } catch (e) {
-        await client.query('ROLLBACK');
-        console.error('[payments] card charge error', e.omise || e.message);
-        return res.status(402).json({ error: (e.omise && e.omise.message) || 'Card payment failed' });
-      }
-
-      if (charge.status === 'failed') {
-        await client.query('ROLLBACK');
-        return res.status(402).json({ error: charge.failure_message || 'Card was declined' });
-      }
-
-      const confirmed = charge.status === 'successful';
-      const { rows } = await client.query(
-        `INSERT INTO guest_bookings
-           (ref, channel, channel_name, guest_name, guest_last_name, guest_email, guest_phone,
-            room, check_in, check_out, nights, adults, children, total, currency, status, lang,
-            payment_provider, payment_method, payment_status, payment_charge_id)
-         VALUES ($1,'direct','Direct (Website)',$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'THB',$13,$14,
-                 'omise','card',$15,$16)
-         RETURNING *`,
-        [
-          ref, guestName, guestLastName, guest.email, guest.phone || null,
-          room, checkIn, checkOut, nights, adults, children, total,
-          confirmed ? 'confirmed' : 'pending',
-          b.lang || 'en',
-          confirmed ? 'paid' : 'pending',
-          charge.id,
-        ]
-      );
-      await client.query('COMMIT');
-      const saved = rows[0];
-
-      if (confirmed) {
-        fireBookingEmails({ ...saved, inserted: true });
-        return res.json({ status: 'paid', booking: row2js(saved) });
-      }
-      // 3-D Secure (or other) authorization required before the charge settles.
-      return res.json({
-        status: 'requires_action',
-        authorizeUri: charge.authorize_uri,
-        bookingId: saved.id,
-      });
-    }
-
-    // method === 'promptpay'
     let source, charge;
     try {
       source = await omise.createPromptPaySource({ amountSatang, currency: 'thb' });
@@ -297,7 +223,6 @@ router.post('/payments/charge', async (req, res) => {
 // acknowledgment explaining payment is still owed, not yet confirmed.
 function manualGuestEmail(bk) {
   const money = bk.total != null ? `${bk.total} ${bk.currency || 'THB'}` : '—';
-  const methodWord = bk.payment_method === 'cash' ? 'cash at check-in' : 'PromptPay';
   const lines = [
     `Dear ${bk.guest_name || 'Guest'},`,
     '',
@@ -308,9 +233,9 @@ function manualGuestEmail(bk) {
     `Check-out: ${bk.check_out}`,
     `Nights: ${bk.nights}`,
     `Guests: ${bk.adults} adult(s), ${bk.children} child(ren)`,
-    `Total: ${money} (payable by ${methodWord})`,
+    `Total: ${money} (payable by PromptPay)`,
     '',
-    'This reservation is PENDING until we confirm your payment — please complete it via the PromptPay QR shown on the booking page, or have cash ready at check-in.',
+    'This reservation is PENDING until we confirm your payment — please complete it via the PromptPay QR shown on the booking page.',
     '',
     'Please note: a separate 200 THB deposit for your room key card is collected in cash only at check-in, and refunded in full at check-out.',
     '',
@@ -330,10 +255,10 @@ function manualGuestEmail(bk) {
     `<tr><td style="padding:4px 12px 4px 0;color:#555">Check-out</td><td style="padding:4px 0">${bk.check_out}</td></tr>` +
     `<tr><td style="padding:4px 12px 4px 0;color:#555">Nights</td><td style="padding:4px 0">${bk.nights}</td></tr>` +
     `<tr><td style="padding:4px 12px 4px 0;color:#555">Guests</td><td style="padding:4px 0">${bk.adults} adult(s), ${bk.children} child(ren)</td></tr>` +
-    `<tr><td style="padding:4px 12px 4px 0;color:#555">Total</td><td style="padding:4px 0">${money} (payable by ${methodWord})</td></tr>` +
+    `<tr><td style="padding:4px 12px 4px 0;color:#555">Total</td><td style="padding:4px 0">${money} (payable by PromptPay)</td></tr>` +
     `</table>` +
     `<p style="background:#fbf3df;border:1px solid #e0c178;border-radius:8px;padding:10px 14px;color:#5a4a1a">` +
-    `<strong>This reservation is pending</strong> until we confirm your payment — please complete it via the PromptPay QR shown on the booking page, or have cash ready at check-in.</p>` +
+    `<strong>This reservation is pending</strong> until we confirm your payment — please complete it via the PromptPay QR shown on the booking page.</p>` +
     `<p style="background:#fbf3df;border:1px solid #e0c178;border-radius:8px;padding:10px 14px;color:#5a4a1a">` +
     `<strong>Please note:</strong> a separate 200 THB deposit for your room key card is collected in <strong>cash only</strong> at check-in, and refunded in full at check-out.</p>` +
     `<p>We will confirm your reservation by phone or email once payment is received.</p>` +
@@ -367,12 +292,15 @@ function sendManualBookingEmails(saved) {
 
 /* POST /payments/manual-booking — interim flow for while Omise isn't
    configured (or whenever a guest prefers to pay by the hotel's static
-   PromptPay QR or cash on arrival instead of the card/Omise-PromptPay
-   flow). Takes no payment itself: it records a PENDING booking that holds
-   the room via the same overlap/inventory guard as /payments/charge, and
-   emails both the front desk and the guest so staff can confirm by hand
-   once payment is verified. Reuses computeTotal() so the recorded total
-   already reflects any live admin rate overrides, same as the paid flow. */
+   PromptPay QR instead of the live Omise-PromptPay flow). Takes no payment
+   itself: it records a PENDING booking that holds the room via the same
+   overlap/inventory guard as /payments/charge, and emails both the front
+   desk and the guest so staff can confirm by hand once payment is
+   verified. Reuses computeTotal() so the recorded total already reflects
+   any live admin rate overrides, same as the paid flow. `method` is always
+   forced to 'promptpay_manual' — PromptPay is the only online payment
+   method, by permanent policy; a client-supplied 'cash' (e.g. a stale
+   cached page) is silently ignored rather than honored. */
 router.post('/payments/manual-booking', async (req, res) => {
   const ip = req.ip || 'unknown';
   if (rateLimited(ip)) {
@@ -385,7 +313,7 @@ router.post('/payments/manual-booking', async (req, res) => {
   const breakfast = Boolean(b.breakfast);
   const adults = b.adults != null ? Number(b.adults) : 1;
   const children = b.children != null ? Number(b.children) : 0;
-  const method = b.method === 'cash' ? 'cash' : 'promptpay_manual';
+  const method = 'promptpay_manual';
 
   if (!room || !variantLabel || !checkIn || !checkOut) {
     return res.status(400).json({ error: 'room, variantLabel, checkIn and checkOut are required' });
@@ -454,7 +382,6 @@ router.post('/payments/manual-booking', async (req, res) => {
 // flat price, not a per-night total.
 function dayUseGuestEmail(bk, preferredTime) {
   const money = bk.total != null ? `${bk.total} ${bk.currency || 'THB'}` : '—';
-  const methodWord = bk.payment_method === 'cash' ? 'cash at arrival' : 'PromptPay';
   const lines = [
     `Dear ${bk.guest_name || 'Guest'},`,
     '',
@@ -463,9 +390,9 @@ function dayUseGuestEmail(bk, preferredTime) {
     `Room: ${bk.room || '—'}`,
     `Date: ${bk.check_in}`,
     `Preferred time: ${preferredTime || 'Not specified — we will contact you to confirm'}`,
-    `Total (3-hour day-use): ${money} (payable by ${methodWord})`,
+    `Total (3-hour day-use): ${money} (payable by PromptPay)`,
     '',
-    'This request is PENDING until we confirm your exact time slot and payment — please complete payment via the PromptPay QR or cash as indicated once confirmed.',
+    'This request is PENDING until we confirm your exact time slot and payment — please complete payment via the PromptPay QR once confirmed.',
     '',
     'We will contact you by phone or email shortly to confirm availability.',
     '',
@@ -481,7 +408,7 @@ function dayUseGuestEmail(bk, preferredTime) {
     `<tr><td style="padding:4px 12px 4px 0;color:#555">Room</td><td style="padding:4px 0">${bk.room || '—'}</td></tr>` +
     `<tr><td style="padding:4px 12px 4px 0;color:#555">Date</td><td style="padding:4px 0">${bk.check_in}</td></tr>` +
     `<tr><td style="padding:4px 12px 4px 0;color:#555">Preferred time</td><td style="padding:4px 0">${preferredTime || 'Not specified'}</td></tr>` +
-    `<tr><td style="padding:4px 12px 4px 0;color:#555">Total</td><td style="padding:4px 0">${money} (payable by ${methodWord})</td></tr>` +
+    `<tr><td style="padding:4px 12px 4px 0;color:#555">Total</td><td style="padding:4px 0">${money} (payable by PromptPay)</td></tr>` +
     `</table>` +
     `<p style="background:#fbf3df;border:1px solid #e0c178;border-radius:8px;padding:10px 14px;color:#5a4a1a">` +
     `<strong>This request is pending</strong> until we confirm your exact time slot and payment.</p>` +
@@ -508,7 +435,7 @@ router.post('/payments/dayuse-booking', async (req, res) => {
   const guest = b.guest || {};
   const { room, date } = b;
   const preferredTime = typeof b.preferredTime === 'string' ? b.preferredTime.trim().slice(0, 200) : '';
-  const method = b.method === 'cash' ? 'cash' : 'promptpay_manual';
+  const method = 'promptpay_manual'; // PromptPay is the only online method — ignore any client-supplied value
 
   if (!room || !date) {
     return res.status(400).json({ error: 'room and date are required' });
@@ -516,7 +443,7 @@ router.post('/payments/dayuse-booking', async (req, res) => {
   if (!guest.firstName || !guest.email) {
     return res.status(400).json({ error: 'Guest name and email are required' });
   }
-  const price = roomRates.getDayUsePrice(room);
+  const price = await rateOverrides.getEffectiveDayUsePrice(room);
   if (price == null) return res.status(400).json({ error: 'Unknown day-use room type' });
 
   const guestName = String(guest.firstName || 'Guest').trim();

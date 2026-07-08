@@ -93,6 +93,40 @@ async function getEffectiveSurcharges() {
   return merged;
 }
 
+// Day Use (3-hour short-stay) flat prices are admin-editable the same way
+// surcharges are — a flat { [roomName]: number } map, not per-variant like
+// room rates, since Day Use has no room/breakfast split. Only a room key
+// that already exists in roomRates.DAYUSE may be overridden.
+async function loadRawDayUseRates() {
+  try {
+    const { rows } = await db.query('SELECT day_use_rates FROM site_content WHERE id = 1');
+    const d = rows.length ? rows[0].day_use_rates : null;
+    return d && typeof d === 'object' ? d : {};
+  } catch (e) {
+    console.error('[rateOverrides] DB read failed, falling back to default day-use rates', e);
+    return {};
+  }
+}
+
+async function getEffectiveDayUseRates() {
+  const raw = await loadRawDayUseRates();
+  const merged = { ...roomRates.DAYUSE };
+  Object.keys(merged).forEach((room) => {
+    if (isValidRate(raw[room])) {
+      merged[room] = raw[room];
+    } else if (raw[room] != null) {
+      console.warn(`[rateOverrides] invalid day-use rate for "${room}", ignoring`, raw[room]);
+    }
+  });
+  return merged;
+}
+
+async function getEffectiveDayUsePrice(room) {
+  if (!Object.prototype.hasOwnProperty.call(roomRates.DAYUSE, room)) return null;
+  const rates = await getEffectiveDayUseRates();
+  return rates[room];
+}
+
 // The per-night THB added on top of a variant's room/bf rate for a given
 // guest count. `room` is an *effective* room object (from getEffectiveRoom/
 // getAllEffectiveRooms — has extraBedAvailable). `surcharges` is an
@@ -156,6 +190,9 @@ module.exports = {
   loadRawSurcharges,
   getEffectiveSurcharges,
   computeGuestSurcharge,
+  loadRawDayUseRates,
+  getEffectiveDayUseRates,
+  getEffectiveDayUsePrice,
   MIN_RATE,
   MAX_RATE,
 };

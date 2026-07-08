@@ -2824,6 +2824,7 @@
   const RATE_MAX = 100000;
   let ratesData = null; // { [room]: { maxGuests, extraBedAvailable, variants: [{label, room, bf, overridden}] } }
   let ratesSurcharges = null; // { extraBed, extraBreakfastGuest }
+  let dayUseRatesData = null; // { [room]: number } — flat, like ratesSurcharges, not per-variant
   let ratesWired = false;
 
   function validRateInput(n) {
@@ -2842,6 +2843,7 @@
       }
       ratesData = res.rooms;
       ratesSurcharges = res.surcharges || { extraBed: 500, extraBreakfastGuest: 190 };
+      dayUseRatesData = res.dayUse || {};
     }
     buildRatesRows(wrap);
     wireRatesSave();
@@ -2882,9 +2884,37 @@
     wrap.appendChild(section);
   }
 
+  // Day Use (3-hour short-stay) flat prices — one number per room, no
+  // room/breakfast split, so it's rendered like buildSurchargeFields()
+  // above rather than the per-variant room rows below.
+  function buildDayUseFields(wrap) {
+    const section = document.createElement("div");
+    section.className = "ed-rate-surcharges";
+
+    const heading = document.createElement("div");
+    heading.className = "ed-rate-label";
+    heading.textContent = t("staff.site.ratesDayUseTitle");
+    section.appendChild(heading);
+
+    Object.keys(dayUseRatesData).forEach((roomName) => {
+      const field = document.createElement("label");
+      field.className = "ed-rate-field";
+      const input = document.createElement("input");
+      input.type = "number"; input.min = "1"; input.max = String(RATE_MAX);
+      input.value = dayUseRatesData[roomName];
+      input.dataset.dayuse = roomName;
+      field.appendChild(document.createTextNode(roomName));
+      field.appendChild(input);
+      section.appendChild(field);
+    });
+
+    wrap.appendChild(section);
+  }
+
   function buildRatesRows(wrap) {
     wrap.innerHTML = "";
     buildSurchargeFields(wrap);
+    buildDayUseFields(wrap);
     Object.keys(ratesData).forEach((roomName) => {
       const room = ratesData[roomName];
       (room.variants || []).forEach((v) => {
@@ -2949,10 +2979,18 @@
         surchargePayload[inp.dataset.surcharge] = val;
       });
 
+      const dayUsePayload = {};
+      wrap.querySelectorAll("input[data-dayuse]").forEach((inp) => {
+        inp.classList.remove("ed-rate-invalid");
+        const val = Number(inp.value);
+        if (!validRateInput(val)) { inp.classList.add("ed-rate-invalid"); hasError = true; return; }
+        dayUsePayload[inp.dataset.dayuse] = val;
+      });
+
       if (hasError) { U.toast(t("staff.site.ratesError"), "error"); return; }
 
       btn.disabled = true;
-      const res = await J.api.put("/api/rates", { rates: payload, surcharges: surchargePayload });
+      const res = await J.api.put("/api/rates", { rates: payload, surcharges: surchargePayload, dayUse: dayUsePayload });
       btn.disabled = false;
       if (J.api.isOffline(res) || !res || res.error) {
         U.toast((res && res.error) || t("staff.site.ratesError"), "error");
@@ -2960,6 +2998,7 @@
       }
       ratesData = res.rooms;
       ratesSurcharges = res.surcharges || ratesSurcharges;
+      dayUseRatesData = res.dayUse || dayUseRatesData;
       buildRatesRows(wrap);
       U.toast(t("staff.site.ratesSaved"), "success");
     });
@@ -3124,13 +3163,22 @@
     if (!hasPendingTeam()) return;
     const API = window.JPark && window.JPark.api;
     const ids = Object.keys(pendingTeamChanges);
-    let failed = 0;
+    const namesById = {};
+    S.list("staff").forEach((u) => { namesById[u.id] = u.name; });
+    // Collect the real per-id failure reason instead of just counting
+    // failures — the old generic "some changes could not be saved" toast
+    // masked the actual HTTP status/error, making any future failure
+    // impossible to diagnose from the UI alone.
+    const failures = [];
     for (const id of ids) {
       const p = pendingTeamChanges[id];
       if (p.deleted) {
         if (API) {
           const res = await API.del("/api/auth/staff/" + encodeURIComponent(id));
-          if (res && res.error && !res.offline) { failed++; continue; }
+          if (res && res.error && !res.offline) {
+            failures.push((namesById[id] || id) + ": " + res.error);
+            continue;
+          }
         }
         S.remove("staff", id);
         // Also strip from cached Team Status (employees board) so the user
@@ -3143,7 +3191,10 @@
       } else if (p.active !== undefined) {
         if (API) {
           const res = await API.patch("/api/auth/staff/" + encodeURIComponent(id), { active: !!p.active });
-          if (res && res.error && !res.offline) { failed++; continue; }
+          if (res && res.error && !res.offline) {
+            failures.push((namesById[id] || id) + ": " + res.error);
+            continue;
+          }
         }
         S.update("staff", id, { active: !!p.active });
       }
@@ -3155,7 +3206,7 @@
     const board = document.getElementById("empBoardMount");
     if (board && board._empBoard) board._empBoard.load();
     renderTeam();
-    if (failed) U.toast(t("staff.team.saveErr"), "error");
+    if (failures.length) U.toast(t("staff.team.saveErr") + " (" + failures.join("; ") + ")", "error");
     else U.toast(t("staff.team.saved"), "success");
   }
 

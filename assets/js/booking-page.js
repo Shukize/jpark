@@ -309,7 +309,7 @@
       'bk.dayuse.timePlaceholder': 'e.g. 1:00 PM – 4:00 PM',
       'bk.dayuse.submit': 'Send day-use request',
       'bk.dayuse.successTitle': 'Day-use request received — pending confirmation',
-      'bk.dayuse.successNote': 'We will confirm your day-use time slot by phone or email — please complete payment via the PromptPay QR or cash as indicated above once confirmed.',
+      'bk.dayuse.successNote': 'We will confirm your day-use time slot by phone or email — please complete payment via the PromptPay QR as indicated above once confirmed.',
       'bk.laundryEyebrow': 'While you stay', 'bk.laundryTitle': 'Laundry Package',
       'bk.laundryLede': 'Fresh, neatly pressed garments delivered to your room. Choose a package by the number of pieces.',
       'bk.laundryNote': 'Prices in Thai Baht (THB) per package. Larger 60- and 120-piece packages are ideal for long stays.',
@@ -367,7 +367,7 @@
       'bk.dayuse.timePlaceholder': 'เช่น 13:00 – 16:00 น.',
       'bk.dayuse.submit': 'ส่งคำขอเดย์ยูส',
       'bk.dayuse.successTitle': 'ได้รับคำขอเดย์ยูสแล้ว — รอการยืนยัน',
-      'bk.dayuse.successNote': 'เราจะยืนยันช่วงเวลาเดย์ยูสของท่านทางโทรศัพท์หรืออีเมล — กรุณาชำระเงินผ่าน QR พร้อมเพย์หรือเงินสดตามที่ระบุไว้ข้างต้นเมื่อได้รับการยืนยันแล้ว',
+      'bk.dayuse.successNote': 'เราจะยืนยันช่วงเวลาเดย์ยูสของท่านทางโทรศัพท์หรืออีเมล — กรุณาชำระเงินผ่าน QR พร้อมเพย์ตามที่ระบุไว้ข้างต้นเมื่อได้รับการยืนยันแล้ว',
       'bk.laundryEyebrow': 'ระหว่างการเข้าพัก', 'bk.laundryTitle': 'แพ็กเกจซักรีด',
       'bk.laundryLede': 'เสื้อผ้าสะอาดรีดเรียบ ส่งถึงห้องพักของคุณ เลือกแพ็กเกจตามจำนวนชิ้น',
       'bk.laundryNote': 'ราคาเป็นเงินบาท (THB) ต่อแพ็กเกจ แพ็กเกจ 60 และ 120 ชิ้นเหมาะสำหรับการเข้าพักระยะยาว',
@@ -425,7 +425,7 @@
       'bk.dayuse.timePlaceholder': '例：13:00〜16:00',
       'bk.dayuse.submit': 'デイユースのリクエストを送信',
       'bk.dayuse.successTitle': 'デイユースのリクエストを受け付けました — 確認待ち',
-      'bk.dayuse.successNote': 'デイユースのお時間はお電話またはメールにて確認いたします — 確認後、上記のプロンプトペイQRまたは現金にてお支払いください。',
+      'bk.dayuse.successNote': 'デイユースのお時間はお電話またはメールにて確認いたします — 確認後、上記のプロンプトペイQRにてお支払いください。',
       'bk.laundryEyebrow': 'ご滞在中に', 'bk.laundryTitle': 'ランドリーパッケージ',
       'bk.laundryLede': '清潔にプレスした衣類をお部屋までお届けします。点数に応じてパッケージをお選びください。',
       'bk.laundryNote': '料金は1パッケージあたりのタイバーツ（THB）表示です。60点・120点の大型パッケージは長期滞在に最適です。',
@@ -483,7 +483,7 @@
       'bk.dayuse.timePlaceholder': '例如 13:00–16:00',
       'bk.dayuse.submit': '发送钟点房请求',
       'bk.dayuse.successTitle': '已收到钟点房请求 — 待确认',
-      'bk.dayuse.successNote': '我们将通过电话或邮件确认您的钟点房时段——确认后请通过上述PromptPay二维码或现金完成付款。',
+      'bk.dayuse.successNote': '我们将通过电话或邮件确认您的钟点房时段——确认后请通过上述PromptPay二维码完成付款。',
       'bk.laundryEyebrow': '入住期间', 'bk.laundryTitle': '洗衣套餐',
       'bk.laundryLede': '清新熨烫平整的衣物送至您的房间。按件数选择套餐。',
       'bk.laundryNote': '价格以泰铢（THB）计，每套餐计。60 件和 120 件的大套餐非常适合长期入住。',
@@ -541,7 +541,7 @@
       'bk.dayuse.timePlaceholder': '例如 13:00–16:00',
       'bk.dayuse.submit': '傳送鐘點房請求',
       'bk.dayuse.successTitle': '已收到鐘點房請求 — 待確認',
-      'bk.dayuse.successNote': '我們將透過電話或郵件確認您的鐘點房時段——確認後請透過上述PromptPay二維碼或現金完成付款。',
+      'bk.dayuse.successNote': '我們將透過電話或郵件確認您的鐘點房時段——確認後請透過上述PromptPay二維碼完成付款。',
       'bk.laundryEyebrow': '入住期間', 'bk.laundryTitle': '洗衣套餐',
       'bk.laundryLede': '清新熨燙平整的衣物送至您的房間。按件數選擇套餐。',
       'bk.laundryNote': '價格以泰銖（THB）計，每套餐計。60 件和 120 件的大套餐非常適合長期入住。',
@@ -953,6 +953,16 @@
     });
   }
 
+  // Same live-override merge as applyRateOverrides(), but for the flat
+  // DAYUSE array (room -> single price, no room/breakfast variants).
+  function applyDayUseOverrides(dayUse) {
+    if (!dayUse || typeof dayUse !== 'object') return;
+    DAYUSE.forEach(function (d) {
+      var val = dayUse[d.room];
+      if (typeof val === 'number' && isFinite(val) && val > 0 && val <= 100000) d.price = val;
+    });
+  }
+
   (function loadRates() {
     var API = window.JPark && window.JPark.api;
     if (!API) return;
@@ -960,6 +970,7 @@
       if (!res || res.error) return; // fail closed to the static defaults already in ROOMS
       applyRateOverrides(res.rooms);
       applySurcharges(res.surcharges);
+      applyDayUseOverrides(res.dayUse);
       renderAll(); // repaint any already-drawn cards with corrected prices
     }).catch(function () {});
   })();

@@ -118,18 +118,18 @@ CREATE TRIGGER trg_employees_updated_at
   BEFORE UPDATE ON employees
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
+-- 'e_ploy'/'e_kenji' (Ploy Srisai / Kenji Watanabe) were demo roster rows,
+-- retired permanently per owner request — see migrate.js's
+-- removeHousekeeping(), which also deletes them on every boot so they can
+-- never be silently re-seeded after being removed via the Staff panel.
 INSERT INTO employees (id, name, email, role, status, shift, phone) VALUES
   ('u_admin',  'Hotel Admin',    'hadmin@jpark.hotel',    'admin',     'on_shift',  '09:00–18:00', '+66 2 100 2000'),
-  ('u_staff',  'Front Desk',     'fdesk@jpark.hotel',     'frontdesk', 'on_shift',  '07:00–15:00', '+66 2 100 2001'),
-  ('e_ploy',   'Ploy Srisai',    'psrisai@jpark.hotel',   'frontdesk', 'on_break',  '15:00–23:00', '+66 81 234 5678'),
-  ('e_kenji',  'Kenji Watanabe', 'kwatanabe@jpark.hotel', 'frontdesk', 'off_shift', '23:00–07:00', '+66 81 234 5690')
+  ('u_staff',  'Front Desk',     'fdesk@jpark.hotel',     'frontdesk', 'on_shift',  '07:00–15:00', '+66 2 100 2001')
 ON CONFLICT (id) DO NOTHING;
 
 -- Migrate existing seed emails to initiallastname format (idempotent)
 UPDATE employees SET email = 'hadmin@jpark.hotel'    WHERE id = 'u_admin'  AND email IN ('hotel.admin@jpark.hotel', 'h.admin@jpark.hotel');
 UPDATE employees SET email = 'fdesk@jpark.hotel'     WHERE id = 'u_staff'  AND email IN ('front.desk@jpark.hotel',  'f.desk@jpark.hotel');
-UPDATE employees SET email = 'psrisai@jpark.hotel'   WHERE id = 'e_ploy'   AND email IN ('ploy.srisai@jpark.hotel', 'p.srisai@jpark.hotel');
-UPDATE employees SET email = 'kwatanabe@jpark.hotel' WHERE id = 'e_kenji'  AND email IN ('kenji.watanabe@jpark.hotel', 'k.watanabe@jpark.hotel');
 
 -- ── Guest bookings (OTA + direct; used for guest portal login) ───────────────
 CREATE TABLE IF NOT EXISTS guest_bookings (
@@ -258,3 +258,11 @@ ALTER TABLE site_content ADD COLUMN IF NOT EXISTS rates JSONB NOT NULL DEFAULT '
 -- backend/lib/roomRates.js's DEFAULT_SURCHARGES. See
 -- backend/lib/rateOverrides.js's getEffectiveSurcharges()/computeGuestSurcharge().
 ALTER TABLE site_content ADD COLUMN IF NOT EXISTS surcharges JSONB NOT NULL DEFAULT '{"extraBed":500,"extraBreakfastGuest":190}';
+
+-- Admin-editable Day Use (3-hour short-stay) flat prices, saved from the
+-- Site Editor's Rates tab. Shape: { [roomName]: number } — flat, like
+-- `surcharges` above, not per-variant like `rates` (Day Use has no
+-- room/breakfast split). Only ever overrides room keys that already exist
+-- in backend/lib/roomRates.js's DAYUSE map. See backend/lib/rateOverrides.js's
+-- getEffectiveDayUseRates()/getEffectiveDayUsePrice().
+ALTER TABLE site_content ADD COLUMN IF NOT EXISTS day_use_rates JSONB NOT NULL DEFAULT '{}';

@@ -43,22 +43,6 @@ async function omiseRequest(method, path, body) {
   return json;
 }
 
-// Card charge. `token` is the Omise.js-generated token (tokn_...), never a
-// raw card number. `returnUri` is where Omise redirects the browser back to
-// after a 3-D Secure challenge, if the issuing bank requires one — in that
-// case the response's `authorize_uri` must be opened (full-page redirect)
-// before the charge settles; the final result arrives via webhook.
-async function createCardCharge({ amountSatang, currency, token, description, metadata, returnUri }) {
-  return omiseRequest('POST', '/charges', {
-    amount: amountSatang,
-    currency: currency || 'thb',
-    card: token,
-    description,
-    metadata,
-    return_uri: returnUri,
-  });
-}
-
 // PromptPay is a two-step flow: create a "source" (payment intent), then a
 // charge against that source. The charge response carries the QR code image
 // to show the guest (`source.scannable_code.image.download_uri`) and starts
@@ -88,7 +72,6 @@ async function getCharge(chargeId) {
 module.exports = {
   isConfigured,
   publicKey,
-  createCardCharge,
   createPromptPaySource,
   createChargeFromSource,
   getCharge,

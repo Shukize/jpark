@@ -63,7 +63,7 @@ async function seedMessages() {
 }
 
 async function removeHousekeeping() {
-  await db.query(`DELETE FROM employees WHERE id IN ('e_malee', 'e_arun')`);
+  await db.query(`DELETE FROM employees WHERE id IN ('e_malee', 'e_arun', 'e_ploy', 'e_kenji')`);
 }
 
 /* Normalise every employee's email + username to the initiallastname format
