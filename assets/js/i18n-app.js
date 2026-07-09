@@ -146,7 +146,7 @@
       "chat.a.dining": "Tsubaki (Japanese) serves 11:30–22:00, all-day dining 06:30–22:30, and the Midnight Coffee Club 07:00–19:00.",
       "chat.a.coffee": "The Midnight Coffee Club is now open — 07:00–19:00. Would you like me to reserve a seat?",
       "chat.a.parking": "Yes — complimentary on-site parking is available to all guests.",
-      "chat.a.default": "I'm not certain about that one. Tap “Talk to the front desk” below and a team member will help, or call +66 (0)38 053 888.",
+      "chat.a.default": "I'm not certain about that one. Tap “Talk to the front desk” below and a team member will help, or call +66 038 448 111.",
       "chat.langNote": "Auto-translated to your language",
       "tr.from": "Translated from",
 
@@ -564,7 +564,7 @@
       "chat.a.dining": "ทสึบากิ (ญี่ปุ่น) เปิด 11:30–22:00 น. ห้องอาหารออลเดย์ 06:30–22:30 น. และมิดไนท์ คอฟฟี่ คลับ 07:00–19:00 น.",
       "chat.a.coffee": "มิดไนท์ คอฟฟี่ คลับเปิดแล้ว — เปิดให้บริการ 07:00–19:00 น. ต้องการให้จองที่นั่งไหมคะ?",
       "chat.a.parking": "มีที่จอดรถฟรีภายในโรงแรมสำหรับผู้เข้าพักทุกท่านค่ะ",
-      "chat.a.default": "เรื่องนี้ฉันไม่แน่ใจ แตะ “คุยกับแผนกต้อนรับ” ด้านล่างเพื่อให้เจ้าหน้าที่ช่วย หรือโทร +66 (0)38 053 888",
+      "chat.a.default": "เรื่องนี้ฉันไม่แน่ใจ แตะ “คุยกับแผนกต้อนรับ” ด้านล่างเพื่อให้เจ้าหน้าที่ช่วย หรือโทร +66 038 448 111",
       "chat.langNote": "แปลอัตโนมัติเป็นภาษาของคุณ",
       "tr.from": "แปลจาก",
 
@@ -982,7 +982,7 @@
       "chat.a.dining": "ツバキ（日本料理）11:30〜22:00、オールデイダイニング06:30〜22:30、ミッドナイト・コーヒー・クラブ07:00〜19:00。",
       "chat.a.coffee": "ミッドナイト・コーヒー・クラブは営業中です — 07:00〜19:00。お席をご予約しましょうか？",
       "chat.a.parking": "はい、全ゲスト向けに無料の敷地内駐車場をご用意しています。",
-      "chat.a.default": "その点は確認が必要です。下の「フロントと話す」をタップいただくか、+66 (0)38 053 888 へお電話ください。",
+      "chat.a.default": "その点は確認が必要です。下の「フロントと話す」をタップいただくか、+66 038 448 111 へお電話ください。",
       "chat.langNote": "あなたの言語に自動翻訳",
       "tr.from": "翻訳元：",
 
@@ -1400,7 +1400,7 @@
       "chat.a.dining": "椿（日料）11:30–22:00，全日餐厅06:30–22:30，午夜咖啡俱乐部07:00–19:00。",
       "chat.a.coffee": "午夜咖啡俱乐部现已营业——07:00–19:00。需要我为您预留座位吗？",
       "chat.a.parking": "是的，为所有宾客提供免费的店内停车位。",
-      "chat.a.default": "这个我不太确定。请轻点下方“联系前台”，工作人员会协助您，或致电 +66 (0)38 053 888。",
+      "chat.a.default": "这个我不太确定。请轻点下方“联系前台”，工作人员会协助您，或致电 +66 038 448 111。",
       "chat.langNote": "已自动翻译为您的语言",
       "tr.from": "翻译自",
 
@@ -1818,7 +1818,7 @@
       "chat.a.dining": "椿（日料）11:30–22:00，全日餐廳06:30–22:30，午夜咖啡俱樂部07:00–19:00。",
       "chat.a.coffee": "午夜咖啡俱樂部現已營業——07:00–19:00。需要我為您預留座位嗎？",
       "chat.a.parking": "是的，為所有賓客提供免費的店內停車位。",
-      "chat.a.default": "這個我不太確定。請輕點下方“聯絡櫃檯”，工作人員會協助您，或致電 +66 (0)38 053 888。",
+      "chat.a.default": "這個我不太確定。請輕點下方“聯絡櫃檯”，工作人員會協助您，或致電 +66 038 448 111。",
       "chat.langNote": "已自動翻譯為您的語言",
       "tr.from": "翻譯自",
 

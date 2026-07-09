@@ -299,7 +299,7 @@ body.staff-body { background: #eef1ef; }
   width: min(420px, 100%); background: #fff; border-radius: 22px; padding: 38px 34px;
   box-shadow: 0 30px 70px -30px rgba(7,61,59,.5); text-align: center;
 }
-.login-card .brand-mark { width: 54px; height: 54px; margin: 0 auto 16px; font-size: 1.9rem; border-radius: 14px; }
+.login-card .brand-mark { width: 54px; height: 54px; margin: 0 auto 16px; }
 .login-card h1 { font-family: var(--serif); font-size: 1.9rem; color: var(--teal-deep); }
 .login-card .login-sub { color: var(--ink-soft); font-size: 0.9rem; margin-bottom: 24px; }
 .login-card .field { text-align: left; }
@@ -316,7 +316,7 @@ body.staff-body { background: #eef1ef; }
 }
 .ds-nav { display: flex; flex-direction: column; gap: 6px; }
 .dash-side .ds-brand { display: flex; align-items: center; gap: 11px; margin-bottom: 22px; }
-.dash-side .ds-brand .brand-mark { width: 38px; height: 38px; font-size: 1.4rem; }
+.dash-side .ds-brand .brand-mark { width: 38px; height: 38px; }
 .dash-side .ds-brand .ds-name { font-family: var(--serif); font-size: 1.15rem; color: var(--ivory); }
 .dash-side .ds-brand .ds-role { font-size: 0.68rem; letter-spacing: .12em; text-transform: uppercase; color: var(--gold-light); }
 .nav-item {
@@ -1166,7 +1166,7 @@ body.mobile-view .fac-card.large {
     padding: 8px 12px; box-shadow: 0 2px 14px rgba(0,0,0,0.28);
   }
   .dash-side .ds-brand { margin: 0 auto 0 0; gap: 8px; }
-  .dash-side .ds-brand .brand-mark { width: 30px; height: 30px; font-size: 1.1rem; }
+  .dash-side .ds-brand .brand-mark { width: 30px; height: 30px; }
   .dash-side .ds-brand .ds-name { font-size: 0.95rem; }
   .dash-side .ds-spacer { display: none; }
 

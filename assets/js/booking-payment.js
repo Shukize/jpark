@@ -173,10 +173,25 @@
   function qs(sel) { return box.querySelector(sel); }
   function val(id) { var el = document.getElementById(id); return el ? el.value.trim() : ''; }
 
+  // `overflow:hidden` on body alone doesn't stop background rubber-band
+  // scroll on iOS Safari while a modal is open, so the page is pinned with
+  // position:fixed instead and the scroll position is restored on close.
+  var savedScrollY = 0;
+  function lockBodyScroll() {
+    savedScrollY = window.scrollY || window.pageYOffset || 0;
+    document.body.style.top = '-' + savedScrollY + 'px';
+    document.body.classList.add('bk-pay-open');
+  }
+  function unlockBodyScroll() {
+    document.body.classList.remove('bk-pay-open');
+    document.body.style.top = '';
+    window.scrollTo(0, savedScrollY);
+  }
+
   function close() {
     if (!overlay) return;
     overlay.hidden = true;
-    document.body.classList.remove('bk-pay-open');
+    unlockBodyScroll();
     state = null;
   }
 
@@ -445,7 +460,7 @@
       breakfast: false,
     };
     overlay.hidden = false;
-    document.body.classList.add('bk-pay-open');
+    lockBodyScroll();
     renderReservationForm();
   }
 
@@ -462,7 +477,7 @@
     build();
     state = { dayUse: true, room: ctx.room, roomDisplayName: ctx.roomDisplayName, price: ctx.price };
     overlay.hidden = false;
-    document.body.classList.add('bk-pay-open');
+    lockBodyScroll();
     renderDayUseForm();
   }
 

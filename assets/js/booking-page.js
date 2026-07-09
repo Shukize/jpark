@@ -314,8 +314,9 @@
       'bk.laundryLede': 'Fresh, neatly pressed garments delivered to your room. Choose a package by the number of pieces.',
       'bk.laundryNote': 'Prices in Thai Baht (THB) per package. Larger 60- and 120-piece packages are ideal for long stays.',
       'bk.priceNote1': 'Rates shown are our 2026 general rates per room, per night. To confirm a reservation, please ',
-      'bk.priceCall': 'call +66 086 326 0664', 'bk.priceNote2': ' or ',
+      'bk.priceCall1': 'call +66 086 326 0664', 'bk.priceCall2': '+66 038 448 111', 'bk.priceNote2': ' or ',
       'bk.priceEmail': 'email jparkhotel1@gmail.com', 'bk.priceNote3': ' — we are happy to assist.',
+      'bk.offlineBanner': "We're having trouble connecting right now — please call us directly to book:",
       'bk.upTo': 'Up to', 'bk.guest': 'guest', 'bk.guests': 'guests',
       'bk.fromTpl': 'From {price} per room / night', 'bk.night': 'night', 'bk.nights': 'nights',
       'bk.roomOnly': 'room only', 'bk.withBreakfast': 'with breakfast',
@@ -372,8 +373,9 @@
       'bk.laundryLede': 'เสื้อผ้าสะอาดรีดเรียบ ส่งถึงห้องพักของคุณ เลือกแพ็กเกจตามจำนวนชิ้น',
       'bk.laundryNote': 'ราคาเป็นเงินบาท (THB) ต่อแพ็กเกจ แพ็กเกจ 60 และ 120 ชิ้นเหมาะสำหรับการเข้าพักระยะยาว',
       'bk.priceNote1': 'ราคาที่แสดงเป็นอัตราทั่วไปปี 2026 ต่อห้อง ต่อคืน หากต้องการยืนยันการจอง กรุณา',
-      'bk.priceCall': 'โทร +66 086 326 0664', 'bk.priceNote2': ' หรือ ',
+      'bk.priceCall1': 'โทร +66 086 326 0664', 'bk.priceCall2': '+66 038 448 111', 'bk.priceNote2': ' หรือ ',
       'bk.priceEmail': 'อีเมล jparkhotel1@gmail.com', 'bk.priceNote3': ' — เรายินดีให้บริการ',
+      'bk.offlineBanner': 'ขณะนี้เรากำลังมีปัญหาในการเชื่อมต่อ กรุณาโทรจองโดยตรงที่:',
       'bk.upTo': 'รองรับสูงสุด', 'bk.guest': 'ท่าน', 'bk.guests': 'ท่าน',
       'bk.fromTpl': 'เริ่มต้น {price} ต่อห้อง / คืน', 'bk.night': 'คืน', 'bk.nights': 'คืน',
       'bk.roomOnly': 'เฉพาะห้องพัก', 'bk.withBreakfast': 'รวมอาหารเช้า',
@@ -430,8 +432,9 @@
       'bk.laundryLede': '清潔にプレスした衣類をお部屋までお届けします。点数に応じてパッケージをお選びください。',
       'bk.laundryNote': '料金は1パッケージあたりのタイバーツ（THB）表示です。60点・120点の大型パッケージは長期滞在に最適です。',
       'bk.priceNote1': '表示料金は2026年の一般料金（1室1泊あたり）です。ご予約の確定は、',
-      'bk.priceCall': 'お電話 +66 086 326 0664', 'bk.priceNote2': ' または ',
+      'bk.priceCall1': 'お電話 +66 086 326 0664', 'bk.priceCall2': '+66 038 448 111', 'bk.priceNote2': ' または ',
       'bk.priceEmail': 'メール jparkhotel1@gmail.com', 'bk.priceNote3': ' までお気軽にどうぞ。',
+      'bk.offlineBanner': 'ただいま接続に問題が発生しております。お電話にて直接ご予約ください：',
       'bk.upTo': '最大', 'bk.guest': '名', 'bk.guests': '名',
       'bk.fromTpl': '{price}〜 / 1室1泊', 'bk.night': '泊', 'bk.nights': '泊',
       'bk.roomOnly': '室料のみ', 'bk.withBreakfast': '朝食付き',
@@ -488,8 +491,9 @@
       'bk.laundryLede': '清新熨烫平整的衣物送至您的房间。按件数选择套餐。',
       'bk.laundryNote': '价格以泰铢（THB）计，每套餐计。60 件和 120 件的大套餐非常适合长期入住。',
       'bk.priceNote1': '所示价格为我们 2026 年每间每晚的一般房价。如需确认预订，请',
-      'bk.priceCall': '致电 +66 086 326 0664', 'bk.priceNote2': ' 或 ',
+      'bk.priceCall1': '致电 +66 086 326 0664', 'bk.priceCall2': '+66 038 448 111', 'bk.priceNote2': ' 或 ',
       'bk.priceEmail': '发送邮件至 jparkhotel1@gmail.com', 'bk.priceNote3': ' — 我们很乐意为您服务。',
+      'bk.offlineBanner': '目前连接出现问题，请直接致电预订：',
       'bk.upTo': '最多', 'bk.guest': '位', 'bk.guests': '位',
       'bk.fromTpl': '{price} 起 / 每间每晚', 'bk.night': '晚', 'bk.nights': '晚',
       'bk.roomOnly': '仅房费', 'bk.withBreakfast': '含早餐',
@@ -546,8 +550,9 @@
       'bk.laundryLede': '清新熨燙平整的衣物送至您的房間。按件數選擇套餐。',
       'bk.laundryNote': '價格以泰銖（THB）計，每套餐計。60 件和 120 件的大套餐非常適合長期入住。',
       'bk.priceNote1': '所示價格為我們 2026 年每間每晚的一般房價。如需確認預訂，請',
-      'bk.priceCall': '致電 +66 086 326 0664', 'bk.priceNote2': ' 或 ',
+      'bk.priceCall1': '致電 +66 086 326 0664', 'bk.priceCall2': '+66 038 448 111', 'bk.priceNote2': ' 或 ',
       'bk.priceEmail': '發送郵件至 jparkhotel1@gmail.com', 'bk.priceNote3': ' — 我們很樂意為您服務。',
+      'bk.offlineBanner': '目前連線出現問題，請直接致電預訂：',
       'bk.upTo': '最多', 'bk.guest': '位', 'bk.guests': '位',
       'bk.fromTpl': '{price} 起 / 每間每晚', 'bk.night': '晚', 'bk.nights': '晚',
       'bk.roomOnly': '僅房費', 'bk.withBreakfast': '含早餐',
@@ -845,7 +850,9 @@
     if (!priceNoteEl) return;
     priceNoteEl.innerHTML =
       TR('bk.priceNote1') +
-      '<a href="tel:+66863260664">' + TR('bk.priceCall') + '</a>' +
+      '<a href="tel:+66863260664">' + TR('bk.priceCall1') + '</a>' +
+      ' / ' +
+      '<a href="tel:+6638448111">' + TR('bk.priceCall2') + '</a>' +
       TR('bk.priceNote2') +
       '<a href="mailto:jparkhotel1@gmail.com">' + TR('bk.priceEmail') + '</a>' +
       TR('bk.priceNote3');
@@ -855,8 +862,10 @@
   function renderLaundry() {
     var host = document.getElementById('bkLaundryGrid');
     if (!host) return;
+    var laundryIcon = '<span class="bk-item-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3.5 12 5.5 16 3.5 19.5 8 16.5 10 16.5 20.5 7.5 20.5 7.5 10 4.5 8Z"/></svg></span>';
     host.innerHTML = LAUNDRY.map(function (l) {
       return '<div class="bk-laundry-item">' +
+               laundryIcon +
                '<span class="bk-laundry-pcs">' + countWord(l.pieces, 'bk.piece', 'bk.pieces') + '</span>' +
                '<span class="bk-laundry-price">' + baht(l.price) + '</span>' +
              '</div>';
@@ -867,8 +876,10 @@
   function renderDayUse() {
     var host = document.getElementById('bkDayUseGrid');
     if (!host) return;
+    var dayuseIcon = '<span class="bk-item-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg></span>';
     host.innerHTML = DAYUSE.map(function (d, i) {
       return '<div class="bk-dayuse-item">' +
+               dayuseIcon +
                '<span class="bk-dayuse-room">' + TR(d.nameKey) + '</span>' +
                '<span class="bk-dayuse-price">' + baht(d.price) + '</span>' +
                '<button type="button" class="btn btn-solid bk-dayuse-book-btn" data-dayuse-index="' + i + '">' + TR('bk.dayuseBook') + '</button>' +
@@ -884,22 +895,6 @@
     });
   }
 
-  // Paint everything in the current language (initial load + on switch).
-  function renderAll() {
-    renderRooms(lastRooms, lastNights);
-    renderLaundry();
-    renderDayUse();
-    renderPriceNote();
-    refreshStatus();
-    if (I) document.title = TR('bk.docTitle');
-  }
-
-  // Re-render dynamic content whenever the language changes.
-  document.addEventListener('jpark:langchange', renderAll);
-
-  // Initial paint
-  renderAll();
-
   // Two flat, room-wide surcharges (THB/night) added on top of a variant's
   // room/bf rate based on guest count beyond the base 2 a variant already
   // covers — mirrors backend/lib/roomRates.js's DEFAULT_SURCHARGES exactly,
@@ -907,6 +902,15 @@
   // room prices. Exposed via window.JPark.pricing so booking-payment.js
   // computes the exact same display total the server will charge, without
   // duplicating the formula.
+  //
+  // Must be defined before the initial renderAll() call below: buildCard()
+  // (called via renderRooms -> renderAll) reads SURCHARGES.extraBed for any
+  // room with maxGuests > 2 — nearly every room in ROOMS — so if this ran
+  // after that first paint, it threw ReferenceError/TypeError on page load,
+  // which aborted the rest of this script's top-level execution before it
+  // ever reached the searchBtn/bookBtn click-handler registrations further
+  // down. That silently broke the entire booking flow (Check Availability
+  // and Book Now both appeared to do nothing) on every single page load.
   var SURCHARGES = { extraBed: 500, extraBreakfastGuest: 190 };
 
   function computeGuestSurcharge(room, totalGuests, breakfast) {
@@ -923,6 +927,22 @@
     computeGuestSurcharge: computeGuestSurcharge,
     getSurcharges: function () { return SURCHARGES; },
   };
+
+  // Paint everything in the current language (initial load + on switch).
+  function renderAll() {
+    renderRooms(lastRooms, lastNights);
+    renderLaundry();
+    renderDayUse();
+    renderPriceNote();
+    refreshStatus();
+    if (I) document.title = TR('bk.docTitle');
+  }
+
+  // Re-render dynamic content whenever the language changes.
+  document.addEventListener('jpark:langchange', renderAll);
+
+  // Initial paint
+  renderAll();
 
   // Merge live admin rate overrides (backend/routes/rates.js, edited via the
   // Site Editor's Rates tab) into the static ROOMS mirror. Mutates variant
@@ -1020,6 +1040,26 @@
       renderAll(); // repaint any already-drawn cards with corrected prices
       injectPricingSchema(); // refresh with live-override-corrected prices
     }).catch(function () {});
+  })();
+
+  // Surfaces a dismissible banner if the backend is unreachable, instead of
+  // leaving the booking flow silently dead until a guest tries to submit.
+  (function checkBackendHealth() {
+    var API = window.JPark && window.JPark.api;
+    if (!API) return;
+    API.get('/api/maintenance').catch(function () { return { error: true }; }).then(function (res) {
+      if (res && !res.error) return; // backend reachable
+      var bar = document.createElement('div');
+      bar.className = 'bk-offline-banner';
+      bar.innerHTML =
+        '<span>' + TR('bk.offlineBanner') + '</span>' +
+        '<a href="tel:+66863260664">+66 086 326 0664</a>' +
+        ' / ' +
+        '<a href="tel:+6638448111">+66 038 448 111</a>' +
+        '<button type="button" class="bk-offline-dismiss" aria-label="Dismiss">&times;</button>';
+      bar.querySelector('.bk-offline-dismiss').addEventListener('click', function () { bar.remove(); });
+      document.body.prepend(bar);
+    });
   })();
 
   // --- Search status bar ---

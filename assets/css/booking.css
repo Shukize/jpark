@@ -8,10 +8,33 @@
   background: var(--paper);
 }
 
+/* ---- Offline / backend-unreachable banner (assets/js/booking-page.js) ---- */
+.bk-offline-banner {
+  /* Fixed (not sticky) and above the header's z-index:100, since the
+     header itself is position:fixed and won't get pushed down by a
+     document-flow sibling — this briefly overlays the top of the page,
+     which is the standard "you're offline" banner pattern. */
+  position: fixed; top: 0; left: 0; right: 0; z-index: 500;
+  display: flex; align-items: center; justify-content: center; flex-wrap: wrap;
+  gap: 6px 12px;
+  background: var(--terracotta);
+  color: #fff;
+  font-size: 0.85rem;
+  padding: 10px 44px 10px 16px;
+  text-align: center;
+}
+.bk-offline-banner a { color: #fff; text-decoration: underline; font-weight: 600; }
+.bk-offline-dismiss {
+  position: absolute; top: 50%; right: 12px; transform: translateY(-50%);
+  background: transparent; border: 0; color: #fff; opacity: 0.85;
+  font-size: 1.3rem; line-height: 1; cursor: pointer; padding: 6px;
+}
+.bk-offline-dismiss:hover { opacity: 1; }
+
 /* ---- Header: always light on booking page ---- */
 .bk-header {
   background: rgba(251, 248, 241, 0.97) !important;
-  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
   box-shadow: 0 1px 0 var(--line) !important;
   padding: 10px 0 !important;
 }
@@ -74,20 +97,46 @@
 
 /* ---- Search section ---- */
 .bk-search-section {
-  background: var(--ivory);
-  border-bottom: 1px solid var(--line);
-  padding: 0 clamp(20px, 6vw, 80px);
+  background: var(--paper);
+  padding: clamp(24px, 4vw, 40px) clamp(20px, 6vw, 80px) clamp(36px, 5vw, 52px);
 }
 .bk-search-inner {
   max-width: var(--maxw);
   margin: 0 auto;
-  padding: 30px 0;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  box-shadow: var(--shadow);
+  padding: 22px clamp(18px, 3vw, 28px);
 }
 .bk-fields-row {
   display: flex;
   align-items: flex-end;
-  gap: 16px;
+  gap: 18px;
   flex-wrap: wrap;
+}
+
+/* Check-in/check-out grouped into one visually connected date-range unit. */
+.bk-dates-group {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  border: 1.5px solid var(--line);
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--paper);
+}
+.bk-dates-group .bk-field { gap: 4px; padding: 8px 16px; }
+.bk-dates-group .bk-input {
+  border: 0; border-radius: 0;
+  height: 34px; padding: 0;
+  background: transparent;
+}
+.bk-dates-group .bk-arrow {
+  align-self: center; padding-bottom: 0;
+  border-left: 1.5px solid var(--line);
+  border-right: 1.5px solid var(--line);
+  height: 100%; display: flex; align-items: center; padding: 0 14px;
 }
 
 .bk-field {
@@ -109,7 +158,7 @@
   border: 1.5px solid var(--line);
   border-radius: 12px;
   font-family: var(--sans);
-  font-size: 0.92rem;
+  font-size: 0.95rem;
   color: var(--ink);
   background: var(--paper);
   cursor: pointer;
@@ -127,24 +176,24 @@
 .bk-arrow {
   font-size: 1.05rem;
   color: var(--ink-soft);
-  opacity: 0.45;
+  opacity: 0.55;
   padding-bottom: 12px;
   flex-shrink: 0;
 }
 
-/* Stepper */
+/* Stepper — pill-shaped, larger tap targets for mobile */
 .bk-field-stepper {}
 .bk-stepper {
   display: flex;
   align-items: center;
   height: 50px;
   border: 1.5px solid var(--line);
-  border-radius: 12px;
+  border-radius: 999px;
   overflow: hidden;
   background: var(--paper);
 }
 .bk-step {
-  width: 44px;
+  width: 48px;
   height: 100%;
   background: none;
   border: none;
@@ -299,7 +348,7 @@
   letter-spacing: 0.08em;
   padding: 5px 12px;
   border-radius: 999px;
-  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
   background: rgba(7, 61, 59, 0.78);
   color: var(--ivory);
 }
@@ -520,9 +569,10 @@
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  padding: 20px 16px;
+  padding: 22px 16px 20px;
   background: var(--ivory);
   border: 1px solid var(--line);
+  border-top: 3px solid var(--gold);
   border-radius: 14px;
   box-shadow: 0 6px 18px rgba(12, 91, 88, 0.05);
   transition: transform 0.2s, box-shadow 0.2s;
@@ -530,6 +580,14 @@
 .bk-dayuse-item:hover {
   transform: translateY(-3px);
   box-shadow: 0 10px 24px rgba(12, 91, 88, 0.1);
+}
+.bk-item-icon {
+  display: grid; place-items: center;
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  background: var(--paper);
+  color: var(--teal);
+  margin-bottom: 2px;
 }
 .bk-dayuse-room {
   font-size: 0.82rem;
@@ -567,7 +625,14 @@
   color: #5a4a1a;
   text-align: center;
 }
-.bk-dayuse-banner-icon { font-size: 1rem; }
+.bk-dayuse-banner-icon {
+  display: grid; place-items: center;
+  width: 26px; height: 26px; flex-shrink: 0;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.4);
+  color: #5a4a1a;
+}
+.bk-dayuse-banner-text { color: #5a4a1a; font-weight: 500; }
 .bk-dayuse-banner-link {
   font-weight: 700;
   color: var(--teal-deep);
@@ -622,9 +687,10 @@
   flex-direction: column;
   align-items: center;
   gap: 6px;
-  padding: 18px 14px;
+  padding: 20px 14px 18px;
   background: #fff;
   border: 1px solid var(--line);
+  border-top: 3px solid var(--teal-soft);
   border-radius: 14px;
   box-shadow: 0 6px 18px rgba(12, 91, 88, 0.05);
   transition: transform 0.2s, box-shadow 0.2s;
@@ -668,12 +734,7 @@
   gap: 24px;
   flex-wrap: wrap;
 }
-.bk-footer .brand-mark {
-  background: var(--gold);
-  color: var(--teal-deep);
-}
-.bk-footer .brand-name { color: var(--ivory) !important; }
-.bk-footer .brand-sub  { color: var(--gold-light) !important; }
+.bk-footer .footer-logo { height: 104px; width: auto; }
 .bk-footer-contact {
   font-size: 0.88rem;
   color: rgba(247, 242, 232, 0.7);
@@ -706,9 +767,16 @@
   .bk-input {
     min-width: auto;
   }
-  .bk-arrow {
-    display: none;
+  .bk-dates-group {
+    flex-direction: column;
+    align-items: stretch;
   }
+  .bk-dates-group .bk-field {
+    width: 100%;
+    border-bottom: 1.5px solid var(--line);
+  }
+  .bk-dates-group .bk-field:last-child { border-bottom: 0; }
+  .bk-dates-group .bk-arrow { display: none; }
   .bk-stepper {
     justify-content: center;
   }
@@ -749,7 +817,7 @@
   position: absolute; bottom: 12px; right: 12px; z-index: 2;
   font-size: 0.72rem; font-weight: 600; letter-spacing: 0.06em;
   padding: 5px 11px; border-radius: 999px;
-  background: rgba(7, 61, 59, 0.8); color: var(--ivory); backdrop-filter: blur(8px);
+  background: rgba(7, 61, 59, 0.8); color: var(--ivory); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
 }
 .rr-view {
   position: absolute; inset: 0; z-index: 1; pointer-events: none;
@@ -767,7 +835,7 @@ body.rg-open { overflow: hidden; }
 .rg-overlay {
   position: fixed; inset: 0; z-index: 1000; display: none;
   align-items: center; justify-content: center; padding: 28px;
-  background: rgba(6, 32, 31, 0.96); backdrop-filter: blur(4px);
+  background: rgba(6, 32, 31, 0.96); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px);
 }
 .rg-overlay.open { display: flex; }
 .rg-stage { max-width: 94vw; max-height: 86vh; display: flex; align-items: center; justify-content: center; overflow: hidden; }
@@ -784,7 +852,7 @@ body.rg-open { overflow: hidden; }
   display: flex; align-items: center; justify-content: center;
   background: rgba(247,242,232,0.08); color: var(--ivory);
   border: 1.5px solid rgba(247,242,232,0.35); font-size: 2rem; line-height: 1;
-  cursor: pointer; z-index: 3; backdrop-filter: blur(6px);
+  cursor: pointer; z-index: 3; -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
   transition: background .3s var(--ease), border-color .3s, transform .3s var(--ease);
 }
 .rg-nav:hover { background: var(--gold); border-color: var(--gold); color: var(--teal-deep); transform: translateY(-50%) scale(1.08); }
@@ -796,7 +864,7 @@ body.rg-open { overflow: hidden; }
   max-width: min(88vw, 640px); text-align: center; color: var(--ivory);
   font-family: var(--serif); font-size: clamp(.95rem, 2.4vw, 1.15rem);
   background: rgba(6,32,31,0.55); padding: 8px 20px; border-radius: 999px;
-  backdrop-filter: blur(6px); z-index: 3;
+  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); z-index: 3;
 }
 .rg-cap[hidden] { display: none; }
 .rg-counter {
@@ -820,7 +888,7 @@ body.rg-open { overflow: hidden; }
   padding: 20px;
 }
 .bk-pay-overlay[hidden] { display: none; }
-body.bk-pay-open { overflow: hidden; }
+body.bk-pay-open { position: fixed; left: 0; right: 0; overflow: hidden; }
 
 .bk-pay-box {
   background: var(--paper);
@@ -875,7 +943,10 @@ body.bk-pay-open { overflow: hidden; }
 }
 .bkp-field input, .bkp-field select, .bkp-field textarea {
   font-family: var(--sans);
-  font-size: 0.92rem;
+  /* 16px minimum — anything smaller makes iOS Safari auto-zoom the whole
+     page on focus, which is jarring on a form guests need to fill in to
+     complete a booking. */
+  font-size: 1rem;
   padding: 10px 12px;
   border: 1.5px solid var(--line);
   border-radius: 10px;
