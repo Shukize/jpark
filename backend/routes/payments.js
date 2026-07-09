@@ -29,6 +29,9 @@ const {
   computeNights,
   hotelNotice,
   hotelRecipients,
+  emailLetterhead,
+  SPAM_NOTE_TEXT,
+  SPAM_NOTE_HTML,
 } = require('./guestBookings');
 
 const router = express.Router();
@@ -189,9 +192,12 @@ function dayUseGuestEmail(bk, preferredTime) {
     '',
     'We will contact you by phone or email shortly to confirm availability.',
     '',
+    SPAM_NOTE_TEXT,
+    '',
     'J Park Hotel, Chonburi',
   ];
-  const text = lines.join('\n');
+  const letterhead = emailLetterhead();
+  const text = lines.join('\n') + letterhead.text;
   const html =
     `<div style="font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;line-height:1.5">` +
     `<h2 style="color:#0f766e;margin:0 0 12px">Day-use request received</h2>` +
@@ -208,7 +214,9 @@ function dayUseGuestEmail(bk, preferredTime) {
     `<p style="background:#fbf3df;border:1px solid #e0c178;border-radius:8px;padding:10px 14px;color:#5a4a1a">` +
     `<strong>This request is pending</strong> until we confirm your exact time slot.</p>` +
     `<p>We will contact you by phone or email shortly to confirm availability.</p>` +
+    SPAM_NOTE_HTML +
     `<p style="color:#0f766e;font-weight:bold;margin-top:24px">J Park Hotel, Chonburi</p>` +
+    letterhead.html +
     `</div>`;
   return { text, html };
 }

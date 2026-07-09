@@ -230,15 +230,41 @@
       <div class="hb-sep" aria-hidden="true"></div>
 
       <!-- Guests -->
-      <div class="hb-field hb-field-guests">
+      <div class="hb-field hb-field-guests" id="hbGuestsField">
         <span class="hb-icon" aria-hidden="true"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="7" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg></span>
         <div class="hb-field-text">
           <span class="hb-label" data-i18n="hb.guests">Guests</span>
-          <div class="hb-guests-row">
-            <button type="button" class="hb-step" id="hbGuestsDown" aria-label="Fewer guests">&#8722;</button>
-            <span class="hb-guests-count" id="hbGuestsCount">2 guests</span>
-            <button type="button" class="hb-step" id="hbGuestsUp" aria-label="More guests">+</button>
+          <button type="button" class="hb-guests-summary" id="hbGuestsSummary" aria-haspopup="dialog" aria-expanded="false" aria-controls="hbGuestsPanel">
+            <span id="hbGuestsSummaryText">2 adults</span>
+            <svg class="hb-gp-chevron" id="hbGpChevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+        </div>
+
+        <div class="hb-guests-panel" id="hbGuestsPanel" role="dialog" aria-modal="false" aria-label="Guests">
+          <div class="hb-guests-panel-row">
+            <div class="hb-gp-text">
+              <span class="hb-gp-title" id="hbAdultsLabel" data-i18n="hb.adults">Adults</span>
+              <span class="hb-gp-sub" data-i18n="hb.adultsSub">Ages 13+</span>
+            </div>
+            <div class="hb-guests-row" role="group" aria-labelledby="hbAdultsLabel">
+              <button type="button" class="hb-step" id="hbAdultsDown" aria-label="Fewer adults" data-i18n-attr="aria-label:hb.fewerAdults">&#8722;</button>
+              <span class="hb-guests-count" id="hbAdultsCount">2</span>
+              <button type="button" class="hb-step" id="hbAdultsUp" aria-label="More adults" data-i18n-attr="aria-label:hb.moreAdults">+</button>
+            </div>
           </div>
+          <div class="hb-guests-panel-row">
+            <div class="hb-gp-text">
+              <span class="hb-gp-title" id="hbChildrenLabel" data-i18n="hb.children">Children</span>
+              <span class="hb-gp-sub" data-i18n="hb.childrenSub">Ages 0–12</span>
+            </div>
+            <div class="hb-guests-row" role="group" aria-labelledby="hbChildrenLabel">
+              <button type="button" class="hb-step" id="hbChildrenDown" aria-label="Fewer children" data-i18n-attr="aria-label:hb.fewerChildren">&#8722;</button>
+              <span class="hb-guests-count" id="hbChildrenCount">0</span>
+              <button type="button" class="hb-step" id="hbChildrenUp" aria-label="More children" data-i18n-attr="aria-label:hb.moreChildren">+</button>
+            </div>
+          </div>
+          <p class="hb-gp-note" data-i18n="hb.childNote">Children under 9 stay free of any extra-guest charge. Breakfast is free for ages 0–4, and ฿100 per child for ages 5–8.</p>
+          <button type="button" class="hb-gp-done" id="hbGuestsDone" data-i18n="hb.done">Done</button>
         </div>
       </div>
 
@@ -254,8 +280,19 @@
   var co      = document.getElementById('hbCheckout');
   var ciVal   = document.getElementById('hbCheckinVal');
   var coVal   = document.getElementById('hbCheckoutVal');
-  var gCount  = document.getElementById('hbGuestsCount');
-  var gNum    = 2;
+  var gField      = document.getElementById('hbGuestsField');
+  var gSummary    = document.getElementById('hbGuestsSummary');
+  var gSummaryTxt = document.getElementById('hbGuestsSummaryText');
+  var gPanel      = document.getElementById('hbGuestsPanel');
+  var adultsCount   = document.getElementById('hbAdultsCount');
+  var childrenCount = document.getElementById('hbChildrenCount');
+  var adultsDown   = document.getElementById('hbAdultsDown');
+  var adultsUp     = document.getElementById('hbAdultsUp');
+  var childrenDown = document.getElementById('hbChildrenDown');
+  var childrenUp   = document.getElementById('hbChildrenUp');
+  var adults   = 2;
+  var children = 0;
+  var MAX_ADULTS = 8, MAX_CHILDREN = 6; // matches booking.html's stepper bounds
   var ciDate  = null;
   var coDate  = null;
 
@@ -273,8 +310,20 @@
     return new Date(iso + 'T12:00:00').toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' });
   }
   function updateGuestCount() {
-    var unit = tHb(gNum === 1 ? 'hb.guest' : 'hb.guestPl', gNum === 1 ? 'guest' : 'guests');
-    gCount.textContent = gNum + ' ' + unit;
+    adultsCount.textContent   = adults;
+    childrenCount.textContent = children;
+    adultsDown.disabled   = adults <= 1;
+    adultsUp.disabled     = adults >= MAX_ADULTS;
+    childrenDown.disabled = children <= 0;
+    childrenUp.disabled   = children >= MAX_CHILDREN;
+
+    var adultWord = tHb(adults === 1 ? 'hb.adult' : 'hb.adultPl', adults === 1 ? 'adult' : 'adults');
+    var summary = adults + ' ' + adultWord;
+    if (children > 0) {
+      var childWord = tHb(children === 1 ? 'hb.child' : 'hb.childPl', children === 1 ? 'child' : 'children');
+      summary += ', ' + children + ' ' + childWord;
+    }
+    gSummaryTxt.textContent = summary;
   }
   function updatePlaceholders() {
     var ph = tHb('hb.selectDate', 'Select date');
@@ -323,13 +372,52 @@
     coVal.classList.remove('hb-placeholder');
   });
 
-  document.getElementById('hbGuestsDown').addEventListener('click', function (e) {
+  adultsDown.addEventListener('click', function (e) {
     e.stopPropagation();
-    if (gNum > 1) { gNum--; updateGuestCount(); }
+    if (adults > 1) { adults--; updateGuestCount(); }
   });
-  document.getElementById('hbGuestsUp').addEventListener('click', function (e) {
+  adultsUp.addEventListener('click', function (e) {
     e.stopPropagation();
-    if (gNum < 10) { gNum++; updateGuestCount(); }
+    if (adults < MAX_ADULTS) { adults++; updateGuestCount(); }
+  });
+  childrenDown.addEventListener('click', function (e) {
+    e.stopPropagation();
+    if (children > 0) { children--; updateGuestCount(); }
+  });
+  childrenUp.addEventListener('click', function (e) {
+    e.stopPropagation();
+    if (children < MAX_CHILDREN) { children++; updateGuestCount(); }
+  });
+
+  function openGuestsPanel() {
+    gPanel.classList.add('open');
+    gSummary.classList.add('open');
+    gSummary.setAttribute('aria-expanded', 'true');
+  }
+  function closeGuestsPanel() {
+    gPanel.classList.remove('open');
+    gSummary.classList.remove('open');
+    gSummary.setAttribute('aria-expanded', 'false');
+  }
+  gSummary.addEventListener('click', function (e) {
+    e.stopPropagation();
+    if (gPanel.classList.contains('open')) closeGuestsPanel(); else openGuestsPanel();
+  });
+  gField.addEventListener('click', function (e) {
+    // Clicking anywhere else in the field (not the panel itself) also opens it,
+    // matching the click-anywhere affordance of the date fields either side.
+    if (e.target === gField) openGuestsPanel();
+  });
+  gPanel.addEventListener('click', function (e) { e.stopPropagation(); });
+  document.getElementById('hbGuestsDone').addEventListener('click', function (e) {
+    e.stopPropagation();
+    closeGuestsPanel();
+  });
+  document.addEventListener('click', function (e) {
+    if (gPanel.classList.contains('open') && !gField.contains(e.target)) closeGuestsPanel();
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && gPanel.classList.contains('open')) { closeGuestsPanel(); gSummary.focus(); }
   });
 
   document.addEventListener('jpark:langchange', function () {
@@ -341,9 +429,12 @@
     var p = [];
     if (ci.value)  p.push('checkin='  + ci.value);
     if (co.value)  p.push('checkout=' + co.value);
-    p.push('guests=' + gNum);
+    p.push('guests=' + adults);
+    if (children > 0) p.push('children=' + children);
     window.location.href = 'booking.html' + (p.length ? '?' + p.join('&') : '');
   });
+
+  updateGuestCount();
 })();
 </script>
 

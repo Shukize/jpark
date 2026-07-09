@@ -1903,7 +1903,15 @@
       const b = document.createElement("button");
       b.className = (f === bkFilter ? "active" : "");
       b.textContent = f === "all" ? t("staff.requests.filterAll") : t("msg.bk.filter." + f);
-      b.addEventListener("click", () => { bkFilter = f; renderBookingList(); });
+      // Switching status tabs clears any leftover search text — otherwise a
+      // search typed while on one tab keeps silently filtering every other
+      // tab (e.g. "All" looking like it's missing bookings) with no visible
+      // explanation beyond the search box itself still holding the old text.
+      b.addEventListener("click", () => {
+        if (f !== bkFilter) bkSearchQuery = "";
+        bkFilter = f;
+        renderBookingList();
+      });
       bar.appendChild(b);
     });
     container.appendChild(bar);
@@ -1944,6 +1952,21 @@
     const statusPill = cancelled ? '<span class="bk-row-pill">' + esc(t("msg.bk.status.cancelled")) + "</span>" : "";
     const labelTag = b.staffLabel
       ? '<span class="bk-row-pill label" title="' + esc(b.staffLabel) + '">🏷 ' + esc(b.staffLabel) + "</span>" : "";
+    // Room-assigned / payment-recorded pills — front-desk-only concept, so
+    // scoped to direct-channel bookings (same scoping as wireBkFrontDesk)
+    // and skipped once cancelled (nothing left to follow up on).
+    let frontDeskPills = "";
+    if (b.channel === "direct" && !cancelled) {
+      const roomOk = !!b.roomNumber;
+      const paidOk = b.paymentStatus === "paid";
+      frontDeskPills =
+        '<span class="bk-row-pill fd-status ' + (roomOk ? "ok" : "pending") + '" title="' +
+          esc(t(roomOk ? "msg.bk.roomAssigned" : "msg.bk.roomPending")) + '">' +
+          (roomOk ? "✓" : "—") + " " + esc(t("msg.bk.roomShort")) + "</span>" +
+        '<span class="bk-row-pill fd-status ' + (paidOk ? "ok" : "pending") + '" title="' +
+          esc(t(paidOk ? "msg.bk.paymentRecorded" : "msg.bk.paymentPending")) + '">' +
+          (paidOk ? "✓" : "—") + " " + esc(t("msg.bk.paidShort")) + "</span>";
+    }
 
     const firstCol = bkMultiSelect
       ? '<div class="mr-check"><input type="checkbox" class="mr-checkbox" tabindex="-1"' + (isSelected ? " checked" : "") + "></div>"
@@ -1951,7 +1974,7 @@
 
     row.innerHTML =
       firstCol +
-      '<div class="mr-sender">' + reviewBadge + esc(b.channelName) + statusPill + labelTag + "</div>" +
+      '<div class="mr-sender">' + reviewBadge + esc(b.channelName) + statusPill + labelTag + frontDeskPills + "</div>" +
       '<div class="mr-subject-preview">' +
         '<span class="mr-subject">' + esc(b.guestName) + "</span>" +
         '<span class="mr-sep">—</span>' +
@@ -2303,6 +2326,8 @@
         '<button class="mda-action-btn mda-star-btn' + (bkIsStarred ? " starred" : "") + '" id="mdaBkStar">' +
           (bkIsStarred ? "★ " + esc(t("msg.unstar")) : "☆ " + esc(t("msg.star"))) +
         "</button>" +
+        (b.guestEmail && b.status !== "cancelled"
+          ? '<button class="mda-action-btn" id="mdaBkResend">✉ ' + esc(t("msg.bk.resend")) + "</button>" : "") +
         (b.status === "cancelled"
           ? '<button class="mda-action-btn mda-reopen-btn" id="mdaBkCancel">↺ ' + esc(t("msg.bk.reopen")) + "</button>"
           : '<button class="mda-action-btn mda-cancel-btn" id="mdaBkCancel">✕ ' + esc(t("msg.bk.cancel")) + "</button>") +
@@ -2372,6 +2397,26 @@
             }
           }).catch(() => { bkCancelBtn.disabled = false; });
         }
+      });
+    }
+
+    const bkResendBtn = detailArea.querySelector("#mdaBkResend");
+    if (bkResendBtn) {
+      bkResendBtn.addEventListener("click", () => {
+        const API = window.JPark && window.JPark.api;
+        if (!API) return;
+        bkResendBtn.disabled = true;
+        API.post("/api/guest-bookings/" + b.id + "/resend-confirmation", {}).then((r) => {
+          bkResendBtn.disabled = false;
+          if (r && !r.error) {
+            U.toast(t("msg.bk.resend.sent").replace("{email}", b.guestEmail || ""), "success");
+          } else {
+            U.toast((r && r.error) || t("msg.bk.resend.failed"), "error");
+          }
+        }).catch(() => {
+          bkResendBtn.disabled = false;
+          U.toast(t("msg.bk.resend.failed"), "error");
+        });
       });
     }
 
@@ -2712,6 +2757,11 @@
   function renderSite() {
     if (!isAdmin()) return;
     if (!edLang) edLang = I.getLang();
+    // Some browsers restore a previously-typed value into this field on
+    // reload/back-navigation even though it's never set from state; force
+    // it back in sync with edSearchQ so the editor never looks pre-filtered.
+    const searchEl = document.getElementById("edSearch");
+    if (searchEl && searchEl.value !== edSearchQ) searchEl.value = edSearchQ;
     renderGuideState();
     renderEditTabs();
     renderEditLang();

@@ -91,6 +91,39 @@ function smokingLabel(bk) {
   return bk.smoking_preference === 'smoking' ? 'Smoking' : 'Non-Smoking';
 }
 
+// House-wide check-in/check-out hours (see chat.a.checkin in i18n-app.js and
+// the demo seed text in store.js for the same 14:00/12:00 convention) — ICT
+// spelled out explicitly since guests booking from abroad won't know the
+// local UTC offset.
+const CHECKIN_TIME_NOTE = '(from 14:00 ICT)';
+const CHECKOUT_TIME_NOTE = '(until 12:00 ICT)';
+
+// Branding + contact block appended to guest/staff-facing emails so a
+// forwarded or printed copy is self-identifying without needing the site.
+// The logo is loaded from the live public site since email clients can't
+// reach a relative/local file path.
+const SITE_ORIGIN = 'https://jparkhotel.com';
+const HOTEL_ADDRESS = '88/88 Thanon Sukprayun, Na Pa, Mueang Chonburi District, Chon Buri 20000, Thailand';
+const HOTEL_PHONES = ['+66 86 326 0664', '+66 38 448 111'];
+const HOTEL_EMAIL = 'jparkhotel1@gmail.com';
+
+function emailLetterhead() {
+  const text =
+    '\n' +
+    'J Park Hotel, Chonburi\n' +
+    `${HOTEL_ADDRESS}\n` +
+    `Tel: ${HOTEL_PHONES.join(' / ')}\n` +
+    `Email: ${HOTEL_EMAIL}`;
+  const html =
+    '<div style="margin-top:24px;padding-top:16px;border-top:1px solid #e2e2e2;text-align:center">' +
+    `<img src="${SITE_ORIGIN}/images/logo-full.png" alt="J Park Hotel" width="160" style="max-width:160px;height:auto;margin-bottom:10px" />` +
+    '<p style="color:#666;font-size:12px;line-height:1.6;margin:0">' +
+    `${HOTEL_ADDRESS}<br>` +
+    `Tel: ${HOTEL_PHONES.join(' &nbsp;/&nbsp; ')} &nbsp;&middot;&nbsp; Email: <a href="mailto:${HOTEL_EMAIL}" style="color:#0f766e">${HOTEL_EMAIL}</a>` +
+    '</p></div>';
+  return { text, html };
+}
+
 function hotelNotice(bk) {
   const money = bk.total != null ? `${bk.total} ${bk.currency || 'THB'}` : '—';
   const guests = `${bk.adults} adult(s), ${bk.children} child(ren)`;
@@ -105,8 +138,8 @@ function hotelNotice(bk) {
     `Guest email: ${bk.guest_email || '—'}`,
     `Guest phone: ${bk.guest_phone || '—'}`,
     `Room: ${bk.room || '—'}`,
-    `Check-in: ${bk.check_in}`,
-    `Check-out: ${bk.check_out}`,
+    `Check-in: ${bk.check_in} ${CHECKIN_TIME_NOTE}`,
+    `Check-out: ${bk.check_out} ${CHECKOUT_TIME_NOTE}`,
     `Nights: ${bk.nights}`,
     `Guests: ${guests}`,
     `Room preference: ${smokingLabel(bk)}`,
@@ -116,7 +149,8 @@ function hotelNotice(bk) {
     '',
     'This reservation is now in the Guest Booking inbox of the staff console.',
   ];
-  const text = lines.join('\n');
+  const letterhead = emailLetterhead();
+  const text = lines.join('\n') + letterhead.text;
   const html =
     `<div style="font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;line-height:1.5">` +
     `<h2 style="color:#0f766e;margin:0 0 12px">New booking via ${via}</h2>` +
@@ -126,8 +160,8 @@ function hotelNotice(bk) {
     `<tr><td style="padding:4px 12px 4px 0;color:#555">Guest email</td><td style="padding:4px 0">${bk.guest_email || '—'}</td></tr>` +
     `<tr><td style="padding:4px 12px 4px 0;color:#555">Guest phone</td><td style="padding:4px 0">${bk.guest_phone || '—'}</td></tr>` +
     `<tr><td style="padding:4px 12px 4px 0;color:#555">Room</td><td style="padding:4px 0">${bk.room || '—'}</td></tr>` +
-    `<tr><td style="padding:4px 12px 4px 0;color:#555">Check-in</td><td style="padding:4px 0">${bk.check_in}</td></tr>` +
-    `<tr><td style="padding:4px 12px 4px 0;color:#555">Check-out</td><td style="padding:4px 0">${bk.check_out}</td></tr>` +
+    `<tr><td style="padding:4px 12px 4px 0;color:#555">Check-in</td><td style="padding:4px 0">${bk.check_in} ${CHECKIN_TIME_NOTE}</td></tr>` +
+    `<tr><td style="padding:4px 12px 4px 0;color:#555">Check-out</td><td style="padding:4px 0">${bk.check_out} ${CHECKOUT_TIME_NOTE}</td></tr>` +
     `<tr><td style="padding:4px 12px 4px 0;color:#555">Nights</td><td style="padding:4px 0">${bk.nights}</td></tr>` +
     `<tr><td style="padding:4px 12px 4px 0;color:#555">Guests</td><td style="padding:4px 0">${guests}</td></tr>` +
     `<tr><td style="padding:4px 12px 4px 0;color:#555">Room preference</td><td style="padding:4px 0">${smokingLabel(bk)}</td></tr>` +
@@ -136,6 +170,7 @@ function hotelNotice(bk) {
     `</table>` +
     (balanceDue ? balanceDue.html : '') +
     `<p style="color:#555">This reservation is now in the <strong>Guest Booking</strong> inbox of the staff console.</p>` +
+    letterhead.html +
     `</div>`;
   return { text, html };
 }
@@ -149,6 +184,15 @@ const DEPOSIT_NOTE_HTML =
   '<strong>Please note:</strong> a 200 THB deposit for your room key card is collected in <strong>cash only</strong> at check-in, and refunded in full at check-out.' +
   '</p>';
 
+// Some inboxes (Yahoo, Outlook, etc.) route new senders to spam even on a
+// verified domain until enough mail has been exchanged to build sender
+// reputation — so every guest-facing confirmation proactively tells the
+// guest where to look instead of relying on them to think of it.
+const SPAM_NOTE_TEXT =
+  "Can't find this email later, or missing a reply from us? Please check your spam/junk folder — and consider adding us to your contacts.";
+const SPAM_NOTE_HTML =
+  '<p style="color:#888;font-size:0.85rem">Can\'t find this email later, or missing a reply from us? Please check your <strong>spam/junk folder</strong> — and consider adding us to your contacts.</p>';
+
 function confirmationEmail(bk) {
   const money = bk.total != null ? `${bk.total} ${bk.currency || 'THB'}` : '—';
   const payment = paymentLabel(bk);
@@ -160,8 +204,8 @@ function confirmationEmail(bk) {
     '',
     `Confirmation: ${bk.ref}`,
     `Room: ${bk.room || '—'}`,
-    `Check-in: ${bk.check_in}`,
-    `Check-out: ${bk.check_out}`,
+    `Check-in: ${bk.check_in} ${CHECKIN_TIME_NOTE}`,
+    `Check-out: ${bk.check_out} ${CHECKOUT_TIME_NOTE}`,
     `Nights: ${bk.nights}`,
     `Guests: ${bk.adults} adult(s), ${bk.children} child(ren)`,
     `Room preference: ${smokingLabel(bk)}`,
@@ -173,9 +217,12 @@ function confirmationEmail(bk) {
     '',
     'We look forward to welcoming you. Reply to this email if you need anything before arrival.',
     '',
+    SPAM_NOTE_TEXT,
+    '',
     'J Park Hotel, Chonburi',
   ];
-  const text = lines.join('\n');
+  const letterhead = emailLetterhead();
+  const text = lines.join('\n') + letterhead.text;
   const html =
     `<div style="font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;line-height:1.5">` +
     `<h2 style="color:#0f766e;margin:0 0 12px">Your reservation is confirmed</h2>` +
@@ -184,8 +231,8 @@ function confirmationEmail(bk) {
     `<table style="border-collapse:collapse;margin:16px 0">` +
     `<tr><td style="padding:4px 12px 4px 0;color:#555">Confirmation</td><td style="padding:4px 0"><strong>${bk.ref}</strong></td></tr>` +
     `<tr><td style="padding:4px 12px 4px 0;color:#555">Room</td><td style="padding:4px 0">${bk.room || '—'}</td></tr>` +
-    `<tr><td style="padding:4px 12px 4px 0;color:#555">Check-in</td><td style="padding:4px 0">${bk.check_in}</td></tr>` +
-    `<tr><td style="padding:4px 12px 4px 0;color:#555">Check-out</td><td style="padding:4px 0">${bk.check_out}</td></tr>` +
+    `<tr><td style="padding:4px 12px 4px 0;color:#555">Check-in</td><td style="padding:4px 0">${bk.check_in} ${CHECKIN_TIME_NOTE}</td></tr>` +
+    `<tr><td style="padding:4px 12px 4px 0;color:#555">Check-out</td><td style="padding:4px 0">${bk.check_out} ${CHECKOUT_TIME_NOTE}</td></tr>` +
     `<tr><td style="padding:4px 12px 4px 0;color:#555">Nights</td><td style="padding:4px 0">${bk.nights}</td></tr>` +
     `<tr><td style="padding:4px 12px 4px 0;color:#555">Guests</td><td style="padding:4px 0">${bk.adults} adult(s), ${bk.children} child(ren)</td></tr>` +
     `<tr><td style="padding:4px 12px 4px 0;color:#555">Room preference</td><td style="padding:4px 0">${smokingLabel(bk)}</td></tr>` +
@@ -195,7 +242,9 @@ function confirmationEmail(bk) {
     (balanceDue ? balanceDue.html : '') +
     DEPOSIT_NOTE_HTML +
     `<p>We look forward to welcoming you. Just reply to this email if you need anything before arrival.</p>` +
+    SPAM_NOTE_HTML +
     `<p style="color:#0f766e;font-weight:bold;margin-top:24px">J Park Hotel, Chonburi</p>` +
+    letterhead.html +
     `</div>`;
   return { text, html };
 }
@@ -220,7 +269,8 @@ function cancellationEmail(bk) {
     '',
     'J Park Hotel, Chonburi',
   ];
-  const text = lines.join('\n');
+  const letterhead = emailLetterhead();
+  const text = lines.join('\n') + letterhead.text;
   const html =
     `<div style="font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;line-height:1.5">` +
     `<h2 style="color:#b45309;margin:0 0 12px">Your reservation has been cancelled</h2>` +
@@ -235,6 +285,7 @@ function cancellationEmail(bk) {
     `<p>No payment was taken online for this booking, so there is nothing to refund.</p>` +
     `<p>If this cancellation was made in error, or you would like to make a new reservation, please reply to this email or call us.</p>` +
     `<p style="color:#0f766e;font-weight:bold;margin-top:24px">J Park Hotel, Chonburi</p>` +
+    letterhead.html +
     `</div>`;
   return { text, html };
 }
@@ -388,17 +439,28 @@ function fireBookingEmails(saved) {
 
   // 2) Send the guest their confirmation, when the booking carries a guest email.
   if (saved.guest_email) {
-    const { text, html } = confirmationEmail(saved);
-    sendEmail({
-      to: saved.guest_email,
-      subject: `J Park Hotel — booking confirmed (${saved.ref})`,
-      text,
-      html,
-    }).then((r) => {
-      if (r.ok) console.log(`[guest-bookings] confirmation emailed to ${saved.guest_email} (${saved.ref})`);
-      else if (!r.skipped) console.warn(`[guest-bookings] confirmation email failed (${saved.ref}): ${r.error}`);
-    }).catch((err) => console.error('[guest-bookings] email error', err));
+    sendGuestConfirmation(saved).catch((err) => console.error('[guest-bookings] email error', err));
   }
+}
+
+// Guest confirmation send, factored out of fireBookingEmails() so the manual
+// "Resend confirmation" staff action (POST /:id/resend-confirmation below)
+// can reuse the exact same email content instead of duplicating it. Sets a
+// Reply-To of the hotel's own inbox — previously unset, so a guest replying
+// to their confirmation would silently go to the noreply@ sender address.
+async function sendGuestConfirmation(saved) {
+  const { text, html } = confirmationEmail(saved);
+  const to = hotelRecipients();
+  const r = await sendEmail({
+    to: saved.guest_email,
+    subject: `J Park Hotel — booking confirmed (${saved.ref})`,
+    text,
+    html,
+    replyTo: to[0] || undefined,
+  });
+  if (r.ok) console.log(`[guest-bookings] confirmation emailed to ${saved.guest_email} (${saved.ref})`);
+  else if (!r.skipped) console.warn(`[guest-bookings] confirmation email failed (${saved.ref}): ${r.error}`);
+  return r;
 }
 
 /* Core ingest: upsert one booking (de-duped on `ref`) and fire its emails.
@@ -587,6 +649,33 @@ router.patch('/:id', requireAuth, async (req, res) => {
   }
 });
 
+/* POST /api/guest-bookings/:id/resend-confirmation — lets staff manually
+   re-send the guest-facing confirmation email on demand (e.g. a guest says
+   they never got it — could be stuck in spam, mistyped address, etc.).
+   Reuses the exact same sendGuestConfirmation() used on initial booking, and
+   surfaces the real Resend result to the console instead of it only ever
+   being visible in server logs. */
+router.post('/:id/resend-confirmation', requireAuth, async (req, res) => {
+  if (rateLimited(req.ip || 'unknown')) {
+    return res.status(429).json({ error: 'Too many requests. Please try again later.' });
+  }
+  try {
+    const { rows } = await db.query('SELECT * FROM guest_bookings WHERE id = $1', [req.params.id]);
+    if (!rows.length) return res.status(404).json({ error: 'Not found' });
+    const bk = rows[0];
+    if (!bk.guest_email) return res.status(400).json({ error: 'This booking has no guest email on file' });
+
+    const result = await sendGuestConfirmation(bk);
+    if (!result.ok) {
+      return res.status(result.skipped ? 503 : 502).json({ error: result.error || 'Send failed' });
+    }
+    res.json({ status: 'sent', to: bk.guest_email });
+  } catch (e) {
+    console.error('[guest-bookings] resend-confirmation', e);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
 /* POST /api/guest-bookings/:id/cancel — staff-mediated cancel (any signed-in
    employee, matching the existing PATCH/assign-room/mark-paid permission
    level). Idempotent: cancelling an already-cancelled booking is a no-op
@@ -735,3 +824,6 @@ module.exports.hotelNotice = hotelNotice;
 module.exports.hotelRecipients = hotelRecipients;
 module.exports.confirmationEmail = confirmationEmail;
 module.exports.computeNights = computeNights;
+module.exports.emailLetterhead = emailLetterhead;
+module.exports.SPAM_NOTE_TEXT = SPAM_NOTE_TEXT;
+module.exports.SPAM_NOTE_HTML = SPAM_NOTE_HTML;

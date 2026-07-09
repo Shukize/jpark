@@ -1282,6 +1282,7 @@
     var ci = p.get('checkin');
     var co = p.get('checkout');
     var g  = parseInt(p.get('guests'), 10);
+    var c  = parseInt(p.get('children'), 10);
     var roomSlug = p.get('room');
 
     if (ci) {
@@ -1292,6 +1293,10 @@
     if (!isNaN(g) && g >= 1 && g <= 8) {
       adults = g;
       adultsValEl.textContent = g;
+    }
+    if (!isNaN(c) && c >= 0 && c <= 6) {
+      children = c;
+      childrenValEl.textContent = c;
     }
 
     if (ci && co && co > ci) {

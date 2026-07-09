@@ -47,6 +47,8 @@
       'bk.pay.cancel': 'Cancel', 'bk.pay.close': 'Close',
       'bk.pay.successTitle': 'Booking confirmed!', 'bk.pay.confirmationLabel': 'Confirmation number',
       'bk.pay.emailSentNote': 'A confirmation has been sent to your email, with the deposit note above.',
+      'bk.pay.spamNote': "Don't see it in a few minutes? Please check your spam or junk folder.",
+      'bk.pay.checkinTimeNote': 'Check-in from 14:00 ICT · Check-out until 12:00 ICT',
       'bk.pay.done': 'Done',
       'bk.pay.reserveTitle': 'Reserve now — pay at check-in',
       'bk.pay.checkinNote': "You're not paying online. We'll email your confirmation now, and you'll settle the balance in person at check-in — by cash, credit/debit card, or PromptPay QR at our front desk.",
@@ -70,6 +72,8 @@
       'bk.pay.cancel': 'ยกเลิก', 'bk.pay.close': 'ปิด',
       'bk.pay.successTitle': 'ยืนยันการจองแล้ว!', 'bk.pay.confirmationLabel': 'หมายเลขยืนยัน',
       'bk.pay.emailSentNote': 'เราได้ส่งอีเมลยืนยันพร้อมข้อมูลเงินมัดจำข้างต้นให้ท่านแล้ว',
+      'bk.pay.spamNote': 'หากไม่พบอีเมลภายในไม่กี่นาที กรุณาตรวจสอบโฟลเดอร์สแปมหรือจดหมายขยะ',
+      'bk.pay.checkinTimeNote': 'เช็คอินตั้งแต่ 14:00 น. (เวลาไทย) · เช็คเอาท์ภายใน 12:00 น. (เวลาไทย)',
       'bk.pay.done': 'เสร็จสิ้น',
       'bk.pay.reserveTitle': 'จองเลย ชำระเงินที่โรงแรม',
       'bk.pay.checkinNote': 'ท่านไม่ต้องชำระเงินออนไลน์ เราจะส่งอีเมลยืนยันการจองให้ทันที และท่านสามารถชำระยอดคงเหลือได้ที่หน้าเคาน์เตอร์เมื่อเช็คอิน — ด้วยเงินสด บัตรเครดิต/เดบิต หรือ QR พร้อมเพย์',
@@ -93,6 +97,8 @@
       'bk.pay.cancel': 'キャンセル', 'bk.pay.close': '閉じる',
       'bk.pay.successTitle': 'ご予約が確定しました！', 'bk.pay.confirmationLabel': '確認番号',
       'bk.pay.emailSentNote': '上記のデポジットのご案内を含む確認メールをお送りしました。',
+      'bk.pay.spamNote': '数分経ってもメールが届かない場合は、迷惑メールフォルダをご確認ください。',
+      'bk.pay.checkinTimeNote': 'チェックインは14:00（タイ時間）から、チェックアウトは12:00（タイ時間）までです',
       'bk.pay.done': '完了',
       'bk.pay.reserveTitle': '今すぐご予約 — お支払いはチェックイン時に',
       'bk.pay.checkinNote': 'オンラインでのお支払いは不要です。ご予約確認メールをすぐにお送りいたします。残額はチェックイン時にフロントにて、現金・クレジット/デビットカード、またはプロンプトペイQRでお支払いいただけます。',
@@ -116,6 +122,8 @@
       'bk.pay.cancel': '取消', 'bk.pay.close': '关闭',
       'bk.pay.successTitle': '预订成功！', 'bk.pay.confirmationLabel': '确认号',
       'bk.pay.emailSentNote': '包含上述押金说明的确认邮件已发送至您的邮箱。',
+      'bk.pay.spamNote': '几分钟内没有收到邮件？请检查您的垃圾邮件文件夹。',
+      'bk.pay.checkinTimeNote': '入住时间为14:00（泰国时间）起，退房时间为12:00（泰国时间）前',
       'bk.pay.done': '完成',
       'bk.pay.reserveTitle': '立即预订 — 入住时付款',
       'bk.pay.checkinNote': '您无需在线支付。我们会立即发送预订确认邮件，您可在入住时于前台以现金、信用卡/借记卡或PromptPay二维码支付余款。',
@@ -139,6 +147,8 @@
       'bk.pay.cancel': '取消', 'bk.pay.close': '關閉',
       'bk.pay.successTitle': '預訂成功！', 'bk.pay.confirmationLabel': '確認號',
       'bk.pay.emailSentNote': '包含上述押金說明的確認郵件已發送至您的郵箱。',
+      'bk.pay.spamNote': '幾分鐘內沒有收到郵件？請檢查您的垃圾郵件資料夾。',
+      'bk.pay.checkinTimeNote': '入住時間為14:00（泰國時間）起，退房時間為12:00（泰國時間）前',
       'bk.pay.done': '完成',
       'bk.pay.reserveTitle': '立即預訂 — 入住時付款',
       'bk.pay.checkinNote': '您無需線上支付。我們會立即發送預訂確認郵件，您可在入住時於前台以現金、信用卡/簽帳卡或PromptPay二維碼支付餘款。',
@@ -279,6 +289,7 @@
         '<div class="bkp-summary">' +
           '<div class="bkp-summary-row"><span>' + fmtDate(state.checkIn) + ' &rarr; ' + fmtDate(state.checkOut) + '</span><span>' + nightsWord(state.nights) + '</span></div>' +
           '<div class="bkp-summary-row bkp-summary-guests">' + guestsStr + '</div>' +
+          '<div class="bkp-summary-row bkp-summary-time">' + TR('bk.pay.checkinTimeNote') + '</div>' +
         '</div>' +
 
         '<h3 class="bkp-unavail-title">' + TR('bk.pay.reserveTitle') + '</h3>' +
@@ -411,7 +422,9 @@
         '<h3>' + TR('bk.pay.successTitle') + '</h3>' +
         '<p>' + TR('bk.pay.confirmationLabel') + ': <strong id="bkpRefText"></strong></p>' +
         '<div class="bkp-deposit-note"><strong>' + TR('bk.pay.depositTitle') + ':</strong> ' + TR('bk.pay.depositNote') + '</div>' +
-        '<p class="bkp-success-note">' + TR('bk.pay.emailSentNote') + '</p>' +
+        '<p class="bkp-success-note bkp-checkin-time-note">' + TR('bk.pay.checkinTimeNote') + '</p>' +
+        '<p class="bkp-success-note bkp-email-sent-note">' + TR('bk.pay.emailSentNote') + '</p>' +
+        '<p class="bkp-success-note bkp-spam-note">' + TR('bk.pay.spamNote') + '</p>' +
         '<button type="button" class="btn btn-solid" id="bkpDoneBtn">' + TR('bk.pay.done') + '</button>' +
       '</div>'
     );
@@ -463,9 +476,14 @@
     showView('bkpViewSuccess');
     var refEl = qs('#bkpRefText');
     if (refEl) refEl.textContent = ref;
+    // The 14:00/12:00 ICT note only applies to a standard overnight
+    // check-in/check-out — the day-use flow books a preferred TIME instead,
+    // so it hides this note rather than showing a contradictory one.
+    var checkinNoteEl = qs('#bkpViewSuccess .bkp-checkin-time-note');
+    if (checkinNoteEl) checkinNoteEl.hidden = !!(opts && opts.pending);
     if (opts && opts.pending) {
       var titleEl = qs('#bkpViewSuccess h3');
-      var noteEl = qs('#bkpViewSuccess .bkp-success-note');
+      var noteEl = qs('#bkpViewSuccess .bkp-email-sent-note');
       if (titleEl) titleEl.textContent = TR(opts.titleKey);
       if (noteEl) noteEl.textContent = TR(opts.noteKey);
     }

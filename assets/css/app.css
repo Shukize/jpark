@@ -1109,6 +1109,16 @@ body.mobile-view .fac-card.large {
   white-space: nowrap; vertical-align: middle;
 }
 
+/* Room-assigned / payment-recorded at-a-glance pills, direct-channel rows
+   only — lets staff scan the list for front-desk follow-up without opening
+   each booking. "ok" mirrors the teal reopen/confirmed color used elsewhere;
+   "pending" stays neutral gray rather than alarming red/amber since an
+   unpaid/unassigned direct booking is the normal pre-arrival state, not a
+   problem. */
+.bk-row-pill.fd-status { margin-left: 6px; margin-right: 0; padding: 1px 7px; cursor: default; }
+.bk-row-pill.fd-status.ok { background: #e8f5f3; color: #0f766e; }
+.bk-row-pill.fd-status.pending { background: #f2f2f2; color: #888; }
+
 /* Archive sections: a plain "Recent" caption when older buckets also exist,
    and collapsible headers for "Older Than 2/6 Months" with an inline-rename
    pencil (persisted per-browser — see loadBkSectionPrefs/saveBkSectionPrefs

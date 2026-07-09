@@ -228,7 +228,10 @@ h1, h2, h3 { font-weight: 500; line-height: 1.12; letter-spacing: 0.01em; }
 }
 .hb-field:hover,
 .hb-field:focus-within { background: rgba(247,242,232,0.06); }
-.hb-field-guests { border-right: none; cursor: default; }
+/* .hb-field's overflow:hidden clips the invisible date-ghost input to its
+   own box; the Guests field has no ghost input but does need its popover
+   to escape those bounds, so it opts back into visible overflow. */
+.hb-field-guests { border-right: none; cursor: default; overflow: visible; }
 .hb-icon { color: rgba(247,242,232,0.48); display: flex; align-items: center; flex-shrink: 0; pointer-events: none; }
 .hb-sep { width: 0; }
 .hb-field-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; pointer-events: none; }
@@ -251,7 +254,49 @@ h1, h2, h3 { font-weight: 500; line-height: 1.12; letter-spacing: 0.01em; }
   flex-shrink: 0; transition: background 0.2s;
 }
 .hb-step:hover { background: rgba(247,242,232,0.22); }
+.hb-step:disabled { opacity: 0.35; cursor: default; }
+.hb-step:disabled:hover { background: rgba(247,242,232,0.1); }
 .hb-guests-count { font-size: 0.9rem; font-weight: 500; color: var(--ivory); white-space: nowrap; min-width: 56px; text-align: center; }
+
+/* Guests field: click opens a popover with separate Adults / Children
+   steppers, matching the split fields on the full booking page. */
+.hb-guests-summary {
+  all: unset; box-sizing: border-box;
+  display: flex; align-items: center; gap: 6px;
+  pointer-events: auto; cursor: pointer;
+  font-size: 0.9rem; font-weight: 500; color: var(--ivory);
+  white-space: nowrap; max-width: 100%;
+}
+.hb-gp-chevron { flex-shrink: 0; transition: transform 0.22s var(--ease); opacity: 0.6; }
+.hb-guests-summary.open .hb-gp-chevron { transform: rotate(180deg); }
+.hb-guests-panel {
+  position: absolute; z-index: 20;
+  bottom: calc(100% + 12px); right: 0;
+  width: 300px; max-width: calc(100vw - 32px);
+  background: var(--teal-deep);
+  border: 1px solid rgba(247,242,232,0.14);
+  border-radius: 16px;
+  box-shadow: 0 24px 60px -14px rgba(0,0,0,0.6);
+  padding: 18px;
+  display: none; flex-direction: column; gap: 14px;
+  cursor: default; pointer-events: auto;
+}
+.hb-guests-panel.open { display: flex; }
+.hb-guests-panel-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.hb-gp-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.hb-gp-title { font-size: 0.88rem; font-weight: 600; color: var(--ivory); }
+.hb-gp-sub { font-size: 0.7rem; color: rgba(247,242,232,0.5); }
+.hb-gp-note {
+  margin: 0; font-size: 0.72rem; line-height: 1.55; color: rgba(247,242,232,0.55);
+  border-top: 1px solid rgba(247,242,232,0.1); padding-top: 12px;
+}
+.hb-gp-done {
+  align-self: flex-end;
+  background: var(--terracotta); color: #fff; border: none; border-radius: 999px;
+  padding: 8px 22px; font-size: 0.74rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  cursor: pointer; transition: background 0.2s;
+}
+.hb-gp-done:hover { background: var(--terracotta-d); }
 .hb-book-btn {
   flex-shrink: 0; margin-left: 20px;
   padding: 14px 34px;
@@ -670,6 +715,13 @@ body.intro-active { overflow: hidden; }
   .hb-field:first-child { border-right: 1px solid rgba(247,242,232,0.1); }
   .hb-field-guests { flex: 1 1 50%; border-bottom: none; border-right: 1px solid rgba(247,242,232,0.1); }
   .hb-book-btn { flex: 1 1 50%; margin: 0; border-radius: 0; padding: 14px; font-size: 0.76rem; display: flex; align-items: center; justify-content: center; }
+  /* Guests popover: anchoring it to the (narrow, half-width) field itself
+     would push it off-screen on small phones, so on mobile it becomes a
+     fixed sheet spanning the viewport width, sitting just above the bar. */
+  .hb-guests-panel {
+    position: fixed; left: 12px; right: 12px; bottom: 132px;
+    width: auto; max-width: none;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

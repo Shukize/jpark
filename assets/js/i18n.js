@@ -140,7 +140,21 @@ const I18N = {
     "hb.guests": "จำนวนผู้เข้าพัก",
     "hb.selectDate": "เลือกวันที่",
     "hb.guest": "คน",
-    "hb.guestPl": "คน"
+    "hb.guestPl": "คน",
+    "hb.adults": "ผู้ใหญ่",
+    "hb.adultsSub": "อายุ 13 ปีขึ้นไป",
+    "hb.children": "เด็ก",
+    "hb.childrenSub": "อายุ 0–12 ปี",
+    "hb.fewerAdults": "ลดจำนวนผู้ใหญ่",
+    "hb.moreAdults": "เพิ่มจำนวนผู้ใหญ่",
+    "hb.fewerChildren": "ลดจำนวนเด็ก",
+    "hb.moreChildren": "เพิ่มจำนวนเด็ก",
+    "hb.adult": "ผู้ใหญ่",
+    "hb.adultPl": "ผู้ใหญ่",
+    "hb.child": "เด็ก",
+    "hb.childPl": "เด็ก",
+    "hb.childNote": "เด็กอายุต่ำกว่า 9 ปี เข้าพักฟรีโดยไม่มีค่าใช้จ่ายเพิ่มเติม อาหารเช้าฟรีสำหรับอายุ 0–4 ปี และ 100 บาทต่อคนสำหรับอายุ 5–8 ปี",
+    "hb.done": "เสร็จสิ้น"
   },
 
   /* ---------------------- English ---------------------- */
@@ -269,7 +283,21 @@ const I18N = {
     "hb.guests": "Guests",
     "hb.selectDate": "Select date",
     "hb.guest": "guest",
-    "hb.guestPl": "guests"
+    "hb.guestPl": "guests",
+    "hb.adults": "Adults",
+    "hb.adultsSub": "Ages 13+",
+    "hb.children": "Children",
+    "hb.childrenSub": "Ages 0–12",
+    "hb.fewerAdults": "Fewer adults",
+    "hb.moreAdults": "More adults",
+    "hb.fewerChildren": "Fewer children",
+    "hb.moreChildren": "More children",
+    "hb.adult": "adult",
+    "hb.adultPl": "adults",
+    "hb.child": "child",
+    "hb.childPl": "children",
+    "hb.childNote": "Children under 9 stay free of any extra-guest charge. Breakfast is free for ages 0–4, and ฿100 per child for ages 5–8.",
+    "hb.done": "Done"
   },
 
   /* ---------------------- 日本語 ---------------------- */
@@ -398,7 +426,21 @@ const I18N = {
     "hb.guests": "人数",
     "hb.selectDate": "日付を選択",
     "hb.guest": "名",
-    "hb.guestPl": "名"
+    "hb.guestPl": "名",
+    "hb.adults": "大人",
+    "hb.adultsSub": "13歳以上",
+    "hb.children": "子供",
+    "hb.childrenSub": "0～12歳",
+    "hb.fewerAdults": "大人の人数を減らす",
+    "hb.moreAdults": "大人の人数を増やす",
+    "hb.fewerChildren": "子供の人数を減らす",
+    "hb.moreChildren": "子供の人数を増やす",
+    "hb.adult": "名",
+    "hb.adultPl": "名",
+    "hb.child": "名",
+    "hb.childPl": "名",
+    "hb.childNote": "9歳未満のお子様は追加料金なしでご宿泊いただけます。朝食は0～4歳無料、5～8歳は฿100/名です。",
+    "hb.done": "完了"
   },
 
   /* ---------------------- 简体中文 ---------------------- */
@@ -527,7 +569,21 @@ const I18N = {
     "hb.guests": "宾客",
     "hb.selectDate": "选择日期",
     "hb.guest": "位",
-    "hb.guestPl": "位"
+    "hb.guestPl": "位",
+    "hb.adults": "成人",
+    "hb.adultsSub": "13岁及以上",
+    "hb.children": "儿童",
+    "hb.childrenSub": "0–12岁",
+    "hb.fewerAdults": "减少成人人数",
+    "hb.moreAdults": "增加成人人数",
+    "hb.fewerChildren": "减少儿童人数",
+    "hb.moreChildren": "增加儿童人数",
+    "hb.adult": "位成人",
+    "hb.adultPl": "位成人",
+    "hb.child": "位儿童",
+    "hb.childPl": "位儿童",
+    "hb.childNote": "9岁以下儿童入住免收额外费用。0–4岁儿童早餐免费，5–8岁儿童早餐每位฿100。",
+    "hb.done": "完成"
   },
 
   /* ---------------------- 繁體中文 ---------------------- */
@@ -656,7 +712,21 @@ const I18N = {
     "hb.guests": "賓客",
     "hb.selectDate": "選擇日期",
     "hb.guest": "位",
-    "hb.guestPl": "位"
+    "hb.guestPl": "位",
+    "hb.adults": "成人",
+    "hb.adultsSub": "13歲及以上",
+    "hb.children": "兒童",
+    "hb.childrenSub": "0–12歲",
+    "hb.fewerAdults": "減少成人人數",
+    "hb.moreAdults": "增加成人人數",
+    "hb.fewerChildren": "減少兒童人數",
+    "hb.moreChildren": "增加兒童人數",
+    "hb.adult": "位成人",
+    "hb.adultPl": "位成人",
+    "hb.child": "位兒童",
+    "hb.childPl": "位兒童",
+    "hb.childNote": "9歲以下兒童入住免收額外費用。0–4歲兒童早餐免費，5–8歲兒童早餐每位฿100。",
+    "hb.done": "完成"
   }
 };
 

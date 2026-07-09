@@ -36,9 +36,41 @@
     { id: "pool",    a: "chat.a.pool",    kw: ["pool","swim","onsen","spa","สระ","ว่ายน้ำ","ออนเซ็น","プール","温泉","泳池","游泳","溫泉"] },
     { id: "dining",  a: "chat.a.dining",  kw: ["dining","restaurant","eat","food","breakfast","dinner","tsubaki","อาหาร","ร้าน","ทาน","อาหารเช้า","レストラン","食事","朝食","餐","吃","用餐","餐廳","餐厅"] },
     { id: "coffee",  a: "chat.a.coffee",  kw: ["coffee","cocktail","bar","midnight","drink","กาแฟ","ค็อกเทล","บาร์","コーヒー","カクテル","咖啡","鸡尾酒","雞尾酒","酒吧"] },
-    { id: "parking", a: "chat.a.parking", kw: ["park","parking","car","ที่จอด","รถ","駐車","停车","停車"] }
+    { id: "parking", a: "chat.a.parking", kw: ["park","parking","car","ที่จอด","รถ","駐車","停车","停車"] },
+    { id: "rates",   a: "chat.a.rates",   kw: ["rate","rates","price","prices","cost","how much","nightly","per night","ราคา","เท่าไหร่","ค่าห้อง","料金","値段","价格","价钱","價格","價錢"] }
   ];
-  const QUICK = ["checkin", "wifi", "pool", "dining", "coffee", "parking"];
+  const QUICK = ["checkin", "wifi", "pool", "dining", "coffee", "rates", "parking"];
+
+  // Room rates are edited live in the Site Editor (staff.js "Rates" tab) and
+  // stored server-side, so the bot fetches the current range instead of
+  // keeping its own copy that would drift out of date.
+  let ratesCache = null; // { min, max } nightly room-only THB, across all room types
+  async function loadRates() {
+    const API = window.JPark.api;
+    if (!API) return;
+    try {
+      const res = await API.get("/api/rates");
+      if (!res || !res.rooms) return;
+      let min = Infinity, max = -Infinity;
+      Object.values(res.rooms).forEach((room) => {
+        (room.variants || []).forEach((v) => {
+          if (typeof v.room !== "number") return;
+          if (v.room < min) min = v.room;
+          if (v.room > max) max = v.room;
+        });
+      });
+      if (min <= max) ratesCache = { min, max };
+    } catch (_) { /* keep previous cache / fallback text */ }
+  }
+  function ratesAnswer() {
+    if (!ratesCache) return t("chat.a.ratesFallback");
+    return t("chat.a.rates")
+      .replace("{min}", ratesCache.min.toLocaleString())
+      .replace("{max}", ratesCache.max.toLocaleString());
+  }
+  function topicAnswer(topic) {
+    return topic.id === "rates" ? ratesAnswer() : t(topic.a);
+  }
 
   let panel, fab, body, badge, openState = false;
   let pollTimer = null;
@@ -170,7 +202,7 @@
   function botAnswer(text) {
     const lc = text.toLowerCase();
     for (const topic of TOPICS) {
-      if (topic.kw.some((k) => lc.indexOf(k) >= 0)) return t(topic.a);
+      if (topic.kw.some((k) => lc.indexOf(k) >= 0)) return topicAnswer(topic);
     }
     return t("chat.a.default");
   }
@@ -191,7 +223,7 @@
     const topic = TOPICS.find((x) => x.id === id);
     await pushMessage("guest", t("chat.quick." + id));
     render();
-    setTimeout(async () => { await pushMessage("bot", t(topic.a)); render(); }, 500);
+    setTimeout(async () => { await pushMessage("bot", topicAnswer(topic)); render(); }, 500);
   }
 
   async function fetchAvailableStaff() {
@@ -288,6 +320,7 @@
     openState = true;
     panel.classList.add("open"); fab.style.display = "none";
     requestGuestNotifyPermission();
+    loadRates(); // refresh in case an admin changed rates since page load
     ensureLocalConv();
     const conv = getLocalConv();
     if (conv && conv.unreadForGuest) { conv.unreadForGuest = 0; saveLocalConv(conv); }
@@ -353,6 +386,7 @@
 
   document.addEventListener("DOMContentLoaded", () => {
     build();
+    loadRates();
 
     S.on("chats", () => {
       const conv = getLocalConv(); if (!conv) return;
