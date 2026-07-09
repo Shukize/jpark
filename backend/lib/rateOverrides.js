@@ -145,6 +145,28 @@ function computeGuestSurcharge(room, totalGuests, breakfast, surcharges) {
   return total;
 }
 
+// A room whose variants all share the same room-only rate (e.g. Studio
+// Single/Studio Twin priced as one merged product on the booking page,
+// or Studio B4/Deluxe/Grand Premium/Corner Suite/Grand Deluxe's built-in
+// Single-vs-Twin/Double choice) isn't really offering differently priced
+// products — the variant label is just a bed-style preference. The
+// breakfast rate therefore must depend on how many guests are actually
+// staying, not which bed style variantLabel the client submitted:
+// variants[0] is priced for 1 guest's breakfast, the last variant for 2
+// guests' — booking "Single" for a 2-guest stay must still charge the
+// 2-guest breakfast price, matching assets/js/booking-page.js's
+// isOccupancyTier()/occupancyBreakfastPrice() (mirrored here so the
+// server-side charge always agrees with what the guest was shown).
+function isOccupancyTier(room) {
+  return room.variants.length >= 2 && room.variants.every((v) => v.room === room.variants[0].room);
+}
+
+function effectiveBreakfastRate(room, variant, totalGuests) {
+  if (!isOccupancyTier(room)) return variant.bf;
+  const variants = room.variants;
+  return Number(totalGuests || 0) <= 1 ? variants[0].bf : variants[variants.length - 1].bf;
+}
+
 async function getEffectiveRoom(name) {
   const base = roomRates.getRoom(name);
   if (!base) return null;
@@ -190,6 +212,8 @@ module.exports = {
   loadRawSurcharges,
   getEffectiveSurcharges,
   computeGuestSurcharge,
+  isOccupancyTier,
+  effectiveBreakfastRate,
   loadRawDayUseRates,
   getEffectiveDayUseRates,
   getEffectiveDayUsePrice,

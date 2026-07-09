@@ -797,12 +797,15 @@
     var nightNote = nights ? ' · ' + nightsWord(nights) : '';
 
     var fromRoom = Math.min.apply(null, room.variants.map(function (v) { return v.room; }));
+    var occTier = isOccupancyTier(room);
+    var totalGuestsNow = adults + children;
     var ratesHTML = room.variants.map(function (v) {
+      var bfShown = occTier ? occupancyBreakfastPrice(room, totalGuestsNow) : v.bf;
       return '<div class="rr-rate">' +
                '<span class="rr-rate-label">' + variantLabel(v.label) + '</span>' +
                '<span class="rr-rate-val">' +
                  '<strong>' + baht(v.room) + '</strong> ' + TR('bk.roomOnly') +
-                 ' · ' + baht(v.bf) + ' ' + TR('bk.withBreakfast') +
+                 ' · ' + baht(bfShown) + ' ' + TR('bk.withBreakfast') +
                '</span>' +
              '</div>';
     }).join('');
@@ -997,9 +1000,30 @@
     return total;
   }
 
+  // A room whose variants all share the same room-only rate (Studio/
+  // Prestige/Premium's merged Single+Twin cards, and Studio B4/Deluxe/Grand
+  // Premium/Corner Suite/Grand Deluxe) isn't really offering differently
+  // priced products — each variant is the SAME physical room, and the label
+  // (Single/Twin/Double) is just a bed-style preference. The "with
+  // breakfast" price for these therefore depends on how many guests are
+  // actually staying, not which bed style is picked: variants[0] is priced
+  // for 1 guest's breakfast, the last variant for 2 guests' — picking
+  // "Single" for a 2-guest stay must still charge the 2-guest breakfast
+  // price, never the cheaper 1-guest one. Guests beyond 2 add the normal
+  // computeGuestSurcharge() on top of whichever base this returns.
+  function isOccupancyTier(room) {
+    return room.variants.length >= 2 && room.variants.every(function (v) { return v.room === room.variants[0].room; });
+  }
+  function occupancyBreakfastPrice(room, totalGuests) {
+    var variants = room.variants;
+    return (Number(totalGuests) || 0) <= 1 ? variants[0].bf : variants[variants.length - 1].bf;
+  }
+
   window.JPark = window.JPark || {};
   window.JPark.pricing = {
     computeGuestSurcharge: computeGuestSurcharge,
+    isOccupancyTier: isOccupancyTier,
+    occupancyBreakfastPrice: occupancyBreakfastPrice,
     getSurcharges: function () { return SURCHARGES; },
   };
 

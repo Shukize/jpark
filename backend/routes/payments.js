@@ -47,14 +47,18 @@ function genRef() {
 // Bedrooms): an extra breakfast guest (+surcharges.extraBreakfastGuest, only
 // when breakfast is selected) and a physical extra bed
 // (+surcharges.extraBed, only for rooms with extraBedAvailable) — see
-// backend/lib/rateOverrides.js's computeGuestSurcharge().
+// backend/lib/rateOverrides.js's computeGuestSurcharge(). For an occupancy-
+// tier room (Single/Twin/Double variants all share the same room-only
+// rate — the label is a bed-style preference, not a different product),
+// the breakfast rate itself is also derived from totalGuests rather than
+// the submitted variant, via effectiveBreakfastRate() — see its comment.
 async function computeTotal(room, variantLabel, breakfast, nights, totalGuests) {
   const effectiveRoom = await rateOverrides.getEffectiveRoom(room);
   if (!effectiveRoom) return null;
   const variant = effectiveRoom.variants.find((v) => v.label === variantLabel);
   if (!variant) return null;
   const surcharges = await rateOverrides.getEffectiveSurcharges();
-  const rate = breakfast ? variant.bf : variant.room;
+  const rate = breakfast ? rateOverrides.effectiveBreakfastRate(effectiveRoom, variant, totalGuests) : variant.room;
   const perNight = rate + rateOverrides.computeGuestSurcharge(effectiveRoom, totalGuests, breakfast, surcharges);
   return perNight * nights;
 }

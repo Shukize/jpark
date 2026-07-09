@@ -202,7 +202,22 @@
 
   // ---- Views -------------------------------------------------
   function currentVariant() { return state.variants[state.variantIndex]; }
-  function currentRate() { var v = currentVariant(); return state.breakfast ? v.bf : v.room; }
+  // For an occupancy-tier room (all variants share the same room-only
+  // rate — Single/Twin/Double is a bed-style preference, not a different
+  // product), the breakfast price depends on how many guests are actually
+  // staying, not which bed style is picked — see isOccupancyTier() in
+  // booking-page.js. Keeps this modal's price in lockstep with the room
+  // list's rr-rate rows and with the server's computeTotal(), regardless
+  // of which variant the guest ends up selecting below.
+  function breakfastRate(v) {
+    var P = window.JPark && window.JPark.pricing;
+    var totalGuests = (state.adults || 0) + (state.children || 0);
+    if (P && P.isOccupancyTier({ variants: state.variants })) {
+      return P.occupancyBreakfastPrice({ variants: state.variants }, totalGuests);
+    }
+    return v.bf;
+  }
+  function currentRate() { var v = currentVariant(); return state.breakfast ? breakfastRate(v) : v.room; }
   // Per-night surcharge for guests beyond the base 2 a variant's rate
   // already covers — same formula backend/lib/rateOverrides.js's
   // computeGuestSurcharge() uses server-side, shared via
@@ -272,7 +287,7 @@
 
         '<div class="bkp-field"><div class="bkp-radio-row" id="bkpBreakfastRow">' +
           '<label class="bkp-radio"><input type="radio" name="bkpBreakfast" value="0"' + (!state.breakfast ? ' checked' : '') + '> ' + TR('bk.roomOnly') + ' — ' + money(v.room) + '</label>' +
-          '<label class="bkp-radio"><input type="radio" name="bkpBreakfast" value="1"' + (state.breakfast ? ' checked' : '') + '> ' + TR('bk.withBreakfast') + ' — ' + money(v.bf) + '</label>' +
+          '<label class="bkp-radio"><input type="radio" name="bkpBreakfast" value="1"' + (state.breakfast ? ' checked' : '') + '> ' + TR('bk.withBreakfast') + ' — ' + money(breakfastRate(v)) + '</label>' +
         '</div></div>' +
 
         '<div class="bkp-field"><label class="bkp-label">' + TR('bk.pay.roomPref') + '</label>' +
@@ -319,7 +334,7 @@
     if (row) {
       var labels = row.querySelectorAll('.bkp-radio');
       if (labels[0]) labels[0].lastChild.textContent = ' ' + TR('bk.roomOnly') + ' — ' + money(v.room);
-      if (labels[1]) labels[1].lastChild.textContent = ' ' + TR('bk.withBreakfast') + ' — ' + money(v.bf);
+      if (labels[1]) labels[1].lastChild.textContent = ' ' + TR('bk.withBreakfast') + ' — ' + money(breakfastRate(v));
     }
   }
 
