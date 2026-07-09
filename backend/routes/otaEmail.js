@@ -106,6 +106,20 @@ router.post('/', async (req, res) => {
     needsReview = true;
     parsed.guestName = 'Guest (see email)';
   }
+  // The inbound Gmail search (tools/ota-gmail-forwarder.gs) is intentionally
+  // broad — it also matches on subject keywords with no sender restriction —
+  // so it occasionally pulls in an email that isn't an OTA booking at all.
+  // Nothing here confirms an OTA even sent it: unrecognized sender/domain, no
+  // OTA reference number, and no room. Never dropped (this route's philosophy
+  // is to lose no booking), but called out distinctly so staff can tell a
+  // likely-junk import apart from a genuine unrecognized-OTA booking.
+  if (parsed.channel === 'other' && !parsed.refFound && !parsed.room) {
+    needsReview = true;
+    parsed.confirmation =
+      '⚠ This email doesn\'t look like it came from a booking site (no recognized OTA sender, ' +
+      'reference number, or room found) — it may have been picked up by mistake. Verify before treating it as a real booking.\n\n' +
+      (parsed.confirmation || '');
+  }
   // Previously computed here and only ever returned in this route's own HTTP
   // response (useful to nobody — the webhook caller is a forwarder script
   // that doesn't read it) and never persisted, so a low-confidence import

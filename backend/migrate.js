@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const db = require('./db');
+const { detectCancellation } = require('./lib/otaEmailParser');
 
 /* Seed staff accounts on first run, and rotate them off the well-known
    default password (admin123 / staff123 — public in this source file) if
@@ -105,6 +106,63 @@ async function normaliseEmployeeEmails() {
   }
 }
 
+/* One-time (naturally idempotent) correction for the 2026-07-09 false-positive
+   cancellation bug: the OTA parser used to flag a booking 'cancelled' if the
+   word "cancellation" appeared anywhere in the email, including routine
+   "free cancellation until [date]" policy boilerplate present in nearly every
+   real confirmation email (see lib/otaEmailParser.js detectCancellation).
+   Re-runs the FIXED detector against each auto-cancelled booking's stored raw
+   email; restores ones that no longer read as a genuine cancellation, and
+   posts a staff broadcast per restoration so it's an audited correction, not
+   a silent one. Never touches staff-initiated cancellations
+   (cancelled_by_id IS NOT NULL) — those were a deliberate human action, not
+   the parser. Safe to run on every boot: once a row is restored its status is
+   no longer 'cancelled', so it's excluded from the WHERE clause next time. */
+async function restoreFalsePositiveCancellations() {
+  const { rows } = await db.query(
+    `SELECT id, ref, channel, channel_name, guest_name, room, check_in, check_out, confirmation
+       FROM guest_bookings
+      WHERE status = 'cancelled' AND cancelled_by_id IS NULL`
+  );
+  let restored = 0;
+  for (const r of rows) {
+    // The original email subject line isn't persisted separately from the
+    // raw body, so this re-check only has the stored `confirmation` text to
+    // work with. Still catches the policy-boilerplate false positive this
+    // migration exists to fix, since genuine cancellation emails restate the
+    // cancellation in the body too (verified against real per-channel
+    // phrasing in test-ota-email.js).
+    if (detectCancellation('', r.confirmation || '')) continue; // still reads as a real cancellation
+
+    await db.query(
+      `UPDATE guest_bookings
+          SET status = 'confirmed', cancelled_at = NULL, previous_status = NULL
+        WHERE id = $1`,
+      [r.id]
+    );
+    await db.query(
+      `INSERT INTO messages (from_id, from_name, from_role, subject, body, to_all)
+       VALUES ('system', 'Booking System', 'system', $1, $2, TRUE)`,
+      [
+        `✅ Booking auto-restored — ${r.channel_name || r.channel || 'Direct'} (${r.ref})`,
+        [
+          'Previously flagged cancelled by a parser bug (matched routine cancellation-policy text, not a real cancellation) — restored to confirmed.',
+          `Guest: ${r.guest_name || '—'}`,
+          `Room: ${r.room || '—'}`,
+          `Check-in: ${r.check_in}`,
+          `Check-out: ${r.check_out}`,
+          `Ref: ${r.ref}`,
+          'Please verify with the guest if there is any doubt.',
+        ].join('\n'),
+      ]
+    );
+    restored++;
+  }
+  if (rows.length) {
+    console.log(`[migrate] cancellation re-audit: ${restored} of ${rows.length} auto-cancelled bookings restored to confirmed`);
+  }
+}
+
 async function migrate() {
   const sql = require('fs').readFileSync(require('path').join(__dirname, 'schema.sql'), 'utf8');
   await db.query(sql);
@@ -121,6 +179,8 @@ async function migrate() {
 
   await seedMessages();
   console.log('[migrate] messages seeded');
+
+  await restoreFalsePositiveCancellations();
 }
 
 module.exports = migrate;

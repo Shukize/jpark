@@ -317,6 +317,8 @@ function row2js(r) {
     cancellationReason: r.cancellation_reason,
     previousStatus: r.previous_status,
     needsReview: !!r.needs_review,
+    starred: !!r.starred,
+    staffLabel: r.staff_label || null,
     readBy: r.read_by || [],
     createdAt: new Date(r.created_at).getTime(),
     updatedAt: r.updated_at ? new Date(r.updated_at).getTime() : null,
@@ -511,7 +513,7 @@ const ALLOWED_STATUS_PATCH = ['confirmed'];
    mark-read/status use, this now also assigns the physical room number and
    records in-person payment, both front-desk-only actions. */
 router.patch('/:id', requireAuth, async (req, res) => {
-  const { status, readBy, userId, roomNumber, paymentMethod } = req.body || {};
+  const { status, readBy, userId, roomNumber, paymentMethod, starred, staffLabel } = req.body || {};
   try {
     if (userId) {
       // mark read for this user
@@ -552,6 +554,19 @@ router.patch('/:id', requireAuth, async (req, res) => {
       await db.query(
         `UPDATE guest_bookings SET payment_method = $1, payment_status = 'paid' WHERE id = $2`,
         [paymentMethod, req.params.id]
+      );
+    }
+    if (starred !== undefined) {
+      await db.query(
+        'UPDATE guest_bookings SET starred = $1 WHERE id = $2',
+        [Boolean(starred), req.params.id]
+      );
+    }
+    if (staffLabel !== undefined) {
+      const label = String(staffLabel || '').trim().slice(0, 120);
+      await db.query(
+        'UPDATE guest_bookings SET staff_label = $1 WHERE id = $2',
+        [label || null, req.params.id]
       );
     }
     const { rows } = await db.query('SELECT * FROM guest_bookings WHERE id = $1', [req.params.id]);

@@ -70,6 +70,38 @@ function detectChannel(from, subject, body) {
   return 'other';
 }
 
+// A booking counts as cancelled only when the email actually STATES a
+// cancellation event, not merely when the word "cancellation" appears
+// anywhere — nearly every OTA confirmation email includes routine
+// "free cancellation until [date]" policy boilerplate, which a bare
+// keyword match would misfire on and flip a perfectly valid booking to
+// 'cancelled' (this happened silently in production; see 2026-07-09 fix).
+function detectCancellation(subject, body) {
+  const subj = subject || '';
+  const text = `${subj}\n${body || ''}`;
+
+  // Routine policy language that mentions "cancellation" without describing
+  // an actual cancellation event. Checked first so it can veto a bare
+  // "cancelled" match in the subject line.
+  const POLICY_NOISE = /\b(?:free|flexible)\s+cancell?ation\b|\bcancell?ation\s+polic(?:y|ies)\b|\bcancel(?:l?ation)?\s+(?:by|before|until|deadline)\b|\bnon[- ]refundable\b/i;
+
+  // Phrasing OTAs actually use to report a real cancellation.
+  const CANCEL_STATEMENT = new RegExp(
+    '\\b(?:this\\s+)?(?:booking|reservation|stay|order)\\b[^.\\n]{0,80}?\\b(?:has\\s+been|is|was)\\s+cancell?ed\\b' +
+    '|\\bguest\\s+has\\s+cancell?ed\\b' +
+    '|\\bcancell?ed\\s+by\\s+(?:the\\s+)?guest\\b' +
+    '|\\b(?:booking|reservation)\\s+cancellation\\s+(?:confirm\\w*|notice)\\b',
+    'i'
+  );
+
+  // The subject line alone is a strong, reliable signal — OTA cancellation
+  // emails consistently say "cancelled" in the subject; policy boilerplate
+  // never does.
+  if (/\bcancell?ed\b/i.test(subj) && !POLICY_NOISE.test(subj)) return true;
+
+  return CANCEL_STATEMENT.test(text);
+}
+
 function toISO(d) {
   if (!d || isNaN(d.getTime())) return null;
   const y = d.getFullYear();
@@ -250,7 +282,7 @@ function parseOtaEmail(email) {
   const channel = detectChannel(from, subject, body);
   const meta = CHANNEL_META[channel];
 
-  const cancelled = /\b(cancell?ed|cancellation)\b/i.test(`${subject}\n${body}`);
+  const cancelled = detectCancellation(subject, body);
 
   const checkIn = parseDateLoose(
     valueNear(body, ['Check-in', 'Check in', 'Checkin', 'Arrival', 'Arrive'])
@@ -264,7 +296,8 @@ function parseOtaEmail(email) {
     return r ? r.replace(/\s{2,}.*$/, '').slice(0, 50).trim() : null;
   })();
 
-  const ref = findRef(body, subject)
+  const foundRef = findRef(body, subject);
+  const ref = foundRef
     || `${channel.toUpperCase()}-${shortHash(`${channel}|${subject}|${checkIn}|${checkOut}|${body.slice(0, 200)}`)}`;
 
   const { adults, children } = findGuests(body);
@@ -279,6 +312,7 @@ function parseOtaEmail(email) {
     channelName: meta.name,
     channelEmail: meta.email,
     ref,
+    refFound: !!foundRef,
     guestName: guestName || null,
     guestEmail: guestEmail || null,
     guestPhone: guestPhone || null,
@@ -299,6 +333,7 @@ function parseOtaEmail(email) {
 module.exports = {
   parseOtaEmail,
   detectChannel,
+  detectCancellation,
   parseDateLoose,
   parseMoney,
   htmlToText,

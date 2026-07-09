@@ -202,6 +202,16 @@ ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS previous_status     VARCHAR(
 -- bookings (the raw email is always preserved in `confirmation` regardless).
 ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS needs_review BOOLEAN NOT NULL DEFAULT FALSE;
 
+-- Staff organization: a quick-access flag and a short private internal note,
+-- both editable from the Guest Booking list/detail view (routes/guestBookings.js
+-- PATCH /:id). Previously "starred" only existed as a client-side localStorage
+-- field that the 6-second guest-bookings poll silently overwrote on every
+-- refresh (S.write() fully replaces the table with the server's response) —
+-- effectively non-functional. Persisting both server-side is what makes them
+-- survive a poll, a reload, or a different staff member's browser.
+ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS starred      BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS staff_label  VARCHAR(120);
+
 -- ── Chat messages (guest ↔ front-desk) ──────────────────────────────────────
 CREATE TABLE IF NOT EXISTS chat_messages (
   id                  SERIAL       PRIMARY KEY,

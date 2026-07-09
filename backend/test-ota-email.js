@@ -109,6 +109,77 @@ console.log('\n# Cancellation with no parseable dates');
   check('confirmation-preserved', /cancelled/i.test(p.confirmation), true);
 }
 
+// ── Confirmation with cancellation-POLICY boilerplate must NOT flip to
+//    'cancelled' — this is the false-positive bug fixed 2026-07-09: a bare
+//    keyword match on "cancellation" misfired on this exact kind of routine
+//    policy text present in nearly every real OTA confirmation email. ──────
+console.log('\n# Confirmation email with cancellation-policy boilerplate (must stay confirmed)');
+{
+  const p = parseOtaEmail({
+    from: 'Agoda <bookings@agoda.com>',
+    subject: 'Your booking is confirmed - AGD-11223344',
+    text: [
+      'Booking confirmed!',
+      'Confirmation number: AGD-11223344',
+      'Guest name: Somchai Lee',
+      'Check-in: 2026-08-10',
+      'Check-out: 2026-08-12',
+      'Cancellation Policy: Free cancellation until 3 days before check-in.',
+      'Cancel before 2026-08-07 to avoid a charge. After this date the booking becomes non-refundable.',
+    ].join('\n'),
+  });
+  check('status-stays-confirmed', p.status, 'confirmed');
+  check('ref', p.ref, 'AGD-11223344');
+}
+
+console.log('\n# Confirmation with "flexible cancellation" boilerplate (must stay confirmed)');
+{
+  const p = parseOtaEmail({
+    from: 'Booking.com <noreply@booking.com>',
+    subject: 'New reservation: 5544332211',
+    text: [
+      'You have a new booking!',
+      'Booking number: 5544332211',
+      'Guest name: Maria Santos',
+      'Check-in: 2026-09-01',
+      'Check-out: 2026-09-03',
+      'This booking has flexible cancellation.',
+    ].join('\n'),
+  });
+  check('status-stays-confirmed-2', p.status, 'confirmed');
+}
+
+// ── Real-world-shaped genuine cancellation emails, per channel ─────────────
+console.log('\n# Booking.com genuine cancellation (explicit statement)');
+{
+  const p = parseOtaEmail({
+    from: 'Booking.com <noreply@booking.com>',
+    subject: 'Booking cancelled: 9988776600',
+    text: 'Your reservation has been cancelled by the guest. Booking number: 9988776600.',
+  });
+  check('bkcom-cancel-status', p.status, 'cancelled');
+}
+
+console.log('\n# Agoda genuine cancellation (explicit statement)');
+{
+  const p = parseOtaEmail({
+    from: 'Agoda <bookings@agoda.com>',
+    subject: 'Reservation Cancelled - AGD-99887766',
+    text: 'This is to confirm that reservation AGD-99887766 has been cancelled.',
+  });
+  check('agoda-cancel-status', p.status, 'cancelled');
+}
+
+console.log('\n# Trip.com genuine cancellation ("order" phrasing)');
+{
+  const p = parseOtaEmail({
+    from: 'Trip.com <hotel@trip.com>',
+    subject: 'Your order has been cancelled',
+    text: 'Order 445566778 has been cancelled. Guest: Wei Zhang.',
+  });
+  check('trip-cancel-status', p.status, 'cancelled');
+}
+
 // ── No ref at all → deterministic fallback ref, idempotent on re-parse ───────
 console.log('\n# Idempotent fallback ref when no OTA reference present');
 {

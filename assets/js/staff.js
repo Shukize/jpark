@@ -68,12 +68,23 @@
     { key: "gold",       label: "staff.site.colGold",    def: "#c9a24b" }
   ];
   const GUIDE_HIDDEN_KEY = "jpark.guideHidden";
+  const BK_SECTIONS_KEY = "jpark.bkSections";
+  // Guest Booking archival: which "age bucket" a booking's row belongs to,
+  // measured from check-out date (not when the record was created/imported —
+  // a booking created today for a stay 8 months out is still "recent"; one
+  // whose stay ended 8 months ago is not). 60/180-day thresholds approximate
+  // 2/6 calendar months without the edge cases of exact month arithmetic.
+  const BK_AGE_OLDER2_DAYS = 60;
+  const BK_AGE_OLDER6_DAYS = 180;
 
   let session = null;
   let panel = "requests";
   let reqFilter = "all";
   let bkFilter = "all";
   let bkSearchQuery = "";
+  let bkMultiSelect = false;
+  let selectedBookingIds = new Set();
+  let bkSectionPrefs = loadBkSectionPrefs(); // { labels:{older2,older6}, collapsed:{older2,older6} }
   let edLang = null;     // which language the Site Editor is editing
   let edSearchQ = "";    // current Site Editor search filter
   let edTab = "text";    // active Site Editor tab
@@ -264,7 +275,13 @@
     const API = window.JPark && window.JPark.api;
     if (!API) return;
     const data = await API.get("/api/guest-bookings");
-    if (!Array.isArray(data)) return;
+    if (!Array.isArray(data)) {
+      // Was previously a silent no-op: a real fetch failure (401/500/offline)
+      // looked identical to "no bookings yet" in the UI, with nothing in the
+      // console to explain it.
+      if (!data || !data.offline) console.error("[staff] guest bookings poll failed:", data && data.error);
+      return;
+    }
     S.write("guestBookings", data);
   }
 
@@ -1695,6 +1712,43 @@
   function bookingDateRange(b) {
     return (b.checkIn || "?") + " → " + (b.checkOut || "?");
   }
+
+  // Local (per-browser) display preferences for the archive sections — which
+  // are collapsed, and any custom rename. Deliberately not synced to the
+  // server: this is cosmetic staff-console layout, not shared business data
+  // (unlike starred/staffLabel, which are real per-booking data and do live
+  // server-side — see routes/guestBookings.js PATCH /:id).
+  function loadBkSectionPrefs() {
+    try {
+      const raw = localStorage.getItem(BK_SECTIONS_KEY);
+      const v = raw ? JSON.parse(raw) : null;
+      return {
+        labels: (v && v.labels) || {},
+        collapsed: (v && v.collapsed) || { older2: true, older6: true },
+      };
+    } catch (_) {
+      return { labels: {}, collapsed: { older2: true, older6: true } };
+    }
+  }
+  function saveBkSectionPrefs() {
+    try { localStorage.setItem(BK_SECTIONS_KEY, JSON.stringify(bkSectionPrefs)); } catch (_) {}
+  }
+  function bkSectionLabel(key) {
+    return (bkSectionPrefs.labels && bkSectionPrefs.labels[key]) || t("msg.bk.section." + key);
+  }
+
+  // Which archive bucket a booking belongs to, based on check-out date (a
+  // future or recently-completed stay is "recent" even if the record was
+  // imported long ago — see BK_AGE_OLDER2_DAYS/BK_AGE_OLDER6_DAYS above).
+  function bookingAgeBucket(b) {
+    if (!b.checkOut) return "recent";
+    const checkOut = new Date(b.checkOut + "T00:00:00");
+    if (isNaN(checkOut.getTime())) return "recent";
+    const ageDays = (Date.now() - checkOut.getTime()) / 86400000;
+    if (ageDays >= BK_AGE_OLDER6_DAYS) return "older6";
+    if (ageDays >= BK_AGE_OLDER2_DAYS) return "older2";
+    return "recent";
+  }
   function bkStatusLabel(s) {
     if (!s) return "";
     const k = "msg.bk.status." + s;
@@ -1866,64 +1920,336 @@
     container.appendChild(searchWrap);
   }
 
+  // One row, shared by every section (Recent / Older Than 2 Months / Older
+  // Than 6 Months) so the row markup and its behavior (open detail, quick
+  // star, multi-select) only exist in one place.
+  function buildBookingRow(b) {
+    const unread = isBookingUnread(b);
+    const cancelled = b.status === "cancelled";
+    const isSelected = selectedBookingIds.has(b.id);
+    const row = document.createElement("div");
+    row.className = "msg-row booking channel-" + b.channel +
+      (unread ? " unread" : " read") + (cancelled ? " cancelled" : "") +
+      (b.needsReview ? " needs-review" : "") + (b.starred ? " starred-row" : "") +
+      (isSelected ? " selected" : "") + (bkMultiSelect ? " selectable" : "");
+    row.dataset.id = b.id;
+    const initial = (b.channelName || "?").charAt(0).toUpperCase();
+    const preview = (b.room ? b.room + " · " : "") + bookingDateRange(b) + " · " + b.ref;
+    // Icon-only in the fixed-width sender column (a full-text pill can get
+    // silently clipped by its overflow:hidden alongside a long channel
+    // name) — the full "Needs review" wording is always shown in the
+    // detail view's banner, this is just a scan-the-list flag.
+    const reviewBadge = b.needsReview
+      ? '<span class="bk-row-pill review" title="' + esc(t("msg.bk.needsReview")) + '">⚠</span>' : "";
+    const statusPill = cancelled ? '<span class="bk-row-pill">' + esc(t("msg.bk.status.cancelled")) + "</span>" : "";
+    const labelTag = b.staffLabel
+      ? '<span class="bk-row-pill label" title="' + esc(b.staffLabel) + '">🏷 ' + esc(b.staffLabel) + "</span>" : "";
+
+    const firstCol = bkMultiSelect
+      ? '<div class="mr-check"><input type="checkbox" class="mr-checkbox" tabindex="-1"' + (isSelected ? " checked" : "") + "></div>"
+      : '<div class="mr-avatar bk-avatar"><span>' + esc(initial) + "</span></div>";
+
+    row.innerHTML =
+      firstCol +
+      '<div class="mr-sender">' + reviewBadge + esc(b.channelName) + statusPill + labelTag + "</div>" +
+      '<div class="mr-subject-preview">' +
+        '<span class="mr-subject">' + esc(b.guestName) + "</span>" +
+        '<span class="mr-sep">—</span>' +
+        '<span class="mr-preview">' + esc(preview) + "</span>" +
+      "</div>" +
+      '<div class="mr-time">' +
+        '<button type="button" class="bk-row-star' + (b.starred ? " starred" : "") + '" title="' +
+          esc(t(b.starred ? "msg.bk.unstar" : "msg.bk.star")) + '">' + (b.starred ? "★" : "☆") + "</button>" +
+        '<span class="mr-time-text">' + esc(formatMsgTime(b.createdAt)) + "</span>" +
+      "</div>";
+
+    const starBtn = row.querySelector(".bk-row-star");
+    starBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const nowStarred = toggleStar(b.id, "booking");
+      starBtn.className = "bk-row-star" + (nowStarred ? " starred" : "");
+      starBtn.textContent = nowStarred ? "★" : "☆";
+      starBtn.title = t(nowStarred ? "msg.bk.unstar" : "msg.bk.star");
+      row.classList.toggle("starred-row", nowStarred);
+    });
+
+    row.addEventListener("click", () => {
+      if (bkMultiSelect) {
+        if (selectedBookingIds.has(b.id)) selectedBookingIds.delete(b.id);
+        else selectedBookingIds.add(b.id);
+        renderBookingList();
+        return;
+      }
+      msgPrevView = "bookings";
+      msgDetailId = b.id;
+      msgDetailKind = "booking";
+      msgView = "detail";
+      markBookingRead(b.id);
+      renderMessages();
+    });
+    return row;
+  }
+
+  // Collapsible header for the "Older Than N Months" archive sections —
+  // click anywhere to expand/collapse, click the pencil to rename. Built
+  // entirely with real nodes/appendChild (never innerHTML on a container
+  // that already holds listener-bearing children — see the list-lockup fix
+  // above for why that matters).
+  function buildBkSectionHeader(key, count) {
+    const collapsed = !!bkSectionPrefs.collapsed[key];
+    const header = document.createElement("div");
+    header.className = "bk-section-header" + (collapsed ? " collapsed" : "");
+
+    const chevron = document.createElement("span");
+    chevron.className = "bsh-chevron";
+    chevron.textContent = collapsed ? "▸" : "▾";
+    const labelSpan = document.createElement("span");
+    labelSpan.className = "bsh-label";
+    labelSpan.textContent = bkSectionLabel(key);
+    const countSpan = document.createElement("span");
+    countSpan.className = "bsh-count";
+    countSpan.textContent = String(count);
+    const renameBtn = document.createElement("button");
+    renameBtn.type = "button";
+    renameBtn.className = "bsh-rename";
+    renameBtn.title = t("msg.bk.section.rename");
+    renameBtn.textContent = "✎";
+
+    header.appendChild(chevron);
+    header.appendChild(labelSpan);
+    header.appendChild(countSpan);
+    header.appendChild(renameBtn);
+
+    header.addEventListener("click", (e) => {
+      if (e.target === renameBtn || e.target.tagName === "INPUT") return;
+      bkSectionPrefs.collapsed[key] = !collapsed;
+      saveBkSectionPrefs();
+      renderBookingList();
+    });
+    renameBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      startBkSectionRename(key, labelSpan);
+    });
+    return header;
+  }
+
+  function startBkSectionRename(key, labelSpan) {
+    const input = document.createElement("input");
+    input.type = "text";
+    input.className = "bsh-rename-input";
+    input.maxLength = 40;
+    input.value = bkSectionLabel(key);
+    input.addEventListener("click", (e) => e.stopPropagation());
+    labelSpan.replaceWith(input);
+    input.focus();
+    input.select();
+
+    let done = false;
+    function save() {
+      if (done) return;
+      done = true;
+      const val = input.value.trim();
+      if (val) bkSectionPrefs.labels[key] = val;
+      else delete bkSectionPrefs.labels[key];
+      saveBkSectionPrefs();
+      renderBookingList();
+    }
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") { e.preventDefault(); save(); }
+      else if (e.key === "Escape") { e.preventDefault(); done = true; renderBookingList(); }
+    });
+    input.addEventListener("blur", save);
+  }
+
   function renderBookingList() {
     const listArea = document.getElementById("msgListArea");
     const allBookings = getBookingMsgs();
     const bookings = sortBookings(filterBookings(allBookings));
+
+    const buckets = { recent: [], older2: [], older6: [] };
+    bookings.forEach((b) => { buckets[bookingAgeBucket(b)].push(b); });
+
     const countLabel = allBookings.length ? '<span class="mlh-count">' + allBookings.length + "</span>" : "";
-    listArea.innerHTML = '<div class="msg-list-header">' + esc(t("msg.bookings")) + countLabel + "</div>";
+    const selectBtnHtml = bookings.length
+      ? (bkMultiSelect
+        ? '<button class="mlh-select-btn active" id="bkSelectToggle">✕ ' + esc(t("msg.deselect.all")) + "</button>"
+        : '<button class="mlh-select-btn" id="bkSelectToggle">' + esc(t("msg.select")) + "</button>")
+      : "";
+    listArea.innerHTML = '<div class="msg-list-header">' + esc(t("msg.bookings")) + countLabel + selectBtnHtml + "</div>";
     renderBookingFilters(listArea);
 
+    if (bkMultiSelect && bookings.length) {
+      const n = selectedBookingIds.size;
+      const allSelected = n === bookings.length;
+      const bulkBar = document.createElement("div");
+      bulkBar.className = "msg-bulk-bar";
+      bulkBar.innerHTML =
+        '<span class="mbb-count">' + n + " " + esc(t("msg.select")) + "ed</span>" +
+        '<button class="mbb-btn" id="bkMbbSelectAll">' + esc(t(allSelected ? "msg.deselect.all" : "msg.select.all")) + "</button>" +
+        '<button class="mbb-btn mbb-star" id="bkMbbStar"' + (n === 0 ? " disabled" : "") + ">☆ " + esc(t("msg.bulk.star")) + "</button>" +
+        (isAdmin() ? '<button class="mbb-btn mbb-delete" id="bkMbbDelete"' + (n === 0 ? " disabled" : "") + ">🗑 " + esc(t("msg.bulk.delete")) + "</button>" : "");
+      listArea.appendChild(bulkBar);
+    }
+
+    // Built as real nodes and appendChild'd throughout (never `innerHTML +=`
+    // after renderBookingFilters()/the bulk bar above have appended live
+    // listener-bearing DOM — see the list-lockup fix for why that matters).
     if (!bookings.length) {
-      listArea.innerHTML +=
-        '<div class="msg-empty">' +
+      const empty = document.createElement("div");
+      empty.className = "msg-empty";
+      empty.innerHTML =
         '<div class="me-ico">🛎️</div>' +
         '<div class="me-title">' + esc(t("msg.empty.title")) + "</div>" +
-        '<div class="me-sub">' + esc(t("msg.empty.bookings")) + "</div>" +
-        "</div>";
+        '<div class="me-sub">' + esc(t("msg.empty.bookings")) + "</div>";
+      listArea.appendChild(empty);
+      wireBookingListControls(listArea, bookings);
       return;
     }
 
-    bookings.forEach((b) => {
-      const unread = isBookingUnread(b);
-      const cancelled = b.status === "cancelled";
-      const row = document.createElement("div");
-      row.className = "msg-row booking channel-" + b.channel + (unread ? " unread" : " read") + (cancelled ? " cancelled" : "") + (b.needsReview ? " needs-review" : "");
-      row.dataset.id = b.id;
-      const initial = (b.channelName || "?").charAt(0).toUpperCase();
-      const preview = (b.room ? b.room + " · " : "") + bookingDateRange(b) + " · " + b.ref;
-      // Icon-only in the fixed-width sender column (a full-text pill can get
-      // silently clipped by its overflow:hidden alongside a long channel
-      // name) — the full "Needs review" wording is always shown in the
-      // detail view's banner, this is just a scan-the-list flag.
-      const reviewBadge = b.needsReview
-        ? '<span class="bk-row-pill review" title="' + esc(t("msg.bk.needsReview")) + '">⚠</span>' : "";
-      const statusPill = cancelled ? '<span class="bk-row-pill">' + esc(t("msg.bk.status.cancelled")) + "</span>" : "";
-      row.innerHTML =
-        '<div class="mr-avatar bk-avatar"><span>' + esc(initial) + "</span></div>" +
-        '<div class="mr-sender">' + reviewBadge + esc(b.channelName) + statusPill + "</div>" +
-        '<div class="mr-subject-preview">' +
-          '<span class="mr-subject">' + esc(b.guestName) + "</span>" +
-          '<span class="mr-sep">—</span>' +
-          '<span class="mr-preview">' + esc(preview) + "</span>" +
-        "</div>" +
-        '<div class="mr-time">' + esc(formatMsgTime(b.createdAt)) + "</div>";
-      row.addEventListener("click", () => {
-        msgPrevView = "bookings";
-        msgDetailId = b.id;
-        msgDetailKind = "booking";
-        msgView = "detail";
-        markBookingRead(b.id);
-        renderMessages();
-      });
-      listArea.appendChild(row);
+    const hasOlder = buckets.older2.length > 0 || buckets.older6.length > 0;
+    if (hasOlder && buckets.recent.length) {
+      const recentLabel = document.createElement("div");
+      recentLabel.className = "bk-section-label-only";
+      recentLabel.textContent = bkSectionLabel("recent");
+      listArea.appendChild(recentLabel);
+    }
+    buckets.recent.forEach((b) => listArea.appendChild(buildBookingRow(b)));
+
+    ["older2", "older6"].forEach((key) => {
+      const items = buckets[key];
+      if (!items.length) return;
+      listArea.appendChild(buildBkSectionHeader(key, items.length));
+      if (!bkSectionPrefs.collapsed[key]) {
+        items.forEach((b) => listArea.appendChild(buildBookingRow(b)));
+      }
     });
+
+    wireBookingListControls(listArea, bookings);
+  }
+
+  function wireBookingListControls(listArea, bookings) {
+    const selectToggle = document.getElementById("bkSelectToggle");
+    if (selectToggle) {
+      selectToggle.addEventListener("click", () => {
+        bkMultiSelect = !bkMultiSelect;
+        if (!bkMultiSelect) selectedBookingIds.clear();
+        renderBookingList();
+      });
+    }
+    if (!bkMultiSelect) return;
+
+    const selectAllBtn = document.getElementById("bkMbbSelectAll");
+    if (selectAllBtn) {
+      selectAllBtn.addEventListener("click", () => {
+        if (selectedBookingIds.size === bookings.length) selectedBookingIds.clear();
+        else bookings.forEach((b) => selectedBookingIds.add(b.id));
+        renderBookingList();
+      });
+    }
+    const starBtn = document.getElementById("bkMbbStar");
+    if (starBtn) {
+      starBtn.addEventListener("click", () => {
+        if (!selectedBookingIds.size) return;
+        selectedBookingIds.forEach((id) => toggleStar(id, "booking"));
+        renderBookingList();
+      });
+    }
+    const deleteBtn = document.getElementById("bkMbbDelete");
+    if (deleteBtn) {
+      deleteBtn.addEventListener("click", () => {
+        if (!selectedBookingIds.size || !isAdmin()) return;
+        if (!confirm(t("msg.bk.bulk.delete.confirm"))) return;
+        const API = window.JPark && window.JPark.api;
+        const ids = Array.from(selectedBookingIds);
+        deleteBtn.disabled = true;
+        Promise.all(ids.map((id) =>
+          (API ? API.del("/api/guest-bookings/" + id) : Promise.resolve({ error: "offline" })).then((r) => {
+            if (!r || !r.error || r.offline) S.remove("guestBookings", id);
+          })
+        )).then(() => {
+          selectedBookingIds.clear();
+          bkMultiSelect = false;
+          renderMessages();
+        });
+      });
+    }
   }
 
   function bookingField(labelKey, value) {
     if (value == null || value === "") return "";
     return '<div class="bkd-row"><span class="bkd-label">' + esc(t(labelKey)) + "</span>" +
       '<span class="bkd-value">' + esc(value) + "</span></div>";
+  }
+
+  // A short, private, staff-only note/nickname on a booking (e.g. "VIP —
+  // call before arrival"), purely for internal organization — never sent to
+  // the guest or included in any OTA-facing data. Click-to-edit inline;
+  // built with appendChild throughout (not innerHTML +=) so re-rendering the
+  // view never strips a listener bound earlier in the same render pass (see
+  // the Guest Booking list-lockup fix for why that matters).
+  function renderBkLabelBlock(container, b) {
+    if (!container) return;
+    container.innerHTML = "";
+    const wrap = document.createElement("div");
+    wrap.className = "bk-staff-label";
+
+    function showView() {
+      wrap.innerHTML = "";
+      const icon = document.createElement("span");
+      icon.className = "bkl-icon";
+      icon.textContent = "🏷";
+      const text = document.createElement("span");
+      text.className = "bkl-text" + (b.staffLabel ? "" : " bkl-placeholder");
+      text.textContent = b.staffLabel || t("msg.bk.label.placeholder");
+      const editBtn = document.createElement("button");
+      editBtn.type = "button";
+      editBtn.className = "bkl-edit";
+      editBtn.title = t("msg.bk.label.edit");
+      editBtn.textContent = "✎";
+      editBtn.addEventListener("click", showEdit);
+      wrap.appendChild(icon);
+      wrap.appendChild(text);
+      wrap.appendChild(editBtn);
+    }
+
+    function showEdit() {
+      wrap.innerHTML = "";
+      const input = document.createElement("input");
+      input.type = "text";
+      input.className = "bkl-input";
+      input.maxLength = 120;
+      input.placeholder = t("msg.bk.label.placeholder");
+      input.value = b.staffLabel || "";
+      wrap.appendChild(input);
+      input.focus();
+      input.select();
+
+      let saved = false;
+      function save() {
+        if (saved) return;
+        saved = true;
+        const val = input.value.trim();
+        if (val !== (b.staffLabel || "")) {
+          b.staffLabel = val || null;
+          updateBookingLocal(b.id, { staffLabel: b.staffLabel });
+          const API = window.JPark && window.JPark.api;
+          if (API) {
+            API.patch("/api/guest-bookings/" + b.id, { staffLabel: val }).then((r) => {
+              if (r && !r.error) updateBookingLocal(b.id, r);
+            }).catch(() => {});
+          }
+        }
+        showView();
+      }
+      input.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") { e.preventDefault(); save(); }
+        else if (e.key === "Escape") { e.preventDefault(); saved = true; showView(); }
+      });
+      input.addEventListener("blur", save);
+    }
+
+    showView();
+    container.appendChild(wrap);
   }
 
   function renderBookingDetail(id) {
@@ -1965,6 +2291,7 @@
         '<div class="mda-time">' + esc(new Date(b.createdAt).toLocaleString()) + "</div>" +
       "</div>" +
       (b.needsReview ? '<div class="bk-review-banner">⚠ ' + esc(t("msg.bk.needsReview")) + ' — ' + esc(t("msg.bk.needsReview.note")) + "</div>" : "") +
+      '<div class="bk-staff-label-slot"></div>' +
       '<div class="bk-detail-grid">' + fields + "</div>" +
       (b.status === "cancelled" ? bkCancellationSummaryHTML(b) : (b.channel === "direct" ? bkFrontDeskHTML(b) : "")) +
       '<div class="bk-confirm-label">' + esc(t("msg.bk.confirmation")) + "</div>" +
@@ -1997,6 +2324,8 @@
         }
       });
     }
+
+    renderBkLabelBlock(detailArea.querySelector(".bk-staff-label-slot"), b);
 
     if (b.status !== "cancelled" && b.channel === "direct") wireBkFrontDesk(detailArea, b);
 
@@ -2204,8 +2533,18 @@
       const i = all.findIndex((b) => b.id === id);
       if (i < 0) return false;
       const starred = !all[i].starred;
-      all[i] = Object.assign({}, all[i], { starred });
-      S.write("guestBookings", all);
+      // Optimistic local update so the icon flips immediately, then persist
+      // server-side — bookings are re-fetched wholesale every 6s
+      // (_pollGuestBookings), which would otherwise silently wipe a
+      // local-only starred flag back to false on the very next poll.
+      updateBookingLocal(id, { starred });
+      const API = window.JPark && window.JPark.api;
+      if (API) {
+        API.patch("/api/guest-bookings/" + id, { starred }).then((r) => {
+          if (r && !r.error) updateBookingLocal(id, r);
+          else if (r && !r.offline) U.toast(r.error || t("msg.bk.starFailed"), "error");
+        }).catch(() => {});
+      }
       return starred;
     }
     const all = getAllMsgs();

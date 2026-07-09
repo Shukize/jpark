@@ -20,7 +20,13 @@
 const CONFIG = {
   API_URL: 'https://jpark.onrender.com/api/v1/ota-email',
   SECRET:  'PASTE_YOUR_OTA_WEBHOOK_SECRET_HERE',   // same value as in Render
-  QUERY:   'newer_than:3d -label:OTA-imported (from:booking.com OR from:agoda.com OR from:airbnb.com OR from:trip.com OR from:expedia.com OR subject:(reservation OR "booking confirmed"))',
+  // Sender-restricted to known OTA domains. Previously also matched ANY
+  // sender whose subject merely contained "reservation" or "booking
+  // confirmed" — that clause pulled in unrelated, non-OTA emails (personal
+  // reservations, newsletters, etc.) which then got ingested as garbage
+  // "Other Channel" bookings in the staff console with no real guest data.
+  // Add more `from:` domains here as new OTA channels are onboarded.
+  QUERY:   'newer_than:3d -label:OTA-imported (from:booking.com OR from:agoda.com OR from:airbnb.com OR from:trip.com OR from:expedia.com OR from:traveloka.com OR from:hotels.com)',
   LABEL:   'OTA-imported',
 };
 
