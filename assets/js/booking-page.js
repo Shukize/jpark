@@ -181,18 +181,18 @@
     { pieces: 60, price: 900 }, { pieces: 120, price: 1500 },
   ];
 
-  // Day-use rates (2026) — short 3-hour stays, room : price (THB). `room`
-  // matches a real key in ROOMS/backend/lib/roomRates.js's DAYUSE mirror, so
+  // Day-use rates (2026) — short 3-hour stays, priced per BUILDING (every
+  // room in a building shares one flat day-use price), not per room type.
+  // `room` matches a real key in backend/lib/roomRates.js's DAYUSE mirror, so
   // a day-use request can be validated/priced authoritatively server-side
   // (see POST /api/v1/payments/dayuse-booking) the same way overnight
   // bookings are — never trust the client's price.
   var DAYUSE = [
-    { room: 'Studio Single', nameKey: 'rooms.studioSingleName', price: 500 },
-    { room: 'Deluxe', nameKey: 'rooms.deluxeName', price: 600 },
-    { room: 'Premium Single', nameKey: 'rooms.premiumSingleName', price: 700 },
-    { room: 'Grand Premium', nameKey: 'rooms.grandPremiumName', price: 800 },
-    { room: 'Prestige Single', nameKey: 'rooms.prestigeSingleName', price: 800 },
-    { room: 'Premium Suite', nameKey: 'rooms.premiumSuiteName', price: 900 },
+    { room: 'B1', nameKey: 'dayuse.b1', price: 800 },
+    { room: 'B2', nameKey: 'dayuse.b2', price: 700 },
+    { room: 'B3', nameKey: 'dayuse.b3', price: 700 },
+    { room: 'B4', nameKey: 'dayuse.b4', price: 800 },
+    { room: 'B5', nameKey: 'dayuse.b5', price: 900 },
   ];
 
   // ============================================================

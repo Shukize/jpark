@@ -78,18 +78,18 @@ const ROOM_INVENTORY = {
   'Grand Suite': 999,
 };
 
-// Day-use rates (2026) — short 3-hour stays, flat THB price (not per-night,
-// no breakfast/extra-guest surcharges). Mirrors assets/js/booking-page.js's
-// DAYUSE array by hand (same no-shared-build-step caveat as ROOMS above).
-// Used by POST /api/v1/payments/dayuse-booking to price a day-use request
-// authoritatively rather than trusting the client.
+// Day-use rates (2026) — short 3-hour stays, flat THB price per BUILDING
+// (not per room type — every room in a given building shares one day-use
+// price), no breakfast/extra-guest surcharges. Mirrors
+// assets/js/booking-page.js's DAYUSE array by hand (same no-shared-build-step
+// caveat as ROOMS above). Used by POST /api/v1/payments/dayuse-booking to
+// price a day-use request authoritatively rather than trusting the client.
 const DAYUSE = {
-  'Studio Single': 500,
-  'Deluxe': 600,
-  'Premium Single': 700,
-  'Grand Premium': 800,
-  'Prestige Single': 800,
-  'Premium Suite': 900,
+  B1: 800,
+  B2: 700,
+  B3: 700,
+  B4: 800,
+  B5: 900,
 };
 
 function getDayUsePrice(room) {
