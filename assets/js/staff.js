@@ -38,6 +38,7 @@
     { id: "concierge", label: "nav.concierge" }, { id: "gallery", label: "nav.gallery" }
   ];
   const REQ_FILTERS = ["all", "pending", "progress", "done"];
+  const BK_FILTERS = ["all", "confirmed", "pending", "cancelled"];
 
   /* ---- Site Editor configuration ----
      Groups every public-site translation key (by prefix) into friendly,
@@ -71,6 +72,8 @@
   let session = null;
   let panel = "requests";
   let reqFilter = "all";
+  let bkFilter = "all";
+  let bkSearchQuery = "";
   let edLang = null;     // which language the Site Editor is editing
   let edSearchQ = "";    // current Site Editor search filter
   let edTab = "text";    // active Site Editor tab
@@ -1752,6 +1755,20 @@
     return '<div class="bk-frontdesk">' + roomRow + paymentRow + "</div>";
   }
 
+  // Shown in place of the front-desk controls once a booking is cancelled —
+  // assigning a room / recording payment on a cancelled booking makes no
+  // sense, so this replaces bkFrontDeskHTML() rather than sitting beside it.
+  function bkCancellationSummaryHTML(b) {
+    const when = b.cancelledAt ? new Date(b.cancelledAt).toLocaleString() : "";
+    const by = b.cancelledByName || t("msg.bk.cancelledAuto").replace("{channel}", b.channelName || b.channel || "");
+    let html = '<div class="bk-cancel-summary">';
+    html += '<div class="bk-cancel-row"><b>' + esc(t("msg.bk.cancelledBy")) + ":</b> " + esc(by) + "</div>";
+    if (when) html += '<div class="bk-cancel-row"><b>' + esc(t("msg.bk.cancelledAt")) + ":</b> " + esc(when) + "</div>";
+    if (b.cancellationReason) html += '<div class="bk-cancel-row"><b>' + esc(t("msg.bk.cancellationReason")) + ":</b> " + esc(b.cancellationReason) + "</div>";
+    html += "</div>";
+    return html;
+  }
+
   function wireBkFrontDesk(detailArea, b) {
     const saveRoomBtn = detailArea.querySelector("#bkdSaveRoomBtn");
     if (saveRoomBtn) {
@@ -1791,11 +1808,64 @@
     }
   }
 
+  // "All" sinks cancelled bookings to the bottom rather than interleaving
+  // them chronologically with active ones — a dedicated filter tab still
+  // sorts purely by recency within its own status.
+  function sortBookings(bookings) {
+    return bookings.slice().sort((a, b) => {
+      if (bkFilter === "all") {
+        const ac = a.status === "cancelled" ? 1 : 0;
+        const bc = b.status === "cancelled" ? 1 : 0;
+        if (ac !== bc) return ac - bc;
+      }
+      return b.createdAt - a.createdAt;
+    });
+  }
+
+  function filterBookings(bookings) {
+    let out = bookings;
+    if (bkFilter !== "all") out = out.filter((b) => b.status === bkFilter);
+    const q = bkSearchQuery.trim().toLowerCase();
+    if (q) {
+      out = out.filter((b) =>
+        [b.guestName, b.ref, b.room, b.channelName, b.guestEmail]
+          .some((v) => v && String(v).toLowerCase().includes(q))
+      );
+    }
+    return out;
+  }
+
+  function renderBookingFilters(container) {
+    const bar = document.createElement("div");
+    bar.className = "req-filters bk-filters";
+    BK_FILTERS.forEach((f) => {
+      const b = document.createElement("button");
+      b.className = (f === bkFilter ? "active" : "");
+      b.textContent = f === "all" ? t("staff.requests.filterAll") : t("msg.bk.filter." + f);
+      b.addEventListener("click", () => { bkFilter = f; renderBookingList(); });
+      bar.appendChild(b);
+    });
+    container.appendChild(bar);
+
+    const searchWrap = document.createElement("div");
+    searchWrap.className = "bk-search-wrap";
+    const search = document.createElement("input");
+    search.type = "search";
+    search.className = "bk-search-input";
+    search.placeholder = t("msg.bk.search.placeholder");
+    search.value = bkSearchQuery;
+    search.addEventListener("input", () => { bkSearchQuery = search.value; renderBookingList(); });
+    searchWrap.appendChild(search);
+    container.appendChild(searchWrap);
+  }
+
   function renderBookingList() {
     const listArea = document.getElementById("msgListArea");
-    const bookings = getBookingMsgs();
-    const countLabel = bookings.length ? '<span class="mlh-count">' + bookings.length + "</span>" : "";
+    const allBookings = getBookingMsgs();
+    const bookings = sortBookings(filterBookings(allBookings));
+    const countLabel = allBookings.length ? '<span class="mlh-count">' + allBookings.length + "</span>" : "";
     listArea.innerHTML = '<div class="msg-list-header">' + esc(t("msg.bookings")) + countLabel + "</div>";
+    renderBookingFilters(listArea);
 
     if (!bookings.length) {
       listArea.innerHTML +=
@@ -1809,14 +1879,16 @@
 
     bookings.forEach((b) => {
       const unread = isBookingUnread(b);
+      const cancelled = b.status === "cancelled";
       const row = document.createElement("div");
-      row.className = "msg-row booking channel-" + b.channel + (unread ? " unread" : " read");
+      row.className = "msg-row booking channel-" + b.channel + (unread ? " unread" : " read") + (cancelled ? " cancelled" : "");
       row.dataset.id = b.id;
       const initial = (b.channelName || "?").charAt(0).toUpperCase();
       const preview = (b.room ? b.room + " · " : "") + bookingDateRange(b) + " · " + b.ref;
+      const statusPill = cancelled ? '<span class="bk-row-pill">' + esc(t("msg.bk.status.cancelled")) + "</span>" : "";
       row.innerHTML =
         '<div class="mr-avatar bk-avatar"><span>' + esc(initial) + "</span></div>" +
-        '<div class="mr-sender">' + esc(b.channelName) + "</div>" +
+        '<div class="mr-sender">' + esc(b.channelName) + statusPill + "</div>" +
         '<div class="mr-subject-preview">' +
           '<span class="mr-subject">' + esc(b.guestName) + "</span>" +
           '<span class="mr-sep">—</span>' +
@@ -1880,7 +1952,7 @@
         '<div class="mda-time">' + esc(new Date(b.createdAt).toLocaleString()) + "</div>" +
       "</div>" +
       '<div class="bk-detail-grid">' + fields + "</div>" +
-      (b.channel === "direct" ? bkFrontDeskHTML(b) : "") +
+      (b.status === "cancelled" ? bkCancellationSummaryHTML(b) : (b.channel === "direct" ? bkFrontDeskHTML(b) : "")) +
       '<div class="bk-confirm-label">' + esc(t("msg.bk.confirmation")) + "</div>" +
       '<div class="tr-note msg-tr-note" style="display:none"></div>' +
       '<div class="msg-detail-body bk-confirm-body"></div>' +
@@ -1889,8 +1961,12 @@
         '<button class="mda-action-btn mda-star-btn' + (bkIsStarred ? " starred" : "") + '" id="mdaBkStar">' +
           (bkIsStarred ? "★ " + esc(t("msg.unstar")) : "☆ " + esc(t("msg.star"))) +
         "</button>" +
+        (b.status === "cancelled"
+          ? '<button class="mda-action-btn mda-reopen-btn" id="mdaBkCancel">↺ ' + esc(t("msg.bk.reopen")) + "</button>"
+          : '<button class="mda-action-btn mda-cancel-btn" id="mdaBkCancel">✕ ' + esc(t("msg.bk.cancel")) + "</button>") +
         (isAdmin() ? '<button class="mda-action-btn mda-delete-btn" id="mdaBkDelete">🗑 ' + esc(t("msg.delete")) + "</button>" : "") +
-      "</div>";
+      "</div>" +
+      (isAdmin() ? '<div class="mda-delete-hint">' + esc(t("msg.bk.delete.adminHint")) + "</div>" : "");
 
     // Confirmation body: show the original text, then auto-translate it into
     // the reader's language with a single "translated from X" note.
@@ -1908,7 +1984,7 @@
       });
     }
 
-    if (b.channel === "direct") wireBkFrontDesk(detailArea, b);
+    if (b.status !== "cancelled" && b.channel === "direct") wireBkFrontDesk(detailArea, b);
 
     detailArea.querySelector("#mdaBkForward").addEventListener("click", () => openForwardBooking(b));
     detailArea.querySelector("#mdaBkStar").addEventListener("click", () => {
@@ -1921,15 +1997,58 @@
       updateBadges();
     });
 
+    const bkCancelBtn = detailArea.querySelector("#mdaBkCancel");
+    if (bkCancelBtn) {
+      bkCancelBtn.addEventListener("click", () => {
+        const API = window.JPark && window.JPark.api;
+        if (!API) return;
+        if (b.status === "cancelled") {
+          if (!confirm(t("msg.bk.reopen.confirm"))) return;
+          bkCancelBtn.disabled = true;
+          API.post("/api/guest-bookings/" + b.id + "/reopen", {}).then((r) => {
+            if (r && !r.error) {
+              updateBookingLocal(b.id, r);
+              renderBookingDetail(b.id);
+            } else {
+              bkCancelBtn.disabled = false;
+              U.toast(r && r.status === 409 ? t("msg.bk.reopen.unavailable") : ((r && r.error) || t("msg.bk.reopen.unavailable")), "error");
+            }
+          }).catch(() => { bkCancelBtn.disabled = false; });
+        } else {
+          if (!confirm(t("msg.bk.cancel.confirm"))) return;
+          const reason = prompt(t("msg.bk.cancel.reasonPrompt"), "") || undefined;
+          bkCancelBtn.disabled = true;
+          API.post("/api/guest-bookings/" + b.id + "/cancel", { reason }).then((r) => {
+            if (r && !r.error) {
+              const booking = r.booking || r;
+              updateBookingLocal(b.id, booking);
+              renderBookingDetail(b.id);
+            } else {
+              bkCancelBtn.disabled = false;
+            }
+          }).catch(() => { bkCancelBtn.disabled = false; });
+        }
+      });
+    }
+
     const bkDeleteBtn = detailArea.querySelector("#mdaBkDelete");
     if (bkDeleteBtn) {
       bkDeleteBtn.addEventListener("click", () => {
-        if (!confirm(t("msg.delete.confirm"))) return;
-        S.remove("guestBookings", b.id);
-        msgView = msgPrevView;
-        msgDetailId = null;
-        msgDetailKind = "message";
-        renderMessages();
+        if (!confirm(t("msg.bk.delete.confirm"))) return;
+        const API = window.JPark && window.JPark.api;
+        bkDeleteBtn.disabled = true;
+        (API ? API.del("/api/guest-bookings/" + b.id) : Promise.resolve({ error: "offline" })).then((r) => {
+          if (r && r.error && !r.offline) {
+            bkDeleteBtn.disabled = false;
+            U.toast(r.error, "error");
+            return;
+          }
+          S.remove("guestBookings", b.id);
+          msgView = msgPrevView;
+          msgDetailId = null;
+          msgDetailKind = "message";
+          renderMessages();
+        }).catch(() => { bkDeleteBtn.disabled = false; });
       });
     }
 

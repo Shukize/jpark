@@ -3,8 +3,11 @@
    GET    /api/guest-bookings          list all (auth)
    GET    /api/guest-bookings/:id      single booking (auth)
    POST   /api/guest-bookings          ingest / create booking
-   PATCH  /api/guest-bookings/:id      update status / mark read
-   DELETE /api/guest-bookings/:id      delete (admin)
+   PATCH  /api/guest-bookings/:id      confirm a pending slot / mark read /
+                                        assign room / record payment (auth)
+   POST   /api/guest-bookings/:id/cancel  staff-mediated cancel (auth)
+   POST   /api/guest-bookings/:id/reopen  restore a cancelled booking (auth)
+   DELETE /api/guest-bookings/:id      permanently delete (admin)
    ============================================================ */
 const express = require('express');
 const crypto = require('crypto');
@@ -12,6 +15,8 @@ const db = require('../db');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const { sendEmail } = require('../mailer');
 const { makeLimiter } = require('../lib/rateLimit');
+const { countOverlapping } = require('../lib/availability');
+const roomRates = require('../lib/roomRates');
 
 const router = express.Router();
 
@@ -187,6 +192,98 @@ function confirmationEmail(bk) {
   return { text, html };
 }
 
+// Guest-facing cancellation notice. Deliberately generic — the staff-entered
+// cancellation reason (if any) is internal shorthand for front-desk handoff,
+// not guest-facing copy, so it is never included here.
+function cancellationEmail(bk) {
+  const lines = [
+    `Dear ${bk.guest_name || 'Guest'},`,
+    '',
+    'This is to confirm that your reservation at J Park Hotel, Chonburi has been cancelled.',
+    '',
+    `Confirmation: ${bk.ref}`,
+    `Room: ${bk.room || '—'}`,
+    `Check-in: ${bk.check_in}`,
+    `Check-out: ${bk.check_out}`,
+    '',
+    'No payment was taken online for this booking, so there is nothing to refund.',
+    '',
+    'If this cancellation was made in error, or you would like to make a new reservation, please reply to this email or call us.',
+    '',
+    'J Park Hotel, Chonburi',
+  ];
+  const text = lines.join('\n');
+  const html =
+    `<div style="font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;line-height:1.5">` +
+    `<h2 style="color:#b45309;margin:0 0 12px">Your reservation has been cancelled</h2>` +
+    `<p>Dear ${bk.guest_name || 'Guest'},</p>` +
+    `<p>This is to confirm that your reservation at <strong>J Park Hotel, Chonburi</strong> has been cancelled.</p>` +
+    `<table style="border-collapse:collapse;margin:16px 0">` +
+    `<tr><td style="padding:4px 12px 4px 0;color:#555">Confirmation</td><td style="padding:4px 0"><strong>${bk.ref}</strong></td></tr>` +
+    `<tr><td style="padding:4px 12px 4px 0;color:#555">Room</td><td style="padding:4px 0">${bk.room || '—'}</td></tr>` +
+    `<tr><td style="padding:4px 12px 4px 0;color:#555">Check-in</td><td style="padding:4px 0">${bk.check_in}</td></tr>` +
+    `<tr><td style="padding:4px 12px 4px 0;color:#555">Check-out</td><td style="padding:4px 0">${bk.check_out}</td></tr>` +
+    `</table>` +
+    `<p>No payment was taken online for this booking, so there is nothing to refund.</p>` +
+    `<p>If this cancellation was made in error, or you would like to make a new reservation, please reply to this email or call us.</p>` +
+    `<p style="color:#0f766e;font-weight:bold;margin-top:24px">J Park Hotel, Chonburi</p>` +
+    `</div>`;
+  return { text, html };
+}
+
+// Drops a system-authored broadcast into the internal Messages inbox so a
+// cancellation is visible to the whole team on shift handoff — same pattern
+// routes/otaSync.js's alertStaff() already uses for its own booking events.
+async function broadcastStaffMessage(subject, body) {
+  await db.query(
+    `INSERT INTO messages (from_id, from_name, from_role, subject, body, to_all)
+     VALUES ('system', 'Booking System', 'system', $1, $2, TRUE)`,
+    [subject, body]
+  );
+}
+
+// Shared by POST /:id/cancel (staff-initiated) and ingestGuestBooking()'s
+// auto-detect path (an OTA cancellation email arriving for a known ref).
+// `actorName` is a staff member's name for a manual cancel, or null for an
+// auto-detected one. `wasConfirmed` gates the guest email: only send it when
+// the guest had previously been told "confirmed" — a booking that arrives
+// already-cancelled (first email ever seen for that ref) never had anything
+// to correct, so emailing a cancellation notice for it would just confuse.
+function fireCancellationNotice(bk, { actorName, wasConfirmed } = {}) {
+  const auto = !actorName;
+  if (wasConfirmed && bk.guest_email) {
+    const { text, html } = cancellationEmail(bk);
+    sendEmail({
+      to: bk.guest_email,
+      subject: `J Park Hotel — booking cancelled (${bk.ref})`,
+      text,
+      html,
+    }).then((r) => {
+      if (r.ok) console.log(`[guest-bookings] cancellation emailed to ${bk.guest_email} (${bk.ref})`);
+      else if (!r.skipped) console.warn(`[guest-bookings] cancellation email failed (${bk.ref}): ${r.error}`);
+    }).catch((err) => console.error('[guest-bookings] cancellation email error', err));
+  }
+
+  const via = bk.channel_name || bk.channel || 'Direct';
+  const subject = auto
+    ? `⚠ Booking auto-cancelled — ${via} (${bk.ref})`
+    : `Booking cancelled by ${actorName} — ${bk.ref}`;
+  const bodyLines = [
+    auto
+      ? `Detected from an incoming ${via} email — please verify.`
+      : `Cancelled by ${actorName}.`,
+    `Guest: ${bk.guest_name || '—'}`,
+    `Room: ${bk.room || '—'}`,
+    `Check-in: ${bk.check_in}`,
+    `Check-out: ${bk.check_out}`,
+    `Ref: ${bk.ref}`,
+    ...(bk.cancellation_reason ? [`Reason: ${bk.cancellation_reason}`] : []),
+  ];
+  broadcastStaffMessage(subject, bodyLines.join('\n')).catch((err) =>
+    console.error('[guest-bookings] cancellation broadcast error', err)
+  );
+}
+
 function row2js(r) {
   return {
     id: r.id,
@@ -214,6 +311,11 @@ function row2js(r) {
     paymentMethod: r.payment_method,
     paymentStatus: r.payment_status,
     paymentChargeId: r.payment_charge_id,
+    cancelledAt: r.cancelled_at ? new Date(r.cancelled_at).getTime() : null,
+    cancelledById: r.cancelled_by_id,
+    cancelledByName: r.cancelled_by_name,
+    cancellationReason: r.cancellation_reason,
+    previousStatus: r.previous_status,
     readBy: r.read_by || [],
     createdAt: new Date(r.created_at).getTime(),
     updatedAt: r.updated_at ? new Date(r.updated_at).getTime() : null,
@@ -304,6 +406,17 @@ async function ingestGuestBooking(b) {
   }
   const nights = b.nights || computeNights(checkIn, checkOut);
 
+  // Looked up ahead of the upsert purely so ingestGuestBooking() can tell,
+  // after the fact, whether THIS call is the one flipping the booking into
+  // 'cancelled' (an OTA cancellation email arriving for a known ref) — see
+  // the auto-cancel handling below. A plain SELECT (not FOR UPDATE) is fine
+  // here: the worst case on a race is a missed/duplicate notification, never
+  // a lost booking, since the upsert itself is still atomic.
+  const { rows: existingRows } = await db.query(
+    'SELECT status FROM guest_bookings WHERE ref = $1', [ref]
+  );
+  const prevStatus = existingRows.length ? existingRows[0].status : null;
+
   const { rows } = await db.query(
     `INSERT INTO guest_bookings
        (ref, channel, channel_name, channel_email, guest_name, guest_last_name,
@@ -313,6 +426,13 @@ async function ingestGuestBooking(b) {
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)
      ON CONFLICT (ref) DO UPDATE SET
        status = EXCLUDED.status,
+       -- Only stamp cancellation metadata when THIS update is the one moving
+       -- the row into 'cancelled' — avoids clobbering a staff cancellation's
+       -- reason/actor if the same OTA cancellation email is ever re-forwarded.
+       cancelled_at = CASE WHEN EXCLUDED.status = 'cancelled' AND guest_bookings.status <> 'cancelled'
+                            THEN NOW() ELSE guest_bookings.cancelled_at END,
+       previous_status = CASE WHEN EXCLUDED.status = 'cancelled' AND guest_bookings.status <> 'cancelled'
+                            THEN guest_bookings.status ELSE guest_bookings.previous_status END,
        updated_at = NOW()
      RETURNING *, (xmax = 0) AS inserted`,
     [
@@ -343,6 +463,11 @@ async function ingestGuestBooking(b) {
   );
   const saved = rows[0];
   fireBookingEmails(saved);
+
+  const justCancelled = saved.status === 'cancelled' && prevStatus !== 'cancelled';
+  if (justCancelled) {
+    fireCancellationNotice(saved, { wasConfirmed: prevStatus === 'confirmed' });
+  }
   return saved;
 }
 
@@ -372,6 +497,10 @@ router.post('/', async (req, res) => {
 // never trust a client-supplied paymentMethod string beyond this allow-list.
 const ALLOWED_PAYMENT_METHODS = ['cash', 'card', 'promptpay_instore'];
 
+// The generic PATCH status field only ever confirms a pending day-use slot.
+// 'cancelled' is deliberately excluded — see POST /:id/cancel below.
+const ALLOWED_STATUS_PATCH = ['confirmed'];
+
 /* PATCH /api/guest-bookings/:id — requires staff auth: beyond the original
    mark-read/status use, this now also assigns the physical room number and
    records in-person payment, both front-desk-only actions. */
@@ -388,8 +517,18 @@ router.patch('/:id', requireAuth, async (req, res) => {
       );
     }
     if (status) {
+      // The only legitimate free-form transition left here is confirming a
+      // pending day-use slot once front desk has checked the time works.
+      // Cancelling must go through POST /:id/cancel (stamps actor/reason,
+      // sends the guest a notice) — this endpoint used to accept ANY string,
+      // which meant a typo silently broke the overlap/inventory accounting
+      // in lib/availability.js (it only ever recognizes the exact strings
+      // 'confirmed' / 'pending').
+      if (!ALLOWED_STATUS_PATCH.includes(status)) {
+        return res.status(400).json({ error: 'Invalid status. Use POST /:id/cancel to cancel a booking.' });
+      }
       await db.query(
-        'UPDATE guest_bookings SET status = $1 WHERE id = $2',
+        `UPDATE guest_bookings SET status = $1 WHERE id = $2 AND status = 'pending'`,
         [status, req.params.id]
       );
     }
@@ -415,6 +554,115 @@ router.patch('/:id', requireAuth, async (req, res) => {
   } catch (e) {
     console.error('[guest-bookings] patch', e);
     res.status(500).json({ error: 'Database error' });
+  }
+});
+
+/* POST /api/guest-bookings/:id/cancel — staff-mediated cancel (any signed-in
+   employee, matching the existing PATCH/assign-room/mark-paid permission
+   level). Idempotent: cancelling an already-cancelled booking is a no-op
+   that still returns 200, mirroring routes/otaSync.js's own
+   already_cancelled handling for its separate channel-manager booking
+   system. */
+router.post('/:id/cancel', requireAuth, async (req, res) => {
+  const reason = typeof (req.body && req.body.reason) === 'string'
+    ? (req.body.reason.trim().slice(0, 500) || null)
+    : null;
+  try {
+    const { rows: found } = await db.query('SELECT * FROM guest_bookings WHERE id = $1', [req.params.id]);
+    if (!found.length) return res.status(404).json({ error: 'Not found' });
+    const bk = found[0];
+    if (bk.status === 'cancelled') {
+      return res.json({ status: 'already_cancelled', booking: row2js(bk) });
+    }
+
+    const { rows } = await db.query(
+      `UPDATE guest_bookings
+          SET status = 'cancelled',
+              previous_status = status,
+              cancelled_at = NOW(),
+              cancelled_by_id = $1,
+              cancelled_by_name = $2,
+              cancellation_reason = $3
+        WHERE id = $4
+        RETURNING *`,
+      [req.user.id, req.user.name, reason, req.params.id]
+    );
+    const saved = rows[0];
+    fireCancellationNotice(saved, { actorName: req.user.name, wasConfirmed: bk.status === 'confirmed' });
+    res.json(row2js(saved));
+  } catch (e) {
+    console.error('[guest-bookings] cancel', e);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+/* POST /api/guest-bookings/:id/reopen — restores a cancelled booking to its
+   prior status. For a 'direct' overnight booking this re-runs the same
+   advisory-lock + overlap guard routes/payments.js's POST /reservations
+   uses, since the room may have been sold to someone else while this
+   booking sat cancelled. The guard is scoped to channel==='direct' only:
+   OTA-sourced bookings carry a free-text `room` string from the channel's
+   own listing (extracted by lib/otaEmailParser.js) that was never validated
+   against roomRates' inventory map and was never subject to this guard at
+   creation time either (ingestGuestBooking() does a plain insert, no
+   overlap check) — running the same guard on them would false-positive
+   block almost every OTA reopen, since an unrecognized room name resolves
+   to zero inventory. Day-use rows (check_in === check_out) never hold
+   nightly inventory, matching how their original booking flow also skips
+   this guard. */
+router.post('/:id/reopen', requireAuth, async (req, res) => {
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const { rows: found } = await client.query(
+      'SELECT * FROM guest_bookings WHERE id = $1 FOR UPDATE', [req.params.id]
+    );
+    if (!found.length) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Not found' });
+    }
+    const bk = found[0];
+    if (bk.status !== 'cancelled') {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Booking is not cancelled' });
+    }
+
+    const isOvernightDirect = bk.channel === 'direct' && bk.room && String(bk.check_in) !== String(bk.check_out);
+    if (isOvernightDirect) {
+      await client.query('SELECT pg_advisory_xact_lock(hashtext($1)::bigint)', [bk.room]);
+      const cnt = await countOverlapping(client, bk.room, bk.check_in, bk.check_out);
+      if (cnt >= roomRates.getInventory(bk.room)) {
+        await client.query('ROLLBACK');
+        return res.status(409).json({ error: 'Sorry, this room type is no longer available for those dates.' });
+      }
+    }
+
+    const restoredStatus = bk.previous_status || 'confirmed';
+    const { rows } = await client.query(
+      `UPDATE guest_bookings
+          SET status = $1,
+              previous_status = NULL,
+              cancelled_at = NULL,
+              cancelled_by_id = NULL,
+              cancelled_by_name = NULL,
+              cancellation_reason = NULL
+        WHERE id = $2
+        RETURNING *`,
+      [restoredStatus, req.params.id]
+    );
+    await client.query('COMMIT');
+    const saved = rows[0];
+    broadcastStaffMessage(
+      `Booking reopened by ${req.user.name} — ${saved.ref}`,
+      `Guest: ${saved.guest_name || '—'}\nRoom: ${saved.room || '—'}\nCheck-in: ${saved.check_in}\nCheck-out: ${saved.check_out}\nRef: ${saved.ref}`
+    ).catch((err) => console.error('[guest-bookings] reopen broadcast error', err));
+    res.json(row2js(saved));
+  } catch (e) {
+    try { await client.query('ROLLBACK'); } catch (_) {}
+    console.error('[guest-bookings] reopen', e);
+    res.status(500).json({ error: 'Database error' });
+  } finally {
+    client.release();
   }
 });
 

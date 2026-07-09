@@ -920,6 +920,7 @@ body.bk-pay-open { position: fixed; left: 0; right: 0; overflow: hidden; }
 
 .bkp-body { padding: 22px 24px 28px; }
 .bkp-view { display: flex; flex-direction: column; gap: 16px; }
+.bkp-view[hidden] { display: none; }
 
 .bkp-summary {
   background: var(--sand);

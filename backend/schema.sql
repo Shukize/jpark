@@ -182,6 +182,19 @@ ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS room_number VARCHAR(10);
 CREATE INDEX IF NOT EXISTS idx_guest_bookings_room_dates
   ON guest_bookings (room, check_in, check_out);
 
+-- Cancellation metadata (staff-mediated cancel; see routes/guestBookings.js
+-- POST /:id/cancel and POST /:id/reopen). cancelled_by_id/name are NULL when
+-- the cancellation was auto-detected from an inbound OTA email
+-- (lib/otaEmailParser.js via ingestGuestBooking()'s ON CONFLICT path) rather
+-- than performed by a signed-in staff member. previous_status lets reopen
+-- restore the exact prior state (e.g. a day-use booking that was 'pending'
+-- when cancelled reopens back to 'pending', not 'confirmed').
+ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS cancelled_at        TIMESTAMPTZ;
+ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS cancelled_by_id     VARCHAR(50);
+ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS cancelled_by_name   VARCHAR(100);
+ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS cancellation_reason TEXT;
+ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS previous_status     VARCHAR(30);
+
 -- ── Chat messages (guest ↔ front-desk) ──────────────────────────────────────
 CREATE TABLE IF NOT EXISTS chat_messages (
   id                  SERIAL       PRIMARY KEY,

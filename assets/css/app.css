@@ -1032,6 +1032,45 @@ body.mobile-view .fac-card.large {
   padding-top: 18px; border-top: 1px solid #eef0f8;
 }
 
+/* Status filter tabs + search box above the booking list — reuses the
+   .req-filters pill-button look from the service-requests panel. */
+.bk-filters { margin: 0 22px 4px; padding-top: 14px; }
+.bk-search-wrap { margin: 0 22px 14px; }
+.bk-search-input {
+  width: 100%; box-sizing: border-box; padding: 8px 14px; border-radius: 20px;
+  border: 1.5px solid var(--line); font-size: 0.85rem; font-family: var(--sans);
+  color: #1a1a1a; background: #fff;
+}
+.bk-search-input:focus { outline: none; border-color: var(--teal); }
+
+/* Cancelled-booking treatment in the list: dimmed + a small pill, layered
+   under the existing unread/read states so an unread cancellation still
+   shows its unread dot. */
+.msg-row.cancelled { opacity: 0.62; }
+.msg-row.cancelled .mr-sender, .msg-row.cancelled .mr-subject { text-decoration: line-through; text-decoration-color: #c0392b66; }
+.bk-row-pill {
+  display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 999px;
+  font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .03em;
+  background: #fdecea; color: #c0392b; vertical-align: middle;
+}
+
+/* Cancel / Reopen action button — amber, deliberately distinct from the
+   red admin-only Delete button so the two severities never look alike. */
+.mda-cancel-btn { color: #b45309; }
+.mda-cancel-btn:hover { background: #fef3e2; border-color: #f0c980; color: #92400a; }
+.mda-reopen-btn { color: #0f766e; }
+.mda-reopen-btn:hover { background: #e8f5f3; border-color: #a9d6cb; color: #0c5b58; }
+.mda-delete-hint { font-size: 0.76rem; color: #999; margin-top: 8px; }
+
+/* Read-only summary shown in place of the front-desk controls once a
+   booking is cancelled. */
+.bk-cancel-summary {
+  display: flex; flex-direction: column; gap: 6px;
+  margin-bottom: 22px; padding: 14px 16px; max-width: 580px;
+  background: #fdf6ec; border: 1px solid #f0dfb8; border-radius: 10px;
+}
+.bk-cancel-row { font-size: 0.85rem; color: #5a4a1a; }
+
 /* ============================================================
    COMPOSE MODAL — Gmail-style bottom-right card
    ============================================================ */
