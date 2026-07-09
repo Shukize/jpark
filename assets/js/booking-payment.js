@@ -443,6 +443,27 @@
   // ============================================================
   //  Public entry point, called by booking-page.js's "Book Now" button.
   // ============================================================
+  // For a room whose variants are the same physical room priced separately
+  // for 1 vs 2 guests (every variant shares the same room-only rate — e.g.
+  // Deluxe Single/Double both room:1110, only bf differs), default the
+  // selected variant to match the stated party size instead of always
+  // defaulting to index 0 (the 1-guest rate) — that mismatch was the root
+  // cause of a 2-guest booking silently getting charged the 1-guest
+  // breakfast price. Rooms whose variants are genuinely different-sized
+  // units (Executive Suite / Grand Suite — room-only price differs between
+  // variants too, since "2 Bedrooms" is a bigger physical suite, not just
+  // an occupancy tier of the same room) are left at index 0, unchanged —
+  // a solo guest may still want the bigger suite, so guest count shouldn't
+  // force that choice. Either way the guest can still freely reselect via
+  // the variant radio in renderReservationForm() — this only changes the
+  // default, never removes the choice.
+  function defaultVariantIndex(variants, totalGuests) {
+    if (!variants || variants.length < 2) return 0;
+    var isOccupancyTier = variants.every(function (v) { return v.room === variants[0].room; });
+    if (!isOccupancyTier) return 0;
+    return totalGuests >= 2 ? 1 : 0;
+  }
+
   function open(ctx) {
     build();
     state = {
@@ -456,7 +477,7 @@
       nights: ctx.nights,
       adults: ctx.adults,
       children: ctx.children,
-      variantIndex: 0,
+      variantIndex: defaultVariantIndex(ctx.variants, (ctx.adults || 0) + (ctx.children || 0)),
       breakfast: false,
     };
     overlay.hidden = false;

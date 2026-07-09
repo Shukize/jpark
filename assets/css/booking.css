@@ -42,6 +42,15 @@
 .bk-header .brand-sub  { color: var(--terracotta) !important; }
 .bk-header .nav-links a { color: var(--ink-soft) !important; }
 
+/* Booking page's nav-inner is much lighter than the homepage's (4 links, no
+   "Book Now" pill), so unlike the homepage header it can safely wrap to a
+   second line instead of clipping the trailing "Back to Hotel" button off
+   the edge of the screen on a viewport too narrow to fit everything on one
+   line but wider than the breakpoints below that shrink/hide individual
+   pieces. Scoped to .bk-header only — the homepage header has enough nav
+   items that the same flex-wrap would visibly break its desktop layout. */
+.bk-header .nav-inner { flex-wrap: wrap; row-gap: 10px; }
+
 .bk-nav-links { display: flex; }
 
 .bk-back-btn {

@@ -14,7 +14,16 @@
   // a room+variant key that already exists in both files.
   var ROOMS = [
     {
-      name: 'Studio Single', folder: 'Studio Single',
+      // guestTier: 1 — this and its paired Twin room below are the SAME
+      // physical room, priced separately for 1 vs 2 guests (identical
+      // room-only rate, breakfast rate differs). Kept as two distinct ROOMS
+      // entries (not merged into one room+variants) because merging is
+      // unsafe here: see backend/lib/hotelAdsIds.js's comment on why room
+      // keys must never be renamed/removed once a key exists (breaking
+      // change to live Google Hotel Ads room-type IDs). Guest count instead
+      // drives which of the pair appears in search results — see the
+      // guestTier filter in searchBtn's click handler below.
+      name: 'Studio Single', folder: 'Studio Single', guestTier: 1,
       nameKey: 'rooms.studioSingleName', descKey: 'rooms.studioDesc',
       size: '37 m²', maxGuests: 3, extraBedAvailable: true,
       amenities: ['Single Bed', 'Work Desk', 'Rainfall Shower', 'Smart TV', 'Air Conditioning', 'Free Wi-Fi'],
@@ -22,21 +31,23 @@
     },
     {
       // folder aliases 'Studio Single' — same physical room, no dedicated photo set.
-      name: 'Studio Twin', folder: 'Studio Single',
+      name: 'Studio Twin', folder: 'Studio Single', guestTier: 2,
       nameKey: 'rooms.studioTwinName', descKey: 'rooms.studioDesc',
       size: '37 m²', maxGuests: 3, extraBedAvailable: true,
       amenities: ['Twin Beds', 'Work Desk', 'Rainfall Shower', 'Smart TV', 'Air Conditioning', 'Free Wi-Fi'],
       variants: [{ label: 'Twin', room: 990, bf: 1300 }],
     },
     {
-      name: 'Prestige Single', folder: 'Prestige Single',
+      // guestTier pair with 'Prestige Twin' below — see the comment on
+      // 'Studio Single' above for why these stay separate ROOMS entries.
+      name: 'Prestige Single', folder: 'Prestige Single', guestTier: 1,
       nameKey: 'rooms.prestigeSingleName', descKey: 'rooms.prestigeDesc',
       size: '45 m²', maxGuests: 3, extraBedAvailable: false,
       amenities: ['Single Bed', 'Premium Bedding', 'Generous Work Area', 'Smart TV', 'Air Conditioning', 'Free Wi-Fi'],
       variants: [{ label: 'Single', room: 1040, bf: 1160 }],
     },
     {
-      name: 'Prestige Twin', folder: 'Prestige Twin',
+      name: 'Prestige Twin', folder: 'Prestige Twin', guestTier: 2,
       nameKey: 'rooms.prestigeTwinName', descKey: 'rooms.prestigeDesc',
       size: '45 m²', maxGuests: 3, extraBedAvailable: false,
       amenities: ['Twin Beds', 'Premium Bedding', 'Generous Work Area', 'Smart TV', 'Air Conditioning', 'Free Wi-Fi'],
@@ -57,14 +68,16 @@
       variants: [{ label: 'Single', room: 1110, bf: 1230 }, { label: 'Double', room: 1110, bf: 1420 }],
     },
     {
-      name: 'Premium Single', folder: 'Premium Single',
+      // guestTier pair with 'Premium Twin' below — see the comment on
+      // 'Studio Single' above for why these stay separate ROOMS entries.
+      name: 'Premium Single', folder: 'Premium Single', guestTier: 1,
       nameKey: 'rooms.premiumSingleName', descKey: 'rooms.premiereDesc',
       size: '49 m²', maxGuests: 3, extraBedAvailable: true,
       amenities: ['Single Bed', 'Premium Linens', 'Spacious Work Area', 'Smart TV', 'Air Conditioning', 'Free Wi-Fi'],
       variants: [{ label: 'Single', room: 1160, bf: 1280 }],
     },
     {
-      name: 'Premium Twin', folder: 'Premium Twin',
+      name: 'Premium Twin', folder: 'Premium Twin', guestTier: 2,
       nameKey: 'rooms.premiumTwinName', descKey: 'rooms.premiereDesc',
       size: '49 m²', maxGuests: 3, extraBedAvailable: true,
       amenities: ['Twin Beds', 'Premium Linens', 'Spacious Work Area', 'Smart TV', 'Air Conditioning', 'Free Wi-Fi'],
@@ -1126,7 +1139,18 @@
 
     var nights = nightCount(ci, co);
     var totalGuests = adults + children;
-    var filtered = ROOMS.filter(function (r) { return r.maxGuests >= totalGuests; });
+    // guestTier rooms (Studio/Prestige/Premium Single vs Twin) are the same
+    // physical room priced separately for 1 vs 2 guests — only ever show
+    // the one matching the stated party size, so a 2-guest search can never
+    // land on the (cheaper, wrong) 1-guest breakfast rate. Rooms without a
+    // guestTier are unaffected. 3+ guests use the 2-guest ("Twin") tier as
+    // its base, same as the existing 3rd-guest surcharge already assumes.
+    var filtered = ROOMS.filter(function (r) {
+      if (r.maxGuests < totalGuests) return false;
+      if (r.guestTier === 1 && totalGuests >= 2) return false;
+      if (r.guestTier === 2 && totalGuests <= 1) return false;
+      return true;
+    });
 
     statusState = { ci: ci, co: co, nights: nights, adults: adults, children: children };
     statusEl.hidden = false;
