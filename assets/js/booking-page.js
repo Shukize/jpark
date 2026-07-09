@@ -17,13 +17,14 @@
       // guestTier: 1 — this and its paired Twin room below are the SAME
       // physical room, priced separately for 1 vs 2 guests (identical
       // room-only rate, breakfast rate differs). Kept as two distinct ROOMS
-      // entries (not merged into one room+variants) because merging is
-      // unsafe here: see backend/lib/hotelAdsIds.js's comment on why room
-      // keys must never be renamed/removed once a key exists (breaking
-      // change to live Google Hotel Ads room-type IDs). Guest count instead
-      // drives which of the pair appears in search results — see the
-      // guestTier filter in searchBtn's click handler below.
+      // entries (never merge these two — see backend/lib/hotelAdsIds.js's
+      // comment on why room keys must never be renamed/removed once a key
+      // exists: it would break the live Google Hotel Ads room-type IDs).
+      // DISPLAY_ROOMS below folds this pair into one search-result card
+      // showing both as rate-row variants; `baseNameKey` is that merged
+      // card's title (no "Single"/"Twin" suffix).
       name: 'Studio Single', folder: 'Studio Single', guestTier: 1,
+      baseNameKey: 'rooms.studioName',
       nameKey: 'rooms.studioSingleName', descKey: 'rooms.studioDesc',
       size: '37 m²', maxGuests: 3, extraBedAvailable: true,
       amenities: ['Single Bed', 'Work Desk', 'Rainfall Shower', 'Smart TV', 'Air Conditioning', 'Free Wi-Fi'],
@@ -41,6 +42,7 @@
       // guestTier pair with 'Prestige Twin' below — see the comment on
       // 'Studio Single' above for why these stay separate ROOMS entries.
       name: 'Prestige Single', folder: 'Prestige Single', guestTier: 1,
+      baseNameKey: 'rooms.prestigeName',
       nameKey: 'rooms.prestigeSingleName', descKey: 'rooms.prestigeDesc',
       size: '45 m²', maxGuests: 3, extraBedAvailable: false,
       amenities: ['Single Bed', 'Premium Bedding', 'Generous Work Area', 'Smart TV', 'Air Conditioning', 'Free Wi-Fi'],
@@ -71,6 +73,7 @@
       // guestTier pair with 'Premium Twin' below — see the comment on
       // 'Studio Single' above for why these stay separate ROOMS entries.
       name: 'Premium Single', folder: 'Premium Single', guestTier: 1,
+      baseNameKey: 'rooms.premiumName',
       nameKey: 'rooms.premiumSingleName', descKey: 'rooms.premiereDesc',
       size: '49 m²', maxGuests: 3, extraBedAvailable: true,
       amenities: ['Single Bed', 'Premium Linens', 'Spacious Work Area', 'Smart TV', 'Air Conditioning', 'Free Wi-Fi'],
@@ -127,6 +130,50 @@
     },
   ];
 
+  // The booking page's search results render DISPLAY_ROOMS, not ROOMS
+  // directly. Each guestTier: 1 room above (Single) is folded together with
+  // its guestTier: 2 sibling (Twin) into ONE display card offering both bed
+  // configs as rate-row variants — the same presentation Studio B4/Deluxe/
+  // Grand Premium already use for their own Single-vs-Twin/Double choice.
+  // ROOMS itself keeps the pair as two separate entries (never merge those
+  // — see the comment on 'Studio Single' above: their room-type IDs must
+  // stay permanent for the Google Hotel Ads feed), so each merged variant
+  // carries its own `roomKey` back to the real underlying room name/
+  // inventory/rate-plan; non-tier rooms' variants have no roomKey and just
+  // fall back to the card's own room.name (see booking-payment.js's open()).
+  // Variant objects themselves are reused by reference (not copied), so a
+  // live rate override (applyRateOverrides() below, which mutates ROOMS'
+  // variant objects in place) is automatically reflected here too.
+  var DISPLAY_ROOMS = (function () {
+    var twinOf = {}; // guestTier:1 room name -> its guestTier:2 sibling
+    ROOMS.forEach(function (r) {
+      if (r.guestTier !== 1) return;
+      var base = r.name.replace(/ Single$/, '');
+      var twin = ROOMS.filter(function (o) { return o.guestTier === 2 && o.name === base + ' Twin'; })[0];
+      if (twin) twinOf[r.name] = twin;
+    });
+    var out = [];
+    ROOMS.forEach(function (r) {
+      if (r.guestTier === 2) return; // folded into its Single sibling below
+      var twin = twinOf[r.name];
+      if (!twin) { out.push(r); return; }
+      r.variants[0].roomKey = r.name;
+      twin.variants[0].roomKey = twin.name;
+      out.push({
+        name: r.name,
+        folders: [r.folder, twin.folder],
+        nameKey: r.baseNameKey,
+        descKey: r.descKey,
+        size: r.size,
+        maxGuests: r.maxGuests,
+        extraBedAvailable: r.extraBedAvailable,
+        amenities: ['Single or Twin'].concat(r.amenities.slice(1)),
+        variants: [r.variants[0], twin.variants[0]],
+      });
+    });
+    return out;
+  })();
+
   // Laundry Package (2026) — pieces : price (THB).
   var LAUNDRY = [
     { pieces: 3, price: 55 }, { pieces: 4, price: 70 }, { pieces: 5, price: 85 },
@@ -168,22 +215,37 @@
   var M = window.JPark && window.JPark.media;
   var CAPS = (window.JPark && window.JPark.captions) || {};
   var enc = window.encodeURI;
-  function roomSetId(room) { return 'room:' + room.folder; }
+  // A merged Single+Twin display room (see DISPLAY_ROOMS below) sets
+  // `folders` to BOTH underlying rooms' photo folders, so combining a
+  // guestTier pair into one card never hides one side's own photos (Studio's
+  // Twin aliases Single's folder with no photos of its own, but Prestige and
+  // Premium's Single/Twin are genuinely different rooms with distinct sets).
+  // Plain (non-merged) rooms just have the one `folder`, unchanged.
+  function roomFolders(room) { return room.folders || [room.folder]; }
+  function roomSetIds(room) { return roomFolders(room).map(function (f) { return 'room:' + f; }); }
   function roomCover(room) {
-    var c = M ? M.cover(roomSetId(room)) : null;
-    return c || ('images/' + room.folder + '/room_01.jpg');
+    var ids = roomSetIds(room);
+    for (var i = 0; i < ids.length; i++) {
+      var c = M ? M.cover(ids[i]) : null;
+      if (c) return c;
+    }
+    return 'images/' + roomFolders(room)[0] + '/room_01.jpg';
   }
   function roomPhotoCount(room) {
-    return M ? M.items(roomSetId(room)).filter(function (it) { return !it.video; }).length : 0;
+    return roomSetIds(room).reduce(function (sum, id) {
+      return sum + (M ? M.items(id).filter(function (it) { return !it.video; }).length : 0);
+    }, 0);
   }
   // Captioned, swipeable entries for a room: { src, cap:"Room · Area" }.
   function roomGalleryEntries(room) {
-    var id = roomSetId(room);
-    var list = M ? M.items(id) : [];
-    var caps = CAPS[id] || [];
     var nm = roomName(room);
-    var out = list.filter(function (it) { return !it.video; }).map(function (it, i) {
-      return { src: it.src, cap: caps[i] ? (nm + ' · ' + TR('cap.' + caps[i])) : nm };
+    var out = [];
+    roomSetIds(room).forEach(function (id) {
+      var list = M ? M.items(id) : [];
+      var caps = CAPS[id] || [];
+      list.filter(function (it) { return !it.video; }).forEach(function (it, i) {
+        out.push({ src: it.src, cap: caps[i] ? (nm + ' · ' + TR('cap.' + caps[i])) : nm });
+      });
     });
     return out.length ? out : [{ src: roomCover(room), cap: nm }];
   }
@@ -294,9 +356,6 @@
   };
   function variantLabel(l) { var k = VARIANT_KEY[l]; return k ? TR(k) : l; }
 
-  // Locale for date formatting per language
-  var LOCALE = { th: 'th-TH', en: 'en-GB', ja: 'ja-JP', 'zh-Hans': 'zh-CN', 'zh-Hant': 'zh-TW' };
-
   var BK_I18N = {
     en: {
       'bk.docTitle': 'Book Your Stay · J Park Hotel · Chonburi',
@@ -309,6 +368,7 @@
       'bk.fewerChildren': 'Fewer children', 'bk.moreChildren': 'More children',
       'bk.checkAvail': 'Check Availability', 'bk.changeDates': 'Change dates',
       'bk.hint': 'Select your dates and guests above, then tap Check Availability to filter rooms for your group.',
+      'bk.childNote': 'Children under 9 stay free of any extra-guest charge. Breakfast is free for ages 0–4, and ฿100 per child for ages 5–8.',
       'bk.noRooms1': 'No rooms match your current guest count. Please try a smaller group, or ',
       'bk.contactUs': 'contact us',
       'bk.noRooms2': ' — we can arrange connecting rooms for larger parties.',
@@ -368,6 +428,7 @@
       'bk.fewerChildren': 'ลดจำนวนเด็ก', 'bk.moreChildren': 'เพิ่มจำนวนเด็ก',
       'bk.checkAvail': 'ตรวจสอบห้องว่าง', 'bk.changeDates': 'เปลี่ยนวันที่',
       'bk.hint': 'เลือกวันที่และจำนวนผู้เข้าพักด้านบน แล้วแตะ ตรวจสอบห้องว่าง เพื่อกรองห้องพักสำหรับกลุ่มของคุณ',
+      'bk.childNote': 'เด็กอายุต่ำกว่า 9 ปี ไม่มีค่าใช้จ่ายเพิ่มเติมสำหรับผู้เข้าพัก อาหารเช้าฟรีสำหรับเด็กอายุ 0–4 ปี และ 100 บาทสำหรับเด็กอายุ 5–8 ปี',
       'bk.noRooms1': 'ไม่มีห้องที่ตรงกับจำนวนผู้เข้าพักของคุณ กรุณาลองลดจำนวนผู้เข้าพัก หรือ',
       'bk.contactUs': 'ติดต่อเรา',
       'bk.noRooms2': ' — เราสามารถจัดห้องที่เชื่อมต่อกันสำหรับคณะใหญ่ได้',
@@ -427,6 +488,7 @@
       'bk.fewerChildren': '子供を減らす', 'bk.moreChildren': '子供を増やす',
       'bk.checkAvail': '空室を確認', 'bk.changeDates': '日付を変更',
       'bk.hint': '上で日付と人数を選び、「空室を確認」をタップしてご利用人数に合う客室を絞り込んでください。',
+      'bk.childNote': '9歳未満のお子様は追加料金なしでご宿泊いただけます。朝食は0〜4歳無料、5〜8歳は1名につき100THBです。',
       'bk.noRooms1': '現在のご利用人数に合う客室がありません。人数を減らすか、',
       'bk.contactUs': 'お問い合わせ',
       'bk.noRooms2': 'ください — 大人数のお客様にはコネクティングルームをご用意できます。',
@@ -486,6 +548,7 @@
       'bk.fewerChildren': '减少儿童', 'bk.moreChildren': '增加儿童',
       'bk.checkAvail': '查询空房', 'bk.changeDates': '更改日期',
       'bk.hint': '在上方选择日期和入住人数，然后点击 查询空房 以筛选适合您团队的客房。',
+      'bk.childNote': '9岁以下儿童入住不收取额外费用。早餐：0-4岁儿童免费，5-8岁儿童每位100泰铢。',
       'bk.noRooms1': '没有符合当前入住人数的客房。请尝试减少人数，或',
       'bk.contactUs': '联系我们',
       'bk.noRooms2': ' — 我们可为大型团队安排连通客房。',
@@ -545,6 +608,7 @@
       'bk.fewerChildren': '減少兒童', 'bk.moreChildren': '增加兒童',
       'bk.checkAvail': '查詢空房', 'bk.changeDates': '更改日期',
       'bk.hint': '在上方選擇日期和入住人數，然後點按 查詢空房 以篩選適合您團隊的客房。',
+      'bk.childNote': '9歲以下兒童入住不收取額外費用。早餐：0-4歲兒童免費，5-8歲兒童每位100泰銖。',
       'bk.noRooms1': '沒有符合目前入住人數的客房。請嘗試減少人數，或',
       'bk.contactUs': '聯絡我們',
       'bk.noRooms2': ' — 我們可為大型團隊安排連通客房。',
@@ -629,7 +693,7 @@
   var children = 0;
 
   // Last rendered room set + nights, so we can repaint on language change.
-  var lastRooms  = ROOMS;
+  var lastRooms  = DISPLAY_ROOMS;
   var lastNights = null;
 
   // --- Date helpers ---
@@ -649,9 +713,7 @@
   }
 
   function fmtDate(iso) {
-    return new Date(iso + 'T12:00:00').toLocaleDateString('en-GB', {
-      day: 'numeric', month: 'short', year: 'numeric',
-    });
+    return window.JPark.util.formatDate(iso);
   }
 
   // Non-breaking space keeps a number and its word on the same line.
@@ -1139,18 +1201,7 @@
 
     var nights = nightCount(ci, co);
     var totalGuests = adults + children;
-    // guestTier rooms (Studio/Prestige/Premium Single vs Twin) are the same
-    // physical room priced separately for 1 vs 2 guests — only ever show
-    // the one matching the stated party size, so a 2-guest search can never
-    // land on the (cheaper, wrong) 1-guest breakfast rate. Rooms without a
-    // guestTier are unaffected. 3+ guests use the 2-guest ("Twin") tier as
-    // its base, same as the existing 3rd-guest surcharge already assumes.
-    var filtered = ROOMS.filter(function (r) {
-      if (r.maxGuests < totalGuests) return false;
-      if (r.guestTier === 1 && totalGuests >= 2) return false;
-      if (r.guestTier === 2 && totalGuests <= 1) return false;
-      return true;
-    });
+    var filtered = DISPLAY_ROOMS.filter(function (r) { return r.maxGuests >= totalGuests; });
 
     statusState = { ci: ci, co: co, nights: nights, adults: adults, children: children };
     statusEl.hidden = false;
@@ -1187,7 +1238,7 @@
     errorEl.hidden   = true;
     noRoomsEl.hidden = true;
 
-    renderRooms(ROOMS, null);
+    renderRooms(DISPLAY_ROOMS, null);
 
     checkinEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
     checkinEl.focus();
@@ -1223,7 +1274,15 @@
       searchBtn.click(); // renders room cards synchronously before returning
 
       if (roomSlug) {
-        var match = ROOMS.filter(function (r) { return slugify(r.name) === roomSlug; })[0];
+        var match = DISPLAY_ROOMS.filter(function (r) { return slugify(r.name) === roomSlug; })[0];
+        if (!match) {
+          // roomSlug may reference a guestTier: 2 (Twin) room name that's
+          // now folded into its Single sibling's merged display card —
+          // resolve via the merged variant's own roomKey.
+          match = DISPLAY_ROOMS.filter(function (r) {
+            return r.variants.some(function (v) { return v.roomKey && slugify(v.roomKey) === roomSlug; });
+          })[0];
+        }
         var card = match && gridEl.querySelector('[data-room="' + CSS.escape(match.name) + '"]');
         if (card) {
           card.scrollIntoView({ behavior: 'smooth', block: 'center' });

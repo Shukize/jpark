@@ -23,7 +23,7 @@
   function countWord(n, singleKey, pluralKey) { return n + NB + TR(n === 1 ? singleKey : pluralKey); }
   function nightsWord(n) { return countWord(n, 'bk.night', 'bk.nights'); }
   function fmtDate(iso) {
-    return new Date(iso + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    return window.JPark.util.formatDate(iso);
   }
 
   // ============================================================
@@ -35,6 +35,7 @@
   var STR = {
     en: {
       'bk.pay.roomType': 'Room type', 'bk.pay.guestDetails': 'Guest details',
+      'bk.pay.roomPref': 'Room preference', 'bk.pay.nonSmoking': 'Non-Smoking', 'bk.pay.smoking': 'Smoking',
       'bk.pay.firstName': 'First name', 'bk.pay.lastName': 'Last name (optional)',
       'bk.pay.email': 'Email', 'bk.pay.phone': 'Phone (optional)',
       'bk.pay.note': 'Special requests (optional)', 'bk.pay.notePlaceholder': 'Late arrival, high floor, allergies…',
@@ -57,6 +58,7 @@
     },
     th: {
       'bk.pay.roomType': 'ประเภทห้อง', 'bk.pay.guestDetails': 'ข้อมูลผู้เข้าพัก',
+      'bk.pay.roomPref': 'ห้องสูบบุหรี่/ปลอดบุหรี่', 'bk.pay.nonSmoking': 'ห้องปลอดบุหรี่', 'bk.pay.smoking': 'ห้องสูบบุหรี่',
       'bk.pay.firstName': 'ชื่อ', 'bk.pay.lastName': 'นามสกุล (ไม่บังคับ)',
       'bk.pay.email': 'อีเมล', 'bk.pay.phone': 'เบอร์โทร (ไม่บังคับ)',
       'bk.pay.note': 'คำขอพิเศษ (ไม่บังคับ)', 'bk.pay.notePlaceholder': 'มาถึงดึก ต้องการชั้นสูง แพ้อาหาร…',
@@ -79,6 +81,7 @@
     },
     ja: {
       'bk.pay.roomType': '客室タイプ', 'bk.pay.guestDetails': 'ご宿泊者情報',
+      'bk.pay.roomPref': 'お部屋のご希望', 'bk.pay.nonSmoking': '禁煙', 'bk.pay.smoking': '喫煙可',
       'bk.pay.firstName': '名', 'bk.pay.lastName': '姓（任意）',
       'bk.pay.email': 'メールアドレス', 'bk.pay.phone': '電話番号（任意）',
       'bk.pay.note': 'ご要望（任意）', 'bk.pay.notePlaceholder': '到着が遅れる、高層階希望、アレルギーなど…',
@@ -101,6 +104,7 @@
     },
     'zh-Hans': {
       'bk.pay.roomType': '房型', 'bk.pay.guestDetails': '入住人信息',
+      'bk.pay.roomPref': '房间偏好', 'bk.pay.nonSmoking': '无烟房', 'bk.pay.smoking': '吸烟房',
       'bk.pay.firstName': '名字', 'bk.pay.lastName': '姓氏（可选）',
       'bk.pay.email': '电子邮箱', 'bk.pay.phone': '电话（可选）',
       'bk.pay.note': '特殊要求（可选）', 'bk.pay.notePlaceholder': '晚到、高楼层、过敏信息等…',
@@ -123,6 +127,7 @@
     },
     'zh-Hant': {
       'bk.pay.roomType': '房型', 'bk.pay.guestDetails': '入住人資訊',
+      'bk.pay.roomPref': '房間偏好', 'bk.pay.nonSmoking': '無菸房', 'bk.pay.smoking': '吸菸房',
       'bk.pay.firstName': '名字', 'bk.pay.lastName': '姓氏（可選）',
       'bk.pay.email': '電子郵箱', 'bk.pay.phone': '電話（可選）',
       'bk.pay.note': '特殊要求（可選）', 'bk.pay.notePlaceholder': '晚到、高樓層、過敏資訊等…',
@@ -270,6 +275,12 @@
           '<label class="bkp-radio"><input type="radio" name="bkpBreakfast" value="1"' + (state.breakfast ? ' checked' : '') + '> ' + TR('bk.withBreakfast') + ' — ' + money(v.bf) + '</label>' +
         '</div></div>' +
 
+        '<div class="bkp-field"><label class="bkp-label">' + TR('bk.pay.roomPref') + '</label>' +
+          '<div class="bkp-radio-row" id="bkpSmokingRow">' +
+          '<label class="bkp-radio"><input type="radio" name="bkpSmoking" value="non_smoking"' + (state.smoking !== 'smoking' ? ' checked' : '') + '> ' + TR('bk.pay.nonSmoking') + '</label>' +
+          '<label class="bkp-radio"><input type="radio" name="bkpSmoking" value="smoking"' + (state.smoking === 'smoking' ? ' checked' : '') + '> ' + TR('bk.pay.smoking') + '</label>' +
+        '</div></div>' +
+
         '<div id="bkpSurchargeNotes">' + surchargeNotesHTML() + '</div>' +
         '<div class="bkp-total-row"><span>' + TR('bk.pay.total') + '</span><strong id="bkpTotal">' + money(currentTotal()) + '</strong></div>' +
 
@@ -319,6 +330,9 @@
       variantRow.addEventListener('change', function (e) {
         if (e.target.name === 'bkpVariant') {
           state.variantIndex = parseInt(e.target.value, 10);
+          // Keep state.room pointed at whichever underlying room the newly
+          // selected variant actually books under — see open()'s comment.
+          state.room = state.variants[state.variantIndex].roomKey || state.room;
           updateReservationTotals();
         }
       });
@@ -328,6 +342,9 @@
         state.breakfast = e.target.value === '1';
         updateReservationTotals();
       }
+    });
+    qs('#bkpSmokingRow').addEventListener('change', function (e) {
+      if (e.target.name === 'bkpSmoking') state.smoking = e.target.value;
     });
     qs('#bkpSubmitBtn').addEventListener('click', onReservationSubmit);
   }
@@ -348,6 +365,7 @@
       room: state.room,
       variantLabel: v.label,
       breakfast: state.breakfast,
+      smoking: state.smoking,
       checkIn: state.checkIn,
       checkOut: state.checkOut,
       adults: state.adults,
@@ -466,8 +484,16 @@
 
   function open(ctx) {
     build();
+    var variantIndex = defaultVariantIndex(ctx.variants, (ctx.adults || 0) + (ctx.children || 0));
     state = {
-      room: ctx.room,
+      // A merged Single+Twin display room (booking-page.js's DISPLAY_ROOMS)
+      // tags each variant with its own `roomKey` — the real underlying room
+      // name/inventory those two bed configs actually book under, since
+      // they're two distinct backend rooms shown together as one card. Plain
+      // (non-merged) rooms' variants have no roomKey, so this just falls
+      // back to ctx.room as before. Kept in sync with variantIndex by the
+      // variant radio's change handler in wireReservationForm() below.
+      room: ctx.variants[variantIndex].roomKey || ctx.room,
       roomDisplayName: ctx.roomDisplayName,
       maxGuests: ctx.maxGuests,
       extraBedAvailable: ctx.extraBedAvailable,
@@ -477,8 +503,9 @@
       nights: ctx.nights,
       adults: ctx.adults,
       children: ctx.children,
-      variantIndex: defaultVariantIndex(ctx.variants, (ctx.adults || 0) + (ctx.children || 0)),
+      variantIndex: variantIndex,
       breakfast: false,
+      smoking: 'non_smoking',
     };
     overlay.hidden = false;
     lockBodyScroll();

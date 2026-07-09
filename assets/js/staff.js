@@ -2274,6 +2274,7 @@
     fields += bookingField("msg.bk.nights", b.nights);
     fields += bookingField("msg.bk.adults", b.adults);
     if (b.children) fields += bookingField("msg.bk.children", b.children);
+    fields += bookingField("msg.bk.smokingPref", t("msg.bk.smokingPref." + (b.smokingPreference || "non_smoking")));
     fields += bookingField("msg.bk.total", totalStr);
     fields += bookingField("msg.bk.payment", bkPaymentLabel(b));
     fields += bookingField("msg.bk.statusLabel", bkStatusLabel(b.status));

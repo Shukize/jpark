@@ -97,6 +97,10 @@ router.post('/reservations', async (req, res) => {
   const breakfast = Boolean(b.breakfast);
   const adults = b.adults != null ? Number(b.adults) : 1;
   const children = b.children != null ? Number(b.children) : 0;
+  // Guest preference only (front desk assigns the physical room accordingly)
+  // — not a separate bookable room type, so anything other than the literal
+  // 'smoking' string is treated as the (safer, more common) non-smoking default.
+  const smoking = b.smoking === 'smoking' ? 'smoking' : 'non_smoking';
 
   if (!room || !variantLabel || !checkIn || !checkOut) {
     return res.status(400).json({ error: 'room, variantLabel, checkIn and checkOut are required' });
@@ -134,14 +138,14 @@ router.post('/reservations', async (req, res) => {
       `INSERT INTO guest_bookings
          (ref, channel, channel_name, guest_name, guest_last_name, guest_email, guest_phone,
           room, check_in, check_out, nights, adults, children, total, currency, status, lang,
-          payment_provider, payment_method, payment_status)
+          payment_provider, payment_method, payment_status, smoking_preference)
        VALUES ($1,'direct','Direct (Website)',$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'THB','confirmed',$13,
-               'in_person','pay_at_checkin','pending')
+               'in_person','pay_at_checkin','pending',$14)
        RETURNING *`,
       [
         ref, guestName, guestLastName, guest.email, guest.phone || null,
         room, checkIn, checkOut, nights, adults, children, total,
-        b.lang || 'en',
+        b.lang || 'en', smoking,
       ]
     );
     await client.query('COMMIT');

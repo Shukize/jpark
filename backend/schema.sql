@@ -212,6 +212,12 @@ ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS needs_review BOOLEAN NOT NUL
 ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS starred      BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS staff_label  VARCHAR(120);
 
+-- Guest's smoking preference for the stay (routes/payments.js POST
+-- /reservations). Front desk assigns the physical room accordingly — this
+-- is not a separate bookable room type or its own inventory, just a
+-- preference carried on the reservation like adults/children.
+ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS smoking_preference VARCHAR(20) NOT NULL DEFAULT 'non_smoking';
+
 -- ── Chat messages (guest ↔ front-desk) ──────────────────────────────────────
 CREATE TABLE IF NOT EXISTS chat_messages (
   id                  SERIAL       PRIMARY KEY,

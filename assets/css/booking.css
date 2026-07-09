@@ -53,6 +53,18 @@
 
 .bk-nav-links { display: flex; }
 
+/* When nav-inner wraps to a 2nd line above, .lang-switch (with no other
+   item left on that line to space against) lands flex-start — flush to the
+   LEFT of the viewport — instead of flex-end like the homepage header. The
+   dropdown's default rule (style.css: right:0, sized by its own min-width)
+   assumes a right-aligned trigger, so it kept extending further left than
+   the viewport edge, rendering mostly off-screen. Left-aligning it here
+   instead keeps it fully on-screen at every width this header wraps at;
+   verified it never overlaps/overflows past the "Back to Hotel" button or
+   the right edge at the widths where nav-inner does NOT wrap either, since
+   .lang-switch is never flush against the true right edge on this page. */
+.bk-header .lang-menu { left: 0; right: auto; }
+
 .bk-back-btn {
   font-size: 0.8rem;
   padding: 9px 20px;
@@ -236,6 +248,12 @@
   font-size: 0.86rem;
   font-weight: 500;
   color: var(--terracotta);
+}
+
+.bk-child-note {
+  margin-top: 10px;
+  font-size: 0.8rem;
+  color: var(--ink-soft);
 }
 
 /* ---- Status bar ---- */

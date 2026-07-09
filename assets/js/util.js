@@ -50,6 +50,21 @@
     return "฿" + Number(n || 0).toLocaleString();
   }
 
+  // Locale per site language, so a date's month name/calendar/digit style
+  // (e.g. Thai month abbreviations + Buddhist year, not "Jul 2026") follows
+  // whatever language the guest has selected, not a hardcoded en-GB format.
+  var DATE_LOCALE = { th: "th-TH", en: "en-GB", ja: "ja-JP", "zh-Hans": "zh-CN", "zh-Hant": "zh-TW" };
+  function formatDate(iso) {
+    const lang = (window.JPark && window.JPark.i18n) ? window.JPark.i18n.getLang() : "en";
+    const locale = DATE_LOCALE[lang] || "en-GB";
+    const d = new Date(iso + "T12:00:00");
+    try {
+      return d.toLocaleDateString(locale, { day: "numeric", month: "short", year: "numeric" });
+    } catch (_) {
+      return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+    }
+  }
+
   window.JPark = window.JPark || {};
-  window.JPark.util = { escapeHtml, toast, timeAgo, money };
+  window.JPark.util = { escapeHtml, toast, timeAgo, money, formatDate };
 })();

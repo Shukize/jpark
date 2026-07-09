@@ -87,6 +87,10 @@ function balanceDueNote(bk) {
   };
 }
 
+function smokingLabel(bk) {
+  return bk.smoking_preference === 'smoking' ? 'Smoking' : 'Non-Smoking';
+}
+
 function hotelNotice(bk) {
   const money = bk.total != null ? `${bk.total} ${bk.currency || 'THB'}` : '—';
   const guests = `${bk.adults} adult(s), ${bk.children} child(ren)`;
@@ -105,6 +109,7 @@ function hotelNotice(bk) {
     `Check-out: ${bk.check_out}`,
     `Nights: ${bk.nights}`,
     `Guests: ${guests}`,
+    `Room preference: ${smokingLabel(bk)}`,
     `Total: ${money}`,
     ...(payment ? [`Payment: ${payment}`] : []),
     ...(balanceDue ? ['', balanceDue.text] : []),
@@ -125,6 +130,7 @@ function hotelNotice(bk) {
     `<tr><td style="padding:4px 12px 4px 0;color:#555">Check-out</td><td style="padding:4px 0">${bk.check_out}</td></tr>` +
     `<tr><td style="padding:4px 12px 4px 0;color:#555">Nights</td><td style="padding:4px 0">${bk.nights}</td></tr>` +
     `<tr><td style="padding:4px 12px 4px 0;color:#555">Guests</td><td style="padding:4px 0">${guests}</td></tr>` +
+    `<tr><td style="padding:4px 12px 4px 0;color:#555">Room preference</td><td style="padding:4px 0">${smokingLabel(bk)}</td></tr>` +
     `<tr><td style="padding:4px 12px 4px 0;color:#555">Total</td><td style="padding:4px 0">${money}</td></tr>` +
     (payment ? `<tr><td style="padding:4px 12px 4px 0;color:#555">Payment</td><td style="padding:4px 0">${payment}</td></tr>` : '') +
     `</table>` +
@@ -158,6 +164,7 @@ function confirmationEmail(bk) {
     `Check-out: ${bk.check_out}`,
     `Nights: ${bk.nights}`,
     `Guests: ${bk.adults} adult(s), ${bk.children} child(ren)`,
+    `Room preference: ${smokingLabel(bk)}`,
     `Total: ${money}`,
     ...(payment ? [`Payment: ${payment}`] : []),
     ...(balanceDue ? ['', balanceDue.text] : []),
@@ -181,6 +188,7 @@ function confirmationEmail(bk) {
     `<tr><td style="padding:4px 12px 4px 0;color:#555">Check-out</td><td style="padding:4px 0">${bk.check_out}</td></tr>` +
     `<tr><td style="padding:4px 12px 4px 0;color:#555">Nights</td><td style="padding:4px 0">${bk.nights}</td></tr>` +
     `<tr><td style="padding:4px 12px 4px 0;color:#555">Guests</td><td style="padding:4px 0">${bk.adults} adult(s), ${bk.children} child(ren)</td></tr>` +
+    `<tr><td style="padding:4px 12px 4px 0;color:#555">Room preference</td><td style="padding:4px 0">${smokingLabel(bk)}</td></tr>` +
     `<tr><td style="padding:4px 12px 4px 0;color:#555">Total</td><td style="padding:4px 0">${money}</td></tr>` +
     (payment ? `<tr><td style="padding:4px 12px 4px 0;color:#555">Payment</td><td style="padding:4px 0">${payment}</td></tr>` : '') +
     `</table>` +
@@ -302,6 +310,7 @@ function row2js(r) {
     nights: r.nights,
     adults: r.adults,
     children: r.children,
+    smokingPreference: r.smoking_preference || 'non_smoking',
     total: r.total ? Number(r.total) : null,
     currency: r.currency,
     status: r.status,
