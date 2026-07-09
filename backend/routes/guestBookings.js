@@ -316,6 +316,7 @@ function row2js(r) {
     cancelledByName: r.cancelled_by_name,
     cancellationReason: r.cancellation_reason,
     previousStatus: r.previous_status,
+    needsReview: !!r.needs_review,
     readBy: r.read_by || [],
     createdAt: new Date(r.created_at).getTime(),
     updatedAt: r.updated_at ? new Date(r.updated_at).getTime() : null,
@@ -422,8 +423,9 @@ async function ingestGuestBooking(b) {
        (ref, channel, channel_name, channel_email, guest_name, guest_last_name,
         guest_email, guest_phone, room, check_in, check_out, nights, adults,
         children, total, currency, status, lang, confirmation,
-        payment_provider, payment_method, payment_status, payment_charge_id)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)
+        payment_provider, payment_method, payment_status, payment_charge_id,
+        needs_review)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)
      ON CONFLICT (ref) DO UPDATE SET
        status = EXCLUDED.status,
        -- Only stamp cancellation metadata when THIS update is the one moving
@@ -433,6 +435,9 @@ async function ingestGuestBooking(b) {
                             THEN NOW() ELSE guest_bookings.cancelled_at END,
        previous_status = CASE WHEN EXCLUDED.status = 'cancelled' AND guest_bookings.status <> 'cancelled'
                             THEN guest_bookings.status ELSE guest_bookings.previous_status END,
+       -- Take the new value each time, not OR'd with the old one, so a
+       -- corrected re-forward of a previously-flagged booking can clear it.
+       needs_review = EXCLUDED.needs_review,
        updated_at = NOW()
      RETURNING *, (xmax = 0) AS inserted`,
     [
@@ -459,6 +464,7 @@ async function ingestGuestBooking(b) {
       b.paymentMethod || b.payment_method || null,
       b.paymentStatus || b.payment_status || 'n/a',
       b.paymentChargeId || b.payment_charge_id || null,
+      Boolean(b.needsReview || b.needs_review),
     ]
   );
   const saved = rows[0];

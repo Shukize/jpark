@@ -124,5 +124,37 @@ console.log('\n# Idempotent fallback ref when no OTA reference present');
   check('channel-other', a.channel, 'other');
 }
 
+// ── Traveloka, recognized channel + a broadened guest-name label ────────────
+console.log('\n# Traveloka confirmation with "Traveler name" label');
+{
+  const p = parseOtaEmail({
+    from: 'Traveloka <noreply@traveloka.com>',
+    subject: 'Booking confirmed',
+    text: [
+      'Your stay is confirmed.',
+      'Booking ID: TRVK-5566778',
+      'Traveler name: Nattapong Srisuk',
+      'Check-in: 2026-08-01',
+      'Check-out: 2026-08-03',
+    ].join('\n'),
+  });
+  check('channel', p.channel, 'traveloka');
+  check('guestName', p.guestName, 'Nattapong Srisuk');
+  check('checkIn', p.checkIn, '2026-08-01');
+  check('checkOut', p.checkOut, '2026-08-03');
+}
+
+// ── Unrecognized channel + "Booked by" label still resolves a guest name ────
+console.log('\n# Unrecognized channel with "Booked by" label');
+{
+  const p = parseOtaEmail({
+    from: 'reservations@somechannel.com',
+    subject: 'New reservation',
+    text: 'Booked by: Priya Sharma\nCheck-in: 2026-09-01\nCheck-out: 2026-09-04',
+  });
+  check('channel-other', p.channel, 'other');
+  check('guestName', p.guestName, 'Priya Sharma');
+}
+
 console.log(`\n${passed} passed, ${failed} failed.`);
 process.exit(failed ? 1 : 0);

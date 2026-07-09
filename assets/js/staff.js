@@ -1814,6 +1814,13 @@
   function sortBookings(bookings) {
     return bookings.slice().sort((a, b) => {
       if (bkFilter === "all") {
+        // Needs-review bookings float to the top (they're actionable/urgent —
+        // a low-confidence auto-import waiting on a human to fix it up),
+        // cancelled ones sink to the bottom (inactive), everything else
+        // sorts by recency in between.
+        const ar = a.needsReview ? 0 : 1;
+        const br = b.needsReview ? 0 : 1;
+        if (ar !== br) return ar - br;
         const ac = a.status === "cancelled" ? 1 : 0;
         const bc = b.status === "cancelled" ? 1 : 0;
         if (ac !== bc) return ac - bc;
@@ -1881,14 +1888,20 @@
       const unread = isBookingUnread(b);
       const cancelled = b.status === "cancelled";
       const row = document.createElement("div");
-      row.className = "msg-row booking channel-" + b.channel + (unread ? " unread" : " read") + (cancelled ? " cancelled" : "");
+      row.className = "msg-row booking channel-" + b.channel + (unread ? " unread" : " read") + (cancelled ? " cancelled" : "") + (b.needsReview ? " needs-review" : "");
       row.dataset.id = b.id;
       const initial = (b.channelName || "?").charAt(0).toUpperCase();
       const preview = (b.room ? b.room + " · " : "") + bookingDateRange(b) + " · " + b.ref;
+      // Icon-only in the fixed-width sender column (a full-text pill can get
+      // silently clipped by its overflow:hidden alongside a long channel
+      // name) — the full "Needs review" wording is always shown in the
+      // detail view's banner, this is just a scan-the-list flag.
+      const reviewBadge = b.needsReview
+        ? '<span class="bk-row-pill review" title="' + esc(t("msg.bk.needsReview")) + '">⚠</span>' : "";
       const statusPill = cancelled ? '<span class="bk-row-pill">' + esc(t("msg.bk.status.cancelled")) + "</span>" : "";
       row.innerHTML =
         '<div class="mr-avatar bk-avatar"><span>' + esc(initial) + "</span></div>" +
-        '<div class="mr-sender">' + esc(b.channelName) + statusPill + "</div>" +
+        '<div class="mr-sender">' + reviewBadge + esc(b.channelName) + statusPill + "</div>" +
         '<div class="mr-subject-preview">' +
           '<span class="mr-subject">' + esc(b.guestName) + "</span>" +
           '<span class="mr-sep">—</span>' +
@@ -1951,6 +1964,7 @@
         "</div>" +
         '<div class="mda-time">' + esc(new Date(b.createdAt).toLocaleString()) + "</div>" +
       "</div>" +
+      (b.needsReview ? '<div class="bk-review-banner">⚠ ' + esc(t("msg.bk.needsReview")) + ' — ' + esc(t("msg.bk.needsReview.note")) + "</div>" : "") +
       '<div class="bk-detail-grid">' + fields + "</div>" +
       (b.status === "cancelled" ? bkCancellationSummaryHTML(b) : (b.channel === "direct" ? bkFrontDeskHTML(b) : "")) +
       '<div class="bk-confirm-label">' + esc(t("msg.bk.confirmation")) + "</div>" +

@@ -23,12 +23,14 @@
 const crypto = require('crypto');
 
 const CHANNEL_META = {
-  agoda:   { name: 'Agoda',         email: 'bookings@agoda.com' },
-  booking: { name: 'Booking.com',   email: 'noreply@booking.com' },
-  airbnb:  { name: 'Airbnb',        email: 'automated@airbnb.com' },
-  trip:    { name: 'Trip.com',      email: 'hotel@trip.com' },
-  expedia: { name: 'Expedia',       email: 'hotel@expedia.com' },
-  other:   { name: 'Other channel', email: 'noreply@booking-channel.com' },
+  agoda:     { name: 'Agoda',         email: 'bookings@agoda.com' },
+  booking:   { name: 'Booking.com',   email: 'noreply@booking.com' },
+  airbnb:    { name: 'Airbnb',        email: 'automated@airbnb.com' },
+  trip:      { name: 'Trip.com',      email: 'hotel@trip.com' },
+  expedia:   { name: 'Expedia',       email: 'hotel@expedia.com' },
+  traveloka: { name: 'Traveloka',     email: 'noreply@traveloka.com' },
+  hotelscom: { name: 'Hotels.com',    email: 'noreply@hotels.com' },
+  other:     { name: 'Other channel', email: 'noreply@booking-channel.com' },
 };
 
 const MONTHS = {
@@ -63,6 +65,8 @@ function detectChannel(from, subject, body) {
   if (s.includes('trip.com') || s.includes('ctrip')) return 'trip';
   if (s.includes('booking.com') || s.includes('@booking.com') || /\bbooking number\b/i.test(s))
     return 'booking';
+  if (s.includes('traveloka')) return 'traveloka';
+  if (s.includes('hotels.com')) return 'hotelscom';
   return 'other';
 }
 
@@ -221,6 +225,8 @@ function findGuestName(body, subject, channel) {
   }
   const labelled = valueNear(body, [
     'Guest name', 'Name of guest', 'Lead guest', 'Booker name', 'Guest:', 'Name:',
+    'Traveler name', 'Traveller name', 'Customer name', 'Booked by',
+    'Contact name', 'Reservation holder',
   ]);
   if (labelled && /^[A-Za-z]/.test(labelled) && labelled.length <= 60 && !/@/.test(labelled)) {
     const name = labelled.replace(/\s{2,}.*$/, '').replace(/\s*\d.*$/, '').trim();

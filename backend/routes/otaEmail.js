@@ -102,7 +102,15 @@ router.post('/', async (req, res) => {
       'against the original email below and correct this booking.\n\n' +
       (parsed.confirmation || '');
   }
-  if (!parsed.guestName) parsed.guestName = 'Guest (see email)';
+  if (!parsed.guestName) {
+    needsReview = true;
+    parsed.guestName = 'Guest (see email)';
+  }
+  // Previously computed here and only ever returned in this route's own HTTP
+  // response (useful to nobody — the webhook caller is a forwarder script
+  // that doesn't read it) and never persisted, so a low-confidence import
+  // was indistinguishable from a clean one anywhere in the staff console.
+  parsed.needsReview = needsReview;
 
   try {
     const saved = await ingestGuestBooking(parsed);

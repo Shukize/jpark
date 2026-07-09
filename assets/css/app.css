@@ -994,13 +994,18 @@ body.mobile-view .fac-card.large {
 /* ============================================================
    GUEST BOOKING inbox — OTA reservations (Agoda, Booking.com…)
    ============================================================ */
-.bk-avatar { color: #fff; }
-.channel-agoda   .bk-avatar, .bk-avatar.channel-agoda   { background: #d62e30; }
-.channel-booking .bk-avatar, .bk-avatar.channel-booking { background: #003580; }
-.channel-airbnb  .bk-avatar, .bk-avatar.channel-airbnb  { background: #ff385c; }
-.channel-trip    .bk-avatar, .bk-avatar.channel-trip    { background: #287dfa; }
-.channel-expedia .bk-avatar, .bk-avatar.channel-expedia { background: #fbc02d; color: #1a2b4a; }
-.channel-other   .bk-avatar, .bk-avatar.channel-other   { background: var(--teal); }
+/* Base/default so ANY channel value — including one not (yet) given its own
+   brand color below — still renders a visible, on-brand avatar rather than
+   white text on nothing. */
+.bk-avatar { background: var(--teal); color: #fff; }
+.channel-agoda     .bk-avatar, .bk-avatar.channel-agoda     { background: #d62e30; }
+.channel-booking   .bk-avatar, .bk-avatar.channel-booking   { background: #003580; }
+.channel-airbnb    .bk-avatar, .bk-avatar.channel-airbnb    { background: #ff385c; }
+.channel-trip      .bk-avatar, .bk-avatar.channel-trip      { background: #287dfa; }
+.channel-expedia   .bk-avatar, .bk-avatar.channel-expedia   { background: #fbc02d; color: #1a2b4a; }
+.channel-traveloka .bk-avatar, .bk-avatar.channel-traveloka { background: #1dbf73; }
+.channel-hotelscom .bk-avatar, .bk-avatar.channel-hotelscom { background: #d32f2f; }
+.channel-other     .bk-avatar, .bk-avatar.channel-other     { background: var(--teal); }
 .msg-row.booking.unread::before { background: var(--gold); }
 
 /* structured booking details, shown above the confirmation email body */
@@ -1052,6 +1057,21 @@ body.mobile-view .fac-card.large {
   display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 999px;
   font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .03em;
   background: #fdecea; color: #c0392b; vertical-align: middle;
+}
+.bk-row-pill.review {
+  background: #fef3e2; color: #b45309; margin-left: 0; margin-right: 6px;
+  padding: 1px 6px; cursor: help;
+}
+
+/* Needs-review booking: a low-confidence auto-import (missing dates and/or
+   guest name) — surfaced so staff notice it instead of it silently blending
+   in with clean bookings. Not dimmed like .cancelled — this is actionable,
+   not inactive. */
+.msg-row.needs-review:not(.cancelled) .mr-sender { color: #b45309; }
+.bk-review-banner {
+  margin-bottom: 18px; padding: 10px 14px; max-width: 580px;
+  background: #fef3e2; border: 1px solid #f0c980; border-radius: 8px;
+  color: #92400a; font-size: 0.86rem; font-weight: 600;
 }
 
 /* Cancel / Reopen action button — amber, deliberately distinct from the

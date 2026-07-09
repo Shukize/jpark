@@ -195,6 +195,13 @@ ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS cancelled_by_name   VARCHAR(
 ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS cancellation_reason TEXT;
 ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS previous_status     VARCHAR(30);
 
+-- Set by the OTA email-forwarding bridge (routes/otaEmail.js) when a
+-- forwarded confirmation couldn't be confidently parsed (missing dates
+-- and/or guest name) — surfaced in the staff console so a low-confidence
+-- import is visibly flagged instead of silently blending in with clean
+-- bookings (the raw email is always preserved in `confirmation` regardless).
+ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS needs_review BOOLEAN NOT NULL DEFAULT FALSE;
+
 -- ── Chat messages (guest ↔ front-desk) ──────────────────────────────────────
 CREATE TABLE IF NOT EXISTS chat_messages (
   id                  SERIAL       PRIMARY KEY,

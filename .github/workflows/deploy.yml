@@ -34,6 +34,22 @@ jobs:
             node --check "$f" || exit 1
           done
 
+      # The HTML entry points cache-bust every asset <script>/<link> with a
+      # hand-maintained "?v=..." query string, but nothing forces a developer
+      # to remember bumping it on every content-changing commit — a commit
+      # that forgets to can leave GitHub's CDN edge (and browsers) serving
+      # stale bytes for a file under the same URL even after new content is
+      # published (this happened in production 2026-07-09: staff.js and
+      # i18n-app.js changed but the version string didn't, and one file
+      # served fresh while the other stayed stale). Deriving the version from
+      # the commit SHA here makes it change automatically on every deploy,
+      # closing this failure mode for good.
+      - name: Cache-bust asset versions
+        run: |
+          SHA_SHORT=$(git rev-parse --short HEAD)
+          sed -i -E "s/\?v=[A-Za-z0-9._-]+/?v=${SHA_SHORT}/g" *.html
+          grep -o '?v=[A-Za-z0-9._-]*' *.html | sort -u
+
       - uses: actions/configure-pages@v5
         with:
           # Enable Pages (in "GitHub Actions" mode) on first run instead of
