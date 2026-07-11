@@ -46,14 +46,14 @@ const ROOMS = {
   'Prestige Single':            { maxGuests: 3, extraBedAvailable: false, variants: [{ label: 'Single', room: 1040, bf: 1160 }] },
   'Prestige Twin':              { maxGuests: 3, extraBedAvailable: false, variants: [{ label: 'Twin',   room: 1040, bf: 1350 }] },
   'Studio B4':                  { maxGuests: 3, extraBedAvailable: true,  variants: [{ label: 'Single', room: 1070, bf: 1190 }, { label: 'Twin', room: 1070, bf: 1380 }] },
-  'Deluxe':                     { maxGuests: 3, extraBedAvailable: true,  variants: [{ label: 'Single', room: 1110, bf: 1230 }, { label: 'Double', room: 1110, bf: 1420 }] },
+  'Deluxe':                     { maxGuests: 3, extraBedAvailable: true,  variants: [{ label: 'Single', room: 1110, bf: 1230 }] },
   'Premium Single':             { maxGuests: 3, extraBedAvailable: true,  variants: [{ label: 'Single', room: 1160, bf: 1280 }] },
   'Premium Twin':                { maxGuests: 3, extraBedAvailable: true,  variants: [{ label: 'Twin', room: 1160, bf: 1470 }] },
-  'Grand Premium':              { maxGuests: 3, extraBedAvailable: true,  variants: [{ label: 'Single', room: 1260, bf: 1380 }, { label: 'Twin', room: 1260, bf: 1570 }] },
+  'Grand Premium':              { maxGuests: 3, extraBedAvailable: true,  variants: [{ label: 'Single', room: 1260, bf: 1380 }] },
   'Corner Suite':                { maxGuests: 3, extraBedAvailable: false, variants: [{ label: 'Single', room: 1260, bf: 1380 }, { label: 'Twin', room: 1260, bf: 1570 }] },
-  'Grand Deluxe':                { maxGuests: 3, extraBedAvailable: true,  variants: [{ label: 'Single', room: 1340, bf: 1460 }, { label: 'Double', room: 1340, bf: 1650 }] },
+  'Grand Deluxe':                { maxGuests: 3, extraBedAvailable: true,  variants: [{ label: 'Single', room: 1340, bf: 1460 }] },
   'Executive Suite 1 Bedroom':  { maxGuests: 4, extraBedAvailable: false, variants: [{ label: '1 Bedroom', room: 1850, bf: 1970 }, { label: '2 Bedrooms', room: 2100, bf: 2410 }] },
-  'Premium Suite':               { maxGuests: 3, extraBedAvailable: false, variants: [{ label: '1 Bedroom', room: 2100, bf: 2220 }, { label: '2 Bedrooms', room: 2100, bf: 2410 }] },
+  'Premium Suite':               { maxGuests: 3, extraBedAvailable: false, variants: [{ label: '1 Bedroom', room: 2100, bf: 2220 }] },
   'Grand Suite':                 { maxGuests: 4, extraBedAvailable: false, variants: [{ label: '1 Bedroom', room: 2700, bf: 2820 }, { label: '2 Bedrooms', room: 3000, bf: 3310 }] },
 };
 

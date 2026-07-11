@@ -66,8 +66,8 @@
       name: 'Deluxe', folder: 'Deluxe',
       nameKey: 'rooms.deluxeName', descKey: 'rooms.deluxeDesc',
       size: '44 m²', maxGuests: 3, extraBedAvailable: true,
-      amenities: ['Single or Double', 'Lounge Seating', 'Sleek Bathroom', 'Smart TV', 'Air Conditioning', 'Free Wi-Fi'],
-      variants: [{ label: 'Single', room: 1110, bf: 1230 }, { label: 'Double', room: 1110, bf: 1420 }],
+      amenities: ['Single Bed', 'Lounge Seating', 'Sleek Bathroom', 'Smart TV', 'Air Conditioning', 'Free Wi-Fi'],
+      variants: [{ label: 'Single', room: 1110, bf: 1230 }],
     },
     {
       // guestTier pair with 'Premium Twin' below — see the comment on
@@ -90,8 +90,8 @@
       name: 'Grand Premium', folder: 'Grand Premium',
       nameKey: 'rooms.grandPremiumName', descKey: 'rooms.grandPremiereDesc',
       size: '49 m²', maxGuests: 3, extraBedAvailable: true,
-      amenities: ['Single or Twin', 'Wide Lounge Area', 'Upgraded Amenities', 'Smart TV', 'Air Conditioning', 'Free Wi-Fi'],
-      variants: [{ label: 'Single', room: 1260, bf: 1380 }, { label: 'Twin', room: 1260, bf: 1570 }],
+      amenities: ['Single Bed', 'Wide Lounge Area', 'Upgraded Amenities', 'Smart TV', 'Air Conditioning', 'Free Wi-Fi'],
+      variants: [{ label: 'Single', room: 1260, bf: 1380 }],
     },
     {
       name: 'Corner Suite', folder: 'Corner Suite',
@@ -104,8 +104,8 @@
       name: 'Grand Deluxe', folder: 'Grand Deluxe',
       nameKey: 'rooms.grandDeluxeName', descKey: 'rooms.grandDeluxeDesc',
       size: '54 m²', maxGuests: 3, extraBedAvailable: true,
-      amenities: ['Single or Double', 'Plush Furnishings', 'Premium Finishes', 'Smart TV', 'Air Conditioning', 'Free Wi-Fi'],
-      variants: [{ label: 'Single', room: 1340, bf: 1460 }, { label: 'Double', room: 1340, bf: 1650 }],
+      amenities: ['Single Bed', 'Plush Furnishings', 'Premium Finishes', 'Smart TV', 'Air Conditioning', 'Free Wi-Fi'],
+      variants: [{ label: 'Single', room: 1340, bf: 1460 }],
     },
     {
       name: 'Executive Suite 1 Bedroom', folder: 'Executive Suite 1 Bedroom',
@@ -118,8 +118,8 @@
       name: 'Premium Suite', folder: 'Premium Suite',
       nameKey: 'rooms.premiumSuiteName', descKey: 'rooms.premiereSuiteDesc',
       size: '73 m²', maxGuests: 3, extraBedAvailable: false,
-      amenities: ['1 or 2 Bedrooms', 'Living & Dining Area', 'Premium Finishes', 'Smart TV', 'Air Conditioning', 'Free Wi-Fi'],
-      variants: [{ label: '1 Bedroom', room: 2100, bf: 2220 }, { label: '2 Bedrooms', room: 2100, bf: 2410 }],
+      amenities: ['1 Bedroom', 'Living & Dining Area', 'Premium Finishes', 'Smart TV', 'Air Conditioning', 'Free Wi-Fi'],
+      variants: [{ label: '1 Bedroom', room: 2100, bf: 2220 }],
     },
     {
       name: 'Grand Suite', folder: 'Grand Suite 1 Bedroom',
