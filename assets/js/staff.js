@@ -1452,7 +1452,16 @@
     if (msgView === "detail" && msgDetailId) {
       listArea.classList.add("hidden");
       detailArea.classList.add("show");
-      if (msgDetailKind === "booking") renderBookingDetail(msgDetailId);
+      // Every poll (guestBookings, messages, resetRequests — see startApiPolling())
+      // fires S.write() unconditionally on each tick regardless of whether
+      // the data actually changed, which routes through here. Rebuilding
+      // the booking detail pane while a "Resend confirmation" edit is open
+      // (bkResendEditingId) would wipe out the open editor and whatever the
+      // staff member had typed — skip just that rebuild, not the badge/nav
+      // updates above, which are harmless.
+      if (msgDetailKind === "booking") {
+        if (bkResendEditingId == null || bkResendEditingId !== msgDetailId) renderBookingDetail(msgDetailId);
+      }
       else renderMsgDetail(msgDetailId);
     } else {
       listArea.classList.remove("hidden");
@@ -4355,11 +4364,10 @@
         }
       });
     }
-    // Skip the destructive full re-render while a "Resend confirmation"
-    // edit is in progress (see bkResendEditingId) — otherwise this fires
-    // every 6s from the guest-bookings poll and wipes out the open editor,
-    // and anything the staff member had already typed, out from under them.
-    if (panel === "messages" && bkResendEditingId == null) renderMessages();
+    // renderMessages() itself skips rebuilding the open booking detail pane
+    // while a "Resend confirmation" edit is in progress (bkResendEditingId)
+    // — badges/counts below are harmless to keep live either way.
+    if (panel === "messages") renderMessages();
     updateBadges();
   }
   function onStaffChange() {
