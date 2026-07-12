@@ -309,3 +309,12 @@ ALTER TABLE site_content ADD COLUMN IF NOT EXISTS surcharges JSONB NOT NULL DEFA
 -- in backend/lib/roomRates.js's DAYUSE map. See backend/lib/rateOverrides.js's
 -- getEffectiveDayUseRates()/getEffectiveDayUsePrice().
 ALTER TABLE site_content ADD COLUMN IF NOT EXISTS day_use_rates JSONB NOT NULL DEFAULT '{}';
+
+-- Admin-editable per-room-type availability (Site Editor). Sparse list of
+-- room names currently delisted/unbookable — absence means available (the
+-- default for all 13 catalog room types except Deluxe, which ships hidden
+-- until staff turn it on). Mirrors `hidden`'s TEXT[] shape (whole-section
+-- visibility) but is a distinct concept/column since room names and section
+-- ids are different namespaces. Only ever contains keys that exist in
+-- backend/lib/roomRates.js's ROOMS. See backend/routes/availability.js.
+ALTER TABLE site_content ADD COLUMN IF NOT EXISTS unavailable_rooms TEXT[] NOT NULL DEFAULT '{"Deluxe"}';

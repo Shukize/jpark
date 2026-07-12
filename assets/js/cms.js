@@ -173,6 +173,14 @@
         a.style.display = hidden[id] ? "none" : "";
       });
     });
+
+    // Per-room-type availability (Site Editor "Room availability" toggle,
+    // backend/routes/availability.js) — delisted rooms are hidden from the
+    // homepage grid entirely, same mechanism as whole-section hiding above.
+    const unavailable = c.unavailableRooms || [];
+    document.querySelectorAll(".room-card[data-room]").forEach((card) => {
+      card.style.display = unavailable.indexOf(card.dataset.room) !== -1 ? "none" : "";
+    });
   }
 
   /* Re-paint every translated string after admin text edits, then
@@ -272,10 +280,24 @@
     S.write("content", merged);
   }
 
+  /* Fetch the delisted-room list from the API and merge into localStorage,
+     same fetch-then-merge pattern as syncContentFromApi() above — kept as a
+     separate call (not folded into the /api/content response) since
+     availability is served by its own dedicated, validated route. */
+  async function syncAvailabilityFromApi() {
+    const API = window.JPark && window.JPark.api;
+    if (!API) return;
+    const res = await API.get("/api/availability");
+    if (res.error || res.offline) return;
+    const local = S.read("content", {}) || {};
+    S.write("content", Object.assign({}, local, { unavailableRooms: res.unavailable || [] }));
+  }
+
   document.addEventListener("DOMContentLoaded", () => {
     applyAll();
     locateFromHash();
     syncContentFromApi();
+    syncAvailabilityFromApi();
 
     const close = document.getElementById("annClose");
     if (close) close.addEventListener("click", () => {

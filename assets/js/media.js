@@ -22,23 +22,13 @@
   function imgs(list) { return list.map((s) => ({ src: s, video: false })); }
 
   /* Room folders -> photo counts (files are room_01.jpg … room_NN.jpg, best
-     cover first). One folder per room type currently let, in display order. */
-  /* Counts reflect the room_NN.jpg files that exist on disk, all 4K AI-upscaled.
-     Most rooms are Agoda OTA photos matched to an exact same-named category.
-     Prestige Single, Premium Single, Grand Deluxe and Grand Suite 1 Bedroom are
-     sourced from Trip.com/Klook's own room-specific photos, matched by real
-     room size (m²) since this hotel's OTA room names don't line up 1:1 with
-     the site's tier names. Deluxe, Grand Premium and Premium Suite have no
-     confidently-matched real photos on any OTA (their sizes fall between
-     tiers with no distinct source) — count 0, "coming soon" placeholder shown
-     on the room card instead of guessing wrong again. */
+     cover first). Only rooms still on the sequential-numbering scheme are
+     listed here — the 9 rooms re-photographed 2026-07-12 (real, UUID-named
+     files) use hardcoded ROOM_*_ITEMS arrays below instead (see comment near
+     PREVIEW_ITEMS), since seq() can't control cover-photo order. */
   const ROOM_COUNTS = {
-    "Prestige Single": 20, "Prestige Twin": 9,
-    "Premium Single": 20, "Premium Twin": 7, "Grand Premium": 0,
-    "Grand Deluxe": 20,
-    "Premium Suite": 0, "Grand Suite 1 Bedroom": 11,
-    "Corner Suite": 13, "Deluxe": 0, "Studio Single": 13, "Studio B4": 11,
-    "Executive Suite 1 Bedroom": 17
+    "Grand Suite 1 Bedroom": 11,
+    "Corner Suite": 13, "Studio Single": 13, "Studio B4": 11
   };
   function seq(folder, prefix, n) {
     const out = [];
@@ -182,9 +172,98 @@
   const ONSEN_WOMEN_ITEMS = imgs([]);
   const ONSEN_ITEMS = imgs(["images/Onsen Men/7103cb46-b226-4d99-90a1-c47c4fc425f5.jpg"]);
 
-  /* Deluxe, Studio Single, Studio B4 and Corner Suite are now Agoda OTA photos
-     (4K AI-upscaled), stored as room_NN.jpg and driven by ROOM_COUNTS above.
-     Executive Suite has no OTA match (count 0 / empty) until photos are added. */
+  /* Studio Single, Studio B4 and Corner Suite are Agoda OTA photos (4K
+     AI-upscaled), stored as room_NN.jpg and driven by ROOM_COUNTS above. */
+
+  /* Room photos — 2026-07-12 refresh. Real guest-room photography supplied
+     directly by the owner (UUID filenames, not yet run through the AI
+     upscale/renumber pass the OTA-sourced sets got). Hardcoded rather than
+     ROOM_COUNTS-driven so the cover (first item) is a deliberate choice, not
+     just whichever file sorts first. Deluxe/Grand Premium/Premium Suite had
+     no photos before this refresh (previously "coming soon" placeholders on
+     the room card); the other 6 replace a prior OTA-sourced set. */
+  const DELUXE_ITEMS = imgs([
+    "images/Deluxe/a3160c8e-69ce-44ff-8476-8a161345f6f0.jpg",
+    "images/Deluxe/78a65474-816a-4765-9176-e2e634d16379.jpg",
+    "images/Deluxe/204c3cc9-0ae1-4e70-9057-bfd93ec6224f.jpg",
+    "images/Deluxe/41e208c6-fa20-4324-b407-995feced2ee3.jpg",
+    "images/Deluxe/0c6ff738-1ae5-425d-969d-f140fed4850b.jpg",
+    "images/Deluxe/ac7f00bb-2a06-4028-9629-ea86c4cdb49f.jpg",
+    "images/Deluxe/4d01cf3d-a1ee-423b-a045-fa85b5ad8a56.jpg"
+  ]);
+
+  const PRESTIGE_SINGLE_ITEMS = imgs([
+    "images/Prestige Single/5a9806cf-e0a8-4a1f-bdc8-229d23133920.jpg",
+    "images/Prestige Single/0b8a9c45-7a6b-4a08-ad07-cd84f4938b8b.jpg",
+    "images/Prestige Single/d1a8c592-b039-4220-b211-780bc5e08759.jpg"
+  ]);
+
+  const PRESTIGE_TWIN_ITEMS = imgs([
+    "images/Prestige Twin/ddc88e21-e799-4ae8-b57d-160941f784ed.jpg",
+    "images/Prestige Twin/895d01a4-d5ef-48b3-b1d8-9ab741e431f8.jpg",
+    "images/Prestige Twin/2d577255-0ae1-4138-97ac-6315a2cee065.jpg"
+  ]);
+
+  const GRAND_DELUXE_ITEMS = imgs([
+    "images/Grand Deluxe/6db9cfbb-15f3-4e40-b145-363e30a832ff.jpg",
+    "images/Grand Deluxe/2aa62ec1-84ee-4047-910c-e6be7f69fd85.jpg",
+    "images/Grand Deluxe/02477355-65c6-4b8e-a6be-55fa43d7a563.jpg",
+    "images/Grand Deluxe/1b4bf117-991c-4b98-abde-e81f6ba6c07d.jpg",
+    "images/Grand Deluxe/38435d64-78b1-4815-a4a4-ce1ea5f83d4a.jpg"
+  ]);
+
+  const EXEC_SUITE_ITEMS = imgs([
+    "images/Executive Suite 1 Bedroom/a0bd708d-6bc9-4555-8c45-e3423002c4ba.jpg",
+    "images/Executive Suite 1 Bedroom/c84f4bfd-f4d8-4d65-8397-ef73a652400e.jpg",
+    "images/Executive Suite 1 Bedroom/0ea8231b-6775-449c-9f7b-b8caa2a5cdee.jpg",
+    "images/Executive Suite 1 Bedroom/43c2172c-b53a-429c-a458-88e36804c36c.jpg",
+    "images/Executive Suite 1 Bedroom/0f37fac2-48e3-4caf-b9b0-829b32429d96.jpg",
+    "images/Executive Suite 1 Bedroom/d5840daa-96af-48e3-a59c-76a45fac6418.jpg",
+    "images/Executive Suite 1 Bedroom/fe8801e6-26ce-4308-9cbb-5f431e4a7365.jpg",
+    "images/Executive Suite 1 Bedroom/ed6df185-20e3-4e69-899d-5602b8d5826f.jpg",
+    "images/Executive Suite 1 Bedroom/7f53f059-2b7a-49bc-8033-0cf90bea8169.jpg"
+  ]);
+
+  /* Room name stays "Premium ..." internally (folder path, set id, Google
+     Hotel Ads roomTypeId source) — only guest-facing text reads "Premier". */
+  const PREMIUM_SINGLE_ITEMS = imgs([
+    "images/Premium Single/a953d63b-5396-49ac-b2e4-f81d7bd6d08b.jpg",
+    "images/Premium Single/baeb29ed-2c9e-44ec-89f3-2dc520c69569.jpg",
+    "images/Premium Single/b79beb91-5935-4374-ba5e-b2f53dea2aa7.jpg",
+    "images/Premium Single/b2dfbd58-5979-4293-989d-8e062f7477df.jpg",
+    "images/Premium Single/99f6bda7-b887-468d-bc03-60c51abf913b.jpg",
+    "images/Premium Single/74c1e92a-e77a-4274-8b55-5ce584d622cc.jpg",
+    "images/Premium Single/68a2263b-31c0-4abe-9a1f-6e05b918ad5c.jpg",
+    "images/Premium Single/df142822-f9cc-441e-8726-8c2c74bd693a.jpg",
+    "images/Premium Single/9c0a8b67-be04-4416-8c29-e05b0f82f87f.jpg",
+    "images/Premium Single/92dc15c8-9a95-4b7a-b644-94b7b8d46c88.jpg",
+    "images/Premium Single/a756a4db-9e88-46bd-a0da-c4aeeaa7a8cd.jpg",
+    "images/Premium Single/bcec671d-9a5b-4e00-92d3-ea2b4e0de6f7.jpg",
+    "images/Premium Single/376a09ea-ec63-41ab-8855-7971a7fe880d.jpg"
+  ]);
+
+  const PREMIUM_TWIN_ITEMS = imgs([
+    "images/Premium Twin/d5deecf8-a8bc-459e-b278-178ff33f9c02.jpg",
+    "images/Premium Twin/3e2ca324-c173-4425-9d30-528e60510b8a.jpg",
+    "images/Premium Twin/47e924f3-7d16-4af0-a9c3-f9a4e5236038.jpg",
+    "images/Premium Twin/3af540d9-4ba6-4abe-baee-abfda03aff41.jpg"
+  ]);
+
+  const PREMIUM_SUITE_ITEMS = imgs([
+    "images/Premium Suite/29387af7-b51f-4a01-85a1-be9a3133886d.jpg",
+    "images/Premium Suite/06b8e743-6a8f-40f3-a005-026ce5f22bad.jpg",
+    "images/Premium Suite/ac4fa6d2-1d6a-4336-a83d-943d7e34cd5d.jpg",
+    "images/Premium Suite/ed152643-506c-4056-8e1c-2b828d3eb20d.jpg",
+    "images/Premium Suite/21fa8a12-1a95-4d27-8f1a-e2d66228338b.jpg"
+  ]);
+
+  const GRAND_PREMIUM_ITEMS = imgs([
+    "images/Grand Premium/8f701fe4-d51b-43d6-b4f9-4569445b546d.jpg",
+    "images/Grand Premium/d366d846-40c7-41c1-80be-446ee1c9797b.jpg",
+    "images/Grand Premium/9c739d41-1d44-4f7f-a693-9e282e8e37aa.jpg",
+    "images/Grand Premium/7b05ec66-9cc4-4621-9693-be2a3860646d.jpg",
+    "images/Grand Premium/7dbdc80f-beff-45ec-9995-7363342c1b63.jpg"
+  ]);
 
   const HERO_ITEMS = imgs(["images/Tropical Pool/ffcc842a-2003-4239-ae74-0e6c0b10f883.jpg"]);
   const ABOUT_MAIN_ITEMS = imgs(["images/Tropical Pool/ce70057e-42f0-4b44-9f67-18598f22ff3a.jpg"]);
@@ -219,17 +298,17 @@
     { id: "banquet",     labelKey: "fac.gardenName",      section: "facilities", gallery: true, galleryKey: "gallery.cat.banquet", items: BANQUET_ITEMS },
     { id: "gym",         labelKey: "fac.gymName",         section: "facilities", gallery: true, galleryKey: "gallery.cat.gym", items: GYM_ITEMS },
     { id: "room:Studio Single",   labelKey: "rooms.studioSingleName",  section: "rooms", gallery: true, items: roomItems("Studio Single") },
-    { id: "room:Prestige Single", labelKey: "rooms.prestigeSingleName", section: "rooms", gallery: true, items: roomItems("Prestige Single") },
-    { id: "room:Prestige Twin",   labelKey: "rooms.prestigeTwinName",  section: "rooms", gallery: true, items: roomItems("Prestige Twin") },
+    { id: "room:Prestige Single", labelKey: "rooms.prestigeSingleName", section: "rooms", gallery: true, items: PRESTIGE_SINGLE_ITEMS },
+    { id: "room:Prestige Twin",   labelKey: "rooms.prestigeTwinName",  section: "rooms", gallery: true, items: PRESTIGE_TWIN_ITEMS },
     { id: "room:Studio B4",       labelKey: "rooms.studioB4Name",      section: "rooms", gallery: true, items: roomItems("Studio B4") },
-    { id: "room:Deluxe",          labelKey: "rooms.deluxeName",        section: "rooms", items: roomItems("Deluxe") },
-    { id: "room:Premium Single",  labelKey: "rooms.premiumSingleName", section: "rooms", gallery: true, items: roomItems("Premium Single") },
-    { id: "room:Premium Twin",    labelKey: "rooms.premiumTwinName",   section: "rooms", gallery: true, items: roomItems("Premium Twin") },
-    { id: "room:Grand Premium",   labelKey: "rooms.grandPremiumName",  section: "rooms", items: roomItems("Grand Premium") },
+    { id: "room:Deluxe",          labelKey: "rooms.deluxeName",        section: "rooms", gallery: true, items: DELUXE_ITEMS },
+    { id: "room:Premium Single",  labelKey: "rooms.premiumSingleName", section: "rooms", gallery: true, items: PREMIUM_SINGLE_ITEMS },
+    { id: "room:Premium Twin",    labelKey: "rooms.premiumTwinName",   section: "rooms", gallery: true, items: PREMIUM_TWIN_ITEMS },
+    { id: "room:Grand Premium",   labelKey: "rooms.grandPremiumName",  section: "rooms", gallery: true, items: GRAND_PREMIUM_ITEMS },
     { id: "room:Corner Suite",    labelKey: "rooms.cornerName",        section: "rooms", gallery: true, items: roomItems("Corner Suite") },
-    { id: "room:Grand Deluxe",    labelKey: "rooms.grandDeluxeName",   section: "rooms", gallery: true, items: roomItems("Grand Deluxe") },
-    { id: "room:Executive Suite 1 Bedroom", labelKey: "rooms.execSuite1brName", section: "rooms", gallery: true, items: roomItems("Executive Suite 1 Bedroom") },
-    { id: "room:Premium Suite",   labelKey: "rooms.premiumSuiteName",  section: "rooms", items: roomItems("Premium Suite") },
+    { id: "room:Grand Deluxe",    labelKey: "rooms.grandDeluxeName",   section: "rooms", gallery: true, items: GRAND_DELUXE_ITEMS },
+    { id: "room:Executive Suite 1 Bedroom", labelKey: "rooms.execSuite1brName", section: "rooms", gallery: true, items: EXEC_SUITE_ITEMS },
+    { id: "room:Premium Suite",   labelKey: "rooms.premiumSuiteName",  section: "rooms", gallery: true, items: PREMIUM_SUITE_ITEMS },
     { id: "room:Grand Suite 1 Bedroom", labelKey: "rooms.grandSuiteName", section: "rooms", gallery: true, items: roomItems("Grand Suite 1 Bedroom") },
     { id: "building5",    labelKey: "building.galTitle",      section: "building",   gallery: true, galleryKey: "building.galTitle", items: BUILDING5_ITEMS },
     { id: "lobby",        labelKey: "gallery.cat.lobby",      section: "gallery", gallery: true, items: LOBBY_ITEMS },

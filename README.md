@@ -100,12 +100,12 @@ Open **Staff console → Site Editor**. Everything updates the live public site 
 | **Photos & videos** | Open any section to **add / replace / reorder / remove** its photos. Uploads (≤ 4 MB, stored as data URLs) or pasted image/video links. The current photos are shown so you always see what's live. |
 | **Colours** | Recolour the whole site (primary / accent / gold). |
 | **Rates** | Edit room-only and room-with-breakfast prices per room type and bed configuration, the 3rd-guest surcharges, and **Day Use (3-hour stay) prices**. Unlike every other tab, this is **not** cosmetic: Save writes straight to the database (`GET`/`PUT /api/rates`) and is used immediately to compute real guest charges (`backend/routes/payments.js` via `backend/lib/rateOverrides.js`). There is no "Undo all my edits" for rates — check a number before saving. |
-| **Sections** | Show/hide whole sections, post an announcement banner, "Undo all my edits", and "Reset all demo data". |
+| **Sections** | Show/hide whole sections, toggle **per-room-type availability** (see below), post an announcement banner, "Undo all my edits", and "Reset all demo data". |
 | **Previous edits** | Audit log of every change — who, what and when (newest first). |
 
 Website text, photo/gallery and colour edits are stored in the `content` table in `localStorage`: text in `content.overrides[lang][key]`, photos in `content.media[setId]`, plus `content.theme`, `content.hidden` and `content.editLog`. **Undo all my edits** clears them and restores the shipped defaults for those tabs. Auto-translation needs an internet connection; if it's unavailable the other languages keep their current text and can be edited by hand.
 
-**Room rates are the one exception.** They live in a dedicated `rates` column on the server's `site_content` table, not in `localStorage` — edits are saved via `PUT /api/rates` (admin-only, validated against the known room/variant list and a sane price range) and read back via `GET /api/rates`, which both `booking.html` and the Rates tab use so the displayed price always matches what a guest is actually charged. They are unaffected by "Undo all my edits."
+**Room rates and room availability are the two exceptions.** Rates live in a dedicated `rates` column on the server's `site_content` table, not in `localStorage` — edits are saved via `PUT /api/rates` (admin-only, validated against the known room/variant list and a sane price range) and read back via `GET /api/rates`, which both `booking.html` and the Rates tab use so the displayed price always matches what a guest is actually charged. Room availability works the same way, in its own `unavailable_rooms` column: the **Sections** tab's "Room availability" card shows one checkbox per room type (source of truth: `GET /api/availability`'s `rooms` list, not a hardcoded copy) and saves each toggle immediately via `PUT /api/availability` — no batch "Save" button, matching the Rates tab's real-time-save UX. A delisted room is removed from both the homepage grid (`assets/js/cms.js`) and booking search results (`assets/js/booking-page.js`, which also drops just the Single or Twin side of a merged bed-type card if only one is delisted) — not merely hidden with CSS, a guest can't find or book it via any path. Both are unaffected by "Undo all my edits."
 
 ---
 
@@ -489,11 +489,12 @@ This is a demo convenience only; real deployments get live timestamps from the O
 
 ```
 content = {
-  overrides: { en: { "hero.title": "…" }, th: {…}, … },  // text, per language
-  media:     { "room:Superior Room": [ {src,video}, … ], … },  // photo sets
-  theme:     { teal, terracotta, gold },
-  hidden:    { rooms: true, … },                          // hidden sections
-  editLog:   [ { ts, userName, type, … } ]                // Previous edits
+  overrides:        { en: { "hero.title": "…" }, th: {…}, … },  // text, per language
+  media:            { "room:Superior Room": [ {src,video}, … ], … },  // photo sets
+  theme:            { teal, terracotta, gold },
+  hidden:           { rooms: true, … },                    // hidden sections
+  editLog:          [ { ts, userName, type, … } ],         // Previous edits
+  unavailableRooms: [ "Deluxe", … ]                        // read-only cache of GET /api/availability
 }
 ```
 
@@ -553,6 +554,7 @@ a broken OTA parser can no longer reach production.
 | `GET/POST /api/employees` | Staff roster management |
 | `GET/PUT /api/content` | Site Editor overrides (text, media, theme) |
 | `GET/PUT /api/rates` | Site Editor **Rates** tab — live room-rate, surcharge and Day Use overrides; `GET` is public (read by `booking.html` too), `PUT` is admin-only and validated (see [`backend/routes/rates.js`](backend/routes/rates.js)) |
+| `GET/PUT /api/availability` | Site Editor **Sections → Room availability** — the list of delisted room types; `GET` is public (read by `index.html`/`booking.html`/the Site Editor, returns `{unavailable, rooms}`), `PUT` is admin-only and validated against the known room list (see [`backend/routes/availability.js`](backend/routes/availability.js)) |
 | `POST /api/v1/reservations` | Creates an immediately-*confirmed* direct booking, no payment taken — holds the room-type inventory and emails the balance due (see [Online booking & payments](#online-booking--payments)) |
 | `POST /api/v1/payments/dayuse-booking` | Requests a 3-hour day-use session (flat rate) — records a *pending* booking; never runs the overlap/inventory guard since a day-use slot is always confirmed by staff |
 | `POST /api/v1/ota-sync` | OTA / channel-manager webhook intake (structured JSON, assigns a room) |

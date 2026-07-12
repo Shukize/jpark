@@ -42,6 +42,7 @@ const emailRouter           = require('./routes/email');
 const paymentsRouter        = require('./routes/payments');
 const maintenanceRouter     = require('./routes/maintenance');
 const ratesRouter           = require('./routes/rates');
+const availabilityRouter    = require('./routes/availability');
 const hotelAdsRouter        = require('./routes/hotelAds');
 
 const app = express();
@@ -86,6 +87,7 @@ app.use('/api/email',            bodyDefault,  emailRouter);
 app.use('/api/v1',               bodyPayments, paymentsRouter);
 app.use('/api/maintenance',      bodyDefault,  maintenanceRouter);
 app.use('/api/rates',            bodyDefault,  ratesRouter);
+app.use('/api/availability',     bodyDefault,  availabilityRouter);
 app.use('/api/v1/hotel-ads',                   hotelAdsRouter);   // GET-only feed, no body parser needed
 
 migrate()

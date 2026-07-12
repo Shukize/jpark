@@ -2771,6 +2771,7 @@
     renderRates();
     renderAnnouncements();
     renderSectionToggles();
+    renderRoomAvailability();
     renderHistory();
   }
 
@@ -3647,6 +3648,53 @@
         S.write("content", cc);
       });
       togWrap.appendChild(lab);
+    });
+  }
+
+  /* Per-room-type availability toggle (backend/routes/availability.js).
+     Unlike renderSectionToggles() above (localStorage-only), each checkbox
+     here saves immediately to the server — matching the Rates tab's
+     real-time-save UX rather than the "Undo all my edits" batch/draft
+     model, since a delisted room must reliably stay delisted across
+     devices, not just in this browser. */
+  let roomAvailData = null; // { unavailable: string[], rooms: string[] }
+  async function renderRoomAvailability() {
+    const wrap = document.getElementById("roomAvailToggles");
+    if (!wrap) return;
+    if (!roomAvailData) {
+      wrap.innerHTML = '<p class="muted">' + esc(t("staff.site.roomAvailLoading")) + "</p>";
+      const res = await J.api.get("/api/availability");
+      if (J.api.isOffline(res) || !res || res.error || !res.rooms) {
+        wrap.innerHTML = '<p class="muted">' + esc(t("staff.site.roomAvailError")) + "</p>";
+        return;
+      }
+      roomAvailData = res;
+    }
+    wrap.innerHTML = "";
+    roomAvailData.rooms.forEach((roomName) => {
+      const id = "roomAvail_" + roomName.replace(/\s+/g, "_");
+      const lab = document.createElement("label");
+      const available = roomAvailData.unavailable.indexOf(roomName) === -1;
+      const input = document.createElement("input");
+      input.type = "checkbox"; input.id = id; input.checked = available;
+      lab.appendChild(input);
+      lab.appendChild(document.createTextNode(" " + roomName));
+      input.addEventListener("change", async (e) => {
+        const isAvailable = e.target.checked;
+        const next = roomAvailData.unavailable.filter((r) => r !== roomName);
+        if (!isAvailable) next.push(roomName);
+        input.disabled = true;
+        const res2 = await J.api.put("/api/availability", { unavailable: next });
+        input.disabled = false;
+        if (J.api.isOffline(res2) || !res2 || res2.error) {
+          U.toast((res2 && res2.error) || t("staff.site.roomAvailError"), "error");
+          e.target.checked = !isAvailable;
+          return;
+        }
+        roomAvailData.unavailable = res2.unavailable;
+        U.toast(t("staff.site.roomAvailSaved"), "success");
+      });
+      wrap.appendChild(lab);
     });
   }
 

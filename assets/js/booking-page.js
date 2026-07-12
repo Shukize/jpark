@@ -43,14 +43,14 @@
       // 'Studio Single' above for why these stay separate ROOMS entries.
       name: 'Prestige Single', folder: 'Prestige Single', guestTier: 1,
       baseNameKey: 'rooms.prestigeName',
-      nameKey: 'rooms.prestigeSingleName', descKey: 'rooms.prestigeDesc',
+      nameKey: 'rooms.prestigeSingleName', descKey: 'rooms.prestigeSingleDesc',
       size: '45 m²', maxGuests: 3, extraBedAvailable: false,
       amenities: ['Single Bed', 'Premium Bedding', 'Generous Work Area', 'Smart TV', 'Air Conditioning', 'Free Wi-Fi'],
       variants: [{ label: 'Single', room: 1040, bf: 1160 }],
     },
     {
       name: 'Prestige Twin', folder: 'Prestige Twin', guestTier: 2,
-      nameKey: 'rooms.prestigeTwinName', descKey: 'rooms.prestigeDesc',
+      nameKey: 'rooms.prestigeTwinName', descKey: 'rooms.prestigeTwinDesc',
       size: '45 m²', maxGuests: 3, extraBedAvailable: false,
       amenities: ['Twin Beds', 'Premium Bedding', 'Generous Work Area', 'Smart TV', 'Air Conditioning', 'Free Wi-Fi'],
       variants: [{ label: 'Twin', room: 1040, bf: 1350 }],
@@ -89,7 +89,7 @@
     {
       name: 'Grand Premium', folder: 'Grand Premium',
       nameKey: 'rooms.grandPremiumName', descKey: 'rooms.grandPremiereDesc',
-      size: '49 m²', maxGuests: 3, extraBedAvailable: true,
+      size: '49 m²', maxGuests: 3, extraBedAvailable: false,
       amenities: ['Single Bed', 'Wide Lounge Area', 'Upgraded Amenities', 'Smart TV', 'Air Conditioning', 'Free Wi-Fi'],
       variants: [{ label: 'Single', room: 1260, bf: 1380 }],
     },
@@ -103,7 +103,7 @@
     {
       name: 'Grand Deluxe', folder: 'Grand Deluxe',
       nameKey: 'rooms.grandDeluxeName', descKey: 'rooms.grandDeluxeDesc',
-      size: '54 m²', maxGuests: 3, extraBedAvailable: true,
+      size: '54 m²', maxGuests: 3, extraBedAvailable: false,
       amenities: ['Single Bed', 'Plush Furnishings', 'Premium Finishes', 'Smart TV', 'Air Conditioning', 'Free Wi-Fi'],
       variants: [{ label: 'Single', room: 1340, bf: 1460 }],
     },
@@ -394,7 +394,7 @@
       'bk.fromTpl': 'From {price} per room / night', 'bk.night': 'night', 'bk.nights': 'nights',
       'bk.roomOnly': 'room only', 'bk.withBreakfast': 'with breakfast',
       'bk.rateIncl': '2026 general rate · taxes & service included', 'bk.enquire': 'Enquire to Book',
-      'bk.extraGuestBed': '3rd guest: +{bed} extra bed, +{bf} breakfast if selected',
+      'bk.extraGuestBed': '3rd guest: +{bed} extra bed, +{bf} breakfast if selected. Extra bed placement is subject to the specific room assigned at check-in.',
       'bk.extraGuestNoBed': 'No extra bed available for a 3rd guest, but breakfast can be added for +{bf}',
       'bk.piece': 'piece', 'bk.pieces': 'pieces',
       'bk.gAdult1': 'adult', 'bk.gAdultN': 'adults', 'bk.gChild1': 'child', 'bk.gChildN': 'children',
@@ -1138,6 +1138,41 @@
       applyDayUseOverrides(res.dayUse);
       renderAll(); // repaint any already-drawn cards with corrected prices
       injectPricingSchema(); // refresh with live-override-corrected prices
+    }).catch(function () {});
+  })();
+
+  // Delisted room types (Site Editor "Room availability" toggle,
+  // backend/routes/availability.js) must be excluded from search results
+  // entirely, not just visually hidden — a guest must not be able to find
+  // or book a delisted room via the default listing, a search, or the
+  // ?room= deep link. For a merged Single+Twin card (see DISPLAY_ROOMS
+  // above), drop only the unavailable side's variant row if just one of
+  // the pair is off; drop the whole card if both are off.
+  function filterUnavailableRooms(rooms, unavailable) {
+    var out = [];
+    rooms.forEach(function (r) {
+      if (Array.isArray(r.folders)) {
+        var kept = r.variants.filter(function (v) { return unavailable.indexOf(v.roomKey) === -1; });
+        if (!kept.length) return; // both sides delisted — drop the card
+        if (kept.length === r.variants.length) { out.push(r); return; } // nothing delisted
+        var idx = r.variants.indexOf(kept[0]);
+        out.push(Object.assign({}, r, { folders: [r.folders[idx]], variants: kept }));
+        return;
+      }
+      if (unavailable.indexOf(r.name) === -1) out.push(r);
+    });
+    return out;
+  }
+
+  (function loadRoomAvailability() {
+    var API = window.JPark && window.JPark.api;
+    if (!API) return;
+    API.get('/api/availability').then(function (res) {
+      if (!res || res.error || !res.unavailable || !res.unavailable.length) return;
+      var filtered = filterUnavailableRooms(DISPLAY_ROOMS, res.unavailable);
+      if (lastRooms === DISPLAY_ROOMS) lastRooms = filtered; // still showing the default listing
+      DISPLAY_ROOMS = filtered;
+      renderAll();
     }).catch(function () {});
   })();
 
