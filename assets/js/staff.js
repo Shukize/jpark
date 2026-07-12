@@ -82,6 +82,13 @@
   let reqFilter = "all";
   let bkFilter = "all";
   let bkSearchQuery = "";
+  // Booking id whose "Resend confirmation" edit panel is currently open, or
+  // null. onBookingsChange() (fired by the 6s guest-bookings poll) skips its
+  // destructive full re-render while this is set — otherwise a poll tick
+  // mid-edit replaces the whole detail pane's innerHTML and the open editor
+  // (and anything the staff member had already typed into it) vanishes out
+  // from under them a few seconds after they open it.
+  let bkResendEditingId = null;
   let bkMultiSelect = false;
   let selectedBookingIds = new Set();
   let bkSectionPrefs = loadBkSectionPrefs(); // { labels:{older2,older6}, collapsed:{older2,older6} }
@@ -549,6 +556,131 @@
     return t("staff.acctLogs.unknownLocation");
   }
 
+  // One session's row — shared by the flat list and each grouped IP's
+  // expanded detail list below.
+  function buildSessionRow(s) {
+    const row = document.createElement("div");
+    row.className = "acct-row" + (s.revokedAt ? " acct-row-revoked" : "");
+
+    const dotClass = "session-dot" + (s.online ? " live" : "");
+    const statusLabel = s.online ? t("staff.acctLogs.online") : t("staff.acctLogs.offline");
+    const youBadge = s.isCurrent
+      ? '<span class="bk-row-pill">' + esc(t("staff.acctLogs.youBadge")) + "</span>" : "";
+    const revokedNote = s.revokedAt
+      ? '<div class="acct-row-note">' +
+          esc(t("staff.acctLogs.revokedBy").replace("{name}", s.revokedByName || t("staff.acctLogs.systemRevoked"))) +
+        "</div>"
+      : "";
+
+    row.innerHTML =
+      '<div class="acct-row-main">' +
+        '<div class="acct-row-head">' +
+          "<b>" + esc(s.employeeName) + "</b> — " + esc(s.deviceSummary || "—") + youBadge +
+        "</div>" +
+        '<div class="acct-row-meta">' +
+          esc(s.ip) + " · " + esc(acctLocationText(s)) + " · " +
+          esc(t("staff.acctLogs.colSignedIn")) + " " + esc(formatMsgTime(s.createdAt)) + " · " +
+          esc(t("staff.acctLogs.colLastActive")) + " " + esc(formatMsgTime(s.lastSeenAt)) +
+        "</div>" +
+        revokedNote +
+      "</div>" +
+      '<div class="acct-row-status"><i class="' + dotClass + '"></i>' + esc(statusLabel) + "</div>" +
+      '<div class="rr-actions"></div>';
+
+    const actions = row.querySelector(".rr-actions");
+    if (!s.revokedAt) {
+      const signOutBtn = document.createElement("button");
+      signOutBtn.textContent = t("staff.acctLogs.signOut");
+      signOutBtn.addEventListener("click", () => {
+        if (!confirm(t("staff.acctLogs.confirmSignOut"))) return;
+        API_post("/api/sessions/" + encodeURIComponent(s.jti) + "/revoke", {}).then(() => renderAccountLogs());
+      });
+      actions.appendChild(signOutBtn);
+
+      const banBtn = document.createElement("button");
+      banBtn.className = "rr-del";
+      banBtn.textContent = t("staff.acctLogs.banIp");
+      banBtn.addEventListener("click", () => {
+        if (!confirm(t("staff.acctLogs.confirmBanIp"))) return;
+        API_post("/api/sessions/ban", { ip: s.ip }).then(() => renderAccountLogs());
+      });
+      actions.appendChild(banBtn);
+    }
+
+    return row;
+  }
+
+  // Repeated sign-ins from the same IP (a session renewing past the sliding
+  // window, a second tab, etc.) used to each get their own full row, making
+  // one device look like several devices at a glance. Same-IP sessions now
+  // collapse into a single summary row, expandable to the individual
+  // sign-ins — "Ban IP" already acts at IP granularity, so this matches
+  // what the actions actually operate on.
+  function buildSessionGroup(ip, sessions) {
+    sessions = sessions.slice().sort((a, b) => b.lastSeenAt - a.lastSeenAt);
+    const latest = sessions[0];
+    const active = sessions.filter((s) => !s.revokedAt);
+    const anyOnline = active.some((s) => s.online);
+
+    const details = document.createElement("details");
+    details.className = "acct-group" + (active.length ? "" : " acct-row-revoked");
+
+    const summary = document.createElement("summary");
+    const dotClass = "session-dot" + (anyOnline ? " live" : "");
+    const statusLabel = anyOnline ? t("staff.acctLogs.online") : t("staff.acctLogs.offline");
+    const youBadge = sessions.some((s) => s.isCurrent)
+      ? '<span class="bk-row-pill">' + esc(t("staff.acctLogs.youBadge")) + "</span>" : "";
+    const oldestCreated = Math.min.apply(null, sessions.map((s) => s.createdAt));
+    summary.innerHTML =
+      '<div class="acct-row-main">' +
+        '<div class="acct-row-head">' +
+          "<b>" + esc(latest.employeeName) + "</b> — " + esc(latest.deviceSummary || "—") + youBadge +
+          ' <span class="bk-row-pill">' + esc(t("staff.acctLogs.sessionCount").replace("{n}", sessions.length)) + "</span>" +
+        "</div>" +
+        '<div class="acct-row-meta">' +
+          esc(ip) + " · " + esc(acctLocationText(latest)) + " · " +
+          esc(t("staff.acctLogs.colSignedIn")) + " " + esc(formatMsgTime(oldestCreated)) + " · " +
+          esc(t("staff.acctLogs.colLastActive")) + " " + esc(formatMsgTime(latest.lastSeenAt)) +
+        "</div>" +
+      "</div>" +
+      '<div class="acct-row-status"><i class="' + dotClass + '"></i>' + esc(statusLabel) + "</div>";
+    details.appendChild(summary);
+
+    if (active.length) {
+      const groupActions = document.createElement("div");
+      groupActions.className = "acct-group-actions";
+
+      const signOutAllBtn = document.createElement("button");
+      signOutAllBtn.textContent = t("staff.acctLogs.signOutAll").replace("{n}", active.length);
+      signOutAllBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        if (!confirm(t("staff.acctLogs.confirmSignOutAll").replace("{n}", active.length))) return;
+        Promise.all(active.map((s) => API_post("/api/sessions/" + encodeURIComponent(s.jti) + "/revoke", {})))
+          .then(() => renderAccountLogs());
+      });
+      groupActions.appendChild(signOutAllBtn);
+
+      const banBtn = document.createElement("button");
+      banBtn.className = "rr-del";
+      banBtn.textContent = t("staff.acctLogs.banIp");
+      banBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        if (!confirm(t("staff.acctLogs.confirmBanIp"))) return;
+        API_post("/api/sessions/ban", { ip }).then(() => renderAccountLogs());
+      });
+      groupActions.appendChild(banBtn);
+
+      details.appendChild(groupActions);
+    }
+
+    const list = document.createElement("div");
+    list.className = "acct-group-list";
+    sessions.forEach((s) => list.appendChild(buildSessionRow(s)));
+    details.appendChild(list);
+
+    return details;
+  }
+
   function renderSessionRows() {
     const area = document.getElementById("acctSessionsList");
     if (!area) return;
@@ -558,56 +690,17 @@
       return;
     }
     area.innerHTML = "";
+
+    const byIp = new Map();
+    const order = [];
     sessions.forEach((s) => {
-      const row = document.createElement("div");
-      row.className = "acct-row" + (s.revokedAt ? " acct-row-revoked" : "");
+      if (!byIp.has(s.ip)) { byIp.set(s.ip, []); order.push(s.ip); }
+      byIp.get(s.ip).push(s);
+    });
 
-      const dotClass = "session-dot" + (s.online ? " live" : "");
-      const statusLabel = s.online ? t("staff.acctLogs.online") : t("staff.acctLogs.offline");
-      const youBadge = s.isCurrent
-        ? '<span class="bk-row-pill">' + esc(t("staff.acctLogs.youBadge")) + "</span>" : "";
-      const revokedNote = s.revokedAt
-        ? '<div class="acct-row-note">' +
-            esc(t("staff.acctLogs.revokedBy").replace("{name}", s.revokedByName || t("staff.acctLogs.systemRevoked"))) +
-          "</div>"
-        : "";
-
-      row.innerHTML =
-        '<div class="acct-row-main">' +
-          '<div class="acct-row-head">' +
-            "<b>" + esc(s.employeeName) + "</b> — " + esc(s.deviceSummary || "—") + youBadge +
-          "</div>" +
-          '<div class="acct-row-meta">' +
-            esc(s.ip) + " · " + esc(acctLocationText(s)) + " · " +
-            esc(t("staff.acctLogs.colSignedIn")) + " " + esc(formatMsgTime(s.createdAt)) + " · " +
-            esc(t("staff.acctLogs.colLastActive")) + " " + esc(formatMsgTime(s.lastSeenAt)) +
-          "</div>" +
-          revokedNote +
-        "</div>" +
-        '<div class="acct-row-status"><i class="' + dotClass + '"></i>' + esc(statusLabel) + "</div>" +
-        '<div class="rr-actions"></div>';
-
-      const actions = row.querySelector(".rr-actions");
-      if (!s.revokedAt) {
-        const signOutBtn = document.createElement("button");
-        signOutBtn.textContent = t("staff.acctLogs.signOut");
-        signOutBtn.addEventListener("click", () => {
-          if (!confirm(t("staff.acctLogs.confirmSignOut"))) return;
-          API_post("/api/sessions/" + encodeURIComponent(s.jti) + "/revoke", {}).then(() => renderAccountLogs());
-        });
-        actions.appendChild(signOutBtn);
-
-        const banBtn = document.createElement("button");
-        banBtn.className = "rr-del";
-        banBtn.textContent = t("staff.acctLogs.banIp");
-        banBtn.addEventListener("click", () => {
-          if (!confirm(t("staff.acctLogs.confirmBanIp"))) return;
-          API_post("/api/sessions/ban", { ip: s.ip }).then(() => renderAccountLogs());
-        });
-        actions.appendChild(banBtn);
-      }
-
-      area.appendChild(row);
+    order.forEach((ip) => {
+      const group = byIp.get(ip);
+      area.appendChild(group.length > 1 ? buildSessionGroup(ip, group) : buildSessionRow(group[0]));
     });
   }
 
@@ -2447,6 +2540,9 @@
   }
 
   function renderBookingDetail(id) {
+    // Self-heal: navigating to a different booking (or one no longer open
+    // for editing) always clears any stale in-progress-edit guard.
+    if (bkResendEditingId !== id) bkResendEditingId = null;
     const b = getBookingMsgs().find((x) => x.id === id);
     const detailArea = document.getElementById("msgDetail");
     if (!b) { detailArea.innerHTML = ""; return; }
@@ -2599,6 +2695,7 @@
         if (!API) return;
         bkResendBtn.disabled = true;
         bkResendEditor.hidden = false;
+        bkResendEditingId = b.id;
         subjectEl.value = "";
         bodyEl2.value = t("msg.bk.resend.loading");
         bodyEl2.disabled = true;
@@ -2610,17 +2707,19 @@
             bodyEl2.value = r.text || "";
           } else {
             bkResendEditor.hidden = true;
+            bkResendEditingId = null;
             U.toast((r && r.error) || t("msg.bk.resend.failed"), "error");
           }
         }).catch(() => {
           bodyEl2.disabled = false;
           bkResendBtn.disabled = false;
           bkResendEditor.hidden = true;
+          bkResendEditingId = null;
           U.toast(t("msg.bk.resend.failed"), "error");
         });
       });
 
-      cancelBtn.addEventListener("click", () => { bkResendEditor.hidden = true; });
+      cancelBtn.addEventListener("click", () => { bkResendEditor.hidden = true; bkResendEditingId = null; });
 
       sendBtn.addEventListener("click", () => {
         const API = window.JPark && window.JPark.api;
@@ -2633,6 +2732,7 @@
           sendBtn.disabled = false;
           if (r && !r.error) {
             bkResendEditor.hidden = true;
+            bkResendEditingId = null;
             U.toast(t("msg.bk.resend.sent").replace("{email}", b.guestEmail || ""), "success");
           } else {
             U.toast((r && r.error) || t("msg.bk.resend.failed"), "error");
@@ -2669,6 +2769,7 @@
       msgView = msgPrevView;
       msgDetailId = null;
       msgDetailKind = "message";
+      bkResendEditingId = null;
       renderMessages();
     });
   }
@@ -4251,7 +4352,11 @@
         }
       });
     }
-    if (panel === "messages") renderMessages();
+    // Skip the destructive full re-render while a "Resend confirmation"
+    // edit is in progress (see bkResendEditingId) — otherwise this fires
+    // every 6s from the guest-bookings poll and wipes out the open editor,
+    // and anything the staff member had already typed, out from under them.
+    if (panel === "messages" && bkResendEditingId == null) renderMessages();
     updateBadges();
   }
   function onStaffChange() {

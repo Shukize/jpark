@@ -1557,6 +1557,27 @@ body.mobile-view .fac-card.large {
   .acct-row-status { order: 3; }
 }
 
+/* Same-IP session group (repeated sign-ins collapsed into one entry — see
+   buildSessionGroup() in staff.js). <summary> reuses .acct-row-main/-status
+   layout so a collapsed group looks like a normal row; expanding it reveals
+   each individual sign-in via nested .acct-row instances. */
+.acct-group { border-bottom: 1px solid var(--line); }
+.acct-group.acct-row-revoked { opacity: 0.55; }
+.acct-group > summary {
+  display: flex; align-items: center; gap: 14px; padding: 14px 18px;
+  cursor: pointer; list-style: none;
+}
+.acct-group > summary::-webkit-details-marker { display: none; }
+.acct-group > summary::before {
+  content: "▸"; color: var(--ink-soft); font-size: 0.7rem; margin-right: 2px;
+  transition: transform .15s;
+}
+.acct-group[open] > summary::before { transform: rotate(90deg); }
+.acct-group-actions { display: flex; gap: 8px; padding: 0 18px 12px 40px; }
+.acct-group-list { background: rgba(0,0,0,.02); }
+.acct-group-list .acct-row { padding-left: 40px; border-bottom: 1px solid var(--line); }
+.acct-group-list .acct-row:last-child { border-bottom: none; }
+
 /* Live "online" indicator — a blinking green dot for a session that
    polled within the last 20s (see backend/routes/sessions.js's
    ONLINE_WINDOW_SQL). Grey/static when offline or revoked. */
