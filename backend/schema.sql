@@ -218,6 +218,14 @@ ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS staff_label  VARCHAR(120);
 -- preference carried on the reservation like adults/children.
 ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS smoking_preference VARCHAR(20) NOT NULL DEFAULT 'non_smoking';
 
+-- Whether the guest requested/selected breakfast for this stay (routes/
+-- payments.js POST /reservations) — surfaced in the hotel-notice and
+-- guest-confirmation emails and the staff console's booking detail view,
+-- to reduce accounting errors around the room+breakfast rate actually
+-- charged. Same shape/limitation as smoking_preference: only ever set by
+-- the direct-website reservation flow, defaults FALSE (unknown) otherwise.
+ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS breakfast BOOLEAN NOT NULL DEFAULT FALSE;
+
 -- ── Chat messages (guest ↔ front-desk) ──────────────────────────────────────
 CREATE TABLE IF NOT EXISTS chat_messages (
   id                  SERIAL       PRIMARY KEY,

@@ -771,12 +771,12 @@
 
   wire('adultsDown', 'adultsUp', adultsValEl,
     function () { return adults; },
-    function (v) { adults = v; adultsValEl.textContent = v; },
+    function (v) { adults = v; adultsValEl.textContent = v; syncGuestsToStatusState(); },
     1, 8
   );
   wire('childrenDown', 'childrenUp', childrenValEl,
     function () { return children; },
-    function (v) { children = v; childrenValEl.textContent = v; },
+    function (v) { children = v; childrenValEl.textContent = v; syncGuestsToStatusState(); },
     0, 6
   );
 
@@ -1000,23 +1000,31 @@
     return total;
   }
 
-  // A room whose variants all share the same room-only rate (Studio/
-  // Prestige/Premium's merged Single+Twin cards, and Studio B4/Deluxe/Grand
-  // Premium/Corner Suite/Grand Deluxe) isn't really offering differently
-  // priced products — each variant is the SAME physical room, and the label
-  // (Single/Twin/Double) is just a bed-style preference. The "with
-  // breakfast" price for these therefore depends on how many guests are
-  // actually staying, not which bed style is picked: variants[0] is priced
-  // for 1 guest's breakfast, the last variant for 2 guests' — picking
-  // "Single" for a 2-guest stay must still charge the 2-guest breakfast
-  // price, never the cheaper 1-guest one. Guests beyond 2 add the normal
-  // computeGuestSurcharge() on top of whichever base this returns.
+  // A room whose variants all share the same room-only rate isn't really
+  // offering differently priced products — each variant is the SAME
+  // physical room, and the label (Single/Twin/Double) is just a bed-style
+  // preference. Per the 2026 rate card, room-only price is flat regardless
+  // of guest count for these rooms — only the "with breakfast" price
+  // differs, by a flat SURCHARGES.extraBreakfastGuest (190 THB) between the
+  // 1- and 2-guest row. This does NOT require a second variant to exist: a
+  // single-variant room trivially satisfies "every variant shares the same
+  // room-only rate" (comparing variants[0] to itself) and must still get
+  // guest-count-aware breakfast pricing — variants[0].bf is always the
+  // 1-guest rate; the 2-guest rate is derived (base + 190), never read off
+  // a second variant that may or may not exist. A prior `length >= 2` guard
+  // here silently broke Deluxe/Grand Premium/Grand Deluxe/Premium Suite's
+  // breakfast pricing after their fictional 2nd bed-style variant (they're
+  // single-bed-only rooms) was removed in commit 331eb07 — that variant's
+  // `.bf` had been the only place the 2-guest rate was stored. Guests
+  // beyond 2 add the normal computeGuestSurcharge() on top of whichever
+  // base this returns.
   function isOccupancyTier(room) {
-    return room.variants.length >= 2 && room.variants.every(function (v) { return v.room === room.variants[0].room; });
+    return room.variants.every(function (v) { return v.room === room.variants[0].room; });
   }
   function occupancyBreakfastPrice(room, totalGuests) {
-    var variants = room.variants;
-    return (Number(totalGuests) || 0) <= 1 ? variants[0].bf : variants[variants.length - 1].bf;
+    return (Number(totalGuests) || 0) <= 1
+      ? room.variants[0].bf
+      : room.variants[0].bf + SURCHARGES.extraBreakfastGuest;
   }
 
   window.JPark = window.JPark || {};
@@ -1237,6 +1245,21 @@
       fmtDate(s.ci) + ' → ' + fmtDate(s.co) +
       ' · ' + nightsWord(s.nights) +
       ' · ' + guestStr;
+  }
+
+  // Keep the frozen search-time snapshot in statusState live: both the
+  // status-bar summary text (refreshStatus()) and the "Book Now" flow
+  // (bookBtn's click handler, below) read statusState.adults/children
+  // directly, never the module-level adults/children vars the steppers
+  // actually mutate. Without this, bumping a stepper after "Check
+  // Availability" silently fed a stale guest count into the pricing
+  // engine. No-op before the first search (statusState is still null then
+  // — nothing to keep in sync yet).
+  function syncGuestsToStatusState() {
+    if (!statusState) return;
+    statusState.adults = adults;
+    statusState.children = children;
+    refreshStatus();
   }
 
   // --- Search ---

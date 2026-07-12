@@ -1082,6 +1082,32 @@ body.mobile-view .fac-card.large {
 .mda-reopen-btn:hover { background: #e8f5f3; border-color: #a9d6cb; color: #0c5b58; }
 .mda-delete-hint { font-size: 0.76rem; color: #999; margin-top: 8px; }
 
+/* Edit-before-sending panel for "Resend confirmation" — lets staff correct
+   the auto-generated email (e.g. a wrong price) before it goes to the
+   guest, instead of only being able to fire the template verbatim. */
+.bk-resend-editor {
+  margin-top: 14px; padding: 14px 16px; max-width: 580px;
+  background: #f4f6fb; border: 1px solid #d8dff0; border-radius: 8px;
+}
+.bk-resend-hint { margin: 0 0 10px; font-size: 0.82rem; color: #556; }
+.bk-resend-label {
+  display: block; font-size: 0.78rem; font-weight: 600; color: #556;
+  margin-bottom: 10px;
+}
+.bk-resend-subject {
+  display: block; width: 100%; margin-top: 4px; padding: 7px 10px;
+  border: 1px solid #d0d6e6; border-radius: 6px; font-size: 0.86rem;
+  font-family: var(--sans); box-sizing: border-box;
+}
+.bk-resend-body {
+  display: block; width: 100%; padding: 10px; box-sizing: border-box;
+  border: 1px solid #d0d6e6; border-radius: 6px; font-size: 0.84rem;
+  font-family: var(--sans); line-height: 1.5; resize: vertical;
+}
+.bk-resend-actions { display: flex; gap: 8px; margin-top: 12px; }
+.bk-resend-send { color: #0f766e; border-color: #a9d6cb; }
+.bk-resend-send:hover { background: #e8f5f3; border-color: #7fc2b3; }
+
 /* Read-only summary shown in place of the front-desk controls once a
    booking is cancelled. */
 .bk-cancel-summary {

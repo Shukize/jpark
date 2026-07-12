@@ -145,26 +145,31 @@ function computeGuestSurcharge(room, totalGuests, breakfast, surcharges) {
   return total;
 }
 
-// A room whose variants all share the same room-only rate (e.g. Studio
-// Single/Studio Twin priced as one merged product on the booking page,
-// or Studio B4/Deluxe/Grand Premium/Corner Suite/Grand Deluxe's built-in
-// Single-vs-Twin/Double choice) isn't really offering differently priced
-// products — the variant label is just a bed-style preference. The
-// breakfast rate therefore must depend on how many guests are actually
-// staying, not which bed style variantLabel the client submitted:
-// variants[0] is priced for 1 guest's breakfast, the last variant for 2
-// guests' — booking "Single" for a 2-guest stay must still charge the
-// 2-guest breakfast price, matching assets/js/booking-page.js's
-// isOccupancyTier()/occupancyBreakfastPrice() (mirrored here so the
-// server-side charge always agrees with what the guest was shown).
+// A room whose variants all share the same room-only rate isn't really
+// offering differently priced products — the variant label is just a
+// bed-style preference. Per the 2026 rate card, room-only price is flat
+// regardless of guest count for these rooms; only breakfast differs, by a
+// flat surcharges.extraBreakfastGuest (190 THB) between the 1- and 2-guest
+// row. This does NOT require a second variant to exist: a single-variant
+// room trivially satisfies "every variant shares the same room-only rate"
+// and must still get guest-count-aware breakfast pricing — variants[0].bf
+// is always the 1-guest rate; the 2-guest rate is derived (base + 190),
+// never read off a second variant that may or may not exist (a prior
+// `length >= 2` guard here silently broke Deluxe/Grand Premium/Grand
+// Deluxe/Premium Suite's breakfast pricing after their fictional 2nd
+// bed-style variant was removed in commit 331eb07 — those rooms are
+// single-bed-only, but that deleted variant's `.bf` had been the only
+// place the 2-guest rate was stored). Mirrors
+// assets/js/booking-page.js's isOccupancyTier()/occupancyBreakfastPrice()
+// so the server-side charge always agrees with what the guest was shown.
 function isOccupancyTier(room) {
-  return room.variants.length >= 2 && room.variants.every((v) => v.room === room.variants[0].room);
+  return room.variants.every((v) => v.room === room.variants[0].room);
 }
 
-function effectiveBreakfastRate(room, variant, totalGuests) {
+function effectiveBreakfastRate(room, variant, totalGuests, surcharges) {
   if (!isOccupancyTier(room)) return variant.bf;
-  const variants = room.variants;
-  return Number(totalGuests || 0) <= 1 ? variants[0].bf : variants[variants.length - 1].bf;
+  const base = room.variants[0].bf;
+  return Number(totalGuests || 0) <= 1 ? base : base + surcharges.extraBreakfastGuest;
 }
 
 async function getEffectiveRoom(name) {

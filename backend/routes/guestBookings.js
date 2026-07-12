@@ -91,6 +91,10 @@ function smokingLabel(bk) {
   return bk.smoking_preference === 'smoking' ? 'Smoking' : 'Non-Smoking';
 }
 
+function breakfastLabel(bk) {
+  return bk.breakfast ? 'Yes' : 'No';
+}
+
 // House-wide check-in/check-out hours (see chat.a.checkin in i18n-app.js and
 // the demo seed text in store.js for the same 14:00/12:00 convention) — ICT
 // spelled out explicitly since guests booking from abroad won't know the
@@ -143,6 +147,7 @@ function hotelNotice(bk) {
     `Nights: ${bk.nights}`,
     `Guests: ${guests}`,
     `Room preference: ${smokingLabel(bk)}`,
+    `Breakfast: ${breakfastLabel(bk)}`,
     `Total: ${money}`,
     ...(payment ? [`Payment: ${payment}`] : []),
     ...(balanceDue ? ['', balanceDue.text] : []),
@@ -165,6 +170,7 @@ function hotelNotice(bk) {
     `<tr><td style="padding:4px 12px 4px 0;color:#555">Nights</td><td style="padding:4px 0">${bk.nights}</td></tr>` +
     `<tr><td style="padding:4px 12px 4px 0;color:#555">Guests</td><td style="padding:4px 0">${guests}</td></tr>` +
     `<tr><td style="padding:4px 12px 4px 0;color:#555">Room preference</td><td style="padding:4px 0">${smokingLabel(bk)}</td></tr>` +
+    `<tr><td style="padding:4px 12px 4px 0;color:#555">Breakfast</td><td style="padding:4px 0">${breakfastLabel(bk)}</td></tr>` +
     `<tr><td style="padding:4px 12px 4px 0;color:#555">Total</td><td style="padding:4px 0">${money}</td></tr>` +
     (payment ? `<tr><td style="padding:4px 12px 4px 0;color:#555">Payment</td><td style="padding:4px 0">${payment}</td></tr>` : '') +
     `</table>` +
@@ -209,6 +215,7 @@ function confirmationEmail(bk) {
     `Nights: ${bk.nights}`,
     `Guests: ${bk.adults} adult(s), ${bk.children} child(ren)`,
     `Room preference: ${smokingLabel(bk)}`,
+    `Breakfast: ${breakfastLabel(bk)}`,
     `Total: ${money}`,
     ...(payment ? [`Payment: ${payment}`] : []),
     ...(balanceDue ? ['', balanceDue.text] : []),
@@ -236,6 +243,7 @@ function confirmationEmail(bk) {
     `<tr><td style="padding:4px 12px 4px 0;color:#555">Nights</td><td style="padding:4px 0">${bk.nights}</td></tr>` +
     `<tr><td style="padding:4px 12px 4px 0;color:#555">Guests</td><td style="padding:4px 0">${bk.adults} adult(s), ${bk.children} child(ren)</td></tr>` +
     `<tr><td style="padding:4px 12px 4px 0;color:#555">Room preference</td><td style="padding:4px 0">${smokingLabel(bk)}</td></tr>` +
+    `<tr><td style="padding:4px 12px 4px 0;color:#555">Breakfast</td><td style="padding:4px 0">${breakfastLabel(bk)}</td></tr>` +
     `<tr><td style="padding:4px 12px 4px 0;color:#555">Total</td><td style="padding:4px 0">${money}</td></tr>` +
     (payment ? `<tr><td style="padding:4px 12px 4px 0;color:#555">Payment</td><td style="padding:4px 0">${payment}</td></tr>` : '') +
     `</table>` +
@@ -362,6 +370,7 @@ function row2js(r) {
     adults: r.adults,
     children: r.children,
     smokingPreference: r.smoking_preference || 'non_smoking',
+    breakfast: !!r.breakfast,
     total: r.total ? Number(r.total) : null,
     currency: r.currency,
     status: r.status,
@@ -443,17 +452,40 @@ function fireBookingEmails(saved) {
   }
 }
 
+function escapeHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+// Turns a staff-edited plain-text email body into simple HTML (one <p> per
+// blank-line-separated paragraph, <br> for single line breaks within one).
+// Used only for the resend-confirmation override path below — the
+// auto-generated confirmationEmail()/hotelNotice() templates keep their own
+// richer hand-built HTML untouched.
+function textToHtml(text) {
+  return String(text || '').split(/\n{2,}/).map((para) =>
+    '<p>' + escapeHtml(para).replace(/\n/g, '<br>') + '</p>'
+  ).join('');
+}
+
 // Guest confirmation send, factored out of fireBookingEmails() so the manual
 // "Resend confirmation" staff action (POST /:id/resend-confirmation below)
 // can reuse the exact same email content instead of duplicating it. Sets a
 // Reply-To of the hotel's own inbox — previously unset, so a guest replying
 // to their confirmation would silently go to the noreply@ sender address.
-async function sendGuestConfirmation(saved) {
-  const { text, html } = confirmationEmail(saved);
+// `override` (optional) lets staff hand-edit the subject/body before it goes
+// out — e.g. to correct a wrong price shown in the original auto-generated
+// confirmation — instead of always re-sending the template verbatim.
+async function sendGuestConfirmation(saved, override) {
+  const auto = confirmationEmail(saved);
+  const text = (override && override.text) ? override.text : auto.text;
+  const html = (override && override.text) ? textToHtml(override.text) : auto.html;
+  const subject = (override && override.subject) || `J Park Hotel — booking confirmed (${saved.ref})`;
   const to = hotelRecipients();
   const r = await sendEmail({
     to: saved.guest_email,
-    subject: `J Park Hotel — booking confirmed (${saved.ref})`,
+    subject,
     text,
     html,
     replyTo: to[0] || undefined,
@@ -649,12 +681,33 @@ router.patch('/:id', requireAuth, async (req, res) => {
   }
 });
 
+/* GET /api/guest-bookings/:id/confirmation-preview — returns the exact
+   subject/text the auto "Resend confirmation" would send, so the staff
+   console's edit-before-sending panel can prefill from the real template
+   instead of duplicating it client-side (which would drift out of sync). */
+router.get('/:id/confirmation-preview', requireAuth, async (req, res) => {
+  try {
+    const { rows } = await db.query('SELECT * FROM guest_bookings WHERE id = $1', [req.params.id]);
+    if (!rows.length) return res.status(404).json({ error: 'Not found' });
+    const bk = rows[0];
+    const { text } = confirmationEmail(bk);
+    res.json({ subject: `J Park Hotel — booking confirmed (${bk.ref})`, text });
+  } catch (e) {
+    console.error('[guest-bookings] confirmation-preview', e);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
 /* POST /api/guest-bookings/:id/resend-confirmation — lets staff manually
    re-send the guest-facing confirmation email on demand (e.g. a guest says
-   they never got it — could be stuck in spam, mistyped address, etc.).
-   Reuses the exact same sendGuestConfirmation() used on initial booking, and
-   surfaces the real Resend result to the console instead of it only ever
-   being visible in server logs. */
+   they never got it — could be stuck in spam, mistyped address, etc. — or a
+   real error like a wrong price was found after the fact). Reuses the exact
+   same sendGuestConfirmation() used on initial booking, and surfaces the
+   real Resend result to the console instead of it only ever being visible
+   in server logs. Optional body `{ subject, text }` lets staff send an
+   edited version instead of the auto-generated template verbatim — both
+   must be non-empty strings to take effect; either one omitted/blank falls
+   back to the template's own default for that part. */
 router.post('/:id/resend-confirmation', requireAuth, async (req, res) => {
   if (rateLimited(req.ip || 'unknown')) {
     return res.status(429).json({ error: 'Too many requests. Please try again later.' });
@@ -665,7 +718,13 @@ router.post('/:id/resend-confirmation', requireAuth, async (req, res) => {
     const bk = rows[0];
     if (!bk.guest_email) return res.status(400).json({ error: 'This booking has no guest email on file' });
 
-    const result = await sendGuestConfirmation(bk);
+    const b = req.body || {};
+    const override = {
+      subject: typeof b.subject === 'string' && b.subject.trim() ? b.subject.trim() : null,
+      text: typeof b.text === 'string' && b.text.trim() ? b.text : null,
+    };
+
+    const result = await sendGuestConfirmation(bk, override);
     if (!result.ok) {
       return res.status(result.skipped ? 503 : 502).json({ error: result.error || 'Send failed' });
     }

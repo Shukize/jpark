@@ -2469,6 +2469,7 @@
     fields += bookingField("msg.bk.adults", b.adults);
     if (b.children) fields += bookingField("msg.bk.children", b.children);
     fields += bookingField("msg.bk.smokingPref", t("msg.bk.smokingPref." + (b.smokingPreference || "non_smoking")));
+    fields += bookingField("msg.bk.breakfast", t(b.breakfast ? "msg.bk.breakfast.yes" : "msg.bk.breakfast.no"));
     fields += bookingField("msg.bk.total", totalStr);
     fields += bookingField("msg.bk.payment", bkPaymentLabel(b));
     fields += bookingField("msg.bk.statusLabel", bkStatusLabel(b.status));
@@ -2504,7 +2505,17 @@
           : '<button class="mda-action-btn mda-cancel-btn" id="mdaBkCancel">✕ ' + esc(t("msg.bk.cancel")) + "</button>") +
         (isAdmin() ? '<button class="mda-action-btn mda-delete-btn" id="mdaBkDelete">🗑 ' + esc(t("msg.delete")) + "</button>" : "") +
       "</div>" +
-      (isAdmin() ? '<div class="mda-delete-hint">' + esc(t("msg.bk.delete.adminHint")) + "</div>" : "");
+      (isAdmin() ? '<div class="mda-delete-hint">' + esc(t("msg.bk.delete.adminHint")) + "</div>" : "") +
+      '<div class="bk-resend-editor" id="bkResendEditor" hidden>' +
+        '<p class="bk-resend-hint">' + esc(t("msg.bk.resend.editHint")) + "</p>" +
+        '<label class="bk-resend-label">' + esc(t("msg.bk.resend.subject")) +
+          '<input type="text" class="bk-resend-subject" id="bkResendSubject"></label>' +
+        '<textarea class="bk-resend-body" id="bkResendBody" rows="12"></textarea>' +
+        '<div class="bk-resend-actions">' +
+          '<button type="button" class="mda-action-btn bk-resend-send" id="bkResendSend">' + esc(t("msg.bk.resend.send")) + "</button>" +
+          '<button type="button" class="mda-action-btn" id="bkResendCancel">' + esc(t("msg.bk.resend.cancel")) + "</button>" +
+        "</div>" +
+      "</div>";
 
     // Confirmation body: show the original text, then auto-translate it into
     // the reader's language with a single "translated from X" note.
@@ -2571,21 +2582,63 @@
       });
     }
 
+    // Resend confirmation now opens an editable preview instead of sending
+    // immediately — lets staff correct an error (e.g. a wrong price, like
+    // the 2026-07 breakfast-pricing bug) before the guest sees it, rather
+    // than only being able to re-fire the auto-generated template verbatim.
     const bkResendBtn = detailArea.querySelector("#mdaBkResend");
-    if (bkResendBtn) {
+    const bkResendEditor = detailArea.querySelector("#bkResendEditor");
+    if (bkResendBtn && bkResendEditor) {
+      const subjectEl = bkResendEditor.querySelector("#bkResendSubject");
+      const bodyEl2 = bkResendEditor.querySelector("#bkResendBody");
+      const sendBtn = bkResendEditor.querySelector("#bkResendSend");
+      const cancelBtn = bkResendEditor.querySelector("#bkResendCancel");
+
       bkResendBtn.addEventListener("click", () => {
         const API = window.JPark && window.JPark.api;
         if (!API) return;
         bkResendBtn.disabled = true;
-        API.post("/api/guest-bookings/" + b.id + "/resend-confirmation", {}).then((r) => {
+        bkResendEditor.hidden = false;
+        subjectEl.value = "";
+        bodyEl2.value = t("msg.bk.resend.loading");
+        bodyEl2.disabled = true;
+        API.get("/api/guest-bookings/" + b.id + "/confirmation-preview").then((r) => {
+          bodyEl2.disabled = false;
           bkResendBtn.disabled = false;
           if (r && !r.error) {
+            subjectEl.value = r.subject || "";
+            bodyEl2.value = r.text || "";
+          } else {
+            bkResendEditor.hidden = true;
+            U.toast((r && r.error) || t("msg.bk.resend.failed"), "error");
+          }
+        }).catch(() => {
+          bodyEl2.disabled = false;
+          bkResendBtn.disabled = false;
+          bkResendEditor.hidden = true;
+          U.toast(t("msg.bk.resend.failed"), "error");
+        });
+      });
+
+      cancelBtn.addEventListener("click", () => { bkResendEditor.hidden = true; });
+
+      sendBtn.addEventListener("click", () => {
+        const API = window.JPark && window.JPark.api;
+        if (!API) return;
+        sendBtn.disabled = true;
+        API.post("/api/guest-bookings/" + b.id + "/resend-confirmation", {
+          subject: subjectEl.value,
+          text: bodyEl2.value,
+        }).then((r) => {
+          sendBtn.disabled = false;
+          if (r && !r.error) {
+            bkResendEditor.hidden = true;
             U.toast(t("msg.bk.resend.sent").replace("{email}", b.guestEmail || ""), "success");
           } else {
             U.toast((r && r.error) || t("msg.bk.resend.failed"), "error");
           }
         }).catch(() => {
-          bkResendBtn.disabled = false;
+          sendBtn.disabled = false;
           U.toast(t("msg.bk.resend.failed"), "error");
         });
       });

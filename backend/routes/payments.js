@@ -61,7 +61,7 @@ async function computeTotal(room, variantLabel, breakfast, nights, totalGuests) 
   const variant = effectiveRoom.variants.find((v) => v.label === variantLabel);
   if (!variant) return null;
   const surcharges = await rateOverrides.getEffectiveSurcharges();
-  const rate = breakfast ? rateOverrides.effectiveBreakfastRate(effectiveRoom, variant, totalGuests) : variant.room;
+  const rate = breakfast ? rateOverrides.effectiveBreakfastRate(effectiveRoom, variant, totalGuests, surcharges) : variant.room;
   const perNight = rate + rateOverrides.computeGuestSurcharge(effectiveRoom, totalGuests, breakfast, surcharges);
   return perNight * nights;
 }
@@ -145,14 +145,14 @@ router.post('/reservations', async (req, res) => {
       `INSERT INTO guest_bookings
          (ref, channel, channel_name, guest_name, guest_last_name, guest_email, guest_phone,
           room, check_in, check_out, nights, adults, children, total, currency, status, lang,
-          payment_provider, payment_method, payment_status, smoking_preference)
+          payment_provider, payment_method, payment_status, smoking_preference, breakfast)
        VALUES ($1,'direct','Direct (Website)',$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'THB','confirmed',$13,
-               'in_person','pay_at_checkin','pending',$14)
+               'in_person','pay_at_checkin','pending',$14,$15)
        RETURNING *`,
       [
         ref, guestName, guestLastName, guest.email, guest.phone || null,
         room, checkIn, checkOut, nights, adults, children, total,
-        b.lang || 'en', smoking,
+        b.lang || 'en', smoking, breakfast,
       ]
     );
     await client.query('COMMIT');
