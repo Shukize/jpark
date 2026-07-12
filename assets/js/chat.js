@@ -62,14 +62,22 @@
       if (min <= max) ratesCache = { min, max };
     } catch (_) { /* keep previous cache / fallback text */ }
   }
-  function ratesAnswer() {
+  // Always re-fetches before answering, rather than trusting whatever
+  // ratesCache happens to hold (which could be from page-load or from
+  // whenever the panel was last opened) — a guest mid-conversation could
+  // otherwise be quoted a range an admin has since changed via the Rates
+  // tab. loadRates() only overwrites ratesCache on a successful response,
+  // so a momentary network failure here still falls back to the last-good
+  // cached range instead of showing nothing.
+  async function ratesAnswer() {
+    await loadRates();
     if (!ratesCache) return t("chat.a.ratesFallback");
     return t("chat.a.rates")
       .replace("{min}", ratesCache.min.toLocaleString())
       .replace("{max}", ratesCache.max.toLocaleString());
   }
-  function topicAnswer(topic) {
-    return topic.id === "rates" ? ratesAnswer() : t(topic.a);
+  async function topicAnswer(topic) {
+    return topic.id === "rates" ? await ratesAnswer() : t(topic.a);
   }
 
   let panel, fab, body, badge, openState = false;
@@ -199,10 +207,10 @@
   }
 
   /* ─────────────── bot ───────────────────────────────────────────────────── */
-  function botAnswer(text) {
+  async function botAnswer(text) {
     const lc = text.toLowerCase();
     for (const topic of TOPICS) {
-      if (topic.kw.some((k) => lc.indexOf(k) >= 0)) return topicAnswer(topic);
+      if (topic.kw.some((k) => lc.indexOf(k) >= 0)) return await topicAnswer(topic);
     }
     return t("chat.a.default");
   }
@@ -213,8 +221,9 @@
     render();
     const conv = getLocalConv();
     if (conv && conv.escalated) return;
+    const reply = await botAnswer(text);
     setTimeout(async () => {
-      await pushMessage("bot", botAnswer(text));
+      await pushMessage("bot", reply);
       render();
     }, 650);
   }
@@ -223,7 +232,8 @@
     const topic = TOPICS.find((x) => x.id === id);
     await pushMessage("guest", t("chat.quick." + id));
     render();
-    setTimeout(async () => { await pushMessage("bot", topicAnswer(topic)); render(); }, 500);
+    const reply = await topicAnswer(topic);
+    setTimeout(async () => { await pushMessage("bot", reply); render(); }, 500);
   }
 
   async function fetchAvailableStaff() {

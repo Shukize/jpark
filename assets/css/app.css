@@ -1084,29 +1084,88 @@ body.mobile-view .fac-card.large {
 
 /* Edit-before-sending panel for "Resend confirmation" — lets staff correct
    the auto-generated email (e.g. a wrong price) before it goes to the
-   guest, instead of only being able to fire the template verbatim. */
+   guest, instead of only being able to fire the template verbatim. Styled
+   after the public site's own letterhead/CTA language (var(--serif), the
+   teal-deep/gold pairing, paper/sand card surfaces from style.css's :root)
+   rather than the plain admin-dashboard blue used elsewhere in this
+   console — this is the one screen where staff are directly composing
+   something a guest of a 4-5★ property will read. */
 .bk-resend-editor {
-  margin-top: 14px; padding: 14px 16px; max-width: 580px;
-  background: #f4f6fb; border: 1px solid #d8dff0; border-radius: 8px;
+  position: relative; overflow: hidden;
+  margin-top: 18px; max-width: 620px;
+  padding: 26px 28px 24px;
+  background: var(--paper); border: 1px solid var(--sand); border-radius: 14px;
+  box-shadow: 0 8px 28px rgba(7, 61, 59, 0.08);
 }
-.bk-resend-hint { margin: 0 0 10px; font-size: 0.82rem; color: #556; }
-.bk-resend-label {
-  display: block; font-size: 0.78rem; font-weight: 600; color: #556;
-  margin-bottom: 10px;
+.bk-resend-editor::before {
+  content: ""; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  background: linear-gradient(90deg, var(--teal-deep), var(--gold));
 }
+@keyframes bkResendIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+.bk-resend-editor:not([hidden]) { animation: bkResendIn .28s ease; }
+
+.bk-resend-header { display: flex; align-items: flex-start; gap: 14px; margin-bottom: 16px; }
+.bk-resend-header-icon {
+  flex: 0 0 auto; width: 38px; height: 38px; border-radius: 50%;
+  background: var(--teal-deep); color: var(--ivory);
+  display: flex; align-items: center; justify-content: center; font-size: 1.05rem;
+}
+.bk-resend-header-text { flex: 1; min-width: 0; }
+.bk-resend-title {
+  font-family: var(--serif); font-size: 1.2rem; font-weight: 600;
+  color: var(--teal-deep); letter-spacing: .01em;
+}
+.bk-resend-hint { margin: 4px 0 0; font-size: 0.82rem; color: var(--ink-soft); line-height: 1.5; }
+
+.bk-resend-to {
+  font-size: 0.8rem; color: var(--ink-soft);
+  margin-bottom: 20px; padding-bottom: 14px; border-bottom: 1px solid var(--sand);
+}
+.bk-resend-to-email { color: var(--teal-deep); font-weight: 600; }
+
+.bk-resend-field { margin-bottom: 18px; }
+.bk-resend-field label {
+  display: block; font-size: 0.68rem; font-weight: 700; letter-spacing: .09em;
+  text-transform: uppercase; color: var(--ink-soft); margin-bottom: 7px;
+}
+/* Subject: an understated underlined field (like a letter's own heading)
+   rather than a boxed form input. */
 .bk-resend-subject {
-  display: block; width: 100%; margin-top: 4px; padding: 7px 10px;
-  border: 1px solid #d0d6e6; border-radius: 6px; font-size: 0.86rem;
-  font-family: var(--sans); box-sizing: border-box;
+  display: block; width: 100%; box-sizing: border-box;
+  padding: 8px 2px 10px; border: none; border-bottom: 1.5px solid var(--sand);
+  background: transparent; font-family: var(--serif); font-size: 1.02rem;
+  color: var(--ink); transition: border-color .15s;
 }
+.bk-resend-subject:focus { outline: none; border-bottom-color: var(--gold); }
+
+/* Body: styled like the printed page of a hotel letter — serif type,
+   generous line-height, cream card surface. */
 .bk-resend-body {
-  display: block; width: 100%; padding: 10px; box-sizing: border-box;
-  border: 1px solid #d0d6e6; border-radius: 6px; font-size: 0.84rem;
-  font-family: var(--sans); line-height: 1.5; resize: vertical;
+  display: block; width: 100%; box-sizing: border-box; padding: 16px 18px;
+  border: 1px solid var(--sand); border-radius: 8px; background: #fff;
+  font-family: var(--serif); font-size: 0.98rem; line-height: 1.75;
+  color: var(--ink); resize: vertical; transition: border-color .15s, box-shadow .15s;
 }
-.bk-resend-actions { display: flex; gap: 8px; margin-top: 12px; }
-.bk-resend-send { color: #0f766e; border-color: #a9d6cb; }
-.bk-resend-send:hover { background: #e8f5f3; border-color: #7fc2b3; }
+.bk-resend-body:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px rgba(201, 162, 75, 0.15); }
+
+.bk-resend-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+.bk-resend-btn {
+  font-family: var(--sans); font-size: 0.82rem; font-weight: 600;
+  padding: 10px 22px; border-radius: 999px; border: 1px solid transparent;
+  cursor: pointer; transition: background .15s, transform .1s, border-color .15s, color .15s;
+}
+.bk-resend-btn-ghost { background: transparent; border-color: var(--sand); color: var(--ink-soft); }
+.bk-resend-btn-ghost:hover { background: var(--sand); color: var(--ink); }
+/* Mirrors the public site's .btn-solid.gold CTA treatment. */
+.bk-resend-btn-gold { background: var(--gold); color: var(--teal-deep); }
+.bk-resend-btn-gold:hover { background: var(--gold-light); transform: translateY(-1px); }
+.bk-resend-btn:disabled { opacity: .6; cursor: default; transform: none; }
+
+@media (max-width: 520px) {
+  .bk-resend-editor { padding: 20px 18px 18px; }
+  .bk-resend-actions { flex-direction: column-reverse; }
+  .bk-resend-btn { width: 100%; text-align: center; }
+}
 
 /* "Sent Emails" history panel — every guest-facing email actually logged for
    this booking (backend email_log, GET .../email-log), most recent first.

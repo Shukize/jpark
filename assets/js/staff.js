@@ -2648,13 +2648,26 @@
       "</div>" +
       (isAdmin() ? '<div class="mda-delete-hint">' + esc(t("msg.bk.delete.adminHint")) + "</div>" : "") +
       '<div class="bk-resend-editor" id="bkResendEditor" hidden>' +
-        '<p class="bk-resend-hint">' + esc(t("msg.bk.resend.editHint")) + "</p>" +
-        '<label class="bk-resend-label">' + esc(t("msg.bk.resend.subject")) +
-          '<input type="text" class="bk-resend-subject" id="bkResendSubject"></label>' +
-        '<textarea class="bk-resend-body" id="bkResendBody" rows="12"></textarea>' +
+        '<div class="bk-resend-header">' +
+          '<div class="bk-resend-header-icon">✉</div>' +
+          '<div class="bk-resend-header-text">' +
+            '<div class="bk-resend-title">' + esc(t("msg.bk.resend.title")) + "</div>" +
+            '<p class="bk-resend-hint">' + esc(t("msg.bk.resend.editHint")) + "</p>" +
+          "</div>" +
+        "</div>" +
+        '<div class="bk-resend-to">' + esc(t("msg.bk.resend.sendingTo")) +
+          ' <span class="bk-resend-to-email">' + esc(b.guestEmail || "") + "</span></div>" +
+        '<div class="bk-resend-field">' +
+          '<label for="bkResendSubject">' + esc(t("msg.bk.resend.subject")) + "</label>" +
+          '<input type="text" class="bk-resend-subject" id="bkResendSubject">' +
+        "</div>" +
+        '<div class="bk-resend-field bk-resend-field-body">' +
+          '<label for="bkResendBody">' + esc(t("msg.bk.resend.body")) + "</label>" +
+          '<textarea class="bk-resend-body" id="bkResendBody" rows="12"></textarea>' +
+        "</div>" +
         '<div class="bk-resend-actions">' +
-          '<button type="button" class="mda-action-btn bk-resend-send" id="bkResendSend">' + esc(t("msg.bk.resend.send")) + "</button>" +
-          '<button type="button" class="mda-action-btn" id="bkResendCancel">' + esc(t("msg.bk.resend.cancel")) + "</button>" +
+          '<button type="button" class="bk-resend-btn bk-resend-btn-ghost" id="bkResendCancel">' + esc(t("msg.bk.resend.cancel")) + "</button>" +
+          '<button type="button" class="bk-resend-btn bk-resend-btn-gold" id="bkResendSend">' + esc(t("msg.bk.resend.send")) + "</button>" +
         "</div>" +
       "</div>" +
       '<div class="bk-emaillog-panel" id="bkEmailLogPanel" hidden>' +
