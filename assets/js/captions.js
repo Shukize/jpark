@@ -11,12 +11,11 @@ window.JPark.captions = {
     "livingArea",
     "bathroom"
   ],
-  "room:Prestige Single": [
-    "bedroom",
-    "workspace",
-    "bedroom",
-    "bedroom"
-  ],
+  /* Prestige Single, Premium Single, Grand Deluxe and Grand Suite 1 Bedroom
+     were re-sourced from Trip.com/Klook on 2026-07-12 (see media.js) — old
+     per-photo area captions no longer match the new photo order, so they're
+     left uncaptioned (room name only) until re-reviewed. */
+  "room:Prestige Single": [],
   "room:Prestige Twin": [
     "twinBedroom",
     "workspace"
@@ -37,10 +36,7 @@ window.JPark.captions = {
     "livingArea",
     "bathroom"
   ],
-  "room:Premium Single": [
-    "bedroom",
-    "kitchenette"
-  ],
+  "room:Premium Single": [],
   "room:Premium Twin": [
     "twinBedroom",
     "livingArea"
@@ -58,13 +54,7 @@ window.JPark.captions = {
     "kitchenette",
     "diningArea"
   ],
-  "room:Grand Deluxe": [
-    "livingArea",
-    "livingArea",
-    "bathroom",
-    "bedroom",
-    "workspace"
-  ],
+  "room:Grand Deluxe": [],
   "room:Executive Suite 1 Bedroom": [
     "bedroom",
     "livingArea",
@@ -81,16 +71,7 @@ window.JPark.captions = {
     "bathroom",
     "wardrobe"
   ],
-  "room:Grand Suite 1 Bedroom": [
-    "livingArea",
-    "view",
-    "entrance",
-    "diningArea",
-    "bedroom",
-    "livingArea",
-    "bathroom",
-    "wardrobe"
-  ],
+  "room:Grand Suite 1 Bedroom": [],
   "building5": [
     "entrance",
     "staircase",

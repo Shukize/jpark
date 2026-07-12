@@ -388,6 +388,23 @@ h1, h2, h3 { font-weight: 500; line-height: 1.12; letter-spacing: 0.01em; }
 .room-img { overflow: hidden; aspect-ratio: 4/3; }
 .room-img img { width: 100%; height: 100%; object-fit: cover; transition: transform .8s var(--ease); }
 .room-card:hover .room-img img { transform: scale(1.07); }
+.room-img--soon {
+  display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, var(--teal-deep) 0%, var(--teal) 62%, var(--gold-light) 130%);
+}
+.coming-soon {
+  display: flex; flex-direction: column; align-items: center; gap: 12px;
+  padding: 20px; text-align: center; color: var(--ivory);
+}
+.coming-soon-icon { width: 30px; height: 30px; opacity: 0.85; stroke: var(--gold-light); }
+.coming-soon span {
+  font-family: var(--serif); font-style: italic; font-size: 1.08rem;
+  letter-spacing: 0.03em;
+}
+.coming-soon::after {
+  content: ""; width: 34px; height: 1px;
+  background: var(--gold-light); opacity: 0.7;
+}
 /* Swipe affordance — hidden on desktop (rooms are a 3-up grid there) */
 .swipe-hint { display: none; }
 /* Book Now call-to-action below the room grid */

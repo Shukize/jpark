@@ -23,18 +23,21 @@
 
   /* Room folders -> photo counts (files are room_01.jpg … room_NN.jpg, best
      cover first). One folder per room type currently let, in display order. */
-  /* room_NN.jpg folders. Studio Single, Studio B4 and Deluxe were refreshed with
-     a new 2026-06-09 batch and are defined as explicit item lists below. */
-  /* Counts reflect the room_NN.jpg files that exist on disk. All rooms are Agoda
-     OTA photos, 4K AI-upscaled. The tier rooms below (Premium/Grand/Prestige/
-     Executive) aren't sold under those names on OTAs, so they use the closest
-     Agoda category (Standard/Superior/Premier/Guestroom/Grand Suite). */
+  /* Counts reflect the room_NN.jpg files that exist on disk, all 4K AI-upscaled.
+     Most rooms are Agoda OTA photos matched to an exact same-named category.
+     Prestige Single, Premium Single, Grand Deluxe and Grand Suite 1 Bedroom are
+     sourced from Trip.com/Klook's own room-specific photos, matched by real
+     room size (m²) since this hotel's OTA room names don't line up 1:1 with
+     the site's tier names. Deluxe, Grand Premium and Premium Suite have no
+     confidently-matched real photos on any OTA (their sizes fall between
+     tiers with no distinct source) — count 0, "coming soon" placeholder shown
+     on the room card instead of guessing wrong again. */
   const ROOM_COUNTS = {
-    "Prestige Single": 9, "Prestige Twin": 9,
-    "Premium Single": 17, "Premium Twin": 7, "Grand Premium": 11,
-    "Grand Deluxe": 11,
-    "Premium Suite": 17, "Grand Suite 1 Bedroom": 18,
-    "Corner Suite": 13, "Deluxe": 11, "Studio Single": 13, "Studio B4": 11,
+    "Prestige Single": 20, "Prestige Twin": 9,
+    "Premium Single": 20, "Premium Twin": 7, "Grand Premium": 0,
+    "Grand Deluxe": 20,
+    "Premium Suite": 0, "Grand Suite 1 Bedroom": 11,
+    "Corner Suite": 13, "Deluxe": 0, "Studio Single": 13, "Studio B4": 11,
     "Executive Suite 1 Bedroom": 17
   };
   function seq(folder, prefix, n) {
@@ -44,7 +47,10 @@
     }
     return out;
   }
-  function roomItems(folder) { return seq(folder, "room", ROOM_COUNTS[folder] || 1); }
+  function roomItems(folder) {
+    const n = ROOM_COUNTS[folder];
+    return seq(folder, "room", n === undefined ? 1 : n);
+  }
 
   /* Building 5 (J Park Hall) — Agoda ballroom/banquet/exterior photos, 4K
      AI-upscaled, files b5_01.jpg … b5_14.jpg. */
@@ -216,14 +222,14 @@
     { id: "room:Prestige Single", labelKey: "rooms.prestigeSingleName", section: "rooms", gallery: true, items: roomItems("Prestige Single") },
     { id: "room:Prestige Twin",   labelKey: "rooms.prestigeTwinName",  section: "rooms", gallery: true, items: roomItems("Prestige Twin") },
     { id: "room:Studio B4",       labelKey: "rooms.studioB4Name",      section: "rooms", gallery: true, items: roomItems("Studio B4") },
-    { id: "room:Deluxe",          labelKey: "rooms.deluxeName",        section: "rooms", gallery: true, items: roomItems("Deluxe") },
+    { id: "room:Deluxe",          labelKey: "rooms.deluxeName",        section: "rooms", items: roomItems("Deluxe") },
     { id: "room:Premium Single",  labelKey: "rooms.premiumSingleName", section: "rooms", gallery: true, items: roomItems("Premium Single") },
     { id: "room:Premium Twin",    labelKey: "rooms.premiumTwinName",   section: "rooms", gallery: true, items: roomItems("Premium Twin") },
-    { id: "room:Grand Premium",   labelKey: "rooms.grandPremiumName",  section: "rooms", gallery: true, items: roomItems("Grand Premium") },
+    { id: "room:Grand Premium",   labelKey: "rooms.grandPremiumName",  section: "rooms", items: roomItems("Grand Premium") },
     { id: "room:Corner Suite",    labelKey: "rooms.cornerName",        section: "rooms", gallery: true, items: roomItems("Corner Suite") },
     { id: "room:Grand Deluxe",    labelKey: "rooms.grandDeluxeName",   section: "rooms", gallery: true, items: roomItems("Grand Deluxe") },
     { id: "room:Executive Suite 1 Bedroom", labelKey: "rooms.execSuite1brName", section: "rooms", gallery: true, items: roomItems("Executive Suite 1 Bedroom") },
-    { id: "room:Premium Suite",   labelKey: "rooms.premiumSuiteName",  section: "rooms", gallery: true, items: roomItems("Premium Suite") },
+    { id: "room:Premium Suite",   labelKey: "rooms.premiumSuiteName",  section: "rooms", items: roomItems("Premium Suite") },
     { id: "room:Grand Suite 1 Bedroom", labelKey: "rooms.grandSuiteName", section: "rooms", gallery: true, items: roomItems("Grand Suite 1 Bedroom") },
     { id: "building5",    labelKey: "building.galTitle",      section: "building",   gallery: true, galleryKey: "building.galTitle", items: BUILDING5_ITEMS },
     { id: "lobby",        labelKey: "gallery.cat.lobby",      section: "gallery", gallery: true, items: LOBBY_ITEMS },
