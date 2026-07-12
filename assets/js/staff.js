@@ -2551,6 +2551,37 @@
     container.appendChild(wrap);
   }
 
+  // Renders the "Sent Emails" list for one booking. Each entry is a
+  // collapsible row (mirrors the Account Logs session-group pattern) that
+  // expands to the exact subject/body that was sent, so staff can verify
+  // what a guest actually received instead of just that a send was attempted.
+  function renderEmailLogList(listEl, rows) {
+    if (!rows.length) {
+      listEl.innerHTML = '<div class="bk-emaillog-empty">' + esc(t("msg.bk.emailLog.empty")) + "</div>";
+      return;
+    }
+    listEl.innerHTML = rows.map((e) => {
+      const statusClass = e.status === "sent" ? "sent" : (e.status === "failed" ? "failed" : "skipped");
+      const kindLabel = t("msg.bk.emailLog.kind." + (e.kind || "other")) || t("msg.bk.emailLog.kind.other");
+      const by = e.sentByName ? esc(e.sentByName) : esc(t("msg.bk.emailLog.systemSender"));
+      return (
+        '<details class="bk-emaillog-row">' +
+          "<summary>" +
+            '<span class="bk-emaillog-status ' + statusClass + '">' + esc(t("msg.bk.emailLog.status." + statusClass)) + "</span>" +
+            '<span class="bk-emaillog-subject">' + esc(e.subject || "") + "</span>" +
+            '<span class="bk-emaillog-time">' + esc(new Date(e.createdAt).toLocaleString()) + "</span>" +
+          "</summary>" +
+          '<div class="bk-emaillog-meta">' +
+            esc(kindLabel) + " · " + esc(t("msg.bk.emailLog.to")) + " " + esc(e.to || "") +
+            " · " + esc(t("msg.bk.emailLog.by")) + " " + by +
+            (statusClass === "failed" && e.error ? " · " + esc(t("msg.bk.emailLog.error")) + " " + esc(e.error) : "") +
+          "</div>" +
+          '<div class="bk-emaillog-body">' + esc(e.body || "") + "</div>" +
+        "</details>"
+      );
+    }).join("");
+  }
+
   function renderBookingDetail(id) {
     // Self-heal: navigating to a different booking (or one no longer open
     // for editing) always clears any stale in-progress-edit guard.
@@ -2608,6 +2639,8 @@
         "</button>" +
         (b.guestEmail && b.status !== "cancelled"
           ? '<button class="mda-action-btn" id="mdaBkResend">✉ ' + esc(t("msg.bk.resend")) + "</button>" : "") +
+        (b.guestEmail
+          ? '<button class="mda-action-btn" id="mdaBkEmailLog">📧 ' + esc(t("msg.bk.emailLog")) + "</button>" : "") +
         (b.status === "cancelled"
           ? '<button class="mda-action-btn mda-reopen-btn" id="mdaBkCancel">↺ ' + esc(t("msg.bk.reopen")) + "</button>"
           : '<button class="mda-action-btn mda-cancel-btn" id="mdaBkCancel">✕ ' + esc(t("msg.bk.cancel")) + "</button>") +
@@ -2623,6 +2656,9 @@
           '<button type="button" class="mda-action-btn bk-resend-send" id="bkResendSend">' + esc(t("msg.bk.resend.send")) + "</button>" +
           '<button type="button" class="mda-action-btn" id="bkResendCancel">' + esc(t("msg.bk.resend.cancel")) + "</button>" +
         "</div>" +
+      "</div>" +
+      '<div class="bk-emaillog-panel" id="bkEmailLogPanel" hidden>' +
+        '<div class="bk-emaillog-list" id="bkEmailLogList"></div>' +
       "</div>";
 
     // Confirmation body: show the original text, then auto-translate it into
@@ -2753,6 +2789,30 @@
           sendBtn.disabled = false;
           U.toast(t("msg.bk.resend.failed"), "error");
         });
+      });
+    }
+
+    // "Sent Emails" — a read-only history of every guest-facing email
+    // actually logged for this booking (backend email_log via GET
+    // .../email-log), so staff can check what a guest was told without
+    // digging through server logs. Fetched lazily on first open, not on
+    // every renderBookingDetail() call/poll tick.
+    const bkEmailLogBtn = detailArea.querySelector("#mdaBkEmailLog");
+    const bkEmailLogPanel = detailArea.querySelector("#bkEmailLogPanel");
+    if (bkEmailLogBtn && bkEmailLogPanel) {
+      let emailLogLoaded = false;
+      bkEmailLogBtn.addEventListener("click", () => {
+        const API = window.JPark && window.JPark.api;
+        if (!API) return;
+        const opening = bkEmailLogPanel.hidden;
+        bkEmailLogPanel.hidden = !opening;
+        if (!opening || emailLogLoaded) return;
+        const listEl = bkEmailLogPanel.querySelector("#bkEmailLogList");
+        listEl.textContent = t("msg.bk.emailLog.loading");
+        API.get("/api/guest-bookings/" + b.id + "/email-log").then((r) => {
+          emailLogLoaded = true;
+          renderEmailLogList(listEl, Array.isArray(r) ? r : []);
+        }).catch(() => { listEl.textContent = t("msg.bk.emailLog.failed"); });
       });
     }
 

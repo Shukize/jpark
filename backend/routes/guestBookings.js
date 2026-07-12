@@ -325,6 +325,9 @@ function fireCancellationNotice(bk, { actorName, wasConfirmed } = {}) {
       subject: `J Park Hotel — booking cancelled (${bk.ref})`,
       text,
       html,
+    }, {
+      bookingId: bk.id, bookingRef: bk.ref, kind: 'cancellation',
+      sentByName: actorName || 'System (auto-detected)',
     }).then((r) => {
       if (r.ok) console.log(`[guest-bookings] cancellation emailed to ${bk.guest_email} (${bk.ref})`);
       else if (!r.skipped) console.warn(`[guest-bookings] cancellation email failed (${bk.ref}): ${r.error}`);
@@ -477,7 +480,10 @@ function textToHtml(text) {
 // `override` (optional) lets staff hand-edit the subject/body before it goes
 // out — e.g. to correct a wrong price shown in the original auto-generated
 // confirmation — instead of always re-sending the template verbatim.
-async function sendGuestConfirmation(saved, override) {
+// `actor` (optional) is the signed-in staff member manually triggering a
+// resend (req.user); omitted for the automatic send on initial booking, so
+// email_log can tell the two apart.
+async function sendGuestConfirmation(saved, override, actor) {
   const auto = confirmationEmail(saved);
   const text = (override && override.text) ? override.text : auto.text;
   const html = (override && override.text) ? textToHtml(override.text) : auto.html;
@@ -489,6 +495,11 @@ async function sendGuestConfirmation(saved, override) {
     text,
     html,
     replyTo: to[0] || undefined,
+  }, {
+    bookingId: saved.id, bookingRef: saved.ref,
+    kind: actor ? 'resend' : 'confirmation',
+    sentById: actor ? actor.id : null,
+    sentByName: actor ? actor.name : null,
   });
   if (r.ok) console.log(`[guest-bookings] confirmation emailed to ${saved.guest_email} (${saved.ref})`);
   else if (!r.skipped) console.warn(`[guest-bookings] confirmation email failed (${saved.ref}): ${r.error}`);
@@ -724,13 +735,45 @@ router.post('/:id/resend-confirmation', requireAuth, async (req, res) => {
       text: typeof b.text === 'string' && b.text.trim() ? b.text : null,
     };
 
-    const result = await sendGuestConfirmation(bk, override);
+    const result = await sendGuestConfirmation(bk, override, req.user);
     if (!result.ok) {
       return res.status(result.skipped ? 503 : 502).json({ error: result.error || 'Send failed' });
     }
     res.json({ status: 'sent', to: bk.guest_email });
   } catch (e) {
     console.error('[guest-bookings] resend-confirmation', e);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+/* GET /api/guest-bookings/:id/email-log — every guest-facing email actually
+   sent for this booking (confirmation, resend, cancellation notice, day-use
+   request), most recent first. Powers the Staff Console's "Sent Emails"
+   panel — see backend/mailer.js's sendEmail(msg, meta) for what gets logged
+   and why (internal hotel-notice emails are deliberately excluded). */
+router.get('/:id/email-log', requireAuth, async (req, res) => {
+  try {
+    const { rows } = await db.query(
+      `SELECT id, to_address, subject, body, kind, status, error,
+              sent_by_name, created_at
+         FROM email_log
+        WHERE booking_id = $1
+        ORDER BY created_at DESC`,
+      [req.params.id]
+    );
+    res.json(rows.map((r) => ({
+      id: r.id,
+      to: r.to_address,
+      subject: r.subject,
+      body: r.body,
+      kind: r.kind,
+      status: r.status,
+      error: r.error,
+      sentByName: r.sent_by_name,
+      createdAt: new Date(r.created_at).getTime(),
+    })));
+  } catch (e) {
+    console.error('[guest-bookings] email-log', e);
     res.status(500).json({ error: 'Database error' });
   }
 });

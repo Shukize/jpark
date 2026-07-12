@@ -1108,6 +1108,38 @@ body.mobile-view .fac-card.large {
 .bk-resend-send { color: #0f766e; border-color: #a9d6cb; }
 .bk-resend-send:hover { background: #e8f5f3; border-color: #7fc2b3; }
 
+/* "Sent Emails" history panel — every guest-facing email actually logged for
+   this booking (backend email_log, GET .../email-log), most recent first.
+   Each row is a <details> that expands to the exact subject/body sent,
+   mirroring the Account Logs session-group collapse pattern. */
+.bk-emaillog-panel {
+  margin-top: 14px; padding: 6px 16px; max-width: 580px;
+  background: #f4f6fb; border: 1px solid #d8dff0; border-radius: 8px;
+}
+.bk-emaillog-empty { padding: 12px 4px; font-size: 0.82rem; color: #778; }
+.bk-emaillog-row { border-bottom: 1px solid #dde3f2; }
+.bk-emaillog-row:last-child { border-bottom: none; }
+.bk-emaillog-row > summary {
+  display: flex; align-items: center; gap: 8px; padding: 10px 4px;
+  cursor: pointer; list-style: none; font-size: 0.84rem;
+}
+.bk-emaillog-row > summary::-webkit-details-marker { display: none; }
+.bk-emaillog-subject { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #333; }
+.bk-emaillog-time { font-size: 0.74rem; color: #99a; white-space: nowrap; }
+.bk-emaillog-status {
+  padding: 1px 8px; border-radius: 999px; font-size: 0.68rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .03em; white-space: nowrap;
+}
+.bk-emaillog-status.sent { background: #e8f5f3; color: #0f766e; }
+.bk-emaillog-status.failed { background: #fdecea; color: #c0392b; }
+.bk-emaillog-status.skipped { background: #f2f2f2; color: #888; }
+.bk-emaillog-meta { font-size: 0.74rem; color: #99a; margin: -4px 4px 8px; }
+.bk-emaillog-body {
+  margin: 0 4px 10px; padding: 10px; background: #fff; border: 1px solid #e4e8f4;
+  border-radius: 6px; font-size: 0.82rem; line-height: 1.5; white-space: pre-wrap;
+  max-height: 260px; overflow-y: auto;
+}
+
 /* Read-only summary shown in place of the front-desk controls once a
    booking is cancelled. */
 .bk-cancel-summary {

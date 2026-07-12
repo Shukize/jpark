@@ -289,7 +289,8 @@ router.post('/payments/dayuse-booking', async (req, res) => {
         subject: `J Park Hotel — day-use request received (${saved.ref})`,
         text,
         html,
-      }).catch((err) => console.error('[payments] dayuse guest email error', err));
+      }, { bookingId: saved.id, bookingRef: saved.ref, kind: 'dayuse_request' })
+        .catch((err) => console.error('[payments] dayuse guest email error', err));
     }
 
     res.status(201).json({ status: 'pending', booking: row2js(saved) });

@@ -372,3 +372,32 @@ CREATE TABLE IF NOT EXISTS banned_ips (
   banned_by_id VARCHAR(50)  REFERENCES employees(id),
   reason       TEXT
 );
+
+-- ── Sent-email log (guest-facing emails only) ────────────────────────────────
+-- Every guest confirmation, resend, cancellation notice, and day-use request
+-- email actually handed to Resend gets one row here (see backend/mailer.js's
+-- sendEmail(msg, meta) — logging only happens when the caller passes `meta`,
+-- which the guest-facing call sites do; internal hotel-notice emails don't,
+-- since this log exists so staff can see what a GUEST was told, not the
+-- hotel's own inbox traffic). Logged regardless of outcome (sent/failed/
+-- skipped) so a silently-failed send is visible in the Staff Console instead
+-- of only ever reaching a server log line. booking_ref is denormalised
+-- alongside booking_id so the row still reads sensibly if the booking is
+-- ever deleted (ON DELETE SET NULL, not CASCADE — the email really was sent;
+-- deleting the booking shouldn't erase that it happened).
+CREATE TABLE IF NOT EXISTS email_log (
+  id           SERIAL       PRIMARY KEY,
+  booking_id   TEXT         REFERENCES guest_bookings(id) ON DELETE SET NULL,
+  booking_ref  VARCHAR(50),
+  to_address   VARCHAR(150) NOT NULL,
+  subject      VARCHAR(255) NOT NULL,
+  body         TEXT,
+  kind         VARCHAR(30)  NOT NULL,
+  status       VARCHAR(10)  NOT NULL,
+  error        TEXT,
+  sent_by_id   VARCHAR(50)  REFERENCES employees(id),
+  sent_by_name VARCHAR(100),
+  created_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_email_log_booking ON email_log (booking_id, created_at DESC);
