@@ -27,6 +27,39 @@
     return headers;
   }
 
+  // Real server round-trip that renews the SAME session's access token
+  // (see backend/routes/auth.js's POST /refresh). Replaces the old
+  // client-side self-signing "recovery," which the hardened server always
+  // rejected — that mismatch is what silently froze the whole staff
+  // console for days once the old 12h token expired. De-duplicated via a
+  // shared in-flight promise so the several 6s pollers that can all hit a
+  // 401 on the same tick don't each independently call /refresh.
+  let refreshPromise = null;
+  function refreshToken() {
+    const AT = window.JPark && window.JPark.authToken;
+    if (!AT || !AT.get()) return Promise.resolve(false); // nothing to refresh
+    if (refreshPromise) return refreshPromise;
+    const base = cfg().apiBase;
+    refreshPromise = fetch(base + "/api/auth/refresh", {
+      method: "POST",
+      headers: authHeaders(),
+    })
+      .then((res) => (res.ok ? res.json() : Promise.reject(res)))
+      .then((data) => {
+        if (data && data.token) AT.setToken(data.token);
+        return true;
+      })
+      .catch(() => {
+        // Refresh was denied (revoked/banned/absolute-expiry) or the
+        // network failed outright — either way, stop retrying silently
+        // and send the user back to a real login screen.
+        window.dispatchEvent(new CustomEvent("jpark:force-logout"));
+        return false;
+      })
+      .finally(() => { refreshPromise = null; });
+    return refreshPromise;
+  }
+
   async function request(method, path, body) {
     const base = cfg().apiBase;
     try {
@@ -36,27 +69,20 @@
       let data;
       try { data = await res.json(); } catch (_) { data = {}; }
       if (!res.ok) {
-        // On 401, attempt to re-mint from the expired token's own payload and
-        // retry once. Handles the common "token expired mid-shift" case
-        // transparently without requiring a page reload.
+        // On 401, try a real refresh and retry once. Handles the common
+        // "access token expired mid-shift" case transparently, with no
+        // visible interruption, as long as the session itself is still
+        // valid server-side.
         if (res.status === 401) {
-          const AT = window.JPark && window.JPark.authToken;
-          if (AT) {
-            const payload = AT.decode(); // readable even on an expired token
-            if (payload) {
-              const user = {
-                id: payload.sub, name: payload.name,
-                username: payload.username, email: payload.email, role: payload.role,
-              };
-              try { await AT.mint(user); } catch (_) {}
-              const opts2 = { method, headers: authHeaders() };
-              if (body !== undefined && body !== null) opts2.body = JSON.stringify(body);
-              const res2 = await fetch(base + path, opts2);
-              let data2;
-              try { data2 = await res2.json(); } catch (_) { data2 = {}; }
-              if (!res2.ok) return { error: data2.error || ("HTTP " + res2.status), status: res2.status };
-              return data2;
-            }
+          const refreshed = await refreshToken();
+          if (refreshed) {
+            const opts2 = { method, headers: authHeaders() };
+            if (body !== undefined && body !== null) opts2.body = JSON.stringify(body);
+            const res2 = await fetch(base + path, opts2);
+            let data2;
+            try { data2 = await res2.json(); } catch (_) { data2 = {}; }
+            if (!res2.ok) return { error: data2.error || ("HTTP " + res2.status), status: res2.status };
+            return data2;
           }
         }
         return { error: data.error || ("HTTP " + res.status), status: res.status };

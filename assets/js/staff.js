@@ -196,9 +196,11 @@
     stopApiPolling();
     _pollRequests(); _pollChats(); _pollGuestBookings(); _pollMessages();
     _syncStaffList();
+    if (isAdmin()) _pollSessions();
     _pollTimer = setInterval(function () {
       _pollRequests(); _pollChats(); _pollGuestBookings(); _pollMessages();
       _syncStaffList();
+      if (isAdmin()) _pollSessions();
     }, 6000);
   }
   function stopApiPolling() {
@@ -283,6 +285,20 @@
       return;
     }
     S.write("guestBookings", data);
+  }
+
+  // Admin-only (the endpoint 403s for non-admins, see startApiPolling()'s
+  // isAdmin() guard). Only re-renders the Account Logs list rows when that
+  // panel is actually open, to avoid DOM churn every 6s while an admin is
+  // looking at a different panel — mirrors how _pollChats() only reloads
+  // the open thread's messages when that specific thread changed.
+  async function _pollSessions() {
+    const API = window.JPark && window.JPark.api;
+    if (!API) return;
+    const data = await API.get("/api/sessions");
+    if (!Array.isArray(data)) return;
+    S.write("acctSessions", data);
+    if (panel === "accountLogs") renderSessionRows();
   }
 
   /* ── Internal messages: pull every visible message from the server and
@@ -410,6 +426,20 @@
     showAuthView("signin");
   }
 
+  // Shared by the manual "Sign out" button and a genuinely dead session
+  // (revoked, banned, or past its 7-day absolute cap) detected by
+  // api.js's failed POST /api/auth/refresh — see the "jpark:force-logout"
+  // window event listener wired below, next to the "Sign out" button's
+  // own click handler. This is the fix for the old bug where an expired
+  // session just silently stopped syncing forever: now it drops the user
+  // back to a real login screen instead.
+  function forceLogout() {
+    stopApiPolling();
+    setSession(null);
+    if (J.authToken) J.authToken.clear();
+    showLogin();
+  }
+
   function showDash() {
     document.getElementById("loginView").style.display = "none";
     document.getElementById("dashView").classList.add("show");
@@ -436,7 +466,7 @@
 
   /* ====================  PANELS  ==================== */
   function selectPanel(name) {
-    if ((name === "site" || name === "team" || name === "maintenance") && !isAdmin()) name = "requests";
+    if ((name === "site" || name === "team" || name === "maintenance" || name === "accountLogs") && !isAdmin()) name = "requests";
     if (name === "company") name = "messages"; // redirect legacy hash
     panel = name;
     document.querySelectorAll(".nav-item").forEach((b) => b.classList.toggle("active", b.dataset.panel === name));
@@ -455,6 +485,7 @@
     else if (panel === "site") renderSite();
     else if (panel === "team") renderTeam();
     else if (panel === "maintenance") renderMaintenance();
+    else if (panel === "accountLogs") renderAccountLogs();
   }
 
   /* ---- maintenance mode (admin) ---- */
@@ -491,6 +522,146 @@
         U.toast(t("staff.maint.saved"), "success");
       });
     }
+  }
+
+  /* ====================  ACCOUNT LOGS  ====================
+     Admin-only session audit trail: every staff login (IP, device,
+     location, live "online" status) plus banned IPs. Backed by
+     backend/routes/sessions.js. renderAccountLogs() does the initial
+     fetch-and-render when the panel is opened; _pollSessions() (see
+     startApiPolling()) keeps the sessions half live on the existing 6s
+     tick while this panel stays open. */
+  function renderAccountLogs() {
+    if (!isAdmin()) return;
+    const API = window.JPark && window.JPark.api;
+    if (!API) return;
+    API.get("/api/sessions").then((data) => {
+      if (Array.isArray(data)) { S.write("acctSessions", data); renderSessionRows(); }
+    });
+    API.get("/api/sessions/banned-ips").then((data) => {
+      if (Array.isArray(data)) { S.write("acctBanned", data); renderBannedRows(); }
+    });
+  }
+
+  function acctLocationText(s) {
+    if (s.city && s.country) return s.city + ", " + s.country;
+    if (s.country) return s.country;
+    return t("staff.acctLogs.unknownLocation");
+  }
+
+  function renderSessionRows() {
+    const area = document.getElementById("acctSessionsList");
+    if (!area) return;
+    const sessions = S.list("acctSessions");
+    if (!sessions.length) {
+      area.innerHTML = '<p class="track-empty">' + esc(t("staff.acctLogs.emptySessions")) + "</p>";
+      return;
+    }
+    area.innerHTML = "";
+    sessions.forEach((s) => {
+      const row = document.createElement("div");
+      row.className = "acct-row" + (s.revokedAt ? " acct-row-revoked" : "");
+
+      const dotClass = "session-dot" + (s.online ? " live" : "");
+      const statusLabel = s.online ? t("staff.acctLogs.online") : t("staff.acctLogs.offline");
+      const youBadge = s.isCurrent
+        ? '<span class="bk-row-pill">' + esc(t("staff.acctLogs.youBadge")) + "</span>" : "";
+      const revokedNote = s.revokedAt
+        ? '<div class="acct-row-note">' +
+            esc(t("staff.acctLogs.revokedBy").replace("{name}", s.revokedByName || t("staff.acctLogs.systemRevoked"))) +
+          "</div>"
+        : "";
+
+      row.innerHTML =
+        '<div class="acct-row-main">' +
+          '<div class="acct-row-head">' +
+            "<b>" + esc(s.employeeName) + "</b> — " + esc(s.deviceSummary || "—") + youBadge +
+          "</div>" +
+          '<div class="acct-row-meta">' +
+            esc(s.ip) + " · " + esc(acctLocationText(s)) + " · " +
+            esc(t("staff.acctLogs.colSignedIn")) + " " + esc(formatMsgTime(s.createdAt)) + " · " +
+            esc(t("staff.acctLogs.colLastActive")) + " " + esc(formatMsgTime(s.lastSeenAt)) +
+          "</div>" +
+          revokedNote +
+        "</div>" +
+        '<div class="acct-row-status"><i class="' + dotClass + '"></i>' + esc(statusLabel) + "</div>" +
+        '<div class="rr-actions"></div>';
+
+      const actions = row.querySelector(".rr-actions");
+      if (!s.revokedAt) {
+        const signOutBtn = document.createElement("button");
+        signOutBtn.textContent = t("staff.acctLogs.signOut");
+        signOutBtn.addEventListener("click", () => {
+          if (!confirm(t("staff.acctLogs.confirmSignOut"))) return;
+          API_post("/api/sessions/" + encodeURIComponent(s.jti) + "/revoke", {}).then(() => renderAccountLogs());
+        });
+        actions.appendChild(signOutBtn);
+
+        const banBtn = document.createElement("button");
+        banBtn.className = "rr-del";
+        banBtn.textContent = t("staff.acctLogs.banIp");
+        banBtn.addEventListener("click", () => {
+          if (!confirm(t("staff.acctLogs.confirmBanIp"))) return;
+          API_post("/api/sessions/ban", { ip: s.ip }).then(() => renderAccountLogs());
+        });
+        actions.appendChild(banBtn);
+      }
+
+      area.appendChild(row);
+    });
+  }
+
+  function renderBannedRows() {
+    const area = document.getElementById("acctBannedList");
+    if (!area) return;
+    const banned = S.list("acctBanned");
+    if (!banned.length) {
+      area.innerHTML = '<p class="track-empty">' + esc(t("staff.acctLogs.emptyBanned")) + "</p>";
+      return;
+    }
+    area.innerHTML = "";
+    banned.forEach((b) => {
+      const row = document.createElement("div");
+      row.className = "acct-row";
+      row.innerHTML =
+        '<div class="acct-row-main">' +
+          '<div class="acct-row-head"><b>' + esc(b.ip) + "</b></div>" +
+          '<div class="acct-row-meta">' +
+            esc(b.reason || t("staff.acctLogs.noReason")) + " · " +
+            esc(t("staff.acctLogs.bannedByOn")
+              .replace("{name}", b.bannedByName || t("staff.acctLogs.systemRevoked"))
+              .replace("{date}", formatMsgTime(b.bannedAt))) +
+          "</div>" +
+        "</div>" +
+        '<div class="rr-actions"></div>';
+
+      const actions = row.querySelector(".rr-actions");
+      const unbanBtn = document.createElement("button");
+      unbanBtn.textContent = t("staff.acctLogs.unban");
+      unbanBtn.addEventListener("click", () => {
+        if (!confirm(t("staff.acctLogs.confirmUnban"))) return;
+        API_post("/api/sessions/unban", { ip: b.ip }).then(() => renderAccountLogs());
+      });
+      actions.appendChild(unbanBtn);
+
+      const reportBtn = document.createElement("button");
+      reportBtn.className = "rr-del";
+      reportBtn.textContent = t("staff.acctLogs.report");
+      reportBtn.addEventListener("click", () => {
+        window.open("https://www.abuseipdb.com/check/" + encodeURIComponent(b.ip), "_blank", "noopener");
+      });
+      actions.appendChild(reportBtn);
+
+      area.appendChild(row);
+    });
+  }
+
+  // Tiny helper so the click handlers above read as one line each — every
+  // other admin action in this file calls window.JPark.api.post directly,
+  // but that's a bit more verbose repeated 3x above for one panel.
+  function API_post(path, body) {
+    const API = window.JPark && window.JPark.api;
+    return API ? API.post(path, body) : Promise.resolve({ error: "offline" });
   }
 
   /* Team Status & Shifts — modular card board (assets/js/employee-card.js).
@@ -4212,7 +4383,11 @@
     document.querySelectorAll(".nav-item").forEach((b) =>
       b.addEventListener("click", () => selectPanel(b.dataset.panel)));
 
-    document.getElementById("dsSignout").addEventListener("click", () => { stopApiPolling(); setSession(null); if (J.authToken) J.authToken.clear(); showLogin(); });
+    document.getElementById("dsSignout").addEventListener("click", forceLogout);
+    // CustomEvent indirection (rather than api.js calling forceLogout()
+    // directly) keeps api.js — a generic client also used by
+    // employee-card.js — decoupled from staff.js's internals.
+    window.addEventListener("jpark:force-logout", forceLogout);
 
     // avatar / profile
     const avatarWrap = document.getElementById("dsAvatarWrap");

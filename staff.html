@@ -163,6 +163,10 @@
         <span class="ni-ico" aria-hidden="true">🚧</span>
         <span class="ni-label" data-i18n="staff.nav.maintenance">Maintenance</span>
       </button>
+      <button class="nav-item admin-only" data-panel="accountLogs">
+        <span class="ni-ico" aria-hidden="true">🛡️</span>
+        <span class="ni-label" data-i18n="staff.nav.accountLogs">Account Logs</span>
+      </button>
     </nav>
 
     <div class="ds-spacer"></div>
@@ -443,6 +447,18 @@
           <span data-i18n="staff.maint.toggle">Enable maintenance mode</span>
         </label>
       </div>
+    </section>
+
+    <!-- account logs — session audit trail + IP bans (admin) -->
+    <section class="dash-panel" id="panel-accountLogs">
+      <h2 data-i18n="staff.acctLogs.title">Account Logs</h2>
+      <p class="panel-lede" data-i18n="staff.acctLogs.lede">Every staff sign-in, with device, location and live status.</p>
+
+      <h3 data-i18n="staff.acctLogs.sessionsTitle">Active &amp; recent sessions</h3>
+      <div class="staff-list" id="acctSessionsList"></div>
+
+      <h3 data-i18n="staff.acctLogs.bannedTitle">Banned IPs</h3>
+      <div class="staff-list" id="acctBannedList"></div>
     </section>
   </main>
 </div>

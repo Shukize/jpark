@@ -16,8 +16,18 @@
    production unless a non-default AUTH_TOKEN_SECRET is set, so the
    browser's offline/demo token (signed with a public placeholder)
    can never authenticate against live data.
+
+   Session governance: every token also carries `jti` (the session id
+   in staff_sessions) and `absExp` (that session's 7-day absolute cap).
+   requireAuth checks both against lib/sessionCache.js's in-memory
+   revoked/expired state on every request, so an admin sign-out or an
+   IP ban takes effect immediately — not just once the short-lived
+   access token itself expires. See routes/auth.js's POST /refresh for
+   how a session silently renews its access token without ever
+   re-running these checks against a stale signature.
    ============================================================ */
 const crypto = require('crypto');
+const sessionCache = require('../lib/sessionCache');
 
 const SECRET = process.env.AUTH_TOKEN_SECRET || 'jpark-demo-shared-secret';
 
@@ -37,9 +47,13 @@ function timingSafeEqualStr(a, b) {
   return crypto.timingSafeEqual(ba, bb);
 }
 
-// Returns the decoded payload if the token is well-formed, unexpired and
-// (when signed) correctly signed; otherwise null.
-function verifyToken(token) {
+// Shared signature-verification core. `checkExpiry=false` is used ONLY by
+// POST /api/auth/refresh (verifyTokenIgnoringExpiry below) — a refresh call
+// by definition happens when the access token is expired or about to be, so
+// that one endpoint verifies the signature but not `exp`. Every other route
+// keeps the strict, expiry-checking verifyToken(), so this is not a general
+// weakening of the trust boundary, just a one-endpoint carve-out.
+function verifyTokenCore(token, checkExpiry) {
   if (!token || typeof token !== 'string') return null;
   const parts = token.split('.');
   if (parts.length !== 3) return null;
@@ -61,8 +75,20 @@ function verifyToken(token) {
   );
   if (!timingSafeEqualStr(parts[2], expected)) return null;
 
-  if (payload.exp && Date.now() / 1000 > payload.exp) return null;
+  if (checkExpiry && payload.exp && Date.now() / 1000 > payload.exp) return null;
   return payload;
+}
+
+// Returns the decoded payload if the token is well-formed, unexpired and
+// (when signed) correctly signed; otherwise null.
+function verifyToken(token) {
+  return verifyTokenCore(token, true);
+}
+
+// Same as verifyToken() but does not reject an expired `exp` — signature
+// validity alone. Only POST /api/auth/refresh may use this.
+function verifyTokenIgnoringExpiry(token) {
+  return verifyTokenCore(token, false);
 }
 
 // Any authenticated employee.
@@ -72,12 +98,20 @@ function requireAuth(req, res, next) {
   const payload = verifyToken(token);
   if (!payload) return res.status(401).json({ error: 'Invalid or missing bearer token' });
 
+  if (payload.jti && sessionCache.isRevoked(payload.jti)) {
+    return res.status(401).json({ error: 'Session revoked', forceLogout: true });
+  }
+  if (payload.absExp && Date.now() / 1000 > payload.absExp) {
+    return res.status(401).json({ error: 'Session expired', forceLogout: true });
+  }
+
   req.user = {
     id: payload.sub,
     name: payload.name,
     email: payload.email,
     role: payload.role,
     perms: Array.isArray(payload.perms) ? payload.perms : [],
+    jti: payload.jti || null,
   };
   next();
 }
@@ -92,4 +126,4 @@ function requireAdmin(req, res, next) {
   });
 }
 
-module.exports = { requireAuth, requireAdmin, verifyToken };
+module.exports = { requireAuth, requireAdmin, verifyToken, verifyTokenIgnoringExpiry };

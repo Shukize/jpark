@@ -28,7 +28,9 @@ const express = require('express');
 const cors = require('cors');
 
 const migrate = require('./migrate');
+const sessionCache          = require('./lib/sessionCache');
 const authRouter            = require('./routes/auth');
+const sessionsRouter        = require('./routes/sessions');
 const messagesRouter        = require('./routes/messages');
 const serviceRequestsRouter = require('./routes/serviceRequests');
 const otaSyncRouter         = require('./routes/otaSync');
@@ -73,7 +75,12 @@ const bodyDefault  = express.json({ limit: '512kb' }); // comfortably covers the
 
 app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 
-app.use('/api/auth',             bodyDefault,  authRouter);
+// Banned-IP check is scoped to the staff console only (/api/auth,
+// /api/sessions) — never mounted globally — so a shared/NAT'd IP banned
+// for staff-login abuse can never also block a real guest's booking or
+// chat. See lib/sessionCache.js's blockBannedIp.
+app.use('/api/auth',             bodyDefault,  sessionCache.blockBannedIp, authRouter);
+app.use('/api/sessions',         bodyDefault,  sessionCache.blockBannedIp, sessionsRouter);
 app.use('/api/messages',         bodyDefault,  messagesRouter);
 app.use('/api/service-requests', bodyDefault,  serviceRequestsRouter);
 app.use('/api/v1/ota-sync',      bodyDefault,  otaSyncRouter);
@@ -91,5 +98,6 @@ app.use('/api/availability',     bodyDefault,  availabilityRouter);
 app.use('/api/v1/hotel-ads',                   hotelAdsRouter);   // GET-only feed, no body parser needed
 
 migrate()
+  .then(() => sessionCache.hydrate())
   .then(() => app.listen(PORT, () => console.log(`J Park API listening on port ${PORT}`)))
   .catch((err) => { console.error('[migrate] failed:', err); process.exit(1); });

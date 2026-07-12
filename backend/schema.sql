@@ -318,3 +318,49 @@ ALTER TABLE site_content ADD COLUMN IF NOT EXISTS day_use_rates JSONB NOT NULL D
 -- ids are different namespaces. Only ever contains keys that exist in
 -- backend/lib/roomRates.js's ROOMS. See backend/routes/availability.js.
 ALTER TABLE site_content ADD COLUMN IF NOT EXISTS unavailable_rooms TEXT[] NOT NULL DEFAULT '{"Deluxe"}';
+
+-- ── Staff session tracking (sliding sessions, concurrency cap, audit log) ────
+-- One row per staff device/browser login. `jti` is embedded in that login's
+-- access token so middleware/auth.js can revoke a single session without
+-- invalidating every other token signed with the same server secret.
+-- `created_at` never changes for a session's lifetime — it anchors the
+-- 7-day absolute cap (`absolute_expires_at`) that survives across every
+-- silent /api/auth/refresh. See backend/lib/sessionCache.js for the
+-- in-memory revoked/banned caches this table hydrates at boot.
+CREATE TABLE IF NOT EXISTS staff_sessions (
+  jti                 VARCHAR(40)  PRIMARY KEY,
+  employee_id         VARCHAR(50)  NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
+  ip                  VARCHAR(64)  NOT NULL,
+  user_agent          TEXT,
+  device_summary      VARCHAR(160),
+  city                VARCHAR(100),
+  country             VARCHAR(100),
+  country_code        VARCHAR(5),
+  created_at          TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+  last_seen_at        TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+  expires_at          TIMESTAMPTZ  NOT NULL,
+  absolute_expires_at TIMESTAMPTZ  NOT NULL,
+  revoked_at          TIMESTAMPTZ,
+  revoked_reason      VARCHAR(40),
+  revoked_by_id       VARCHAR(50)  REFERENCES employees(id)
+);
+
+-- Concurrency-cap count (routes/auth.js login) and the Account Logs listing
+-- both filter on "this employee's still-active sessions."
+CREATE INDEX IF NOT EXISTS idx_staff_sessions_employee_active
+  ON staff_sessions (employee_id, created_at) WHERE revoked_at IS NULL;
+
+-- IP-ban cascade revoke and the Account Logs table's IP column both query by ip.
+CREATE INDEX IF NOT EXISTS idx_staff_sessions_ip ON staff_sessions (ip);
+
+-- ── Banned IPs (staff console login/session abuse) ───────────────────────────
+-- Scoped to the staff console only (see backend/lib/sessionCache.js's
+-- blockBannedIp middleware, mounted only on /api/auth and /api/sessions) —
+-- deliberately does not touch guest-facing routes, so a shared/NAT'd IP
+-- banned for a bad staff login attempt never blocks a real guest booking.
+CREATE TABLE IF NOT EXISTS banned_ips (
+  ip           VARCHAR(64)  PRIMARY KEY,
+  banned_at    TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+  banned_by_id VARCHAR(50)  REFERENCES employees(id),
+  reason       TEXT
+);

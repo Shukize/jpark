@@ -13,6 +13,17 @@
    ⚠️  DEMO ONLY: a real deployment must issue and sign tokens on the
    server and keep the secret off the client. The browser cannot keep
    a secret, so this proves the flow, not production security.
+
+   mint()'s output is NO LONGER used to recover an expired online
+   session — assets/js/api.js now calls the server's real
+   POST /api/auth/refresh for that (see backend/routes/auth.js), since
+   the hardened production server only ever accepts tokens signed with
+   the real AUTH_TOKEN_SECRET and always rejected this client-signed
+   one anyway (that mismatch is what used to silently freeze the whole
+   staff console for days once a token expired). mint() is kept only
+   for the offline/local-credentials fallback path (staff.js's
+   loginLocal()/completeLogin(), used when the API is unreachable),
+   which never had a real server session to refresh in the first place.
    ============================================================ */
 (function () {
   "use strict";
@@ -20,7 +31,7 @@
 
   const TOKEN_KEY = "jpark.staff.token";
   const SECRET = window.JPARK_AUTH_SECRET || "jpark-demo-shared-secret";
-  const TTL_SECONDS = 12 * 60 * 60; // 12h — a typical shift
+  const TTL_SECONDS = 15 * 60; // matches the server's access-token TTL (routes/auth.js's TTL)
 
   /* ---- base64url helpers (UTF-8 safe) ---- */
   function b64urlFromBytes(bytes) {
@@ -84,6 +95,11 @@
   function get() {
     try { return localStorage.getItem(TOKEN_KEY); } catch (_) { return null; }
   }
+  // Raw setter for a token the SERVER minted (login or /refresh response) —
+  // unlike mint(), this never signs anything client-side.
+  function setToken(token) {
+    try { localStorage.setItem(TOKEN_KEY, token); } catch (_) {}
+  }
   function clear() {
     try { localStorage.removeItem(TOKEN_KEY); } catch (_) {}
   }
@@ -117,5 +133,5 @@
     return headers;
   }
 
-  window.JPark.authToken = { mint, get, clear, decode, hasPermission, isAdmin, isValid, authHeaders };
+  window.JPark.authToken = { mint, get, setToken, clear, decode, hasPermission, isAdmin, isValid, authHeaders };
 })();

@@ -53,6 +53,7 @@ Default staff credentials no longer need manual rotation — see
 - **Online booking, no online payment** (`booking.html`) — guests pick a room and enter their details; the reservation is confirmed immediately and emailed with a balance due. **No payment is ever collected online** — the guest pays in person at check-in by cash, credit/debit card, or PromptPay QR at the front desk, where staff also assign the guest's physical room number. A 200 THB key-card deposit (cash only, at check-in) is stated up front and in the confirmation email — see [Online booking & payments](#online-booking--payments)
 - **Guest Booking inbox** — OTA reservations (Agoda, Booking.com, Airbnb, Trip.com…) *and* direct website bookings land in Messages, auto-translated, with a payment status badge on direct bookings
 - **Password Reset Requests** inbox for admins
+- **Account Logs (admin)** — a full staff login audit trail: IP, device, geolocated city/country, and a live "online" indicator per session, with per-session sign-out and IP ban/unban/report — see [Session security](#session-security-account-logs-sliding-sessions-ip-bans)
 - **Message actions** — Reply, Forward, Star, **Delete** and **Report** on every internal message; Star, Forward and **Delete** (admin) on booking confirmations; a **Starred** folder (⭐) collects starred items across both inboxes; reported messages are flagged for admin review
 - **Auto shift status** — each employee's on-shift / off-shift state updates automatically from their shift field and the current ICT clock (no manual toggling needed); `on_break` remains a manual state
 - **Daily demo refresh** — guest booking timestamps reset at **04:00 AM ICT** every day so the demo inbox always shows relative times ("26 min ago", "3 hr ago") rather than stale dates
@@ -87,6 +88,78 @@ Admins manage accounts under **Staff console → Staff**.
 > Passwords are hashed server-side (bcrypt) in the `employees` table and verified
 > by the API on every login — see [Backend](#backend-backend). The browser only
 > ever holds a signed JWT, never a password.
+
+---
+
+## Session security (Account Logs, sliding sessions, IP bans)
+
+**Why this exists.** The staff login token used to have a flat 12-hour lifetime, and
+when it expired, the browser's only "recovery" was to locally re-sign a new token with
+a public placeholder secret — which the hardened production server always rejected
+(it only ever trusted tokens signed with the real, server-only `AUTH_TOKEN_SECRET`).
+That silent mismatch meant every background poll (bookings, messages, chat — the whole
+staff console's live-update loop) started failing with 401s the moment the token
+expired, and just quietly stopped syncing — with nothing in the UI to say so — until
+whoever was signed in happened to log out and back in. This was caught live: the
+Guest Booking inbox stopped reflecting new OTA/direct bookings for two days with no
+error shown anywhere, traced back to exactly this.
+
+**What replaced it — a real session model, not just a longer token:**
+
+- **Sliding sessions.** The access token is now short-lived (**15 minutes**) and
+  silently refreshes itself via a genuine server round-trip, `POST
+  /api/auth/refresh` (`backend/routes/auth.js`), as long as the underlying session is
+  still valid — an active shift is never interrupted. Every session still carries a
+  hard **7-day absolute cap** from its original login (embedded in the token as
+  `absExp`, so no database lookup is needed just to check it); past that, even an
+  actively-used session is forced to a real re-login. Crucially, if a refresh is ever
+  *rejected* (revoked, banned, or past the cap), the client now drops straight back to
+  the login screen instead of failing silently forever — see `assets/js/api.js`'s
+  `refreshToken()` and the `jpark:force-logout` event it fires on denial.
+- **6 concurrent sessions per staff account.** A 7th simultaneous login (same
+  employee, any device) automatically signs the *oldest* still-active session out
+  (FIFO), tracked in a new `staff_sessions` table (one row per login: IP, parsed
+  device/browser, geolocated city/country, timestamps, and revocation state).
+- **Account Logs** (staff console → **Account Logs**, admin only) is the audit trail
+  for all of the above: every login ever made, a live **blinking green dot** for any
+  session that's polled within the last 20 seconds, and dimmed rows for revoked/expired
+  sessions showing who revoked them and why (`admin_revoke`, `ip_ban`,
+  `concurrency_cap`, or `absolute_expiry`). An admin can:
+  - **Sign out** any individual session directly — including their own current one,
+    which is flagged "This is you" so it's not an accidental click, but not blocked
+    (this is exactly what the existing Sign Out button already does to yourself).
+  - **Ban an IP**, which immediately cascade-signs-out every active session from that
+    IP and blocks it from logging in again. Bans are deliberately scoped to **the
+    staff console only** (`/api/auth`, `/api/sessions`) — never guest-facing routes —
+    so a shared/NAT'd IP (hotel WiFi, an office network, a VPN exit node) banned for
+    one bad staff-login attempt can never also block a real guest from booking a room
+    or using guest chat.
+  - **Unban** an IP, or **Report** it — a one-click link-out to
+    [AbuseIPDB](https://www.abuseipdb.com)'s report page. There's no real "report an
+    IP to Google" API for this, so this points at a real, purpose-built
+    abuse-reporting service instead of faking an integration that doesn't exist.
+- **Geolocation and device parsing happen server-side, at login only** — a free
+  IP-geolocation lookup (`backend/lib/geoIp.js`, `ip-api.com`'s free JSON endpoint,
+  2-second timeout, never blocks a login on failure) and a small hand-rolled
+  User-Agent parser (`backend/lib/deviceInfo.js`) produce the city/country and
+  "Chrome on Windows"-style device summary stored on the session row. No new
+  third-party dependency was added for either — both match this backend's existing
+  zero-heavy-dependency style (native `fetch`, same as `backend/mailer.js`).
+- **Revocation/ban checks are in-memory, not a database query on every request** —
+  two small `Set`s (`backend/lib/sessionCache.js`) mirror "which sessions are
+  revoked" and "which IPs are banned," updated synchronously in the very request that
+  revokes a session or bans an IP (so there's no propagation delay), and rehydrated
+  from the database once at server boot (so a restart can never silently "forget" a
+  revocation or a ban).
+
+**What this actually protects against, in plain terms:** a stolen access token is
+only useful for 15 minutes, not indefinitely. A lost or compromised staff device can
+be remotely signed out the moment it's noticed, without needing to rotate every other
+staff member's session. A brute-force or abusive login IP can be banned without any
+risk of also locking out real hotel guests. And the specific silent-freeze failure
+mode that caused the original incident — an expired session just quietly stopping all
+syncing, with no indication anywhere — can't happen anymore: a dead session now always
+surfaces as a real "please sign in again" screen.
 
 ---
 
@@ -540,10 +613,26 @@ before deploying, and `.github/workflows/deploy.yml` runs `node --check` on
 every file in `assets/js/` before publishing to Pages — so a syntax error or
 a broken OTA parser can no longer reach production.
 
+**Session security overhaul (follow-on release):** replaced the flat 12-hour staff
+login token with a real session model — short-lived (15-minute) access tokens that
+silently refresh via `POST /api/auth/refresh`, a hard 7-day absolute cap per session, a
+6-concurrent-sessions-per-account limit (oldest evicted first), server-side IP
+geolocation + device parsing at login, an in-memory revocation/ban cache
+(`backend/lib/sessionCache.js`), and the new admin-only **Account Logs** panel/API
+(`backend/routes/sessions.js`) for session sign-out and IP ban/unban. Full writeup in
+[Session security](#session-security-account-logs-sliding-sessions-ip-bans) above —
+this closed a real incident where an expired token silently froze the entire staff
+console (no visible error) until someone happened to log back in.
+
 | Route | Purpose |
 |-------|---------|
-| `POST /api/auth/login` | Staff/admin login — returns a signed JWT |
+| `POST /api/auth/login` | Staff/admin login — creates a session row (IP/device/geo) and returns a signed, short-lived (15 min) JWT |
+| `POST /api/auth/refresh` | Silently renews the current session's access token (same session, new 15 min token) — rejected with `forceLogout:true` if the session is revoked, banned, or past its 7-day cap |
 | `POST /api/auth/register` | New staff account self-activation |
+| `GET /api/sessions` | Admin only — every staff login (Account Logs), with a live "online" flag |
+| `POST /api/sessions/:jti/revoke` | Admin only — sign out one specific session |
+| `GET /api/sessions/banned-ips` | Admin only — list currently banned IPs |
+| `POST /api/sessions/ban` \| `/unban` | Admin only — ban/unban an IP (ban cascade-revokes its active sessions); scoped to `/api/auth` + `/api/sessions` only, never guest-facing routes |
 | `GET/POST /api/service-requests` | Guest service requests |
 | `GET/POST /api/chat` | Live chat messages |
 | `GET/POST /api/orders` | In-room dining orders |
