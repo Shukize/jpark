@@ -10,13 +10,36 @@
   // the guest-facing placeholder — this only gates which page a browser
   // lands on, not any real permission, so a plain presence check (no
   // expiry/signature validation) is enough and avoids loading the full
-  // auth-token module this early in <head>.
-  try { if (localStorage.getItem("jpark.staff.token")) return; } catch (_) {}
+  // auth-token module this early in <head>. When both maintenance mode AND
+  // the staff bypass are active, a small blinking badge is shown so it's
+  // never ambiguous that guests are currently seeing the placeholder page
+  // instead of this one.
+  var isStaff = false;
+  try { isStaff = !!localStorage.getItem("jpark.staff.token"); } catch (_) {}
   var host = location.hostname;
   var apiBase = (host === "localhost" || host === "127.0.0.1") ? "http://localhost:3000" : "https://jpark.onrender.com";
   fetch(apiBase + "/api/maintenance", { cache: "no-store" })
     .then(function (r) { return r.ok ? r.json() : null; })
-    .then(function (d) { if (d && d.enabled) location.replace("maintenance.html"); })
+    .then(function (d) {
+      if (!d || !d.enabled) return;
+      if (!isStaff) { location.replace("maintenance.html"); return; }
+      var show = function () {
+        var badge = document.createElement("div");
+        badge.textContent = "Maintenance Mode";
+        badge.setAttribute("style",
+          "position:fixed;top:10px;left:10px;z-index:99999;" +
+          "background:#f5a623;color:#3a2a00;font:700 11px/1 -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;" +
+          "letter-spacing:.03em;padding:5px 10px;border-radius:6px;" +
+          "box-shadow:0 2px 8px rgba(0,0,0,.25);pointer-events:none;" +
+          "animation:jparkMaintBlink 1.4s ease-in-out infinite;");
+        var style = document.createElement("style");
+        style.textContent = "@keyframes jparkMaintBlink{0%,100%{opacity:1}50%{opacity:.35}}";
+        document.head.appendChild(style);
+        document.body.appendChild(badge);
+      };
+      if (document.body) show();
+      else document.addEventListener("DOMContentLoaded", show);
+    })
     .catch(function () {});
 })();
 </script>
