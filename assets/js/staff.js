@@ -2129,16 +2129,19 @@
   // "All" sinks cancelled bookings to the bottom rather than interleaving
   // them chronologically with active ones — a dedicated filter tab still
   // sorts purely by recency within its own status.
+  //
+  // needsReview bookings used to unconditionally float to the very top,
+  // ahead of everything else — reasonable when they were rare exceptions,
+  // but once auto-imported OTA emails start generating needsReview rows in
+  // volume (garbled dates, misread channels, etc.) that buries every clean,
+  // already-correct booking — including every Direct (Website) one — under
+  // an ever-growing pile, to the point they're effectively unreachable
+  // without scrolling past hundreds of rows. Sorting by recency like every
+  // other booking keeps needsReview items visible via their existing ⚠
+  // row pill / "Needs review" banner instead of via forced position.
   function sortBookings(bookings) {
     return bookings.slice().sort((a, b) => {
       if (bkFilter === "all") {
-        // Needs-review bookings float to the top (they're actionable/urgent —
-        // a low-confidence auto-import waiting on a human to fix it up),
-        // cancelled ones sink to the bottom (inactive), everything else
-        // sorts by recency in between.
-        const ar = a.needsReview ? 0 : 1;
-        const br = b.needsReview ? 0 : 1;
-        if (ar !== br) return ar - br;
         const ac = a.status === "cancelled" ? 1 : 0;
         const bc = b.status === "cancelled" ? 1 : 0;
         if (ac !== bc) return ac - bc;
