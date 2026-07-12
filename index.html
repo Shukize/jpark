@@ -4,6 +4,14 @@
 <meta charset="UTF-8" />
 <script>
 (function () {
+  // Staff/admin who are signed into the staff console on this browser
+  // (assets/js/auth-token.js stores its token under this same key) see the
+  // live site as normal during maintenance mode instead of being bounced to
+  // the guest-facing placeholder — this only gates which page a browser
+  // lands on, not any real permission, so a plain presence check (no
+  // expiry/signature validation) is enough and avoids loading the full
+  // auth-token module this early in <head>.
+  try { if (localStorage.getItem("jpark.staff.token")) return; } catch (_) {}
   var host = location.hostname;
   var apiBase = (host === "localhost" || host === "127.0.0.1") ? "http://localhost:3000" : "https://jpark.onrender.com";
   fetch(apiBase + "/api/maintenance", { cache: "no-store" })
