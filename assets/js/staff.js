@@ -208,20 +208,34 @@
   /* ── API polling: pull live data from the backend every N seconds ─────── */
   let _pollTimer = null;
 
-  function startApiPolling() {
-    stopApiPolling();
+  function _pollAll() {
     _pollRequests(); _pollChats(); _pollGuestBookings(); _pollMessages();
     _syncStaffList();
     if (isAdmin()) _pollSessions();
+  }
+
+  function startApiPolling() {
+    stopApiPolling();
+    _pollAll();
+    // Poll on an interval, but SKIP ticks while the tab is hidden. A front-desk
+    // browser is routinely left open (and backgrounded behind the PMS) for whole
+    // shifts, and every tick fans out to several full-list endpoints. Polling a
+    // hidden tab spends database network transfer no one is looking at — that,
+    // multiplied across every open tab 24/7, is what ran the Neon free-tier
+    // transfer cap up until the whole API went down (2026-07-13). We refresh
+    // immediately on visibilitychange below, so returning to the tab is instant.
     _pollTimer = setInterval(function () {
-      _pollRequests(); _pollChats(); _pollGuestBookings(); _pollMessages();
-      _syncStaffList();
-      if (isAdmin()) _pollSessions();
-    }, 6000);
+      if (document.visibilityState === "hidden") return;
+      _pollAll();
+    }, 10000);
   }
   function stopApiPolling() {
     if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
   }
+
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState === "visible" && _pollTimer) _pollAll();
+  });
 
   async function _pollRequests() {
     const API = window.JPark && window.JPark.api;
@@ -2697,17 +2711,20 @@
     // the reader's language with a single "translated from X" note.
     const bodyEl = detailArea.querySelector(".bk-confirm-body");
     const noteEl = detailArea.querySelector(".msg-tr-note");
-    bodyEl.textContent = b.confirmation || "";
-    const cur = I.getLang();
-    if (b.confirmation && (!b.lang || b.lang !== cur)) {
-      J.translate.text(b.confirmation, cur).then((res) => {
-        if (bodyEl.isConnected && res.src && res.src !== cur && res.text && res.text !== b.confirmation) {
-          bodyEl.textContent = res.text;
-          noteEl.textContent = t("tr.from") + " " + J.translate.langName(res.src);
-          noteEl.style.display = "";
-        }
-      });
-    }
+    ensureBookingConfirmation(b).then(function (confirmation) {
+      if (!bodyEl.isConnected) return;
+      bodyEl.textContent = confirmation || "";
+      const cur = I.getLang();
+      if (confirmation && (!b.lang || b.lang !== cur)) {
+        J.translate.text(confirmation, cur).then((res) => {
+          if (bodyEl.isConnected && res.src && res.src !== cur && res.text && res.text !== confirmation) {
+            bodyEl.textContent = res.text;
+            noteEl.textContent = t("tr.from") + " " + J.translate.langName(res.src);
+            noteEl.style.display = "";
+          }
+        });
+      }
+    });
 
     renderBkLabelBlock(detailArea.querySelector(".bk-staff-label-slot"), b);
 
@@ -3000,17 +3017,38 @@
     openCompose({ subject: subj, body });
   }
 
+  // The bookings list poll no longer carries each booking's raw `confirmation`
+  // email (that large column is fetched on demand, not on every poll — see
+  // backend/routes/guestBookings.js). Pull it once, when a booking is actually
+  // opened or forwarded, and cache it on the in-memory object so repeat opens
+  // don't re-fetch. Resolves to "" if unavailable so callers never block.
+  function ensureBookingConfirmation(b) {
+    if (!b) return Promise.resolve("");
+    if (typeof b.confirmation === "string") return Promise.resolve(b.confirmation);
+    const API = window.JPark && window.JPark.api;
+    if (!API || !b.id) return Promise.resolve("");
+    return API.get("/api/guest-bookings/" + encodeURIComponent(b.id)).then(function (full) {
+      if (full && !full.error && typeof full.confirmation === "string") {
+        b.confirmation = full.confirmation;
+        return full.confirmation;
+      }
+      return "";
+    }).catch(function () { return ""; });
+  }
+
   function openForwardBooking(b) {
-    const pfx = t("msg.fwdPrefix");
-    const subj = pfx + " " + t("msg.bk.subject") + " · " + (b.channelName || "") + " · " + (b.guestName || "");
-    const sep = t("msg.fwdBody");
-    const info = "Channel: " + (b.channelName || "") +
-      "\nGuest: " + (b.guestName || "") + "\nRef: " + (b.ref || "") +
-      "\nRoom: " + (b.room || "") + "\nCheck-in: " + (b.checkIn || "") +
-      "\nCheck-out: " + (b.checkOut || "") +
-      "\nTotal: " + ((b.currency || "THB") + " " + (b.total || ""));
-    const body = "\n\n" + sep + "\n" + info + "\n\n" + (b.confirmation || "");
-    openCompose({ subject: subj, body });
+    ensureBookingConfirmation(b).then(function (confirmation) {
+      const pfx = t("msg.fwdPrefix");
+      const subj = pfx + " " + t("msg.bk.subject") + " · " + (b.channelName || "") + " · " + (b.guestName || "");
+      const sep = t("msg.fwdBody");
+      const info = "Channel: " + (b.channelName || "") +
+        "\nGuest: " + (b.guestName || "") + "\nRef: " + (b.ref || "") +
+        "\nRoom: " + (b.room || "") + "\nCheck-in: " + (b.checkIn || "") +
+        "\nCheck-out: " + (b.checkOut || "") +
+        "\nTotal: " + ((b.currency || "THB") + " " + (b.total || ""));
+      const body = "\n\n" + sep + "\n" + info + "\n\n" + (confirmation || "");
+      openCompose({ subject: subj, body });
+    });
   }
 
   function toggleStar(id, kind) {

@@ -516,11 +516,31 @@ function row2js(r) {
   };
 }
 
+/* The staff console polls the booking list every few seconds, so the list
+   response must stay lean. `confirmation` (the full raw OTA / guest-confirmation
+   email — up to many KB per booking, and it grows with every booking ever made)
+   is deliberately EXCLUDED here and fetched on demand via GET /:id only when a
+   booking is actually opened or forwarded. Selecting it on every poll is what
+   silently ran the Neon free-tier network-transfer allowance up to ~6 GB and
+   took the whole API down on 2026-07-13. Keep this list in sync with row2js:
+   it is every column row2js reads EXCEPT `confirmation`. */
+const LIST_COLUMNS = [
+  'id', 'ref', 'channel', 'channel_name', 'channel_email',
+  'guest_name', 'guest_last_name', 'guest_email', 'guest_phone',
+  'room', 'room_number', 'check_in', 'check_out', 'nights',
+  'adults', 'children', 'child_ages', 'smoking_preference', 'breakfast',
+  'total', 'currency', 'status', 'lang',
+  'payment_provider', 'payment_method', 'payment_status', 'payment_charge_id',
+  'cancelled_at', 'cancelled_by_id', 'cancelled_by_name', 'cancellation_reason',
+  'previous_status', 'needs_review', 'starred', 'staff_label', 'last_amended_at',
+  'read_by', 'created_at', 'updated_at',
+].join(', ');
+
 /* GET /api/guest-bookings */
 router.get('/', requireAuth, async (_req, res) => {
   try {
     const { rows } = await db.query(
-      'SELECT * FROM guest_bookings ORDER BY created_at DESC'
+      `SELECT ${LIST_COLUMNS} FROM guest_bookings ORDER BY created_at DESC`
     );
     res.json(rows.map(row2js));
   } catch (e) {

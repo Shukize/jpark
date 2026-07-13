@@ -56,6 +56,7 @@
       'bk.pay.err.required': 'Please fill in your first name, email, and phone number.',
       'bk.pay.err.generic': 'Something went wrong. Please try again.',
       'bk.pay.err.network': 'Network error — please check your connection and try again.',
+      'bk.pay.err.offline': "We can't reach our booking system right now. Please call us to book — +66 086 326 0664 or +66 038 448 111 — and we'll be happy to help.",
       'bk.pay.err.soldOut': 'Sorry, this room type just sold out for those dates.',
       'bk.pay.childAgesLabel': "Children's ages",
       'bk.pay.childAgeN': 'Child {n} age',
@@ -84,6 +85,7 @@
       'bk.pay.err.required': 'กรุณากรอกชื่อ อีเมล และเบอร์โทรศัพท์ของท่าน',
       'bk.pay.err.generic': 'เกิดข้อผิดพลาด กรุณาลองใหม่',
       'bk.pay.err.network': 'เกิดข้อผิดพลาดของเครือข่าย กรุณาตรวจสอบการเชื่อมต่อแล้วลองใหม่',
+      'bk.pay.err.offline': 'ขณะนี้เราไม่สามารถเชื่อมต่อระบบการจองได้ กรุณาโทรจองโดยตรงที่ +66 086 326 0664 หรือ +66 038 448 111 เรายินดีให้บริการ',
       'bk.pay.err.soldOut': 'ขออภัย ห้องประเภทนี้เต็มสำหรับวันที่เลือกแล้ว',
       'bk.pay.childAgesLabel': 'อายุของเด็ก',
       'bk.pay.childAgeN': 'อายุเด็กคนที่ {n}',
@@ -112,6 +114,7 @@
       'bk.pay.err.required': 'お名前、メールアドレス、電話番号をご入力ください。',
       'bk.pay.err.generic': '問題が発生しました。再度お試しください。',
       'bk.pay.err.network': 'ネットワークエラーです。接続をご確認のうえ再度お試しください。',
+      'bk.pay.err.offline': 'ただいま予約システムに接続できません。お電話にてご予約ください（+66 086 326 0664 または +66 038 448 111）。喜んでご対応いたします。',
       'bk.pay.err.soldOut': '申し訳ございません、この客室タイプは選択された日程で満室になりました。',
       'bk.pay.childAgesLabel': 'お子様の年齢',
       'bk.pay.childAgeN': 'お子様{n}の年齢',
@@ -140,6 +143,7 @@
       'bk.pay.err.required': '请填写您的名字、电子邮箱和电话号码。',
       'bk.pay.err.generic': '出现了一些问题，请重试。',
       'bk.pay.err.network': '网络错误，请检查连接后重试。',
+      'bk.pay.err.offline': '目前无法连接预订系统，请致电预订 —— +66 086 326 0664 或 +66 038 448 111 —— 我们很乐意为您服务。',
       'bk.pay.err.soldOut': '抱歉，该房型在所选日期已订满。',
       'bk.pay.childAgesLabel': '儿童年龄',
       'bk.pay.childAgeN': '第{n}位儿童年龄',
@@ -168,6 +172,7 @@
       'bk.pay.err.required': '請填寫您的名字、電子郵箱和電話號碼。',
       'bk.pay.err.generic': '出現了一些問題，請重試。',
       'bk.pay.err.network': '網路錯誤，請檢查連線後重試。',
+      'bk.pay.err.offline': '目前無法連接預訂系統，請致電預訂 —— +66 086 326 0664 或 +66 038 448 111 —— 我們很樂意為您服務。',
       'bk.pay.err.soldOut': '抱歉，該房型在所選日期已訂滿。',
       'bk.pay.childAgesLabel': '兒童年齡',
       'bk.pay.childAgeN': '第{n}位兒童年齡',
@@ -480,13 +485,21 @@
     window.JPark.api.post('/api/v1/reservations', body).then(function (r) {
       if (!r || r.error) {
         setReservationSubmitting(false);
-        showFormError((r && r.status === 409) ? TR('bk.pay.err.soldOut') : ((r && r.error) || TR('bk.pay.err.generic')));
+        // Backend unreachable (network/CORS) or down (5xx): never dead-end the
+        // guest on a raw "Network error" — give them the number to call.
+        if (!r || r.offline || (r.status && r.status >= 500)) {
+          showFormError(TR('bk.pay.err.offline'));
+        } else if (r.status === 409) {
+          showFormError(TR('bk.pay.err.soldOut'));
+        } else {
+          showFormError(r.error || TR('bk.pay.err.generic'));
+        }
         return;
       }
       showSuccess(r.booking.ref);
     }).catch(function () {
       setReservationSubmitting(false);
-      showFormError(TR('bk.pay.err.network'));
+      showFormError(TR('bk.pay.err.offline'));
     });
   }
 
@@ -706,13 +719,17 @@
     window.JPark.api.post('/api/v1/payments/dayuse-booking', body).then(function (r) {
       if (!r || r.error) {
         setDayUseSubmitting(false);
-        showFormError((r && r.error) || TR('bk.pay.err.generic'));
+        if (!r || r.offline || (r.status && r.status >= 500)) {
+          showFormError(TR('bk.pay.err.offline'));
+        } else {
+          showFormError(r.error || TR('bk.pay.err.generic'));
+        }
         return;
       }
       showSuccess(r.booking.ref, { pending: true, titleKey: 'bk.dayuse.successTitle', noteKey: 'bk.dayuse.successNote' });
     }).catch(function () {
       setDayUseSubmitting(false);
-      showFormError(TR('bk.pay.err.network'));
+      showFormError(TR('bk.pay.err.offline'));
     });
   }
 
