@@ -116,8 +116,10 @@ async function normaliseEmployeeEmails() {
    posts a staff broadcast per restoration so it's an audited correction, not
    a silent one. Never touches staff-initiated cancellations
    (cancelled_by_id IS NOT NULL) — those were a deliberate human action, not
-   the parser. Safe to run on every boot: once a row is restored its status is
-   no longer 'cancelled', so it's excluded from the WHERE clause next time. */
+   the parser. RETIRED — no longer called on boot (see the note at migrate()'s
+   end): with only the body persisted it can't see the subject-line cancellation
+   signal, so it wrongly un-cancelled genuine cancellations. Kept for reference /
+   one-off manual use. */
 async function restoreFalsePositiveCancellations() {
   const { rows } = await db.query(
     `SELECT id, ref, channel, channel_name, guest_name, room, check_in, check_out, confirmation
@@ -192,7 +194,18 @@ async function migrate() {
   await seedMessages();
   console.log('[migrate] messages seeded');
 
-  await restoreFalsePositiveCancellations();
+  // restoreFalsePositiveCancellations() is intentionally NOT called on boot.
+  // It was a one-time correction for the 2026-07-09 false-positive cancellation
+  // bug (since fixed in lib/otaEmailParser.js). The stored `confirmation` is the
+  // email BODY only — the subject is not persisted (see parseOtaEmail) — so the
+  // re-audit runs detectCancellation('', body) and can't see the subject-line
+  // signal that ingestion relies on. Run every boot it therefore UN-cancelled
+  // genuine OTA cancellations whose body didn't restate the cancellation,
+  // flip-flopping bookings between cancelled/confirmed (and flooding the staff
+  // announcements). The fixed parser self-corrects any real false positive on
+  // re-ingestion, so this boot-time pass is retired. The function is kept below
+  // for reference / deliberate one-off manual use only.
 }
 
 module.exports = migrate;
+module.exports.restoreFalsePositiveCancellations = restoreFalsePositiveCancellations;
