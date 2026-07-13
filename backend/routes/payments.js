@@ -55,14 +55,14 @@ function genRef() {
 // rate — the label is a bed-style preference, not a different product),
 // the breakfast rate itself is also derived from totalGuests rather than
 // the submitted variant, via effectiveBreakfastRate() — see its comment.
-async function computeTotal(room, variantLabel, breakfast, nights, totalGuests) {
+async function computeTotal(room, variantLabel, breakfast, nights, totalGuests, childAges) {
   const effectiveRoom = await rateOverrides.getEffectiveRoom(room);
   if (!effectiveRoom) return null;
   const variant = effectiveRoom.variants.find((v) => v.label === variantLabel);
   if (!variant) return null;
   const surcharges = await rateOverrides.getEffectiveSurcharges();
   const rate = breakfast ? rateOverrides.effectiveBreakfastRate(effectiveRoom, variant, totalGuests, surcharges) : variant.room;
-  const perNight = rate + rateOverrides.computeGuestSurcharge(effectiveRoom, totalGuests, breakfast, surcharges);
+  const perNight = rate + rateOverrides.computeGuestSurcharge(effectiveRoom, totalGuests, breakfast, surcharges, childAges);
   return perNight * nights;
 }
 
@@ -116,6 +116,22 @@ router.post('/reservations', async (req, res) => {
     return res.status(400).json({ error: 'Guest name, email, and phone number are required' });
   }
 
+  // childAges (one integer per child, 0-17) enables the age-tiered breakfast/
+  // extra-guest pricing in lib/rateOverrides.js's computeGuestSurcharge() —
+  // required whenever children > 0 so every child is deliberately priced,
+  // never silently defaulted to a free or a full-adult-rate age. Stored
+  // as-is (children === 0 -> '[]') for the confirmation email/staff console.
+  let childAges = [];
+  if (children > 0) {
+    if (!Array.isArray(b.childAges) || b.childAges.length !== children) {
+      return res.status(400).json({ error: 'childAges must list one age (0-17) per child' });
+    }
+    childAges = b.childAges.map((a) => Number(a));
+    if (childAges.some((a) => !Number.isInteger(a) || a < 0 || a > 17)) {
+      return res.status(400).json({ error: 'Each child age must be a whole number between 0 and 17' });
+    }
+  }
+
   const roomInfo = roomRates.getRoom(room);
   if (!roomInfo) return res.status(400).json({ error: 'Unknown room type' });
   if (adults + children > roomInfo.maxGuests) {
@@ -123,7 +139,7 @@ router.post('/reservations', async (req, res) => {
   }
 
   const nights = computeNights(checkIn, checkOut);
-  const total = await computeTotal(room, variantLabel, breakfast, nights, adults + children);
+  const total = await computeTotal(room, variantLabel, breakfast, nights, adults + children, childAges);
   if (total == null) return res.status(400).json({ error: 'Unknown room variant' });
 
   const guestName = String(guest.firstName || 'Guest').trim();
@@ -145,14 +161,14 @@ router.post('/reservations', async (req, res) => {
       `INSERT INTO guest_bookings
          (ref, channel, channel_name, guest_name, guest_last_name, guest_email, guest_phone,
           room, check_in, check_out, nights, adults, children, total, currency, status, lang,
-          payment_provider, payment_method, payment_status, smoking_preference, breakfast)
+          payment_provider, payment_method, payment_status, smoking_preference, breakfast, child_ages)
        VALUES ($1,'direct','Direct (Website)',$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'THB','confirmed',$13,
-               'in_person','pay_at_checkin','pending',$14,$15)
+               'in_person','pay_at_checkin','pending',$14,$15,$16)
        RETURNING *`,
       [
         ref, guestName, guestLastName, guest.email, guest.phone || null,
         room, checkIn, checkOut, nights, adults, children, total,
-        b.lang || 'en', smoking, breakfast,
+        b.lang || 'en', smoking, breakfast, JSON.stringify(childAges),
       ]
     );
     await client.query('COMMIT');

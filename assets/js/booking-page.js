@@ -454,7 +454,7 @@
       'bk.fromTpl': 'เริ่มต้น {price} ต่อห้อง / คืน', 'bk.night': 'คืน', 'bk.nights': 'คืน',
       'bk.roomOnly': 'เฉพาะห้องพัก', 'bk.withBreakfast': 'รวมอาหารเช้า',
       'bk.rateIncl': 'อัตราทั่วไปปี 2026 · รวมภาษีและค่าบริการ', 'bk.enquire': 'สอบถามเพื่อจอง',
-      'bk.extraGuestBed': 'ผู้เข้าพักคนที่ 3: เตียงเสริม +{bed} และอาหารเช้า +{bf} หากเลือก',
+      'bk.extraGuestBed': 'ผู้เข้าพักคนที่ 3: เตียงเสริม +{bed} และอาหารเช้า +{bf} หากเลือก การจัดวางเตียงเสริมขึ้นอยู่กับห้องพักที่ได้รับจริงเมื่อเช็คอิน',
       'bk.extraGuestNoBed': 'ห้องนี้ไม่มีเตียงเสริมสำหรับผู้เข้าพักคนที่ 3 แต่สามารถเพิ่มอาหารเช้าได้ +{bf}',
       'bk.piece': 'ชิ้น', 'bk.pieces': 'ชิ้น',
       'bk.gAdult1': 'ผู้ใหญ่', 'bk.gAdultN': 'ผู้ใหญ่', 'bk.gChild1': 'เด็ก', 'bk.gChildN': 'เด็ก',
@@ -514,7 +514,7 @@
       'bk.fromTpl': '{price}〜 / 1室1泊', 'bk.night': '泊', 'bk.nights': '泊',
       'bk.roomOnly': '室料のみ', 'bk.withBreakfast': '朝食付き',
       'bk.rateIncl': '2026年一般料金 · 税・サービス料込み', 'bk.enquire': '予約を問い合わせる',
-      'bk.extraGuestBed': '3人目のご宿泊者: エキストラベッド +{bed}、朝食を選択の場合は +{bf}',
+      'bk.extraGuestBed': '3人目のご宿泊者: エキストラベッド +{bed}、朝食を選択の場合は +{bf}。エキストラベッドの設置場所は、チェックイン時にご案内する客室により異なります。',
       'bk.extraGuestNoBed': 'この客室は3人目用のエキストラベッドはご用意できませんが、朝食は +{bf} で追加可能です',
       'bk.piece': '点', 'bk.pieces': '点',
       'bk.gAdult1': '大人', 'bk.gAdultN': '大人', 'bk.gChild1': '子供', 'bk.gChildN': '子供',
@@ -574,7 +574,7 @@
       'bk.fromTpl': '{price} 起 / 每间每晚', 'bk.night': '晚', 'bk.nights': '晚',
       'bk.roomOnly': '仅房费', 'bk.withBreakfast': '含早餐',
       'bk.rateIncl': '2026 年一般房价 · 含税及服务费', 'bk.enquire': '咨询预订',
-      'bk.extraGuestBed': '第3位客人：加床 +{bed}，如选早餐则 +{bf}',
+      'bk.extraGuestBed': '第3位客人：加床 +{bed}，如选早餐则 +{bf}。加床的具体摆放位置以入住时实际分配的房间为准。',
       'bk.extraGuestNoBed': '此房型无法为第3位客人加床，但可加购早餐 +{bf}',
       'bk.piece': '件', 'bk.pieces': '件',
       'bk.gAdult1': '成人', 'bk.gAdultN': '成人', 'bk.gChild1': '儿童', 'bk.gChildN': '儿童',
@@ -634,7 +634,7 @@
       'bk.fromTpl': '{price} 起 / 每間每晚', 'bk.night': '晚', 'bk.nights': '晚',
       'bk.roomOnly': '僅房費', 'bk.withBreakfast': '含早餐',
       'bk.rateIncl': '2026 年一般房價 · 含稅及服務費', 'bk.enquire': '諮詢預訂',
-      'bk.extraGuestBed': '第3位客人：加床 +{bed}，如選早餐則 +{bf}',
+      'bk.extraGuestBed': '第3位客人：加床 +{bed}，如選早餐則 +{bf}。加床的具體擺放位置以入住時實際分配的房間為準。',
       'bk.extraGuestNoBed': '此房型無法為第3位客人加床，但可加購早餐 +{bf}',
       'bk.piece': '件', 'bk.pieces': '件',
       'bk.gAdult1': '成人', 'bk.gAdultN': '成人', 'bk.gChild1': '兒童', 'bk.gChildN': '兒童',
@@ -989,15 +989,40 @@
   // ever reached the searchBtn/bookBtn click-handler registrations further
   // down. That silently broke the entire booking flow (Check Availability
   // and Book Now both appeared to do nothing) on every single page load.
-  var SURCHARGES = { extraBed: 500, extraBreakfastGuest: 190 };
+  var SURCHARGES = { extraBed: 500, extraBreakfastGuest: 190, childBreakfast5to8: 100 };
 
-  function computeGuestSurcharge(room, totalGuests, breakfast) {
+  // Mirrors backend/lib/rateOverrides.js's computeGuestSurcharge() exactly —
+  // see that function's comment for the full policy. `childAges` (optional
+  // array of integers) prices each child independently of adult count (free
+  // 0-4, flat childBreakfast5to8 for 5-8, adult rate for 9+); only adults
+  // beyond the first 2 pay the flat extraBed/extraBreakfastGuest surcharge.
+  // Omitting childAges falls back to the original flat total-guest formula.
+  function computeGuestSurcharge(room, totalGuests, breakfast, childAges) {
+    if (Array.isArray(childAges)) {
+      var adults = Math.max(0, (Number(totalGuests) || 0) - childAges.length);
+      var extraAdults = Math.max(0, adults - 2);
+      var total = 0;
+      if (extraAdults > 0) {
+        if (breakfast) total += extraAdults * SURCHARGES.extraBreakfastGuest;
+        if (room.extraBedAvailable) total += extraAdults * SURCHARGES.extraBed;
+      }
+      childAges.forEach(function (ageRaw) {
+        var age = Number(ageRaw);
+        if (age >= 9) {
+          if (breakfast) total += SURCHARGES.extraBreakfastGuest;
+          if (room.extraBedAvailable) total += SURCHARGES.extraBed;
+        } else if (age >= 5 && breakfast) {
+          total += SURCHARGES.childBreakfast5to8;
+        }
+      });
+      return total;
+    }
     var extraGuests = Math.max(0, (Number(totalGuests) || 0) - 2);
     if (extraGuests <= 0) return 0;
-    var total = 0;
-    if (breakfast) total += extraGuests * SURCHARGES.extraBreakfastGuest;
-    if (room.extraBedAvailable) total += extraGuests * SURCHARGES.extraBed;
-    return total;
+    var total2 = 0;
+    if (breakfast) total2 += extraGuests * SURCHARGES.extraBreakfastGuest;
+    if (room.extraBedAvailable) total2 += extraGuests * SURCHARGES.extraBed;
+    return total2;
   }
 
   // A room whose variants all share the same room-only rate isn't really
@@ -1074,7 +1099,7 @@
 
   function applySurcharges(surcharges) {
     if (!surcharges || typeof surcharges !== 'object') return;
-    ['extraBed', 'extraBreakfastGuest'].forEach(function (key) {
+    ['extraBed', 'extraBreakfastGuest', 'childBreakfast5to8'].forEach(function (key) {
       var val = surcharges[key];
       if (typeof val === 'number' && isFinite(val) && val > 0 && val <= 100000) SURCHARGES[key] = val;
     });

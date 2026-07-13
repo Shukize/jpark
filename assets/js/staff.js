@@ -2621,7 +2621,10 @@
     fields += bookingField("msg.bk.checkout", b.checkOut);
     fields += bookingField("msg.bk.nights", b.nights);
     fields += bookingField("msg.bk.adults", b.adults);
-    if (b.children) fields += bookingField("msg.bk.children", b.children);
+    if (b.children) {
+      const ages = Array.isArray(b.childAges) && b.childAges.length ? " (" + b.childAges.join(", ") + ")" : "";
+      fields += bookingField("msg.bk.children", b.children + ages);
+    }
     fields += bookingField("msg.bk.smokingPref", t("msg.bk.smokingPref." + (b.smokingPreference || "non_smoking")));
     fields += bookingField("msg.bk.breakfast", t(b.breakfast ? "msg.bk.breakfast.yes" : "msg.bk.breakfast.no"));
     fields += bookingField("msg.bk.total", totalStr);
@@ -3886,7 +3889,7 @@
         return;
       }
       ratesData = res.rooms;
-      ratesSurcharges = res.surcharges || { extraBed: 500, extraBreakfastGuest: 190 };
+      ratesSurcharges = res.surcharges || { extraBed: 500, extraBreakfastGuest: 190, childBreakfast5to8: 100 };
       dayUseRatesData = res.dayUse || {};
     }
     buildRatesRows(wrap);
@@ -3923,8 +3926,18 @@
     bfField.appendChild(document.createTextNode(t("staff.site.ratesSurchargeBreakfast")));
     bfField.appendChild(bfInput);
 
+    const childBfField = document.createElement("label");
+    childBfField.className = "ed-rate-field";
+    const childBfInput = document.createElement("input");
+    childBfInput.type = "number"; childBfInput.min = "1"; childBfInput.max = String(RATE_MAX);
+    childBfInput.value = ratesSurcharges.childBreakfast5to8;
+    childBfInput.dataset.surcharge = "childBreakfast5to8";
+    childBfField.appendChild(document.createTextNode(t("staff.site.ratesSurchargeChildBreakfast")));
+    childBfField.appendChild(childBfInput);
+
     section.appendChild(bedField);
     section.appendChild(bfField);
+    section.appendChild(childBfField);
     wrap.appendChild(section);
   }
 

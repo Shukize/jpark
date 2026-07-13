@@ -136,6 +136,7 @@ const EMAIL_I18N = {
     nights: 'Nights', guests: 'Guests', roomPref: 'Room preference', breakfast: 'Breakfast',
     total: 'Total', payment: 'Payment',
     adultsChildren: (a, c) => `${a} adult(s), ${c} child(ren)`,
+    childAgesSuffix: (ages) => (ages && ages.length ? ` (ages: ${ages.join(', ')})` : ''),
     nonSmoking: 'Non-Smoking', smoking: 'Smoking', yes: 'Yes', no: 'No',
     balanceDue: (money) => `Balance due: ${money}. Payable in person at check-in by cash, credit/debit card, or PromptPay QR at our front desk.`,
     depositNote: 'Please note: a 200 THB deposit for your room key card is collected in cash at check-in (cash only) and refunded in full at check-out.',
@@ -152,6 +153,7 @@ const EMAIL_I18N = {
     nights: 'จำนวนคืน', guests: 'ผู้เข้าพัก', roomPref: 'ห้องสูบบุหรี่/ปลอดบุหรี่', breakfast: 'อาหารเช้า',
     total: 'ยอดรวม', payment: 'การชำระเงิน',
     adultsChildren: (a, c) => `ผู้ใหญ่ ${a} ท่าน, เด็ก ${c} ท่าน`,
+    childAgesSuffix: (ages) => (ages && ages.length ? ` (อายุ: ${ages.join(', ')})` : ''),
     nonSmoking: 'ห้องปลอดบุหรี่', smoking: 'ห้องสูบบุหรี่', yes: 'มี', no: 'ไม่มี',
     balanceDue: (money) => `ยอดคงเหลือที่ต้องชำระ: ${money} ชำระได้ที่หน้าเคาน์เตอร์ในวันเช็คอิน ด้วยเงินสด บัตรเครดิต/เดบิต หรือ PromptPay QR`,
     depositNote: 'โปรดทราบ: มีการเรียกเก็บเงินมัดจำบัตรคีย์การ์ด 200 บาท เป็นเงินสดเท่านั้น ณ วันเช็คอิน และคืนเต็มจำนวนเมื่อเช็คเอาท์',
@@ -168,6 +170,7 @@ const EMAIL_I18N = {
     nights: '宿泊数', guests: '宿泊人数', roomPref: 'お部屋のご希望', breakfast: '朝食',
     total: '合計金額', payment: 'お支払い',
     adultsChildren: (a, c) => `大人 ${a}名、子供 ${c}名`,
+    childAgesSuffix: (ages) => (ages && ages.length ? ` (年齢: ${ages.join('、')})` : ''),
     nonSmoking: '禁煙', smoking: '喫煙可', yes: 'あり', no: 'なし',
     balanceDue: (money) => `お支払い残額：${money}。チェックイン時にフロントにて現金、クレジット/デビットカード、またはプロンプトペイQRでお支払いください。`,
     depositNote: 'ご注意：ルームキーカードのデポジット200THBを、チェックイン時に現金のみで頂戴いたします。チェックアウト時に全額返金いたします。',
@@ -184,6 +187,7 @@ const EMAIL_I18N = {
     nights: '住宿晚数', guests: '入住人数', roomPref: '房间偏好', breakfast: '早餐',
     total: '总计', payment: '付款方式',
     adultsChildren: (a, c) => `成人 ${a} 位，儿童 ${c} 位`,
+    childAgesSuffix: (ages) => (ages && ages.length ? ` (年龄：${ages.join('、')})` : ''),
     nonSmoking: '无烟房', smoking: '吸烟房', yes: '含', no: '不含',
     balanceDue: (money) => `尚需支付金额：${money}。可于入住时在前台以现金、信用卡/借记卡或PromptPay二维码支付。`,
     depositNote: '请注意：房卡押金200泰铢，仅收现金，于入住时收取，退房时全额退还。',
@@ -200,6 +204,7 @@ const EMAIL_I18N = {
     nights: '住宿晚數', guests: '入住人數', roomPref: '房間偏好', breakfast: '早餐',
     total: '總計', payment: '付款方式',
     adultsChildren: (a, c) => `成人 ${a} 位，兒童 ${c} 位`,
+    childAgesSuffix: (ages) => (ages && ages.length ? ` (年齡：${ages.join('、')})` : ''),
     nonSmoking: '無菸房', smoking: '吸菸房', yes: '含', no: '不含',
     balanceDue: (money) => `尚需支付金額：${money}。可於入住時在前台以現金、信用卡/簽帳卡或PromptPay二維碼支付。`,
     depositNote: '請注意：房卡押金200泰銖，僅收現金，於入住時收取，退房時全額退還。',
@@ -246,7 +251,8 @@ function emailLetterhead() {
 
 function hotelNotice(bk) {
   const money = bk.total != null ? `${bk.total} ${bk.currency || 'THB'}` : '—';
-  const guests = `${bk.adults} adult(s), ${bk.children} child(ren)`;
+  const childAges = Array.isArray(bk.child_ages) && bk.child_ages.length ? ` (ages: ${bk.child_ages.join(', ')})` : '';
+  const guests = `${bk.adults} adult(s), ${bk.children} child(ren)${childAges}`;
   const via = bk.channel_name || bk.channel || 'Direct';
   const payment = paymentLabel(bk);
   const balanceDue = balanceDueNote(bk);
@@ -324,7 +330,7 @@ function confirmationEmail(bk) {
     `${L.checkin}: ${formatCheckDate(bk.check_in, CHECKIN_TIME)}`,
     `${L.checkout}: ${formatCheckDate(bk.check_out, CHECKOUT_TIME)}`,
     `${L.nights}: ${bk.nights}`,
-    `${L.guests}: ${L.adultsChildren(bk.adults, bk.children)}`,
+    `${L.guests}: ${L.adultsChildren(bk.adults, bk.children)}${L.childAgesSuffix(bk.child_ages)}`,
     `${L.roomPref}: ${smokingText}`,
     `${L.breakfast}: ${breakfastText}`,
     `${L.total}: ${money}`,
@@ -352,7 +358,7 @@ function confirmationEmail(bk) {
     `<tr><td style="padding:4px 12px 4px 0;color:#555">${L.checkin}</td><td style="padding:4px 0">${formatCheckDate(bk.check_in, CHECKIN_TIME)}</td></tr>` +
     `<tr><td style="padding:4px 12px 4px 0;color:#555">${L.checkout}</td><td style="padding:4px 0">${formatCheckDate(bk.check_out, CHECKOUT_TIME)}</td></tr>` +
     `<tr><td style="padding:4px 12px 4px 0;color:#555">${L.nights}</td><td style="padding:4px 0">${bk.nights}</td></tr>` +
-    `<tr><td style="padding:4px 12px 4px 0;color:#555">${L.guests}</td><td style="padding:4px 0">${L.adultsChildren(bk.adults, bk.children)}</td></tr>` +
+    `<tr><td style="padding:4px 12px 4px 0;color:#555">${L.guests}</td><td style="padding:4px 0">${L.adultsChildren(bk.adults, bk.children)}${L.childAgesSuffix(bk.child_ages)}</td></tr>` +
     `<tr><td style="padding:4px 12px 4px 0;color:#555">${L.roomPref}</td><td style="padding:4px 0">${smokingText}</td></tr>` +
     `<tr><td style="padding:4px 12px 4px 0;color:#555">${L.breakfast}</td><td style="padding:4px 0">${breakfastText}</td></tr>` +
     `<tr><td style="padding:4px 12px 4px 0;color:#555">${L.total}</td><td style="padding:4px 0">${money}</td></tr>` +
@@ -483,6 +489,7 @@ function row2js(r) {
     nights: r.nights,
     adults: r.adults,
     children: r.children,
+    childAges: Array.isArray(r.child_ages) ? r.child_ages : [],
     smokingPreference: r.smoking_preference || 'non_smoking',
     breakfast: !!r.breakfast,
     total: r.total ? Number(r.total) : null,

@@ -1002,6 +1002,9 @@ body.bk-pay-open { position: fixed; left: 0; right: 0; overflow: hidden; }
   font-size: 0.8rem; color: var(--ink-soft); text-align: right; padding: 1px 2px;
 }
 
+.bkp-child-ages-row { display: flex; flex-wrap: wrap; gap: 10px; }
+.bkp-child-age-input { width: 88px; text-align: center; }
+
 .bkp-total-row {
   display: flex; align-items: center; justify-content: space-between;
   font-family: var(--serif); font-size: 1.05rem; color: var(--teal-deep);

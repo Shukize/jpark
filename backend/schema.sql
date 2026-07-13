@@ -233,6 +233,17 @@ ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS breakfast BOOLEAN NOT NULL D
 -- email_log just to know whether any resend has ever happened.
 ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS last_amended_at TIMESTAMPTZ;
 
+-- Individual ages for each of the `children` count (routes/payments.js POST
+-- /reservations, direct-website bookings only), so breakfast/extra-guest
+-- surcharges can honor the advertised age tiers (free 0-4, ฿100 flat 5-8,
+-- treated as an adult 9+ — see lib/rateOverrides.js's computeGuestSurcharge())
+-- instead of charging every child the flat adult rate regardless of age.
+-- `children` (the count) is untouched and stays the source of truth for
+-- capacity checks and OTA/manual bookings that never collect ages — this
+-- stays '[]' for those, and computeGuestSurcharge() falls back to its
+-- pre-existing flat total-guest calculation whenever it's empty.
+ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS child_ages JSONB NOT NULL DEFAULT '[]';
+
 -- ── Chat messages (guest ↔ front-desk) ──────────────────────────────────────
 CREATE TABLE IF NOT EXISTS chat_messages (
   id                  SERIAL       PRIMARY KEY,

@@ -28,8 +28,9 @@
 // via the Site Editor's Rates tab (site_content.surcharges) — see
 // backend/lib/rateOverrides.js's getEffectiveSurcharges().
 const DEFAULT_SURCHARGES = {
-  extraBed: 500,            // physical rollaway bed for a 3rd guest, per night
-  extraBreakfastGuest: 190, // each guest beyond the variant's base 2, per night, when breakfast is selected
+  extraBed: 500,             // physical rollaway bed for a 3rd guest, per night
+  extraBreakfastGuest: 190,  // each guest beyond the variant's base 2, per night, when breakfast is selected
+  childBreakfast5to8: 100,   // flat breakfast surcharge for a child aged 5-8 (0-4 free, 9+ = extraBreakfastGuest) — see lib/rateOverrides.js's computeGuestSurcharge()
 };
 
 // name -> { maxGuests, extraBedAvailable, variants: [{ label, room, bf }] }

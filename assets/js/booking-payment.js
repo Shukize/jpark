@@ -57,6 +57,9 @@
       'bk.pay.err.generic': 'Something went wrong. Please try again.',
       'bk.pay.err.network': 'Network error — please check your connection and try again.',
       'bk.pay.err.soldOut': 'Sorry, this room type just sold out for those dates.',
+      'bk.pay.childAgesLabel': "Children's ages",
+      'bk.pay.childAgeN': 'Child {n} age',
+      'bk.pay.err.childAges': "Please enter each child's age (0–17) so we can apply the correct breakfast pricing.",
     },
     th: {
       'bk.pay.roomType': 'ประเภทห้อง', 'bk.pay.guestDetails': 'ข้อมูลผู้เข้าพัก',
@@ -82,6 +85,9 @@
       'bk.pay.err.generic': 'เกิดข้อผิดพลาด กรุณาลองใหม่',
       'bk.pay.err.network': 'เกิดข้อผิดพลาดของเครือข่าย กรุณาตรวจสอบการเชื่อมต่อแล้วลองใหม่',
       'bk.pay.err.soldOut': 'ขออภัย ห้องประเภทนี้เต็มสำหรับวันที่เลือกแล้ว',
+      'bk.pay.childAgesLabel': 'อายุของเด็ก',
+      'bk.pay.childAgeN': 'อายุเด็กคนที่ {n}',
+      'bk.pay.err.childAges': 'กรุณาระบุอายุของเด็กแต่ละคน (0–17 ปี) เพื่อให้เราคิดราคาอาหารเช้าได้อย่างถูกต้อง',
     },
     ja: {
       'bk.pay.roomType': '客室タイプ', 'bk.pay.guestDetails': 'ご宿泊者情報',
@@ -107,6 +113,9 @@
       'bk.pay.err.generic': '問題が発生しました。再度お試しください。',
       'bk.pay.err.network': 'ネットワークエラーです。接続をご確認のうえ再度お試しください。',
       'bk.pay.err.soldOut': '申し訳ございません、この客室タイプは選択された日程で満室になりました。',
+      'bk.pay.childAgesLabel': 'お子様の年齢',
+      'bk.pay.childAgeN': 'お子様{n}の年齢',
+      'bk.pay.err.childAges': '朝食料金を正しく計算するため、お子様お一人おひとりの年齢（0〜17歳）をご入力ください。',
     },
     'zh-Hans': {
       'bk.pay.roomType': '房型', 'bk.pay.guestDetails': '入住人信息',
@@ -132,6 +141,9 @@
       'bk.pay.err.generic': '出现了一些问题，请重试。',
       'bk.pay.err.network': '网络错误，请检查连接后重试。',
       'bk.pay.err.soldOut': '抱歉，该房型在所选日期已订满。',
+      'bk.pay.childAgesLabel': '儿童年龄',
+      'bk.pay.childAgeN': '第{n}位儿童年龄',
+      'bk.pay.err.childAges': '请填写每位儿童的年龄（0–17岁），以便我们计算正确的早餐费用。',
     },
     'zh-Hant': {
       'bk.pay.roomType': '房型', 'bk.pay.guestDetails': '入住人資訊',
@@ -157,6 +169,9 @@
       'bk.pay.err.generic': '出現了一些問題，請重試。',
       'bk.pay.err.network': '網路錯誤，請檢查連線後重試。',
       'bk.pay.err.soldOut': '抱歉，該房型在所選日期已訂滿。',
+      'bk.pay.childAgesLabel': '兒童年齡',
+      'bk.pay.childAgeN': '第{n}位兒童年齡',
+      'bk.pay.err.childAges': '請填寫每位兒童的年齡（0–17歲），以便我們計算正確的早餐費用。',
     },
   };
   if (I) I.registerI18n(STR);
@@ -238,26 +253,59 @@
     var P = window.JPark && window.JPark.pricing;
     if (!P) return 0;
     var totalGuests = (state.adults || 0) + (state.children || 0);
-    return P.computeGuestSurcharge({ extraBedAvailable: state.extraBedAvailable }, totalGuests, state.breakfast);
+    return P.computeGuestSurcharge({ extraBedAvailable: state.extraBedAvailable }, totalGuests, state.breakfast, state.childAges);
   }
   function currentTotal() { return (currentRate() + currentSurcharge()) * state.nights; }
 
-  // 0-2 lines describing the per-night surcharges currently in effect (only
-  // ever non-empty for a 3rd guest — see currentSurcharge()).
+  // 0-3 lines describing the per-night surcharges currently in effect.
+  // Children are priced independently of adult count (age 0-4 free, 5-8 a
+  // flat childBreakfast5to8, 9+ treated as an adult) — mirrors
+  // window.JPark.pricing.computeGuestSurcharge()'s policy so this display
+  // estimate never disagrees with what currentSurcharge() actually totals.
   function surchargeNotesHTML() {
     var P = window.JPark && window.JPark.pricing;
     if (!P) return '';
-    var totalGuests = (state.adults || 0) + (state.children || 0);
-    if (totalGuests <= 2) return '';
     var surcharges = P.getSurcharges();
+    var childAges = state.childAges || [];
+    var adults = state.adults || 0;
+    var olderChildren = childAges.filter(function (a) { return Number(a) >= 9; }).length;
+    var youngerChildren = childAges.filter(function (a) { var n = Number(a); return n >= 5 && n < 9; }).length;
+    var extraAdults = Math.max(0, adults - 2) + olderChildren;
     var lines = [];
-    if (state.breakfast) {
-      lines.push('<div class="bkp-surcharge-line">+ ' + TR('bk.pay.extraBreakfastLine') + ': ' + money(surcharges.extraBreakfastGuest) + '</div>');
+    if (extraAdults > 0) {
+      if (state.breakfast) {
+        lines.push('<div class="bkp-surcharge-line">+ ' + TR('bk.pay.extraBreakfastLine') + ': ' + money(surcharges.extraBreakfastGuest) + '</div>');
+      }
+      if (state.extraBedAvailable) {
+        lines.push('<div class="bkp-surcharge-line">+ ' + TR('bk.pay.extraBedLine') + ': ' + money(surcharges.extraBed) + '</div>');
+      }
     }
-    if (state.extraBedAvailable) {
-      lines.push('<div class="bkp-surcharge-line">+ ' + TR('bk.pay.extraBedLine') + ': ' + money(surcharges.extraBed) + '</div>');
+    if (youngerChildren > 0 && state.breakfast) {
+      lines.push('<div class="bkp-surcharge-line">+ ' + TR('bk.pay.childAgesLabel') + ' (5–8): ' + money(surcharges.childBreakfast5to8) + '</div>');
     }
     return lines.join('');
+  }
+
+  // One required age input per child (0-17), so computeGuestSurcharge() can
+  // apply the advertised age-tiered breakfast/extra-guest pricing instead of
+  // guessing — left blank on purpose (no default age) so a guest can never
+  // silently under- or over-pay by an unset field defaulting to "free" or
+  // "adult rate". Values are read/written directly on state.childAges by the
+  // input listener wired in wireReservationForm().
+  function childAgesHTML() {
+    if (!state.children) return '';
+    var inputs = '';
+    for (var i = 0; i < state.children; i++) {
+      var val = (state.childAges && state.childAges[i] != null) ? state.childAges[i] : '';
+      var label = TR('bk.pay.childAgeN').replace('{n}', String(i + 1));
+      inputs += '<input type="number" class="bkp-child-age-input" min="0" max="17" step="1" ' +
+        'data-child-index="' + i + '" value="' + esc(String(val)) + '" ' +
+        'placeholder="' + esc(label) + '" aria-label="' + esc(label) + '">';
+    }
+    return '<div class="bkp-field" id="bkpChildAgesField">' +
+      '<label class="bkp-label">' + TR('bk.pay.childAgesLabel') + '</label>' +
+      '<div class="bkp-child-ages-row">' + inputs + '</div>' +
+    '</div>';
   }
 
   // The only reservation view: no online payment step exists anywhere in
@@ -295,6 +343,8 @@
         '<h3 class="bkp-unavail-title">' + TR('bk.pay.reserveTitle') + '</h3>' +
 
         variantHTML +
+
+        childAgesHTML() +
 
         '<div class="bkp-field"><div class="bkp-radio-row" id="bkpBreakfastRow">' +
           '<label class="bkp-radio"><input type="radio" name="bkpBreakfast" value="0"' + (!state.breakfast ? ' checked' : '') + '> ' + TR('bk.roomOnly') + ' — ' + money(v.room) + '</label>' +
@@ -372,6 +422,16 @@
     qs('#bkpSmokingRow').addEventListener('change', function (e) {
       if (e.target.name === 'bkpSmoking') state.smoking = e.target.value;
     });
+    var childAgesField = qs('#bkpChildAgesField');
+    if (childAgesField) {
+      childAgesField.addEventListener('input', function (e) {
+        if (!e.target.classList.contains('bkp-child-age-input')) return;
+        var idx = parseInt(e.target.dataset.childIndex, 10);
+        var raw = e.target.value;
+        state.childAges[idx] = raw === '' ? null : parseInt(raw, 10);
+        updateReservationTotals();
+      });
+    }
     qs('#bkpSubmitBtn').addEventListener('click', onReservationSubmit);
   }
 
@@ -383,9 +443,25 @@
     }
   }
 
+  // Every child age must be an explicit whole number 0-17 before checkout —
+  // no default, so a blank field can never silently resolve to the free
+  // 0-4 tier or the full adult rate.
+  function validateChildAges() {
+    if (!state.children) return true;
+    var ages = state.childAges || [];
+    if (ages.length !== state.children) return false;
+    return ages.every(function (a) {
+      return typeof a === 'number' && isFinite(a) && a === Math.floor(a) && a >= 0 && a <= 17;
+    });
+  }
+
   function onReservationSubmit() {
     clearFormError();
     if (!validateGuestFields()) return;
+    if (!validateChildAges()) {
+      showFormError(TR('bk.pay.err.childAges'));
+      return;
+    }
     var v = currentVariant();
     var body = {
       room: state.room,
@@ -396,6 +472,7 @@
       checkOut: state.checkOut,
       adults: state.adults,
       children: state.children,
+      childAges: state.children ? state.childAges : [],
       guest: guestPayload(),
       lang: I ? I.getLang() : 'en',
     };
@@ -537,6 +614,7 @@
       nights: ctx.nights,
       adults: ctx.adults,
       children: ctx.children,
+      childAges: new Array(ctx.children || 0).fill(null),
       variantIndex: variantIndex,
       breakfast: false,
       smoking: 'non_smoking',

@@ -130,13 +130,45 @@ async function getEffectiveDayUsePrice(room) {
 // The per-night THB added on top of a variant's room/bf rate for a given
 // guest count. `room` is an *effective* room object (from getEffectiveRoom/
 // getAllEffectiveRooms — has extraBedAvailable). `surcharges` is an
-// *effective* surcharges object (from getEffectiveSurcharges). Guests
-// beyond the base 2 (the occupancy every variant's room/bf rate already
-// covers) each add `extraBreakfastGuest` when breakfast is selected; if the
-// room supports a physical extra bed, each such guest also adds `extraBed`
-// — rooms that can't fit one (extraBedAvailable: false) still allow the
-// extra guest (maxGuests already reflects that) but never charge for a bed.
-function computeGuestSurcharge(room, totalGuests, breakfast, surcharges) {
+// *effective* surcharges object (from getEffectiveSurcharges).
+//
+// `childAges` (optional array of integers) enables the age-aware policy
+// advertised on the site ("children under 9 stay free of any extra-guest
+// charge; breakfast free ages 0-4, ฿100 flat ages 5-8"): every child is
+// priced independently of adult count — age 0-4 is entirely free, age 5-8
+// only ever adds the flat `childBreakfast5to8` (and never an extra-bed
+// charge), age 9+ is priced exactly like an extra adult guest. Only ADULTS
+// beyond the first 2 pay today's flat `extraBreakfastGuest`/`extraBed`
+// surcharge — a young child never "uses up" or extends that adult
+// allowance either way.
+//
+// When `childAges` is omitted (OTA/manual bookings, or any booking that
+// predates this feature — direct bookings always pass `child_ages`, even
+// as `[]`, once collected) this falls back byte-for-byte to the original
+// flat calculation: every guest beyond a total of 2, adult or child alike,
+// pays the same flat rate. That fallback exists because those bookings
+// never collected per-child ages, so there is no age to price by.
+function computeGuestSurcharge(room, totalGuests, breakfast, surcharges, childAges) {
+  if (Array.isArray(childAges)) {
+    const adults = Math.max(0, Number(totalGuests || 0) - childAges.length);
+    const extraAdults = Math.max(0, adults - 2);
+    let total = 0;
+    if (extraAdults > 0) {
+      if (breakfast) total += extraAdults * surcharges.extraBreakfastGuest;
+      if (room.extraBedAvailable) total += extraAdults * surcharges.extraBed;
+    }
+    childAges.forEach((ageRaw) => {
+      const age = Number(ageRaw);
+      if (age >= 9) {
+        if (breakfast) total += surcharges.extraBreakfastGuest;
+        if (room.extraBedAvailable) total += surcharges.extraBed;
+      } else if (age >= 5 && breakfast) {
+        total += surcharges.childBreakfast5to8;
+      }
+      // age 0-4: always free, no charge of any kind.
+    });
+    return total;
+  }
   const extraGuests = Math.max(0, Number(totalGuests || 0) - 2);
   if (extraGuests <= 0) return 0;
   let total = 0;
