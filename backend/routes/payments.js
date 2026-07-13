@@ -112,8 +112,8 @@ router.post('/reservations', async (req, res) => {
   if (!room || !variantLabel || !checkIn || !checkOut) {
     return res.status(400).json({ error: 'room, variantLabel, checkIn and checkOut are required' });
   }
-  if (!guest.firstName || !guest.email) {
-    return res.status(400).json({ error: 'Guest name and email are required' });
+  if (!guest.firstName || !guest.email || !guest.phone) {
+    return res.status(400).json({ error: 'Guest name, email, and phone number are required' });
   }
 
   const roomInfo = roomRates.getRoom(room);
@@ -243,8 +243,8 @@ router.post('/payments/dayuse-booking', async (req, res) => {
   if (!room || !date) {
     return res.status(400).json({ error: 'room and date are required' });
   }
-  if (!guest.firstName || !guest.email) {
-    return res.status(400).json({ error: 'Guest name and email are required' });
+  if (!guest.firstName || !guest.email || !guest.phone) {
+    return res.status(400).json({ error: 'Guest name, email, and phone number are required' });
   }
   const price = await rateOverrides.getEffectiveDayUsePrice(room);
   if (price == null) return res.status(400).json({ error: 'Unknown day-use room type' });

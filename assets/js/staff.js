@@ -38,7 +38,10 @@
     { id: "concierge", label: "nav.concierge" }, { id: "gallery", label: "nav.gallery" }
   ];
   const REQ_FILTERS = ["all", "pending", "progress", "done"];
-  const BK_FILTERS = ["all", "confirmed", "pending", "cancelled"];
+  // "resent" is not a booking status (b.status stays confirmed/pending/
+  // cancelled) — it's a synthetic filter over b.lastAmendedAt, handled as a
+  // special case in filterBookings() below rather than a status match.
+  const BK_FILTERS = ["all", "confirmed", "pending", "cancelled", "resent"];
 
   /* ---- Site Editor configuration ----
      Groups every public-site translation key (by prefix) into friendly,
@@ -89,6 +92,12 @@
   // (and anything the staff member had already typed into it) vanishes out
   // from under them a few seconds after they open it.
   let bkResendEditingId = null;
+  // Booking id whose "Sent Emails" history panel is currently open, or null.
+  // Same poll-clobber problem as bkResendEditingId above: the 6s guest-
+  // bookings poll used to always rebuild the whole detail pane, which reset
+  // the panel back to hidden and the email log's own "already loaded" flag
+  // back to false a few seconds after staff opened it.
+  let bkEmailLogOpenId = null;
   let bkMultiSelect = false;
   let selectedBookingIds = new Set();
   let bkSectionPrefs = loadBkSectionPrefs(); // { labels:{older2,older6}, collapsed:{older2,older6} }
@@ -1460,7 +1469,9 @@
       // staff member had typed — skip just that rebuild, not the badge/nav
       // updates above, which are harmless.
       if (msgDetailKind === "booking") {
-        if (bkResendEditingId == null || bkResendEditingId !== msgDetailId) renderBookingDetail(msgDetailId);
+        const editingThis = bkResendEditingId != null && bkResendEditingId === msgDetailId;
+        const logOpenThis = bkEmailLogOpenId != null && bkEmailLogOpenId === msgDetailId;
+        if (!editingThis && !logOpenThis) renderBookingDetail(msgDetailId);
       }
       else renderMsgDetail(msgDetailId);
     } else {
@@ -2161,7 +2172,8 @@
 
   function filterBookings(bookings) {
     let out = bookings;
-    if (bkFilter !== "all") out = out.filter((b) => b.status === bkFilter);
+    if (bkFilter === "resent") out = out.filter((b) => !!b.lastAmendedAt);
+    else if (bkFilter !== "all") out = out.filter((b) => b.status === bkFilter);
     const q = bkSearchQuery.trim().toLowerCase();
     if (q) {
       out = out.filter((b) =>
@@ -2228,6 +2240,8 @@
     const statusPill = cancelled ? '<span class="bk-row-pill">' + esc(t("msg.bk.status.cancelled")) + "</span>" : "";
     const labelTag = b.staffLabel
       ? '<span class="bk-row-pill label" title="' + esc(b.staffLabel) + '">🏷 ' + esc(b.staffLabel) + "</span>" : "";
+    const amendedTag = b.lastAmendedAt
+      ? '<span class="bk-row-pill amended" title="' + esc(t("msg.bk.amended")) + '">✎ ' + esc(t("msg.bk.amended")) + "</span>" : "";
     // Room-assigned / payment-recorded pills — front-desk-only concept, so
     // scoped to direct-channel bookings (same scoping as wireBkFrontDesk)
     // and skipped once cancelled (nothing left to follow up on).
@@ -2250,7 +2264,7 @@
 
     row.innerHTML =
       firstCol +
-      '<div class="mr-sender">' + reviewBadge + esc(b.channelName) + statusPill + labelTag + frontDeskPills + "</div>" +
+      '<div class="mr-sender">' + reviewBadge + esc(b.channelName) + statusPill + labelTag + amendedTag + frontDeskPills + "</div>" +
       '<div class="mr-subject-preview">' +
         '<span class="mr-subject">' + esc(b.guestName) + "</span>" +
         '<span class="mr-sep">—</span>' +
@@ -2586,6 +2600,7 @@
     // Self-heal: navigating to a different booking (or one no longer open
     // for editing) always clears any stale in-progress-edit guard.
     if (bkResendEditingId !== id) bkResendEditingId = null;
+    if (bkEmailLogOpenId !== id) bkEmailLogOpenId = null;
     const b = getBookingMsgs().find((x) => x.id === id);
     const detailArea = document.getElementById("msgDetail");
     if (!b) { detailArea.innerHTML = ""; return; }
@@ -2626,6 +2641,7 @@
         '<div class="mda-time">' + esc(new Date(b.createdAt).toLocaleString()) + "</div>" +
       "</div>" +
       (b.needsReview ? '<div class="bk-review-banner">⚠ ' + esc(t("msg.bk.needsReview")) + ' — ' + esc(t("msg.bk.needsReview.note")) + "</div>" : "") +
+      (b.lastAmendedAt ? '<div class="bk-amended-banner">✎ ' + esc(t("msg.bk.amended")) + ' — ' + esc(t("msg.bk.amended.note")) + " " + esc(new Date(b.lastAmendedAt).toLocaleString()) + "</div>" : "") +
       '<div class="bk-staff-label-slot"></div>' +
       '<div class="bk-detail-grid">' + fields + "</div>" +
       (b.status === "cancelled" ? bkCancellationSummaryHTML(b) : (b.channel === "direct" ? bkFrontDeskHTML(b) : "")) +
@@ -2670,7 +2686,7 @@
           '<button type="button" class="bk-resend-btn bk-resend-btn-gold" id="bkResendSend">' + esc(t("msg.bk.resend.send")) + "</button>" +
         "</div>" +
       "</div>" +
-      '<div class="bk-emaillog-panel" id="bkEmailLogPanel" hidden>' +
+      '<div class="bk-emaillog-panel" id="bkEmailLogPanel"' + (bkEmailLogOpenId === id ? "" : " hidden") + '>' +
         '<div class="bk-emaillog-list" id="bkEmailLogList"></div>' +
       "</div>";
 
@@ -2794,6 +2810,8 @@
           if (r && !r.error) {
             bkResendEditor.hidden = true;
             bkResendEditingId = null;
+            if (r.booking) updateBookingLocal(b.id, r.booking);
+            renderBookingDetail(b.id);
             U.toast(t("msg.bk.resend.sent").replace("{email}", b.guestEmail || ""), "success");
           } else {
             U.toast((r && r.error) || t("msg.bk.resend.failed"), "error");
@@ -2814,18 +2832,26 @@
     const bkEmailLogPanel = detailArea.querySelector("#bkEmailLogPanel");
     if (bkEmailLogBtn && bkEmailLogPanel) {
       let emailLogLoaded = false;
-      bkEmailLogBtn.addEventListener("click", () => {
+      const loadEmailLog = () => {
         const API = window.JPark && window.JPark.api;
-        if (!API) return;
-        const opening = bkEmailLogPanel.hidden;
-        bkEmailLogPanel.hidden = !opening;
-        if (!opening || emailLogLoaded) return;
+        if (!API || emailLogLoaded) return;
         const listEl = bkEmailLogPanel.querySelector("#bkEmailLogList");
         listEl.textContent = t("msg.bk.emailLog.loading");
         API.get("/api/guest-bookings/" + b.id + "/email-log").then((r) => {
           emailLogLoaded = true;
           renderEmailLogList(listEl, Array.isArray(r) ? r : []);
         }).catch(() => { listEl.textContent = t("msg.bk.emailLog.failed"); });
+      };
+      // If this booking's log panel was already open before this render (a
+      // cancel/reopen action re-renders the detail pane in place), keep it
+      // open and re-fetch into the freshly-built (empty) list element —
+      // the poll-tick guard above prevents this path from firing every 6s.
+      if (bkEmailLogOpenId === b.id) loadEmailLog();
+      bkEmailLogBtn.addEventListener("click", () => {
+        const opening = bkEmailLogPanel.hidden;
+        bkEmailLogPanel.hidden = !opening;
+        bkEmailLogOpenId = opening ? b.id : null;
+        if (opening) loadEmailLog();
       });
     }
 
@@ -2855,6 +2881,7 @@
       msgDetailId = null;
       msgDetailKind = "message";
       bkResendEditingId = null;
+      bkEmailLogOpenId = null;
       renderMessages();
     });
   }

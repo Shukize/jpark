@@ -98,9 +98,125 @@ function breakfastLabel(bk) {
 // House-wide check-in/check-out hours (see chat.a.checkin in i18n-app.js and
 // the demo seed text in store.js for the same 14:00/12:00 convention) — ICT
 // spelled out explicitly since guests booking from abroad won't know the
-// local UTC offset.
+// local UTC offset. There is no per-booking "requested time" field, so every
+// confirmation always quotes these two standard house times — never invent
+// a different time even if a guest's free-text note mentions one; front desk
+// handles early/late arrival requests manually.
 const CHECKIN_TIME_NOTE = '(from 14:00 ICT)';
 const CHECKOUT_TIME_NOTE = '(until 12:00 ICT)';
+const CHECKIN_TIME = '14:00';
+const CHECKOUT_TIME = '12:00';
+
+// `check_in`/`check_out` come back from pg as JS Date objects (DATE column,
+// UTC midnight) — interpolating one directly into a template literal calls
+// its default .toString(), which dumps the full "GMT+0000 (Coordinated
+// Universal Time)" tail. This renders a clean, unambiguous
+// "Sat Jul 25 2026 14:00 ICT" instead, explicitly pinned to UTC so a
+// server/host timezone other than UTC can never shift the calendar date by
+// a day.
+function formatCheckDate(dateVal, hhmm) {
+  const d = new Date(dateVal);
+  const weekday = d.toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' });
+  const month = d.toLocaleDateString('en-US', { month: 'short', timeZone: 'UTC' });
+  return `${weekday} ${month} ${d.getUTCDate()} ${d.getUTCFullYear()} ${hhmm} ICT`;
+}
+
+// Guest-facing confirmation email vocabulary, one entry per site language
+// (same 5 codes as assets/js/i18n.js: en/th/ja/zh-Hans/zh-Hant). Selected by
+// the booking's own `lang` (set at booking time from the guest's active site
+// language — see booking-payment.js). Staff-facing emails (hotelNotice) stay
+// English-only; this is deliberately scoped to the guest confirmation, since
+// that's the email a guest actually reads and is expected to read in their
+// own language for a 4-5★ property.
+const EMAIL_I18N = {
+  en: {
+    greeting: (name) => `Dear ${name || 'Guest'},`,
+    intro: 'Thank you for choosing J Park Hotel, Chonburi. Your reservation is confirmed.',
+    confirmation: 'Confirmation', room: 'Room', checkin: 'Check-in', checkout: 'Check-out',
+    nights: 'Nights', guests: 'Guests', roomPref: 'Room preference', breakfast: 'Breakfast',
+    total: 'Total', payment: 'Payment',
+    adultsChildren: (a, c) => `${a} adult(s), ${c} child(ren)`,
+    nonSmoking: 'Non-Smoking', smoking: 'Smoking', yes: 'Yes', no: 'No',
+    balanceDue: (money) => `Balance due: ${money}. Payable in person at check-in by cash, credit/debit card, or PromptPay QR at our front desk.`,
+    depositNote: 'Please note: a 200 THB deposit for your room key card is collected in cash at check-in (cash only) and refunded in full at check-out.',
+    closing: 'We look forward to welcoming you. Reply to this email if you need anything before arrival.',
+    spamNote: "Can't find this email later, or missing a reply from us? Please check your spam/junk folder — and consider adding us to your contacts.",
+    heading: 'Your reservation is confirmed',
+    paymentMethod: { cash: 'Cash', card: 'Card', promptpay_instore: 'PromptPay (in person)', pay_at_checkin: 'Pay at check-in (cash / card / PromptPay)', promptpay: 'PromptPay' },
+    paymentStatus: { paid: 'Paid', pending: 'Awaiting payment', failed: 'Failed' },
+  },
+  th: {
+    greeting: (name) => `เรียน คุณ${name || 'ผู้เข้าพัก'}`,
+    intro: 'ขอบคุณที่เลือกพักกับ J Park Hotel, Chonburi การจองของท่านได้รับการยืนยันแล้ว',
+    confirmation: 'หมายเลขยืนยัน', room: 'ห้องพัก', checkin: 'เช็คอิน', checkout: 'เช็คเอาท์',
+    nights: 'จำนวนคืน', guests: 'ผู้เข้าพัก', roomPref: 'ห้องสูบบุหรี่/ปลอดบุหรี่', breakfast: 'อาหารเช้า',
+    total: 'ยอดรวม', payment: 'การชำระเงิน',
+    adultsChildren: (a, c) => `ผู้ใหญ่ ${a} ท่าน, เด็ก ${c} ท่าน`,
+    nonSmoking: 'ห้องปลอดบุหรี่', smoking: 'ห้องสูบบุหรี่', yes: 'มี', no: 'ไม่มี',
+    balanceDue: (money) => `ยอดคงเหลือที่ต้องชำระ: ${money} ชำระได้ที่หน้าเคาน์เตอร์ในวันเช็คอิน ด้วยเงินสด บัตรเครดิต/เดบิต หรือ PromptPay QR`,
+    depositNote: 'โปรดทราบ: มีการเรียกเก็บเงินมัดจำบัตรคีย์การ์ด 200 บาท เป็นเงินสดเท่านั้น ณ วันเช็คอิน และคืนเต็มจำนวนเมื่อเช็คเอาท์',
+    closing: 'เรารอต้อนรับท่านด้วยความยินดี หากท่านต้องการความช่วยเหลือใด ๆ ก่อนเดินทางมาถึง กรุณาตอบกลับอีเมลฉบับนี้',
+    spamNote: 'หากไม่พบอีเมลนี้ในภายหลัง หรือไม่ได้รับการตอบกลับจากเรา กรุณาตรวจสอบโฟลเดอร์สแปม/จดหมายขยะ และแนะนำให้เพิ่มอีเมลของเราไว้ในรายชื่อผู้ติดต่อ',
+    heading: 'การจองของท่านได้รับการยืนยันแล้ว',
+    paymentMethod: { cash: 'เงินสด', card: 'บัตรเครดิต/เดบิต', promptpay_instore: 'PromptPay (ชำระที่โรงแรม)', pay_at_checkin: 'ชำระที่เคาน์เตอร์เมื่อเช็คอิน (เงินสด/บัตร/PromptPay)', promptpay: 'PromptPay' },
+    paymentStatus: { paid: 'ชำระแล้ว', pending: 'รอชำระเงิน', failed: 'ไม่สำเร็จ' },
+  },
+  ja: {
+    greeting: (name) => `${name || 'ゲスト'} 様`,
+    intro: 'この度はJ Park Hotel, Chonburiをお選びいただき、誠にありがとうございます。ご予約が確定いたしましたのでご案内申し上げます。',
+    confirmation: '確認番号', room: '客室', checkin: 'チェックイン', checkout: 'チェックアウト',
+    nights: '宿泊数', guests: '宿泊人数', roomPref: 'お部屋のご希望', breakfast: '朝食',
+    total: '合計金額', payment: 'お支払い',
+    adultsChildren: (a, c) => `大人 ${a}名、子供 ${c}名`,
+    nonSmoking: '禁煙', smoking: '喫煙可', yes: 'あり', no: 'なし',
+    balanceDue: (money) => `お支払い残額：${money}。チェックイン時にフロントにて現金、クレジット/デビットカード、またはプロンプトペイQRでお支払いください。`,
+    depositNote: 'ご注意：ルームキーカードのデポジット200THBを、チェックイン時に現金のみで頂戴いたします。チェックアウト時に全額返金いたします。',
+    closing: 'ご到着を心よりお待ち申し上げております。ご到着前に何かご要望がございましたら、本メールにご返信ください。',
+    spamNote: '後ほどこのメールが見つからない場合や、当ホテルからの返信が届かない場合は、迷惑メールフォルダをご確認いただき、当方のアドレスを連絡先にご登録いただけますようお願いいたします。',
+    heading: 'ご予約確定のお知らせ',
+    paymentMethod: { cash: '現金', card: 'クレジット/デビットカード', promptpay_instore: 'プロンプトペイ（現地でのお支払い）', pay_at_checkin: 'チェックイン時にお支払い（現金・カード・プロンプトペイ）', promptpay: 'プロンプトペイ' },
+    paymentStatus: { paid: '支払い済み', pending: '支払い待ち', failed: '失敗' },
+  },
+  'zh-Hans': {
+    greeting: (name) => `尊敬的${name || '客人'}：`,
+    intro: '感谢您选择下榻J Park Hotel, Chonburi。您的预订已确认。',
+    confirmation: '确认号', room: '房型', checkin: '入住', checkout: '退房',
+    nights: '住宿晚数', guests: '入住人数', roomPref: '房间偏好', breakfast: '早餐',
+    total: '总计', payment: '付款方式',
+    adultsChildren: (a, c) => `成人 ${a} 位，儿童 ${c} 位`,
+    nonSmoking: '无烟房', smoking: '吸烟房', yes: '含', no: '不含',
+    balanceDue: (money) => `尚需支付金额：${money}。可于入住时在前台以现金、信用卡/借记卡或PromptPay二维码支付。`,
+    depositNote: '请注意：房卡押金200泰铢，仅收现金，于入住时收取，退房时全额退还。',
+    closing: '期待您的光临。如在抵达前需要任何协助，请直接回复此邮件。',
+    spamNote: '稍后找不到这封邮件，或没有收到我们的回复？请检查您的垃圾邮件/垃圾箱文件夹，并建议将我们添加到您的联系人中。',
+    heading: '您的预订已确认',
+    paymentMethod: { cash: '现金', card: '信用卡/借记卡', promptpay_instore: 'PromptPay（现场支付）', pay_at_checkin: '入住时支付（现金/银行卡/PromptPay）', promptpay: 'PromptPay' },
+    paymentStatus: { paid: '已支付', pending: '待支付', failed: '支付失败' },
+  },
+  'zh-Hant': {
+    greeting: (name) => `尊敬的${name || '貴賓'}：`,
+    intro: '感謝您選擇下榻J Park Hotel, Chonburi。您的預訂已確認。',
+    confirmation: '確認號', room: '房型', checkin: '入住', checkout: '退房',
+    nights: '住宿晚數', guests: '入住人數', roomPref: '房間偏好', breakfast: '早餐',
+    total: '總計', payment: '付款方式',
+    adultsChildren: (a, c) => `成人 ${a} 位，兒童 ${c} 位`,
+    nonSmoking: '無菸房', smoking: '吸菸房', yes: '含', no: '不含',
+    balanceDue: (money) => `尚需支付金額：${money}。可於入住時在前台以現金、信用卡/簽帳卡或PromptPay二維碼支付。`,
+    depositNote: '請注意：房卡押金200泰銖，僅收現金，於入住時收取，退房時全額退還。',
+    closing: '期待您的光臨。如在抵達前需要任何協助，請直接回覆此郵件。',
+    spamNote: '稍後找不到這封郵件，或沒有收到我們的回覆？請檢查您的垃圾郵件資料夾，並建議將我們加入您的聯絡人。',
+    heading: '您的預訂已確認',
+    paymentMethod: { cash: '現金', card: '信用卡/簽帳卡', promptpay_instore: 'PromptPay（現場支付）', pay_at_checkin: '入住時支付（現金/銀行卡/PromptPay）', promptpay: 'PromptPay' },
+    paymentStatus: { paid: '已支付', pending: '待付款', failed: '支付失敗' },
+  },
+};
+
+function guestPaymentLabel(bk, L) {
+  if (!bk.payment_status || bk.payment_status === 'n/a') return null;
+  const method = L.paymentMethod[bk.payment_method] || bk.payment_provider || 'Online';
+  const statusWord = L.paymentStatus[bk.payment_status] || bk.payment_status;
+  return `${method} — ${statusWord}`;
+}
 
 // Branding + contact block appended to guest/staff-facing emails so a
 // forwarded or printed copy is self-identifying without needing the site.
@@ -142,8 +258,8 @@ function hotelNotice(bk) {
     `Guest email: ${bk.guest_email || '—'}`,
     `Guest phone: ${bk.guest_phone || '—'}`,
     `Room: ${bk.room || '—'}`,
-    `Check-in: ${bk.check_in} ${CHECKIN_TIME_NOTE}`,
-    `Check-out: ${bk.check_out} ${CHECKOUT_TIME_NOTE}`,
+    `Check-in: ${formatCheckDate(bk.check_in, CHECKIN_TIME)}`,
+    `Check-out: ${formatCheckDate(bk.check_out, CHECKOUT_TIME)}`,
     `Nights: ${bk.nights}`,
     `Guests: ${guests}`,
     `Room preference: ${smokingLabel(bk)}`,
@@ -165,8 +281,8 @@ function hotelNotice(bk) {
     `<tr><td style="padding:4px 12px 4px 0;color:#555">Guest email</td><td style="padding:4px 0">${bk.guest_email || '—'}</td></tr>` +
     `<tr><td style="padding:4px 12px 4px 0;color:#555">Guest phone</td><td style="padding:4px 0">${bk.guest_phone || '—'}</td></tr>` +
     `<tr><td style="padding:4px 12px 4px 0;color:#555">Room</td><td style="padding:4px 0">${bk.room || '—'}</td></tr>` +
-    `<tr><td style="padding:4px 12px 4px 0;color:#555">Check-in</td><td style="padding:4px 0">${bk.check_in} ${CHECKIN_TIME_NOTE}</td></tr>` +
-    `<tr><td style="padding:4px 12px 4px 0;color:#555">Check-out</td><td style="padding:4px 0">${bk.check_out} ${CHECKOUT_TIME_NOTE}</td></tr>` +
+    `<tr><td style="padding:4px 12px 4px 0;color:#555">Check-in</td><td style="padding:4px 0">${formatCheckDate(bk.check_in, CHECKIN_TIME)}</td></tr>` +
+    `<tr><td style="padding:4px 12px 4px 0;color:#555">Check-out</td><td style="padding:4px 0">${formatCheckDate(bk.check_out, CHECKOUT_TIME)}</td></tr>` +
     `<tr><td style="padding:4px 12px 4px 0;color:#555">Nights</td><td style="padding:4px 0">${bk.nights}</td></tr>` +
     `<tr><td style="padding:4px 12px 4px 0;color:#555">Guests</td><td style="padding:4px 0">${guests}</td></tr>` +
     `<tr><td style="padding:4px 12px 4px 0;color:#555">Room preference</td><td style="padding:4px 0">${smokingLabel(bk)}</td></tr>` +
@@ -181,15 +297,6 @@ function hotelNotice(bk) {
   return { text, html };
 }
 
-// Build a plain confirmation email from a booking row. Kept simple and English;
-// the staff console can still send a localised follow-up via POST /api/email.
-const DEPOSIT_NOTE_TEXT =
-  'Please note: a 200 THB deposit for your room key card is collected in cash at check-in (cash only) and refunded in full at check-out.';
-const DEPOSIT_NOTE_HTML =
-  '<p style="background:#fbf3df;border:1px solid #e0c178;border-radius:8px;padding:10px 14px;color:#5a4a1a">' +
-  '<strong>Please note:</strong> a 200 THB deposit for your room key card is collected in <strong>cash only</strong> at check-in, and refunded in full at check-out.' +
-  '</p>';
-
 // Some inboxes (Yahoo, Outlook, etc.) route new senders to spam even on a
 // verified domain until enough mail has been exchanged to build sender
 // reputation — so every guest-facing confirmation proactively tells the
@@ -200,31 +307,35 @@ const SPAM_NOTE_HTML =
   '<p style="color:#888;font-size:0.85rem">Can\'t find this email later, or missing a reply from us? Please check your <strong>spam/junk folder</strong> — and consider adding us to your contacts.</p>';
 
 function confirmationEmail(bk) {
+  const L = EMAIL_I18N[bk.lang] || EMAIL_I18N.en;
   const money = bk.total != null ? `${bk.total} ${bk.currency || 'THB'}` : '—';
-  const payment = paymentLabel(bk);
-  const balanceDue = balanceDueNote(bk);
+  const payment = guestPaymentLabel(bk, L);
+  const balanceDueMoney = (bk.payment_method === 'pay_at_checkin' && bk.payment_status === 'pending' && bk.total != null)
+    ? `${bk.total} ${bk.currency || 'THB'}` : null;
+  const smokingText = bk.smoking_preference === 'smoking' ? L.smoking : L.nonSmoking;
+  const breakfastText = bk.breakfast ? L.yes : L.no;
   const lines = [
-    `Dear ${bk.guest_name || 'Guest'},`,
+    L.greeting(bk.guest_name),
     '',
-    'Thank you for choosing J Park Hotel, Chonburi. Your reservation is confirmed.',
+    L.intro,
     '',
-    `Confirmation: ${bk.ref}`,
-    `Room: ${bk.room || '—'}`,
-    `Check-in: ${bk.check_in} ${CHECKIN_TIME_NOTE}`,
-    `Check-out: ${bk.check_out} ${CHECKOUT_TIME_NOTE}`,
-    `Nights: ${bk.nights}`,
-    `Guests: ${bk.adults} adult(s), ${bk.children} child(ren)`,
-    `Room preference: ${smokingLabel(bk)}`,
-    `Breakfast: ${breakfastLabel(bk)}`,
-    `Total: ${money}`,
-    ...(payment ? [`Payment: ${payment}`] : []),
-    ...(balanceDue ? ['', balanceDue.text] : []),
+    `${L.confirmation}: ${bk.ref}`,
+    `${L.room}: ${bk.room || '—'}`,
+    `${L.checkin}: ${formatCheckDate(bk.check_in, CHECKIN_TIME)}`,
+    `${L.checkout}: ${formatCheckDate(bk.check_out, CHECKOUT_TIME)}`,
+    `${L.nights}: ${bk.nights}`,
+    `${L.guests}: ${L.adultsChildren(bk.adults, bk.children)}`,
+    `${L.roomPref}: ${smokingText}`,
+    `${L.breakfast}: ${breakfastText}`,
+    `${L.total}: ${money}`,
+    ...(payment ? [`${L.payment}: ${payment}`] : []),
+    ...(balanceDueMoney ? ['', L.balanceDue(balanceDueMoney)] : []),
     '',
-    DEPOSIT_NOTE_TEXT,
+    L.depositNote,
     '',
-    'We look forward to welcoming you. Reply to this email if you need anything before arrival.',
+    L.closing,
     '',
-    SPAM_NOTE_TEXT,
+    L.spamNote,
     '',
     'J Park Hotel, Chonburi',
   ];
@@ -232,25 +343,25 @@ function confirmationEmail(bk) {
   const text = lines.join('\n') + letterhead.text;
   const html =
     `<div style="font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;line-height:1.5">` +
-    `<h2 style="color:#0f766e;margin:0 0 12px">Your reservation is confirmed</h2>` +
-    `<p>Dear ${bk.guest_name || 'Guest'},</p>` +
-    `<p>Thank you for choosing <strong>J Park Hotel, Chonburi</strong>. Your reservation is confirmed.</p>` +
+    `<h2 style="color:#0f766e;margin:0 0 12px">${L.heading}</h2>` +
+    `<p>${L.greeting(bk.guest_name)}</p>` +
+    `<p>${L.intro}</p>` +
     `<table style="border-collapse:collapse;margin:16px 0">` +
-    `<tr><td style="padding:4px 12px 4px 0;color:#555">Confirmation</td><td style="padding:4px 0"><strong>${bk.ref}</strong></td></tr>` +
-    `<tr><td style="padding:4px 12px 4px 0;color:#555">Room</td><td style="padding:4px 0">${bk.room || '—'}</td></tr>` +
-    `<tr><td style="padding:4px 12px 4px 0;color:#555">Check-in</td><td style="padding:4px 0">${bk.check_in} ${CHECKIN_TIME_NOTE}</td></tr>` +
-    `<tr><td style="padding:4px 12px 4px 0;color:#555">Check-out</td><td style="padding:4px 0">${bk.check_out} ${CHECKOUT_TIME_NOTE}</td></tr>` +
-    `<tr><td style="padding:4px 12px 4px 0;color:#555">Nights</td><td style="padding:4px 0">${bk.nights}</td></tr>` +
-    `<tr><td style="padding:4px 12px 4px 0;color:#555">Guests</td><td style="padding:4px 0">${bk.adults} adult(s), ${bk.children} child(ren)</td></tr>` +
-    `<tr><td style="padding:4px 12px 4px 0;color:#555">Room preference</td><td style="padding:4px 0">${smokingLabel(bk)}</td></tr>` +
-    `<tr><td style="padding:4px 12px 4px 0;color:#555">Breakfast</td><td style="padding:4px 0">${breakfastLabel(bk)}</td></tr>` +
-    `<tr><td style="padding:4px 12px 4px 0;color:#555">Total</td><td style="padding:4px 0">${money}</td></tr>` +
-    (payment ? `<tr><td style="padding:4px 12px 4px 0;color:#555">Payment</td><td style="padding:4px 0">${payment}</td></tr>` : '') +
+    `<tr><td style="padding:4px 12px 4px 0;color:#555">${L.confirmation}</td><td style="padding:4px 0"><strong>${bk.ref}</strong></td></tr>` +
+    `<tr><td style="padding:4px 12px 4px 0;color:#555">${L.room}</td><td style="padding:4px 0">${bk.room || '—'}</td></tr>` +
+    `<tr><td style="padding:4px 12px 4px 0;color:#555">${L.checkin}</td><td style="padding:4px 0">${formatCheckDate(bk.check_in, CHECKIN_TIME)}</td></tr>` +
+    `<tr><td style="padding:4px 12px 4px 0;color:#555">${L.checkout}</td><td style="padding:4px 0">${formatCheckDate(bk.check_out, CHECKOUT_TIME)}</td></tr>` +
+    `<tr><td style="padding:4px 12px 4px 0;color:#555">${L.nights}</td><td style="padding:4px 0">${bk.nights}</td></tr>` +
+    `<tr><td style="padding:4px 12px 4px 0;color:#555">${L.guests}</td><td style="padding:4px 0">${L.adultsChildren(bk.adults, bk.children)}</td></tr>` +
+    `<tr><td style="padding:4px 12px 4px 0;color:#555">${L.roomPref}</td><td style="padding:4px 0">${smokingText}</td></tr>` +
+    `<tr><td style="padding:4px 12px 4px 0;color:#555">${L.breakfast}</td><td style="padding:4px 0">${breakfastText}</td></tr>` +
+    `<tr><td style="padding:4px 12px 4px 0;color:#555">${L.total}</td><td style="padding:4px 0">${money}</td></tr>` +
+    (payment ? `<tr><td style="padding:4px 12px 4px 0;color:#555">${L.payment}</td><td style="padding:4px 0">${payment}</td></tr>` : '') +
     `</table>` +
-    (balanceDue ? balanceDue.html : '') +
-    DEPOSIT_NOTE_HTML +
-    `<p>We look forward to welcoming you. Just reply to this email if you need anything before arrival.</p>` +
-    SPAM_NOTE_HTML +
+    (balanceDueMoney ? `<p style="background:#eef6f4;border:1px solid #a9d6cb;border-radius:8px;padding:10px 14px;color:#0f4a3e">${L.balanceDue(balanceDueMoney)}</p>` : '') +
+    `<p style="background:#fbf3df;border:1px solid #e0c178;border-radius:8px;padding:10px 14px;color:#5a4a1a">${L.depositNote}</p>` +
+    `<p>${L.closing}</p>` +
+    `<p style="color:#888;font-size:0.85rem">${L.spamNote}</p>` +
     `<p style="color:#0f766e;font-weight:bold;margin-top:24px">J Park Hotel, Chonburi</p>` +
     letterhead.html +
     `</div>`;
@@ -391,6 +502,7 @@ function row2js(r) {
     needsReview: !!r.needs_review,
     starred: !!r.starred,
     staffLabel: r.staff_label || null,
+    lastAmendedAt: r.last_amended_at ? new Date(r.last_amended_at).getTime() : null,
     readBy: r.read_by || [],
     createdAt: new Date(r.created_at).getTime(),
     updatedAt: r.updated_at ? new Date(r.updated_at).getTime() : null,
@@ -739,7 +851,12 @@ router.post('/:id/resend-confirmation', requireAuth, async (req, res) => {
     if (!result.ok) {
       return res.status(result.skipped ? 503 : 502).json({ error: result.error || 'Send failed' });
     }
-    res.json({ status: 'sent', to: bk.guest_email });
+
+    const { rows: updated } = await db.query(
+      `UPDATE guest_bookings SET last_amended_at = NOW() WHERE id = $1 RETURNING *`,
+      [req.params.id]
+    );
+    res.json({ status: 'sent', to: bk.guest_email, booking: row2js(updated[0]) });
   } catch (e) {
     console.error('[guest-bookings] resend-confirmation', e);
     res.status(500).json({ error: 'Database error' });

@@ -37,7 +37,7 @@
       'bk.pay.roomType': 'Room type', 'bk.pay.guestDetails': 'Guest details',
       'bk.pay.roomPref': 'Room preference', 'bk.pay.nonSmoking': 'Non-Smoking', 'bk.pay.smoking': 'Smoking',
       'bk.pay.firstName': 'First name', 'bk.pay.lastName': 'Last name (optional)',
-      'bk.pay.email': 'Email', 'bk.pay.phone': 'Phone (optional)',
+      'bk.pay.email': 'Email', 'bk.pay.phone': 'Phone',
       'bk.pay.note': 'Special requests (optional)', 'bk.pay.notePlaceholder': 'Late arrival, high floor, allergies…',
       'bk.pay.depositTitle': 'Please note',
       'bk.pay.depositNote': 'A 200 THB deposit for your room key card is collected in cash only at check-in, and refunded in full at check-out.',
@@ -53,7 +53,7 @@
       'bk.pay.reserveTitle': 'Reserve now — pay at check-in',
       'bk.pay.checkinNote': "You're not paying online. We'll email your confirmation now, and you'll settle the balance in person at check-in — by cash, credit/debit card, or PromptPay QR at our front desk.",
       'bk.pay.confirmReservation': 'Confirm reservation',
-      'bk.pay.err.required': 'Please fill in your first name and email.',
+      'bk.pay.err.required': 'Please fill in your first name, email, and phone number.',
       'bk.pay.err.generic': 'Something went wrong. Please try again.',
       'bk.pay.err.network': 'Network error — please check your connection and try again.',
       'bk.pay.err.soldOut': 'Sorry, this room type just sold out for those dates.',
@@ -62,7 +62,7 @@
       'bk.pay.roomType': 'ประเภทห้อง', 'bk.pay.guestDetails': 'ข้อมูลผู้เข้าพัก',
       'bk.pay.roomPref': 'ห้องสูบบุหรี่/ปลอดบุหรี่', 'bk.pay.nonSmoking': 'ห้องปลอดบุหรี่', 'bk.pay.smoking': 'ห้องสูบบุหรี่',
       'bk.pay.firstName': 'ชื่อ', 'bk.pay.lastName': 'นามสกุล (ไม่บังคับ)',
-      'bk.pay.email': 'อีเมล', 'bk.pay.phone': 'เบอร์โทร (ไม่บังคับ)',
+      'bk.pay.email': 'อีเมล', 'bk.pay.phone': 'เบอร์โทร',
       'bk.pay.note': 'คำขอพิเศษ (ไม่บังคับ)', 'bk.pay.notePlaceholder': 'มาถึงดึก ต้องการชั้นสูง แพ้อาหาร…',
       'bk.pay.depositTitle': 'โปรดทราบ',
       'bk.pay.depositNote': 'มีการเรียกเก็บเงินมัดจำบัตรคีย์การ์ด 200 บาท เป็นเงินสดเท่านั้น ณ วันเช็คอิน และคืนเต็มจำนวนเมื่อเช็คเอาท์',
@@ -78,7 +78,7 @@
       'bk.pay.reserveTitle': 'จองเลย ชำระเงินที่โรงแรม',
       'bk.pay.checkinNote': 'ท่านไม่ต้องชำระเงินออนไลน์ เราจะส่งอีเมลยืนยันการจองให้ทันที และท่านสามารถชำระยอดคงเหลือได้ที่หน้าเคาน์เตอร์เมื่อเช็คอิน — ด้วยเงินสด บัตรเครดิต/เดบิต หรือ QR พร้อมเพย์',
       'bk.pay.confirmReservation': 'ยืนยันการจอง',
-      'bk.pay.err.required': 'กรุณากรอกชื่อและอีเมลของท่าน',
+      'bk.pay.err.required': 'กรุณากรอกชื่อ อีเมล และเบอร์โทรศัพท์ของท่าน',
       'bk.pay.err.generic': 'เกิดข้อผิดพลาด กรุณาลองใหม่',
       'bk.pay.err.network': 'เกิดข้อผิดพลาดของเครือข่าย กรุณาตรวจสอบการเชื่อมต่อแล้วลองใหม่',
       'bk.pay.err.soldOut': 'ขออภัย ห้องประเภทนี้เต็มสำหรับวันที่เลือกแล้ว',
@@ -87,7 +87,7 @@
       'bk.pay.roomType': '客室タイプ', 'bk.pay.guestDetails': 'ご宿泊者情報',
       'bk.pay.roomPref': 'お部屋のご希望', 'bk.pay.nonSmoking': '禁煙', 'bk.pay.smoking': '喫煙可',
       'bk.pay.firstName': '名', 'bk.pay.lastName': '姓（任意）',
-      'bk.pay.email': 'メールアドレス', 'bk.pay.phone': '電話番号（任意）',
+      'bk.pay.email': 'メールアドレス', 'bk.pay.phone': '電話番号',
       'bk.pay.note': 'ご要望（任意）', 'bk.pay.notePlaceholder': '到着が遅れる、高層階希望、アレルギーなど…',
       'bk.pay.depositTitle': 'ご注意',
       'bk.pay.depositNote': 'ルームキーカードのデポジット200THBを、チェックイン時に現金のみで頂戴いたします。チェックアウト時に全額返金いたします。',
@@ -103,7 +103,7 @@
       'bk.pay.reserveTitle': '今すぐご予約 — お支払いはチェックイン時に',
       'bk.pay.checkinNote': 'オンラインでのお支払いは不要です。ご予約確認メールをすぐにお送りいたします。残額はチェックイン時にフロントにて、現金・クレジット/デビットカード、またはプロンプトペイQRでお支払いいただけます。',
       'bk.pay.confirmReservation': '予約を確定する',
-      'bk.pay.err.required': 'お名前とメールアドレスをご入力ください。',
+      'bk.pay.err.required': 'お名前、メールアドレス、電話番号をご入力ください。',
       'bk.pay.err.generic': '問題が発生しました。再度お試しください。',
       'bk.pay.err.network': 'ネットワークエラーです。接続をご確認のうえ再度お試しください。',
       'bk.pay.err.soldOut': '申し訳ございません、この客室タイプは選択された日程で満室になりました。',
@@ -112,7 +112,7 @@
       'bk.pay.roomType': '房型', 'bk.pay.guestDetails': '入住人信息',
       'bk.pay.roomPref': '房间偏好', 'bk.pay.nonSmoking': '无烟房', 'bk.pay.smoking': '吸烟房',
       'bk.pay.firstName': '名字', 'bk.pay.lastName': '姓氏（可选）',
-      'bk.pay.email': '电子邮箱', 'bk.pay.phone': '电话（可选）',
+      'bk.pay.email': '电子邮箱', 'bk.pay.phone': '电话',
       'bk.pay.note': '特殊要求（可选）', 'bk.pay.notePlaceholder': '晚到、高楼层、过敏信息等…',
       'bk.pay.depositTitle': '请注意',
       'bk.pay.depositNote': '房卡押金200泰铢，仅收现金，于入住时收取，退房时全额退还。',
@@ -128,7 +128,7 @@
       'bk.pay.reserveTitle': '立即预订 — 入住时付款',
       'bk.pay.checkinNote': '您无需在线支付。我们会立即发送预订确认邮件，您可在入住时于前台以现金、信用卡/借记卡或PromptPay二维码支付余款。',
       'bk.pay.confirmReservation': '确认预订',
-      'bk.pay.err.required': '请填写您的名字和电子邮箱。',
+      'bk.pay.err.required': '请填写您的名字、电子邮箱和电话号码。',
       'bk.pay.err.generic': '出现了一些问题，请重试。',
       'bk.pay.err.network': '网络错误，请检查连接后重试。',
       'bk.pay.err.soldOut': '抱歉，该房型在所选日期已订满。',
@@ -137,7 +137,7 @@
       'bk.pay.roomType': '房型', 'bk.pay.guestDetails': '入住人資訊',
       'bk.pay.roomPref': '房間偏好', 'bk.pay.nonSmoking': '無菸房', 'bk.pay.smoking': '吸菸房',
       'bk.pay.firstName': '名字', 'bk.pay.lastName': '姓氏（可選）',
-      'bk.pay.email': '電子郵箱', 'bk.pay.phone': '電話（可選）',
+      'bk.pay.email': '電子郵箱', 'bk.pay.phone': '電話',
       'bk.pay.note': '特殊要求（可選）', 'bk.pay.notePlaceholder': '晚到、高樓層、過敏資訊等…',
       'bk.pay.depositTitle': '請注意',
       'bk.pay.depositNote': '房卡押金200泰銖，僅收現金，於入住時收取，退房時全額退還。',
@@ -153,7 +153,7 @@
       'bk.pay.reserveTitle': '立即預訂 — 入住時付款',
       'bk.pay.checkinNote': '您無需線上支付。我們會立即發送預訂確認郵件，您可在入住時於前台以現金、信用卡/簽帳卡或PromptPay二維碼支付餘款。',
       'bk.pay.confirmReservation': '確認預訂',
-      'bk.pay.err.required': '請填寫您的名字和電子郵箱。',
+      'bk.pay.err.required': '請填寫您的名字、電子郵箱和電話號碼。',
       'bk.pay.err.generic': '出現了一些問題，請重試。',
       'bk.pay.err.network': '網路錯誤，請檢查連線後重試。',
       'bk.pay.err.soldOut': '抱歉，該房型在所選日期已訂滿。',
@@ -450,7 +450,8 @@
   function validateGuestFields() {
     var firstName = val('bkpFirstName');
     var email = val('bkpEmail');
-    if (!firstName || !email || email.indexOf('@') === -1) {
+    var phone = val('bkpPhone');
+    if (!firstName || !email || email.indexOf('@') === -1 || !phone) {
       showFormError(TR('bk.pay.err.required'));
       return false;
     }

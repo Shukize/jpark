@@ -226,6 +226,13 @@ ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS smoking_preference VARCHAR(2
 -- the direct-website reservation flow, defaults FALSE (unknown) otherwise.
 ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS breakfast BOOLEAN NOT NULL DEFAULT FALSE;
 
+-- Set whenever staff resend a confirmation email (routes/guestBookings.js
+-- POST /:id/resend-confirmation) — lets the staff console flag the booking
+-- as "Amended" (row pill + a dedicated "Resent" filter tab) and show the
+-- resend banner in the detail view, without an extra query against
+-- email_log just to know whether any resend has ever happened.
+ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS last_amended_at TIMESTAMPTZ;
+
 -- ── Chat messages (guest ↔ front-desk) ──────────────────────────────────────
 CREATE TABLE IF NOT EXISTS chat_messages (
   id                  SERIAL       PRIMARY KEY,

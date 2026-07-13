@@ -1074,6 +1074,15 @@ body.mobile-view .fac-card.large {
   color: #92400a; font-size: 0.86rem; font-weight: 600;
 }
 
+/* Amended banner: a confirmation email was resent for this booking — same
+   shape as .bk-review-banner but a distinct gold tone (matches the resend
+   editor's own accent) so it never reads as a warning like needsReview. */
+.bk-amended-banner {
+  margin-bottom: 18px; padding: 10px 14px; max-width: 580px;
+  background: #fbf3df; border: 1px solid #e0c178; border-radius: 8px;
+  color: #5a4a1a; font-size: 0.86rem; font-weight: 600;
+}
+
 /* Cancel / Reopen action button — amber, deliberately distinct from the
    red admin-only Delete button so the two severities never look alike. */
 .mda-cancel-btn { color: #b45309; }
@@ -1235,6 +1244,14 @@ body.mobile-view .fac-card.large {
 .bk-row-pill.fd-status { margin-left: 6px; margin-right: 0; padding: 1px 7px; cursor: default; }
 .bk-row-pill.fd-status.ok { background: #e8f5f3; color: #0f766e; }
 .bk-row-pill.fd-status.pending { background: #f2f2f2; color: #888; }
+
+/* "Amended" pill: a confirmation email was resent (edited or verbatim) for
+   this booking (b.lastAmendedAt) — gold to match the resend editor's own
+   accent color rather than the alarm-red default .bk-row-pill background. */
+.bk-row-pill.amended {
+  background: #fbf3df; color: #8a6415; margin-left: 6px; margin-right: 0;
+  padding: 1px 8px; cursor: help;
+}
 
 /* Archive sections: a plain "Recent" caption when older buckets also exist,
    and collapsible headers for "Older Than 2/6 Months" with an inline-rename
