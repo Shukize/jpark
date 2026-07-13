@@ -536,9 +536,33 @@ const LIST_COLUMNS = [
   'read_by', 'created_at', 'updated_at',
 ].join(', ');
 
-/* GET /api/guest-bookings */
-router.get('/', requireAuth, async (_req, res) => {
+/* GET /api/guest-bookings
+   The staff console polls this constantly. To keep DB network transfer flat as
+   the booking history grows, the client passes ?v=<fingerprint> (the version it
+   last saw). We first run a CHEAP probe — MAX(updated_at) + COUNT(*) — and if it
+   still matches, we answer `{ unchanged: true }` WITHOUT ever selecting the full
+   rows, so an idle poll transfers almost nothing. guest_bookings has a BEFORE
+   UPDATE trigger bumping updated_at, so this pair changes on any insert, update
+   OR delete — no separate deletion tracking needed. Requests with no ?v (legacy
+   callers) still get the plain array. This is the durable follow-on to dropping
+   the raw `confirmation` column from the list (2026-07-13 outage fix). */
+async function bookingsVersion() {
+  const { rows } = await db.query(
+    `SELECT COALESCE(MAX(updated_at)::text, '') AS m, COUNT(*)::int AS c FROM guest_bookings`
+  );
+  return rows[0].m + '|' + rows[0].c;
+}
+
+router.get('/', requireAuth, async (req, res) => {
   try {
+    if (req.query.v !== undefined) {
+      const version = await bookingsVersion();
+      if (req.query.v === version) return res.json({ unchanged: true, v: version });
+      const { rows } = await db.query(
+        `SELECT ${LIST_COLUMNS} FROM guest_bookings ORDER BY created_at DESC`
+      );
+      return res.json({ v: version, bookings: rows.map(row2js) });
+    }
     const { rows } = await db.query(
       `SELECT ${LIST_COLUMNS} FROM guest_bookings ORDER BY created_at DESC`
     );

@@ -207,6 +207,14 @@
 
   /* ── API polling: pull live data from the backend every N seconds ─────── */
   let _pollTimer = null;
+  // Conditional-fetch state for the bookings list: `_bookingsFp` is the last
+  // version fingerprint the server gave us; we send it back so an unchanged
+  // list costs almost nothing (see backend/routes/guestBookings.js). Every
+  // RECONCILE_EVERY polls we drop it to force one full refresh, as a cheap
+  // self-heal against any missed change.
+  let _bookingsFp = "";
+  let _bookingsPollCount = 0;
+  const RECONCILE_EVERY = 30; // ~5 min at the 10s interval
 
   function _pollAll() {
     _pollRequests(); _pollChats(); _pollGuestBookings(); _pollMessages();
@@ -306,15 +314,23 @@
   async function _pollGuestBookings() {
     const API = window.JPark && window.JPark.api;
     if (!API) return;
-    const data = await API.get("/api/guest-bookings");
-    if (!Array.isArray(data)) {
-      // Was previously a silent no-op: a real fetch failure (401/500/offline)
-      // looked identical to "no bookings yet" in the UI, with nothing in the
-      // console to explain it.
+    // Periodically drop the fingerprint to force a full reconciliation.
+    if (_bookingsPollCount++ % RECONCILE_EVERY === 0) _bookingsFp = "";
+    const data = await API.get("/api/guest-bookings?v=" + encodeURIComponent(_bookingsFp));
+    if (!data || data.error) {
+      // A real fetch failure (401/500/offline) used to look identical to "no
+      // bookings yet" in the UI, with nothing in the console to explain it.
       if (!data || !data.offline) console.error("[staff] guest bookings poll failed:", data && data.error);
       return;
     }
-    S.write("guestBookings", data);
+    if (data.unchanged) { if (data.v) _bookingsFp = data.v; return; } // nothing changed since last poll
+    // Accept both the conditional envelope {v,bookings} and, during a rollout
+    // window, a legacy bare array from an older server.
+    let list;
+    if (Array.isArray(data)) list = data;
+    else if (Array.isArray(data.bookings)) { list = data.bookings; _bookingsFp = data.v || ""; }
+    else return; // unexpected shape — keep whatever we already have
+    S.write("guestBookings", list);
   }
 
   // Admin-only (the endpoint 403s for non-admins, see startApiPolling()'s
