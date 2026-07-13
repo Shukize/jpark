@@ -152,6 +152,8 @@
       "chat.a.rates": "Nightly rates currently range from ฿{min} to ฿{max} depending on room type, guests and breakfast. Check exact pricing and availability for your dates on our booking page, or I can connect you to the front desk.",
       "chat.a.ratesFallback": "Rates vary by room type, guests and breakfast. Please check our booking page for exact current pricing, or tap “Talk to the front desk” and a team member will help.",
       "chat.a.default": "I'm not certain about that one — let me connect you with our front desk team.",
+      "chat.a.hello": "Hello! 😊 How can I help? You can ask about check-in, Wi-Fi, dining, the pool, parking or rates — or tap a topic below.",
+      "chat.a.thanks": "You're welcome! Is there anything else I can help with?",
       "chat.langNote": "Auto-translated to your language",
       "tr.from": "Translated from",
 
@@ -680,6 +682,8 @@
       "chat.a.rates": "ราคาห้องพักต่อคืนอยู่ระหว่าง ฿{min} ถึง ฿{max} ขึ้นอยู่กับประเภทห้อง จำนวนผู้เข้าพัก และอาหารเช้า กรุณาตรวจสอบราคาที่แน่นอนสำหรับวันที่ของคุณที่หน้าจองห้องพัก หรือให้ฉันเชื่อมต่อคุณกับแผนกต้อนรับ",
       "chat.a.ratesFallback": "ราคาห้องพักขึ้นอยู่กับประเภทห้อง จำนวนผู้เข้าพัก และอาหารเช้า กรุณาตรวจสอบราคาปัจจุบันที่หน้าจองห้องพัก หรือแตะ “คุยกับแผนกต้อนรับ” เพื่อให้เจ้าหน้าที่ช่วย",
       "chat.a.default": "เรื่องนี้ฉันไม่แน่ใจ ขอเชื่อมต่อคุณกับทีมแผนกต้อนรับนะคะ",
+      "chat.a.hello": "สวัสดีค่ะ 😊 มีอะไรให้ช่วยไหมคะ สอบถามเรื่องเช็คอิน Wi-Fi ห้องอาหาร สระว่ายน้ำ ที่จอดรถ หรือราคาห้องได้เลย หรือแตะหัวข้อด้านล่างค่ะ",
+      "chat.a.thanks": "ยินดีค่ะ มีอะไรให้ช่วยเพิ่มเติมอีกไหมคะ",
       "chat.langNote": "แปลอัตโนมัติเป็นภาษาของคุณ",
       "tr.from": "แปลจาก",
 
@@ -1208,6 +1212,8 @@
       "chat.a.rates": "1泊の料金は客室タイプ・宿泊人数・朝食の有無により ฿{min}〜฿{max} です。ご希望日の正確な料金と空室状況はご予約ページでご確認いただけます。フロントにおつなぎすることもできます。",
       "chat.a.ratesFallback": "料金は客室タイプ・宿泊人数・朝食の有無により異なります。現在の料金はご予約ページでご確認いただくか、下の「フロントと話す」をタップしてください。",
       "chat.a.default": "その点は確認が必要です。フロントデスクにおつなぎいたします。",
+      "chat.a.hello": "こんにちは😊 ご用件をどうぞ。チェックイン、Wi-Fi、レストラン、プール、駐車場、料金などお気軽にお尋ねください。下の項目をタップでもOKです。",
+      "chat.a.thanks": "どういたしまして！ ほかにお手伝いできることはございますか？",
       "chat.langNote": "あなたの言語に自動翻訳",
       "tr.from": "翻訳元：",
 
@@ -1736,6 +1742,8 @@
       "chat.a.rates": "每晚房价根据房型、入住人数和是否含早餐而定，目前约为 ฿{min} 至 ฿{max}。请在预订页面查看您入住日期的准确价格和空房情况，或者我可以为您转接前台。",
       "chat.a.ratesFallback": "房价根据房型、入住人数和是否含早餐而定。请在预订页面查看当前价格，或轻点下方“联系前台”，工作人员会协助您。",
       "chat.a.default": "这个我不太确定，让我为您接通前台团队。",
+      "chat.a.hello": "您好！😊 有什么可以帮您？可以咨询入住、Wi-Fi、餐饮、泳池、停车或房价——也可点击下方话题。",
+      "chat.a.thanks": "不客气！还有什么可以帮您的吗？",
       "chat.langNote": "已自动翻译为您的语言",
       "tr.from": "翻译自",
 
@@ -2264,6 +2272,8 @@
       "chat.a.rates": "每晚房價依房型、入住人數及是否含早餐而定，目前約為 ฿{min} 至 ฿{max}。請至訂房頁面查看您入住日期的準確價格與空房狀況，或者我可以為您轉接櫃檯。",
       "chat.a.ratesFallback": "房價依房型、入住人數及是否含早餐而定。請至訂房頁面查看目前價格，或輕點下方“聯絡櫃檯”，工作人員會協助您。",
       "chat.a.default": "這個我不太確定，讓我為您接通櫃檯團隊。",
+      "chat.a.hello": "您好！😊 有什麼可以幫您？可以詢問入住、Wi-Fi、餐飲、泳池、停車或房價——也可點擊下方主題。",
+      "chat.a.thanks": "不客氣！還有什麼可以幫您的嗎？",
       "chat.langNote": "已自動翻譯為您的語言",
       "tr.from": "翻譯自",
 

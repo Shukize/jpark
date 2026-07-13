@@ -221,6 +221,29 @@
     return null;
   }
 
+  // Plain greeting / thank-you detection. Matches the WHOLE normalised message
+  // exactly (not a substring), so a real question that merely contains "hi" —
+  // e.g. "which room is quietest" — is never mistaken for a greeting. Only
+  // consulted when no TOPIC matched, so a bare "hi"/"thanks" gets a friendly
+  // reply instead of pulling a staff member into the thread.
+  function smallTalkReply(text) {
+    var norm = String(text).toLowerCase()
+      .replace(/^[\s!.?,;:~()"'’\-]+|[\s!.?,;:~()"'’\-]+$/g, "");
+    var GREET = ["hi","hello","hey","hiya","yo","howdy","hi there","hello there",
+      "good morning","good afternoon","good evening","good day","greetings",
+      "สวัสดี","สวัสดีครับ","สวัสดีค่ะ","หวัดดี",
+      "こんにちは","こんばんは","おはよう","おはようございます","やあ",
+      "你好","您好","早上好","下午好","晚上好","哈囉","哈罗","嗨"];
+    var THANKS = ["thanks","thank you","thankyou","thx","ty","cheers","thank u",
+      "much appreciated","appreciate it","thanks a lot","thank you so much",
+      "ขอบคุณ","ขอบคุณครับ","ขอบคุณค่ะ","ขอบใจ",
+      "ありがとう","ありがとうございます","どうも",
+      "谢谢","謝謝","多谢","多謝","感谢","感謝","谢谢你","謝謝你"];
+    if (GREET.indexOf(norm) >= 0) return t("chat.a.hello");
+    if (THANKS.indexOf(norm) >= 0) return t("chat.a.thanks");
+    return null;
+  }
+
   async function guestSend(text) {
     text = text.trim(); if (!text) return;
     await pushMessage("guest", text);
@@ -229,7 +252,14 @@
     if (conv && conv.escalated) return;
     const reply = await botAnswer(text);
     if (reply === null) {
-      // No auto-response matched — say we're connecting them, then escalate to
+      // Catch a plain greeting / thank-you first so "hi" or "thanks" gets a
+      // friendly reply instead of escalating to a human.
+      const small = smallTalkReply(text);
+      if (small) {
+        setTimeout(async () => { await pushMessage("bot", small); render(); }, 650);
+        return;
+      }
+      // Genuinely no auto-response — say we're connecting them, then escalate to
       // an available front-desk staff member (escalate() posts the "connected
       // to {name}" / "reply as soon as available" system message and routes all
       // further guest messages to staff).
