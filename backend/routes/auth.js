@@ -46,6 +46,18 @@ function escapeLike(s) {
   return String(s).replace(/[\\%_]/g, '\\$&');
 }
 
+// A random, unambiguous temporary password for admin-triggered resets. Returned
+// ONCE to the admin (the DB only ever keeps the bcrypt hash) — this replaces the
+// old fixed 'jparkhotel', which was a known password on any just-reset account.
+// Alphabet omits easily-confused characters (0/O, 1/l/I).
+function genTempPassword() {
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+  const bytes = crypto.randomBytes(10);
+  let out = '';
+  for (let i = 0; i < bytes.length; i++) out += alphabet[bytes[i] % alphabet.length];
+  return out;
+}
+
 function nameToEmail(name) {
   const parts = (name || 'staff').toLowerCase().trim().split(/\s+/);
   return (parts.length > 1 ? parts[0][0] + parts[parts.length - 1] : parts[0]) + '@jpark.hotel';
@@ -217,11 +229,27 @@ router.post('/refresh', async (req, res) => {
       return res.status(403).json({ error: 'Account no longer active', forceLogout: true });
     }
 
-    await db.query(
+    // Enforce the 20-minute idle timeout that expires_at has always encoded but
+    // nothing previously checked: slide the window ONLY if the session is still
+    // live (not revoked) and hasn't already idled out. If the guarded UPDATE
+    // matches no row, the session lapsed — revoke it and force a re-login. An
+    // open staff console polls every few seconds, so it always refreshes well
+    // within 20 min; only a tab left closed/idle past the window is logged out.
+    const { rows: bumped } = await db.query(
       `UPDATE staff_sessions SET last_seen_at = NOW(), expires_at = NOW() + interval '20 minutes'
-        WHERE jti = $1`,
+        WHERE jti = $1 AND revoked_at IS NULL AND expires_at > NOW()
+        RETURNING jti`,
       [payload.jti]
     );
+    if (!bumped.length) {
+      sessionCache.markRevoked(payload.jti);
+      db.query(
+        `UPDATE staff_sessions SET revoked_at = NOW(), revoked_reason = 'idle_timeout'
+          WHERE jti = $1 AND revoked_at IS NULL`,
+        [payload.jti]
+      ).catch((e) => console.error('[auth] refresh idle-timeout revoke', e));
+      return res.status(403).json({ error: 'Session timed out', forceLogout: true });
+    }
 
     const token2 = mintToken(emp, { jti: payload.jti, absExp: payload.absExp });
     res.json({ token: token2 });
@@ -312,6 +340,8 @@ router.post('/register', requireAdmin, async (req, res) => {
   const { password, name, role, phone, shift } = req.body || {};
   if (!password || !name)
     return res.status(400).json({ error: 'password and name required' });
+  if (String(password).length < 6)
+    return res.status(400).json({ error: 'Password must be at least 6 characters' });
 
   // Username and email are always derived from the name so the whole system
   // stays on the single "initiallastname" convention.
@@ -375,13 +405,16 @@ router.patch('/staff/:id', requireAdmin, async (req, res) => {
 });
 
 /* ---- POST /api/auth/staff/:id/reset-password (admin) ----
-   Sets the account back to the shared temporary password and flags it
-   must_change_password so the employee is forced to choose a new one. */
+   Sets the account to a fresh RANDOM temporary password (returned once, in the
+   response — the DB only stores its bcrypt hash) and flags must_change_password
+   so the employee is forced to choose a new one on next login. Previously this
+   used a fixed, publicly-known 'jparkhotel', which left every just-reset account
+   guessable. */
 router.post('/staff/:id/reset-password', requireAdmin, async (req, res) => {
   if (!bcrypt) return res.status(500).json({ error: 'bcrypt not available' });
-  const TEMP = 'jparkhotel';
+  const temp = genTempPassword();
   try {
-    const hash = await bcrypt.hash(TEMP, 10);
+    const hash = await bcrypt.hash(temp, 10);
     const { rowCount } = await db.query(
       `UPDATE employees
           SET password_hash = $1, must_change_password = TRUE
@@ -389,7 +422,7 @@ router.post('/staff/:id/reset-password', requireAdmin, async (req, res) => {
       [hash, req.params.id]
     );
     if (!rowCount) return res.status(404).json({ error: 'Employee not found' });
-    res.json({ ok: true });
+    res.json({ ok: true, tempPassword: temp });
   } catch (e) {
     console.error('[auth] reset-password', e);
     res.status(500).json({ error: 'Server error' });

@@ -2972,6 +2972,19 @@
           if (API) {
             const res = await API.post("/api/auth/staff/" + encodeURIComponent(u.id) + "/reset-password", {});
             if (res && res.error && !res.offline) { U.toast(res.error, "error"); return; }
+            // The server now issues a fresh RANDOM temp password and returns it
+            // exactly once (it is only stored hashed). Show it in a blocking,
+            // copyable alert so the admin can relay it — a missed toast would
+            // leave it unrecoverable. Fall back to the legacy default only if an
+            // old/offline backend didn't return one.
+            if (res && res.tempPassword) {
+              S.update("staff", u.id, { password: res.tempPassword, mustChange: true });
+              S.update("resetRequests", r.id, { handled: true });
+              window.alert(t("msg.reset.tempPw") + "\n\n" + res.tempPassword);
+              U.toast(t("msg.reset.didReset"), "success");
+              renderMessages();
+              return;
+            }
           }
           S.update("staff", u.id, { password: DEFAULT_STAFF_PASSWORD, mustChange: true });
           S.update("resetRequests", r.id, { handled: true });

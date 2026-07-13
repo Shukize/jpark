@@ -34,6 +34,11 @@ router.get('/', async (_req, res) => {
 /* PUT /api/content — admin only */
 router.put('/', requireAdmin, async (req, res) => {
   const { overrides, images, theme, hidden, editLog } = req.body || {};
+  // `hidden` binds to a TEXT[] column — a non-array (e.g. a string) would fail
+  // the INSERT with a raw 500 instead of a clean validation error.
+  if (hidden !== undefined && hidden !== null && !Array.isArray(hidden)) {
+    return res.status(400).json({ error: 'hidden must be an array' });
+  }
   try {
     const { rows } = await db.query(
       `INSERT INTO site_content (id, overrides, images, theme, hidden, edit_log, updated_at)

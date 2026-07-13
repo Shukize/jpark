@@ -115,6 +115,12 @@ router.post('/reservations', async (req, res) => {
   if (!guest.firstName || !guest.email || !guest.phone) {
     return res.status(400).json({ error: 'Guest name, email, and phone number are required' });
   }
+  // Lenient email sanity check — the address is the confirmation recipient, so a
+  // typo'd one silently fails to deliver. Kept permissive (one @, a dotted
+  // domain) so real international addresses are never rejected.
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(guest.email).trim())) {
+    return res.status(400).json({ error: 'Please enter a valid email address' });
+  }
 
   // Guest counts must be whole numbers, at least 1 adult. A 0/NaN/negative/
   // fractional count would otherwise slip past the maxGuests guard below and
