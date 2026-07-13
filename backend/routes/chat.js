@@ -195,17 +195,22 @@ router.post('/', async (req, res) => {
   } = req.body || {};
   if (!guestId || !text) return res.status(400).json({ error: 'guestId and text required' });
 
-  // `from`/`fromName` decide whether a message renders as staff/system in a
-  // guest's thread — so only a VERIFIED staff token may claim a non-guest role.
-  // An anonymous poster is always 'guest' (a guestName they supply is fine as a
-  // display label). Staff replies carry the bearer token automatically (see
-  // assets/js/api.js), so legitimate staff/system posts still work.
+  // Only a VERIFIED staff token may post as 'staff' — impersonating a human
+  // front-desk agent is the real phishing vector. 'bot' and 'system' are the
+  // guest widget's OWN scripted assistant answers + escalation notices, posted
+  // unauthenticated by design (the guest has no login); forcing those to
+  // 'guest' made the bot's replies re-render as the guest's own messages after
+  // a sync. Anything else falls back to a plain 'guest' message. (Staff replies
+  // carry the bearer token automatically — see assets/js/api.js.)
   const authHeader = req.get('authorization') || '';
   const authed = authHeader.startsWith('Bearer ') ? verifyToken(authHeader.slice(7).trim()) : null;
-  const role = (authed && (from === 'staff' || from === 'system')) ? from : 'guest';
-  // from_name is the per-message sender label used only for staff/system
-  // bubbles; a guest message is attributed via the thread's guest_name, so
-  // an anonymous poster can never supply a staff-looking sender name.
+  let role;
+  if (from === 'staff') role = authed ? 'staff' : 'guest';
+  else if (from === 'bot' || from === 'system') role = from;
+  else role = 'guest';
+  // from_name is the per-message sender label for non-guest bubbles; a guest
+  // message is attributed via the thread's guest_name, so an anonymous poster
+  // can never supply a staff-looking sender name.
   const senderName = (role !== 'guest' && fromName) ? String(fromName).slice(0, 100) : null;
   const bodyText = String(text).slice(0, MAX_CHAT_TEXT);
 

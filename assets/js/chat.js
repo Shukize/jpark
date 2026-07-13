@@ -34,6 +34,9 @@
     { id: "checkin", a: "chat.a.checkin", kw: ["check-in","check in","checkout","check-out","check out","late check","เช็คอิน","เช็คเอาท์","เลื่อนเช็ค","チェックイン","チェックアウト","入住","退房"] },
     { id: "wifi",    a: "chat.a.wifi",    kw: ["wifi","wi-fi","internet","password","network","รหัสผ่าน","อินเทอร์เน็ต","ไวไฟ","パスワード","ネット","无线","网络","密码","無線","網路","密碼"] },
     { id: "pool",    a: "chat.a.pool",    kw: ["pool","swim","onsen","spa","สระ","ว่ายน้ำ","ออนเซ็น","プール","温泉","泳池","游泳","溫泉"] },
+    // Halal is listed BEFORE dining so a query like "halal food" matches the
+    // dietary answer rather than the general dining hours.
+    { id: "halal",   a: "chat.a.halal",   kw: ["halal","non-pork","no pork","pork-free","pork free","pork","muslim","islam","ฮาลาล","ไม่ใส่หมู","ไม่มีหมู","ไม่กินหมู","มุสลิม","อิสลาม","ハラル","ハラール","豚肉","イスラム","ムスリム","清真","穆斯林","猪肉","豬肉"] },
     { id: "dining",  a: "chat.a.dining",  kw: ["dining","restaurant","eat","food","breakfast","dinner","tsubaki","อาหาร","ร้าน","ทาน","อาหารเช้า","レストラン","食事","朝食","餐","吃","用餐","餐廳","餐厅"] },
     { id: "coffee",  a: "chat.a.coffee",  kw: ["coffee","cocktail","bar","midnight","drink","กาแฟ","ค็อกเทล","บาร์","コーヒー","カクテル","咖啡","鸡尾酒","雞尾酒","酒吧"] },
     { id: "parking", a: "chat.a.parking", kw: ["park","parking","car","ที่จอด","รถ","駐車","停车","停車"] },
@@ -207,12 +210,15 @@
   }
 
   /* ─────────────── bot ───────────────────────────────────────────────────── */
+  // Returns the scripted answer for a matched topic, or null when nothing
+  // matches — the caller then hands the guest off to a real person rather than
+  // replying with a dead-end "I didn't understand".
   async function botAnswer(text) {
     const lc = text.toLowerCase();
     for (const topic of TOPICS) {
       if (topic.kw.some((k) => lc.indexOf(k) >= 0)) return await topicAnswer(topic);
     }
-    return t("chat.a.default");
+    return null;
   }
 
   async function guestSend(text) {
@@ -222,6 +228,18 @@
     const conv = getLocalConv();
     if (conv && conv.escalated) return;
     const reply = await botAnswer(text);
+    if (reply === null) {
+      // No auto-response matched — say we're connecting them, then escalate to
+      // an available front-desk staff member (escalate() posts the "connected
+      // to {name}" / "reply as soon as available" system message and routes all
+      // further guest messages to staff).
+      setTimeout(async () => {
+        await pushMessage("bot", t("chat.a.default"));
+        render();
+        await escalate();
+      }, 650);
+      return;
+    }
     setTimeout(async () => {
       await pushMessage("bot", reply);
       render();
