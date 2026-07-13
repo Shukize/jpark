@@ -47,8 +47,8 @@ jobs:
       - name: Cache-bust asset versions
         run: |
           SHA_SHORT=$(git rev-parse --short HEAD)
-          sed -i -E "s/\?v=[A-Za-z0-9._-]+/?v=${SHA_SHORT}/g" *.html
-          grep -o '?v=[A-Za-z0-9._-]*' *.html | sort -u
+          sed -i -E "s/\?v=[A-Za-z0-9._-]+/?v=${SHA_SHORT}/g" -- *.html
+          grep -o '?v=[A-Za-z0-9._-]*' -- *.html | sort -u
 
       - uses: actions/configure-pages@v5
         with:
