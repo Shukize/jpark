@@ -116,6 +116,23 @@ router.post('/reservations', async (req, res) => {
     return res.status(400).json({ error: 'Guest name, email, and phone number are required' });
   }
 
+  // Guest counts must be whole numbers, at least 1 adult. A 0/NaN/negative/
+  // fractional count would otherwise slip past the maxGuests guard below and
+  // either underflow the breakfast rate (undercharge) or fail the INSERT with
+  // a raw 500 instead of a clean 400.
+  if (!Number.isInteger(adults) || adults < 1 || !Number.isInteger(children) || children < 0) {
+    return res.status(400).json({ error: 'adults must be a whole number ≥ 1 and children a whole number ≥ 0' });
+  }
+
+  // Dates must be real and chronological. Equal or inverted ranges would
+  // otherwise be floored to a phantom 1-night stay that holds no inventory
+  // (countOverlapping uses check_in < check_out) yet is confirmed and billed.
+  const ciDate = new Date(checkIn);
+  const coDate = new Date(checkOut);
+  if (isNaN(ciDate.getTime()) || isNaN(coDate.getTime()) || coDate <= ciDate) {
+    return res.status(400).json({ error: 'check-out must be a valid date after check-in' });
+  }
+
   // childAges (one integer per child, 0-17) enables the age-tiered breakfast/
   // extra-guest pricing in lib/rateOverrides.js's computeGuestSurcharge() —
   // required whenever children > 0 so every child is deliberately priced,
@@ -139,6 +156,9 @@ router.post('/reservations', async (req, res) => {
   }
 
   const nights = computeNights(checkIn, checkOut);
+  if (nights > 365) {
+    return res.status(400).json({ error: 'Stay length exceeds the maximum of 365 nights' });
+  }
   const total = await computeTotal(room, variantLabel, breakfast, nights, adults + children, childAges);
   if (total == null) return res.status(400).json({ error: 'Unknown room variant' });
 

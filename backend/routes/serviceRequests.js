@@ -1,18 +1,31 @@
 const express = require('express');
 const db = require('../db');
+const { requireAuth, requireAdmin } = require('../middleware/auth');
 const router = express.Router();
 
-// GET /api/service-requests?guestId=<id>  (guest view)
-// GET /api/service-requests                (staff/admin — returns all)
+// GET /api/service-requests?guestId=<id>  (guest view — own requests only)
+// GET /api/service-requests                (staff/admin — returns ALL; requires auth)
 router.get('/', async (req, res) => {
   const { guestId } = req.query;
+  // The list-all view (no guestId) exposes every guest's name/room/requests, so
+  // it must be authenticated staff. The guest-scoped view stays public — a guest
+  // has no login and reads their own thread by the guestId they were issued.
+  if (!guestId) {
+    return requireAuth(req, res, async () => {
+      try {
+        const { rows } = await db.query('SELECT * FROM service_requests ORDER BY created_at DESC');
+        res.json(rows);
+      } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Database error' });
+      }
+    });
+  }
   try {
-    const { rows } = guestId
-      ? await db.query(
-          'SELECT * FROM service_requests WHERE guest_id = $1 ORDER BY created_at DESC',
-          [guestId]
-        )
-      : await db.query('SELECT * FROM service_requests ORDER BY created_at DESC');
+    const { rows } = await db.query(
+      'SELECT * FROM service_requests WHERE guest_id = $1 ORDER BY created_at DESC',
+      [guestId]
+    );
     res.json(rows);
   } catch (err) {
     console.error(err);
@@ -43,8 +56,8 @@ router.post('/', async (req, res) => {
 });
 
 // PATCH /api/service-requests/:id
-// Body: { status, notes }  — staff updates a request
-router.patch('/:id', async (req, res) => {
+// Body: { status, notes }  — staff updates a request (auth required)
+router.patch('/:id', requireAuth, async (req, res) => {
   const { status, notes } = req.body;
   const allowed = ['pending', 'in_progress', 'done', 'cancelled'];
   if (status && !allowed.includes(status)) {
@@ -69,7 +82,7 @@ router.patch('/:id', async (req, res) => {
 });
 
 // DELETE /api/service-requests/:id  (admin only)
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', requireAdmin, async (req, res) => {
   try {
     await db.query('DELETE FROM service_requests WHERE id = $1', [req.params.id]);
     res.json({ deleted: true });

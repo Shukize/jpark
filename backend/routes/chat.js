@@ -12,9 +12,15 @@
    ============================================================ */
 const express = require('express');
 const db = require('../db');
-const { requireAuth } = require('../middleware/auth');
+const { requireAuth, verifyToken } = require('../middleware/auth');
+const { makeLimiter } = require('../lib/rateLimit');
 
 const router = express.Router();
+
+// Public chat POST is unauthenticated by design (guests have no login), so
+// guard it against flooding and cap message length. 30 posts/min per IP.
+const chatPostRateLimited = makeLimiter(30, 60 * 1000);
+const MAX_CHAT_TEXT = 2000;
 
 function row2msg(r) {
   return {
@@ -180,11 +186,28 @@ async function currentAssignment(guestId) {
    thread without joining a separate table. The escalation system message
    may supply a fresh assignment in assignedStaffId/assignedStaffName. */
 router.post('/', async (req, res) => {
+  if (chatPostRateLimited(req.ip || 'unknown')) {
+    return res.status(429).json({ error: 'Too many messages. Please slow down.' });
+  }
   const {
     guestId, guestName, room, from, fromName, text, lang, escalated,
     assignedStaffId, assignedStaffName,
   } = req.body || {};
   if (!guestId || !text) return res.status(400).json({ error: 'guestId and text required' });
+
+  // `from`/`fromName` decide whether a message renders as staff/system in a
+  // guest's thread — so only a VERIFIED staff token may claim a non-guest role.
+  // An anonymous poster is always 'guest' (a guestName they supply is fine as a
+  // display label). Staff replies carry the bearer token automatically (see
+  // assets/js/api.js), so legitimate staff/system posts still work.
+  const authHeader = req.get('authorization') || '';
+  const authed = authHeader.startsWith('Bearer ') ? verifyToken(authHeader.slice(7).trim()) : null;
+  const role = (authed && (from === 'staff' || from === 'system')) ? from : 'guest';
+  // from_name is the per-message sender label used only for staff/system
+  // bubbles; a guest message is attributed via the thread's guest_name, so
+  // an anonymous poster can never supply a staff-looking sender name.
+  const senderName = (role !== 'guest' && fromName) ? String(fromName).slice(0, 100) : null;
+  const bodyText = String(text).slice(0, MAX_CHAT_TEXT);
 
   try {
     let assignId = assignedStaffId || null;
@@ -216,11 +239,11 @@ router.post('/', async (req, res) => {
        RETURNING *`,
       [
         guestId,
-        guestName || null,
+        guestName ? String(guestName).slice(0, 100) : null,
         room || null,
-        from || 'guest',
-        fromName || null,
-        text,
+        role,
+        senderName,
+        bodyText,
         lang || 'en',
         escFlag,
         assignId,

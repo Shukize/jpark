@@ -52,7 +52,7 @@ router.post('/', requireAuth, async (req, res) => {
     res.status(201).json(rows[0]);
   } catch (err) {
     console.error('[messages] insert failed:', err.message || err);
-    res.status(500).json({ error: 'Database error: ' + (err.message || 'unknown') });
+    res.status(500).json({ error: 'Database error' });
   }
 });
 

@@ -35,7 +35,16 @@ const SECRET = process.env.AUTH_TOKEN_SECRET || 'jpark-demo-shared-secret';
 const TTL = 15 * 60; // 15-minute access token — silently refreshed, see POST /refresh
 const ABSOLUTE_SESSION_DAYS = 7;
 const MAX_SESSIONS_PER_EMPLOYEE = 6;
-const refreshRateLimited = makeLimiter(30, 60 * 1000); // 30/min per IP
+const refreshRateLimited = makeLimiter(30, 60 * 1000);     // 30/min per IP
+const loginRateLimited = makeLimiter(10, 10 * 60 * 1000);  // 10 staff-login attempts / 10min per IP
+const guestLoginRateLimited = makeLimiter(20, 10 * 60 * 1000); // 20 guest-portal lookups / 10min per IP
+
+// Escape a value used inside a SQL LIKE/ILIKE pattern so caller-supplied `%`
+// and `_` are matched literally instead of as wildcards (paired with ESCAPE
+// '\' on the query). Without this, e.g. ref="%" matches every booking.
+function escapeLike(s) {
+  return String(s).replace(/[\\%_]/g, '\\$&');
+}
 
 function nameToEmail(name) {
   const parts = (name || 'staff').toLowerCase().trim().split(/\s+/);
@@ -117,6 +126,9 @@ async function createSession(req, employeeId) {
 
 /* ---- POST /api/auth/login ---- */
 router.post('/login', async (req, res) => {
+  if (loginRateLimited(normalizeIp(req.ip))) {
+    return res.status(429).json({ error: 'Too many login attempts. Please try again later.' });
+  }
   const { username, password } = req.body || {};
   if (!username || !password)
     return res.status(400).json({ error: 'username and password required' });
@@ -221,22 +233,27 @@ router.post('/refresh', async (req, res) => {
 
 /* ---- POST /api/auth/guest-login ---- */
 router.post('/guest-login', async (req, res) => {
+  if (guestLoginRateLimited(normalizeIp(req.ip))) {
+    return res.status(429).json({ error: 'Too many attempts. Please try again later.' });
+  }
   const { lastName, room, ref } = req.body || {};
   try {
     let rows;
+    // ILIKE inputs are wildcard-escaped so a value like "%" can't match every
+    // booking (guest enumeration). ESCAPE '\' pairs with escapeLike().
     if (ref && ref.trim()) {
       ({ rows } = await db.query(
         `SELECT id, ref, guest_name, guest_last_name, room, check_in, check_out, status
-           FROM guest_bookings WHERE ref ILIKE $1 AND status != 'cancelled' LIMIT 1`,
-        [ref.trim()]
+           FROM guest_bookings WHERE ref ILIKE $1 ESCAPE '\\' AND status != 'cancelled' LIMIT 1`,
+        [escapeLike(ref.trim())]
       ));
     } else if (lastName && room) {
       ({ rows } = await db.query(
         `SELECT id, ref, guest_name, guest_last_name, room, check_in, check_out, status
            FROM guest_bookings
-          WHERE guest_last_name ILIKE $1 AND room = $2 AND status != 'cancelled'
+          WHERE guest_last_name ILIKE $1 ESCAPE '\\' AND room = $2 AND status != 'cancelled'
           ORDER BY check_in DESC LIMIT 1`,
-        [lastName.trim(), room.trim()]
+        [escapeLike(lastName.trim()), room.trim()]
       ));
     } else {
       return res.status(400).json({ error: 'Provide lastName + room, or ref' });

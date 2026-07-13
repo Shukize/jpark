@@ -50,10 +50,12 @@ const hotelAdsRouter        = require('./routes/hotelAds');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Render always sits in front of this app as a reverse proxy — trust its
-// X-Forwarded-For so req.ip reflects the real guest IP (used by the
-// payments rate limiter).
-app.set('trust proxy', true);
+// Render sits in front of this app as a SINGLE reverse-proxy hop — trust
+// exactly one proxy so req.ip is the real client IP (the right-most entry the
+// proxy appended), not a client-spoofable left-most X-Forwarded-For value.
+// `true` would trust the whole chain and let a caller forge req.ip, defeating
+// every rate limiter (makeLimiter) and the banned-IP list (sessionCache).
+app.set('trust proxy', 1);
 
 const allowedOrigins = (process.env.FRONTEND_ORIGIN || '*')
   .split(',').map((o) => o.trim()).filter(Boolean);

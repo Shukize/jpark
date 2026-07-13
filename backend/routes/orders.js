@@ -33,20 +33,27 @@ function row2js(r) {
 
 /* GET /api/orders */
 router.get('/', async (req, res) => {
+  const { guestId } = req.query;
+  // The staff list-all (no guestId) returns every guest's order + PII, so it
+  // needs a VERIFIED token — a bare "Bearer <anything>" string is not enough.
+  // The guest-scoped view stays public (a guest reads their own orders by the
+  // guestId they were issued).
+  if (!guestId) {
+    return requireAuth(req, res, async () => {
+      try {
+        const { rows } = await db.query('SELECT * FROM orders ORDER BY created_at DESC');
+        res.json(rows.map(row2js));
+      } catch (e) {
+        console.error('[orders] list', e);
+        res.status(500).json({ error: 'Database error' });
+      }
+    });
+  }
   try {
-    const { guestId } = req.query;
-    let rows;
-    if (guestId) {
-      ({ rows } = await db.query(
-        'SELECT * FROM orders WHERE guest_id = $1 ORDER BY created_at DESC',
-        [guestId]
-      ));
-    } else {
-      // Staff must be authenticated to see all orders
-      const authHeader = req.get('authorization') || '';
-      if (!authHeader.startsWith('Bearer ')) return res.status(401).json({ error: 'Auth required' });
-      ({ rows } = await db.query('SELECT * FROM orders ORDER BY created_at DESC'));
-    }
+    const { rows } = await db.query(
+      'SELECT * FROM orders WHERE guest_id = $1 ORDER BY created_at DESC',
+      [guestId]
+    );
     res.json(rows.map(row2js));
   } catch (e) {
     console.error('[orders] list', e);

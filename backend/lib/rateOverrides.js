@@ -181,27 +181,40 @@ function computeGuestSurcharge(room, totalGuests, breakfast, surcharges, childAg
 // offering differently priced products — the variant label is just a
 // bed-style preference. Per the 2026 rate card, room-only price is flat
 // regardless of guest count for these rooms; only breakfast differs, by a
-// flat surcharges.extraBreakfastGuest (190 THB) between the 1- and 2-guest
-// row. This does NOT require a second variant to exist: a single-variant
-// room trivially satisfies "every variant shares the same room-only rate"
-// and must still get guest-count-aware breakfast pricing — variants[0].bf
-// is always the 1-guest rate; the 2-guest rate is derived (base + 190),
-// never read off a second variant that may or may not exist (a prior
-// `length >= 2` guard here silently broke Deluxe/Grand Premium/Grand
-// Deluxe/Premium Suite's breakfast pricing after their fictional 2nd
-// bed-style variant was removed in commit 331eb07 — those rooms are
-// single-bed-only, but that deleted variant's `.bf` had been the only
-// place the 2-guest rate was stored). Mirrors
+// flat surcharges.extraBreakfastGuest (190 THB) per breakfast guest up to
+// the 2-guest tier (the 3rd+ guest is added by computeGuestSurcharge()).
+//
+// Each variant's `bf` is the room+breakfast rate at THAT variant's OWN base
+// occupancy: a Single/1-Bedroom variant's bf is the 1-guest rate, a Twin's
+// bf is the 2-guest rate. Studio/Prestige/Premium are each split into two
+// separate single-variant ROOMS keys ("… Single" and "… Twin") because
+// those keys are live Google Hotel Ads room-type IDs that must never be
+// renamed/merged (see roomRates.js + lib/hotelAdsIds.js). For a standalone
+// "… Twin" entry variants[0] IS the Twin, so its bf is already the 2-guest
+// rate — the old `variants[0].bf + 190` double-charged the 2nd guest's
+// breakfast (e.g. Studio Twin, 2 guests, breakfast billed 1490 instead of
+// 1300). So we normalise off the SELECTED variant's base occupancy instead
+// of assuming variants[0] is the 1-guest rate. occBaseGuests() mirrors
+// hotelAdsFeed.js's maxOccupancyBase test. Also mirrors
 // assets/js/booking-page.js's isOccupancyTier()/occupancyBreakfastPrice()
-// so the server-side charge always agrees with what the guest was shown.
+// (whose call sites always pass the 1-guest Single as variants[0], so that
+// simpler form stays correct there) so the server charge always agrees with
+// what the guest was shown.
 function isOccupancyTier(room) {
   return room.variants.every((v) => v.room === room.variants[0].room);
 }
 
+// A Twin/Double/2-Bedroom variant's rate already covers 2 guests; a
+// Single/1-Bedroom variant covers 1. Same idiom as hotelAdsFeed.js.
+function occBaseGuests(label) {
+  return /twin|double|2 bedroom/i.test(label) ? 2 : 1;
+}
+
 function effectiveBreakfastRate(room, variant, totalGuests, surcharges) {
   if (!isOccupancyTier(room)) return variant.bf;
-  const base = room.variants[0].bf;
-  return Number(totalGuests || 0) <= 1 ? base : base + surcharges.extraBreakfastGuest;
+  const step = surcharges.extraBreakfastGuest;
+  const guests = Math.min(Number(totalGuests || 0), 2);
+  return variant.bf + step * (guests - occBaseGuests(variant.label));
 }
 
 async function getEffectiveRoom(name) {
