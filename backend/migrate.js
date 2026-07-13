@@ -140,22 +140,34 @@ async function restoreFalsePositiveCancellations() {
         WHERE id = $1`,
       [r.id]
     );
-    await db.query(
-      `INSERT INTO messages (from_id, from_name, from_role, subject, body, to_all)
-       VALUES ('system', 'Booking System', 'system', $1, $2, TRUE)`,
-      [
-        `✅ Booking auto-restored — ${r.channel_name || r.channel || 'Direct'} (${r.ref})`,
-        [
-          'Previously flagged cancelled by a parser bug (matched routine cancellation-policy text, not a real cancellation) — restored to confirmed.',
-          `Guest: ${r.guest_name || '—'}`,
-          `Room: ${r.room || '—'}`,
-          `Check-in: ${r.check_in}`,
-          `Check-out: ${r.check_out}`,
-          `Ref: ${r.ref}`,
-          'Please verify with the guest if there is any doubt.',
-        ].join('\n'),
-      ]
+    // Announce the correction once. The restore itself runs every boot as
+    // needed, but re-running this audit on each redeploy must NOT re-broadcast
+    // the same "auto-restored" notice — that (plus the OTA flip-flop) is what
+    // flooded the staff announcements with hundreds of duplicates. Idempotent
+    // by subject, matching guestBookings.js broadcastStaffMessage().
+    const subject = `✅ Booking auto-restored — ${r.channel_name || r.channel || 'Direct'} (${r.ref})`;
+    const already = await db.query(
+      `SELECT 1 FROM messages WHERE to_all = TRUE AND from_role = 'system' AND subject = $1 LIMIT 1`,
+      [subject]
     );
+    if (!already.rows.length) {
+      await db.query(
+        `INSERT INTO messages (from_id, from_name, from_role, subject, body, to_all)
+         VALUES ('system', 'Booking System', 'system', $1, $2, TRUE)`,
+        [
+          subject,
+          [
+            'Previously flagged cancelled by a parser bug (matched routine cancellation-policy text, not a real cancellation) — restored to confirmed.',
+            `Guest: ${r.guest_name || '—'}`,
+            `Room: ${r.room || '—'}`,
+            `Check-in: ${r.check_in}`,
+            `Check-out: ${r.check_out}`,
+            `Ref: ${r.ref}`,
+            'Please verify with the guest if there is any doubt.',
+          ].join('\n'),
+        ]
+      );
+    }
     restored++;
   }
   if (rows.length) {

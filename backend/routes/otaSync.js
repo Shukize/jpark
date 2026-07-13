@@ -28,8 +28,15 @@ function normalizeChannel(raw) {
 const label = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 
 // Drops a notification into the internal messages table (to_all) so it surfaces
-// in the staff console exactly like any other broadcast message.
+// in the staff console exactly like any other broadcast message. Idempotent by
+// subject (see guestBookings.js broadcastStaffMessage) so a re-delivered OTA
+// event never re-floods the staff announcements with a duplicate notice.
 async function alertStaff(runner, subject, body) {
+  const existing = await runner.query(
+    `SELECT 1 FROM messages WHERE to_all = TRUE AND from_role = 'system' AND subject = $1 LIMIT 1`,
+    [subject]
+  );
+  if (existing.rows.length) return;
   await runner.query(
     `INSERT INTO messages (from_id, from_name, from_role, subject, body, to_all)
      VALUES ('system', 'OTA Sync', 'system', $1, $2, TRUE)`,

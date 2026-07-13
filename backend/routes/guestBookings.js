@@ -418,7 +418,18 @@ function cancellationEmail(bk) {
 // Drops a system-authored broadcast into the internal Messages inbox so a
 // cancellation is visible to the whole team on shift handoff — same pattern
 // routes/otaSync.js's alertStaff() already uses for its own booking events.
+// Idempotent by subject: every system booking notice embeds the booking ref in
+// its subject, so an identical notice is posted at most once. Without this the
+// OTA auto-cancel/auto-restore flip-flop — and every redeploy re-running the
+// boot-time cancellation re-audit — re-flooded the staff announcements with the
+// same "Booking auto-cancelled/-restored — Channel (REF)" lines (hundreds of
+// duplicates).
 async function broadcastStaffMessage(subject, body) {
+  const existing = await db.query(
+    `SELECT 1 FROM messages WHERE to_all = TRUE AND from_role = 'system' AND subject = $1 LIMIT 1`,
+    [subject]
+  );
+  if (existing.rows.length) return;
   await db.query(
     `INSERT INTO messages (from_id, from_name, from_role, subject, body, to_all)
      VALUES ('system', 'Booking System', 'system', $1, $2, TRUE)`,
