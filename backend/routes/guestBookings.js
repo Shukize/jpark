@@ -134,6 +134,7 @@ const EMAIL_I18N = {
     intro: 'Thank you for choosing J Park Hotel, Chonburi. Your reservation is confirmed.',
     confirmation: 'Confirmation', room: 'Room', checkin: 'Check-in', checkout: 'Check-out',
     nights: 'Nights', guests: 'Guests', roomPref: 'Room preference', breakfast: 'Breakfast',
+    specialRequests: 'Special requests',
     total: 'Total', payment: 'Payment',
     adultsChildren: (a, c) => `${a} adult(s), ${c} child(ren)`,
     childAgesSuffix: (ages) => (ages && ages.length ? ` (ages: ${ages.join(', ')})` : ''),
@@ -151,6 +152,7 @@ const EMAIL_I18N = {
     intro: 'ขอบคุณที่เลือกพักกับ J Park Hotel, Chonburi การจองของท่านได้รับการยืนยันแล้ว',
     confirmation: 'หมายเลขยืนยัน', room: 'ห้องพัก', checkin: 'เช็คอิน', checkout: 'เช็คเอาท์',
     nights: 'จำนวนคืน', guests: 'ผู้เข้าพัก', roomPref: 'ห้องสูบบุหรี่/ปลอดบุหรี่', breakfast: 'อาหารเช้า',
+    specialRequests: 'คำขอพิเศษ',
     total: 'ยอดรวม', payment: 'การชำระเงิน',
     adultsChildren: (a, c) => `ผู้ใหญ่ ${a} ท่าน, เด็ก ${c} ท่าน`,
     childAgesSuffix: (ages) => (ages && ages.length ? ` (อายุ: ${ages.join(', ')})` : ''),
@@ -168,6 +170,7 @@ const EMAIL_I18N = {
     intro: 'この度はJ Park Hotel, Chonburiをお選びいただき、誠にありがとうございます。ご予約が確定いたしましたのでご案内申し上げます。',
     confirmation: '確認番号', room: '客室', checkin: 'チェックイン', checkout: 'チェックアウト',
     nights: '宿泊数', guests: '宿泊人数', roomPref: 'お部屋のご希望', breakfast: '朝食',
+    specialRequests: 'ご要望',
     total: '合計金額', payment: 'お支払い',
     adultsChildren: (a, c) => `大人 ${a}名、子供 ${c}名`,
     childAgesSuffix: (ages) => (ages && ages.length ? ` (年齢: ${ages.join('、')})` : ''),
@@ -185,6 +188,7 @@ const EMAIL_I18N = {
     intro: '感谢您选择下榻J Park Hotel, Chonburi。您的预订已确认。',
     confirmation: '确认号', room: '房型', checkin: '入住', checkout: '退房',
     nights: '住宿晚数', guests: '入住人数', roomPref: '房间偏好', breakfast: '早餐',
+    specialRequests: '特殊要求',
     total: '总计', payment: '付款方式',
     adultsChildren: (a, c) => `成人 ${a} 位，儿童 ${c} 位`,
     childAgesSuffix: (ages) => (ages && ages.length ? ` (年龄：${ages.join('、')})` : ''),
@@ -202,6 +206,7 @@ const EMAIL_I18N = {
     intro: '感謝您選擇下榻J Park Hotel, Chonburi。您的預訂已確認。',
     confirmation: '確認號', room: '房型', checkin: '入住', checkout: '退房',
     nights: '住宿晚數', guests: '入住人數', roomPref: '房間偏好', breakfast: '早餐',
+    specialRequests: '特殊要求',
     total: '總計', payment: '付款方式',
     adultsChildren: (a, c) => `成人 ${a} 位，兒童 ${c} 位`,
     childAgesSuffix: (ages) => (ages && ages.length ? ` (年齡：${ages.join('、')})` : ''),
@@ -270,6 +275,7 @@ function hotelNotice(bk) {
     `Guests: ${guests}`,
     `Room preference: ${smokingLabel(bk)}`,
     `Breakfast: ${breakfastLabel(bk)}`,
+    ...(bk.special_requests ? [`Special requests: ${bk.special_requests}`] : []),
     `Total: ${money}`,
     ...(payment ? [`Payment: ${payment}`] : []),
     ...(balanceDue ? ['', balanceDue.text] : []),
@@ -293,6 +299,7 @@ function hotelNotice(bk) {
     `<tr><td style="padding:4px 12px 4px 0;color:#555">Guests</td><td style="padding:4px 0">${guests}</td></tr>` +
     `<tr><td style="padding:4px 12px 4px 0;color:#555">Room preference</td><td style="padding:4px 0">${smokingLabel(bk)}</td></tr>` +
     `<tr><td style="padding:4px 12px 4px 0;color:#555">Breakfast</td><td style="padding:4px 0">${breakfastLabel(bk)}</td></tr>` +
+    (bk.special_requests ? `<tr><td style="padding:4px 12px 4px 0;color:#555">Special requests</td><td style="padding:4px 0">${escapeHtml(bk.special_requests)}</td></tr>` : '') +
     `<tr><td style="padding:4px 12px 4px 0;color:#555">Total</td><td style="padding:4px 0">${money}</td></tr>` +
     (payment ? `<tr><td style="padding:4px 12px 4px 0;color:#555">Payment</td><td style="padding:4px 0">${payment}</td></tr>` : '') +
     `</table>` +
@@ -333,6 +340,7 @@ function confirmationEmail(bk) {
     `${L.guests}: ${L.adultsChildren(bk.adults, bk.children)}${L.childAgesSuffix(bk.child_ages)}`,
     `${L.roomPref}: ${smokingText}`,
     `${L.breakfast}: ${breakfastText}`,
+    ...(bk.special_requests ? [`${L.specialRequests}: ${bk.special_requests}`] : []),
     `${L.total}: ${money}`,
     ...(payment ? [`${L.payment}: ${payment}`] : []),
     ...(balanceDueMoney ? ['', L.balanceDue(balanceDueMoney)] : []),
@@ -361,6 +369,7 @@ function confirmationEmail(bk) {
     `<tr><td style="padding:4px 12px 4px 0;color:#555">${L.guests}</td><td style="padding:4px 0">${L.adultsChildren(bk.adults, bk.children)}${L.childAgesSuffix(bk.child_ages)}</td></tr>` +
     `<tr><td style="padding:4px 12px 4px 0;color:#555">${L.roomPref}</td><td style="padding:4px 0">${smokingText}</td></tr>` +
     `<tr><td style="padding:4px 12px 4px 0;color:#555">${L.breakfast}</td><td style="padding:4px 0">${breakfastText}</td></tr>` +
+    (bk.special_requests ? `<tr><td style="padding:4px 12px 4px 0;color:#555">${L.specialRequests}</td><td style="padding:4px 0">${escapeHtml(bk.special_requests)}</td></tr>` : '') +
     `<tr><td style="padding:4px 12px 4px 0;color:#555">${L.total}</td><td style="padding:4px 0">${money}</td></tr>` +
     (payment ? `<tr><td style="padding:4px 12px 4px 0;color:#555">${L.payment}</td><td style="padding:4px 0">${payment}</td></tr>` : '') +
     `</table>` +
@@ -503,6 +512,7 @@ function row2js(r) {
     childAges: Array.isArray(r.child_ages) ? r.child_ages : [],
     smokingPreference: r.smoking_preference || 'non_smoking',
     breakfast: !!r.breakfast,
+    specialRequests: r.special_requests || null,
     total: r.total ? Number(r.total) : null,
     currency: r.currency,
     status: r.status,
@@ -540,6 +550,7 @@ const LIST_COLUMNS = [
   'guest_name', 'guest_last_name', 'guest_email', 'guest_phone',
   'room', 'room_number', 'check_in', 'check_out', 'nights',
   'adults', 'children', 'child_ages', 'smoking_preference', 'breakfast',
+  'special_requests',
   'total', 'currency', 'status', 'lang',
   'payment_provider', 'payment_method', 'payment_status', 'payment_charge_id',
   'cancelled_at', 'cancelled_by_id', 'cancelled_by_name', 'cancellation_reason',
@@ -801,7 +812,7 @@ const ALLOWED_STATUS_PATCH = ['confirmed'];
    mark-read/status use, this now also assigns the physical room number and
    records in-person payment, both front-desk-only actions. */
 router.patch('/:id', requireAuth, async (req, res) => {
-  const { status, readBy, userId, roomNumber, paymentMethod, starred, staffLabel } = req.body || {};
+  const { status, readBy, userId, roomNumber, paymentMethod, starred, staffLabel, specialRequests } = req.body || {};
   try {
     if (userId) {
       // mark read for this user
@@ -855,6 +866,17 @@ router.patch('/:id', requireAuth, async (req, res) => {
       await db.query(
         'UPDATE guest_bookings SET staff_label = $1 WHERE id = $2',
         [label || null, req.params.id]
+      );
+    }
+    // Guest-facing special request. Unlike staff_label (private), this shows on
+    // the booking and is what a resent confirmation would include — front desk
+    // edits it when a guest phones in a request after booking, or to record one
+    // that arrived with an OTA booking. Same 1000-char cap as booking creation.
+    if (specialRequests !== undefined) {
+      const sr = String(specialRequests || '').trim().slice(0, 1000);
+      await db.query(
+        'UPDATE guest_bookings SET special_requests = $1 WHERE id = $2',
+        [sr || null, req.params.id]
       );
     }
     const { rows } = await db.query('SELECT * FROM guest_bookings WHERE id = $1', [req.params.id]);
@@ -1108,3 +1130,4 @@ module.exports.computeNights = computeNights;
 module.exports.emailLetterhead = emailLetterhead;
 module.exports.SPAM_NOTE_TEXT = SPAM_NOTE_TEXT;
 module.exports.SPAM_NOTE_HTML = SPAM_NOTE_HTML;
+module.exports.escapeHtml = escapeHtml;

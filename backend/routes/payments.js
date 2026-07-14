@@ -30,6 +30,7 @@ const {
   hotelNotice,
   hotelRecipients,
   emailLetterhead,
+  escapeHtml: esc,
   SPAM_NOTE_TEXT,
   SPAM_NOTE_HTML,
 } = require('./guestBookings');
@@ -108,6 +109,11 @@ router.post('/reservations', async (req, res) => {
   // — not a separate bookable room type, so anything other than the literal
   // 'smoking' string is treated as the (safer, more common) non-smoking default.
   const smoking = b.smoking === 'smoking' ? 'smoking' : 'non_smoking';
+  // Optional free-text special request the guest typed (late arrival, high
+  // floor, allergies…). Trimmed and length-capped so it's safe to store and
+  // echo into the confirmation/hotel-notice emails; empty/whitespace -> NULL.
+  const specialRequests = typeof guest.note === 'string' && guest.note.trim()
+    ? guest.note.trim().slice(0, 1000) : null;
 
   if (!room || !variantLabel || !checkIn || !checkOut) {
     return res.status(400).json({ error: 'room, variantLabel, checkIn and checkOut are required' });
@@ -187,14 +193,16 @@ router.post('/reservations', async (req, res) => {
       `INSERT INTO guest_bookings
          (ref, channel, channel_name, guest_name, guest_last_name, guest_email, guest_phone,
           room, check_in, check_out, nights, adults, children, total, currency, status, lang,
-          payment_provider, payment_method, payment_status, smoking_preference, breakfast, child_ages)
+          payment_provider, payment_method, payment_status, smoking_preference, breakfast, child_ages,
+          special_requests)
        VALUES ($1,'direct','Direct (Website)',$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'THB','confirmed',$13,
-               'in_person','pay_at_checkin','pending',$14,$15,$16)
+               'in_person','pay_at_checkin','pending',$14,$15,$16,$17)
        RETURNING *`,
       [
         ref, guestName, guestLastName, guest.email, guest.phone || null,
         room, checkIn, checkOut, nights, adults, children, total,
         b.lang || 'en', smoking, breakfast, JSON.stringify(childAges),
+        specialRequests,
       ]
     );
     await client.query('COMMIT');
@@ -228,6 +236,7 @@ function dayUseGuestEmail(bk, preferredTime) {
     `Room: ${bk.room || '—'}`,
     `Date: ${bk.check_in}`,
     `Preferred time: ${preferredTime || 'Not specified — we will contact you to confirm'}`,
+    ...(bk.special_requests ? [`Special requests: ${bk.special_requests}`] : []),
     `Total (3-hour day-use): ${money}. Payable in person at check-in by cash, credit/debit card, or PromptPay QR.`,
     '',
     'This request is PENDING until we confirm your exact time slot — no payment is needed online.',
@@ -249,6 +258,7 @@ function dayUseGuestEmail(bk, preferredTime) {
     `<tr><td style="padding:4px 12px 4px 0;color:#555">Room</td><td style="padding:4px 0">${bk.room || '—'}</td></tr>` +
     `<tr><td style="padding:4px 12px 4px 0;color:#555">Date</td><td style="padding:4px 0">${bk.check_in}</td></tr>` +
     `<tr><td style="padding:4px 12px 4px 0;color:#555">Preferred time</td><td style="padding:4px 0">${preferredTime || 'Not specified'}</td></tr>` +
+    (bk.special_requests ? `<tr><td style="padding:4px 12px 4px 0;color:#555">Special requests</td><td style="padding:4px 0">${esc(bk.special_requests)}</td></tr>` : '') +
     `<tr><td style="padding:4px 12px 4px 0;color:#555">Total</td><td style="padding:4px 0">${money}</td></tr>` +
     `</table>` +
     `<p style="background:#eef6f4;border:1px solid #a9d6cb;border-radius:8px;padding:10px 14px;color:#0f4a3e">` +
@@ -280,6 +290,8 @@ router.post('/payments/dayuse-booking', async (req, res) => {
   const guest = b.guest || {};
   const { room, date } = b;
   const preferredTime = typeof b.preferredTime === 'string' ? b.preferredTime.trim().slice(0, 200) : '';
+  const specialRequests = typeof guest.note === 'string' && guest.note.trim()
+    ? guest.note.trim().slice(0, 1000) : null;
   const method = 'pay_at_checkin';
 
   if (!room || !date) {
@@ -300,15 +312,15 @@ router.post('/payments/dayuse-booking', async (req, res) => {
       `INSERT INTO guest_bookings
          (ref, channel, channel_name, guest_name, guest_last_name, guest_email, guest_phone,
           room, check_in, check_out, nights, adults, children, total, currency, status, lang,
-          payment_provider, payment_method, payment_status)
+          payment_provider, payment_method, payment_status, special_requests)
        VALUES ($1,'direct','Direct (Website)',$2,$3,$4,$5,$6,$7,$7,1,1,0,$8,'THB','pending',$9,
-               'in_person',$10,'pending')
+               'in_person',$10,'pending',$11)
        RETURNING *`,
       [
         ref, guestName, guestLastName, guest.email, guest.phone || null,
         room + ' (Day Use)', date, price,
         b.lang || 'en',
-        method,
+        method, specialRequests,
       ]
     );
     const saved = rows[0];

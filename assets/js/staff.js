@@ -2595,6 +2595,85 @@
     container.appendChild(wrap);
   }
 
+  // The guest's special request on a booking (late arrival, high floor,
+  // allergies…). Unlike the private staff label above, this is guest-facing:
+  // it's what the confirmation email shows and what a resend would include.
+  // Editable inline so front desk can capture a request phoned in after
+  // booking, or surface one that arrived buried in an OTA confirmation.
+  // Same appendChild-only rebuild discipline as renderBkLabelBlock().
+  function renderBkSpecialRequestBlock(container, b) {
+    if (!container) return;
+    container.innerHTML = "";
+    const wrap = document.createElement("div");
+    wrap.className = "bk-special-req";
+
+    function showView() {
+      wrap.innerHTML = "";
+      const icon = document.createElement("span");
+      icon.className = "bksr-icon";
+      icon.textContent = "📝";
+      const body = document.createElement("div");
+      body.className = "bksr-body";
+      const label = document.createElement("span");
+      label.className = "bksr-label";
+      label.textContent = t("msg.bk.specialRequests");
+      const text = document.createElement("span");
+      text.className = "bksr-text" + (b.specialRequests ? "" : " bksr-placeholder");
+      text.textContent = b.specialRequests || t("msg.bk.specialReq.placeholder");
+      body.appendChild(label);
+      body.appendChild(text);
+      const editBtn = document.createElement("button");
+      editBtn.type = "button";
+      editBtn.className = "bksr-edit";
+      editBtn.title = t("msg.bk.specialReq.edit");
+      editBtn.textContent = "✎";
+      editBtn.addEventListener("click", showEdit);
+      wrap.appendChild(icon);
+      wrap.appendChild(body);
+      wrap.appendChild(editBtn);
+    }
+
+    function showEdit() {
+      wrap.innerHTML = "";
+      const input = document.createElement("textarea");
+      input.className = "bksr-input";
+      input.maxLength = 1000;
+      input.rows = 2;
+      input.placeholder = t("msg.bk.specialReq.placeholder");
+      input.value = b.specialRequests || "";
+      wrap.appendChild(input);
+      input.focus();
+      input.select();
+
+      let saved = false;
+      function save() {
+        if (saved) return;
+        saved = true;
+        const val = input.value.trim();
+        if (val !== (b.specialRequests || "")) {
+          b.specialRequests = val || null;
+          updateBookingLocal(b.id, { specialRequests: b.specialRequests });
+          const API = window.JPark && window.JPark.api;
+          if (API) {
+            API.patch("/api/guest-bookings/" + b.id, { specialRequests: val }).then((r) => {
+              if (r && !r.error) updateBookingLocal(b.id, r);
+            }).catch(() => {});
+          }
+        }
+        showView();
+      }
+      // Enter inserts a newline in a request (multi-line is fine); save on blur,
+      // Escape cancels — mirrors the resend editor's textarea handling.
+      input.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") { e.preventDefault(); saved = true; showView(); }
+      });
+      input.addEventListener("blur", save);
+    }
+
+    showView();
+    container.appendChild(wrap);
+  }
+
   // Renders the "Sent Emails" list for one booking. Each entry is a
   // collapsible row (mirrors the Account Logs session-group pattern) that
   // expands to the exact subject/body that was sent, so staff can verify
@@ -2676,6 +2755,7 @@
       (b.needsReview ? '<div class="bk-review-banner">⚠ ' + esc(t("msg.bk.needsReview")) + ' — ' + esc(t("msg.bk.needsReview.note")) + "</div>" : "") +
       (b.lastAmendedAt ? '<div class="bk-amended-banner">✎ ' + esc(t("msg.bk.amended")) + ' — ' + esc(t("msg.bk.amended.note")) + " " + esc(new Date(b.lastAmendedAt).toLocaleString()) + "</div>" : "") +
       '<div class="bk-staff-label-slot"></div>' +
+      '<div class="bk-special-req-slot"></div>' +
       '<div class="bk-detail-grid">' + fields + "</div>" +
       (b.status === "cancelled" ? bkCancellationSummaryHTML(b) : (b.channel === "direct" ? bkFrontDeskHTML(b) : "")) +
       '<div class="bk-confirm-label">' + esc(t("msg.bk.confirmation")) + "</div>" +
@@ -2743,6 +2823,7 @@
     });
 
     renderBkLabelBlock(detailArea.querySelector(".bk-staff-label-slot"), b);
+    renderBkSpecialRequestBlock(detailArea.querySelector(".bk-special-req-slot"), b);
 
     if (b.status !== "cancelled" && b.channel === "direct") wireBkFrontDesk(detailArea, b);
 

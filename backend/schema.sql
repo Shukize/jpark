@@ -244,6 +244,14 @@ ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS last_amended_at TIMESTAMPTZ;
 -- pre-existing flat total-guest calculation whenever it's empty.
 ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS child_ages JSONB NOT NULL DEFAULT '[]';
 
+-- Free-text special request the guest optionally types at booking time
+-- (routes/payments.js POST /reservations and /dayuse-booking — the "Special
+-- requests" field: late arrival, high floor, allergies…). Echoed verbatim in
+-- the guest confirmation + hotel-notice emails and the staff console booking
+-- detail so front desk actually sees it. Direct-website bookings only; stays
+-- NULL for OTA/manual imports, which never collect it.
+ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS special_requests TEXT;
+
 -- ── Chat messages (guest ↔ front-desk) ──────────────────────────────────────
 CREATE TABLE IF NOT EXISTS chat_messages (
   id                  SERIAL       PRIMARY KEY,

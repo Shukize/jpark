@@ -1306,6 +1306,34 @@ body.mobile-view .fac-card.large {
   border: 1.5px solid var(--teal); border-radius: 6px; padding: 5px 10px;
 }
 
+/* Guest special request, shown editable in the booking detail view. Guest-
+   facing (unlike the private staff label above) — it appears in the guest's
+   confirmation email, so it gets a warmer, distinct colour from the label. */
+.bk-special-req {
+  display: flex; align-items: flex-start; gap: 8px; margin-bottom: 18px;
+  padding: 8px 14px; max-width: 580px; background: #fffaf0;
+  border: 1px solid #f0e2c0; border-radius: 8px; font-family: var(--sans);
+}
+.bksr-icon { font-size: 0.9rem; flex: none; line-height: 1.6; }
+.bksr-body { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.bksr-label {
+  font-size: 0.68rem; text-transform: uppercase; letter-spacing: .05em;
+  color: #a9873c; font-weight: 700;
+}
+.bksr-text { font-size: 0.86rem; color: #334; word-break: break-word; white-space: pre-wrap; }
+.bksr-text.bksr-placeholder { color: #b3a072; font-style: italic; }
+.bksr-edit {
+  background: none; border: none; cursor: pointer; color: #bba76a;
+  font-size: 0.85rem; padding: 2px 4px; border-radius: 6px; flex: none;
+  transition: color .12s, background .12s;
+}
+.bksr-edit:hover { color: var(--teal); background: #f3ead2; }
+.bksr-input {
+  flex: 1; font-size: 0.86rem; font-family: var(--sans); color: #1a1a1a;
+  border: 1.5px solid var(--teal); border-radius: 6px; padding: 5px 10px;
+  resize: vertical; min-height: 52px;
+}
+
 /* ============================================================
    COMPOSE MODAL — Gmail-style bottom-right card
    ============================================================ */
