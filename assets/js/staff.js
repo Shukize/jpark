@@ -2650,17 +2650,33 @@
         if (saved) return;
         saved = true;
         const val = input.value.trim();
-        if (val !== (b.specialRequests || "")) {
-          b.specialRequests = val || null;
-          updateBookingLocal(b.id, { specialRequests: b.specialRequests });
-          const API = window.JPark && window.JPark.api;
-          if (API) {
-            API.patch("/api/guest-bookings/" + b.id, { specialRequests: val }).then((r) => {
-              if (r && !r.error) updateBookingLocal(b.id, r);
-            }).catch(() => {});
-          }
-        }
+        if (val === (b.specialRequests || "")) { showView(); return; }
+        b.specialRequests = val || null;
+        updateBookingLocal(b.id, { specialRequests: b.specialRequests });
         showView();
+        const API = window.JPark && window.JPark.api;
+        if (!API) return;
+        const patchP = API.patch("/api/guest-bookings/" + b.id, { specialRequests: val })
+          .then((r) => { if (r && !r.error) updateBookingLocal(b.id, r); return r; })
+          .catch(() => {});
+        // Editing the request doesn't email the guest by itself — the request
+        // shows on the confirmation, so offer to resend it (with the updated
+        // text) once the edit is saved. Only when there's an address to send to
+        // and the booking is still active.
+        if (b.guestEmail && b.status !== "cancelled" && confirm(t("msg.bk.specialReq.resendPrompt"))) {
+          patchP
+            .then(() => API.post("/api/guest-bookings/" + b.id + "/resend-confirmation", {}))
+            .then((r) => {
+              if (r && !r.error) {
+                if (r.booking) updateBookingLocal(b.id, r.booking);
+                renderBookingDetail(b.id);
+                U.toast(t("msg.bk.resend.sent").replace("{email}", b.guestEmail || ""), "success");
+              } else {
+                U.toast((r && r.error) || t("msg.bk.resend.failed"), "error");
+              }
+            })
+            .catch(() => U.toast(t("msg.bk.resend.failed"), "error"));
+        }
       }
       // Enter inserts a newline in a request (multi-line is fine); save on blur,
       // Escape cancels — mirrors the resend editor's textarea handling.
