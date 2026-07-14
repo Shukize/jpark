@@ -2272,6 +2272,12 @@
       ? '<span class="bk-row-pill label" title="' + esc(b.staffLabel) + '">🏷 ' + esc(b.staffLabel) + "</span>" : "";
     const amendedTag = b.lastAmendedAt
       ? '<span class="bk-row-pill amended" title="' + esc(t("msg.bk.amended")) + '">✎ ' + esc(t("msg.bk.amended")) + "</span>" : "";
+    // Multi-room booking: a "Room X/N" link pill so staff can see at a glance
+    // that this row is one room of a larger booking (they all share groupRef).
+    const groupTag = b.groupRef
+      ? '<span class="bk-row-pill group" title="' + esc(b.groupRef) + '">🔗 ' +
+          esc(t("msg.bk.groupRoomOf").replace("{i}", String(b.groupIndex || "?")).replace("{n}", String(b.groupSize || "?"))) + "</span>"
+      : "";
     // Room-assigned / payment-recorded pills — front-desk-only concept, so
     // scoped to direct-channel bookings (same scoping as wireBkFrontDesk)
     // and skipped once cancelled (nothing left to follow up on).
@@ -2294,7 +2300,7 @@
 
     row.innerHTML =
       firstCol +
-      '<div class="mr-sender">' + reviewBadge + esc(b.channelName) + statusPill + labelTag + amendedTag + frontDeskPills + "</div>" +
+      '<div class="mr-sender">' + reviewBadge + esc(b.channelName) + statusPill + labelTag + amendedTag + groupTag + frontDeskPills + "</div>" +
       '<div class="mr-subject-preview">' +
         '<span class="mr-subject">' + esc(b.guestName) + "</span>" +
         '<span class="mr-sep">—</span>' +
@@ -2721,6 +2727,26 @@
     }).join("");
   }
 
+  // Banner at the top of a multi-room booking's detail: names the booking
+  // group + its grand total, with a clickable chip per room so staff can jump
+  // between the rooms of one booking. Cancelled rooms are marked.
+  function bkGroupBannerHTML(b, siblings, grandTotal) {
+    const chips = siblings.map(function (s) {
+      const idx = s.groupIndex || "?";
+      const label = idx + ". " + esc(s.room || "—") + (s.status === "cancelled" ? " ✕" : "");
+      const cls = "bk-group-chip" + (s.id === b.id ? " active" : "") + (s.status === "cancelled" ? " cancelled" : "");
+      return '<button type="button" class="' + cls + '" data-group-open="' + esc(s.id) + '"' + (s.id === b.id ? " disabled" : "") + ">" + label + "</button>";
+    }).join("");
+    const totalStr = grandTotal ? (b.currency || "THB") + " " + Number(grandTotal).toLocaleString() : "";
+    return '<div class="bk-group-banner">' +
+      '<div class="bk-group-banner-title">🔗 ' +
+        esc(t("msg.bk.groupBanner").replace("{n}", String(siblings.length))) + " — " + esc(b.groupRef) +
+        (totalStr ? ' · <span class="bk-group-grand">' + esc(t("msg.bk.groupGrandTotal")) + ": " + esc(totalStr) + "</span>" : "") +
+      "</div>" +
+      '<div class="bk-group-chips">' + chips + "</div>" +
+    "</div>";
+  }
+
   function renderBookingDetail(id) {
     // Self-heal: navigating to a different booking (or one no longer open
     // for editing) always clears any stale in-progress-edit guard.
@@ -2735,11 +2761,24 @@
     const recipientName = session ? session.name : "";
     const bkIsStarred = !!b.starred;
 
+    // Every room of a multi-room booking shares one groupRef. Gather the
+    // siblings (from the same local store) so the detail can show the whole
+    // booking and offer a cancel-the-whole-booking action.
+    const groupSiblings = b.groupRef
+      ? getBookingMsgs().filter((x) => x.groupRef === b.groupRef).sort((a, c) => (a.groupIndex || 0) - (c.groupIndex || 0))
+      : [];
+    const groupHasActive = groupSiblings.some((s) => s.status !== "cancelled");
+    const groupGrandTotal = groupSiblings.reduce((s, x) => s + (x.total != null ? Number(x.total) : 0), 0);
+
     let fields = "";
     fields += bookingField("msg.bk.guest", b.guestName);
     fields += bookingField("msg.bk.email", b.guestEmail);
     fields += bookingField("msg.bk.phone", b.guestPhone);
     fields += bookingField("msg.bk.ref", b.ref);
+    if (b.groupRef) {
+      fields += bookingField("msg.bk.group",
+        b.groupRef + " · " + t("msg.bk.groupRoomOf").replace("{i}", String(b.groupIndex || "?")).replace("{n}", String(b.groupSize || "?")));
+    }
     fields += bookingField("msg.bk.room", b.room);
     fields += bookingField("msg.bk.roomNumber", b.roomNumber);
     fields += bookingField("msg.bk.checkin", b.checkIn);
@@ -2770,6 +2809,7 @@
       "</div>" +
       (b.needsReview ? '<div class="bk-review-banner">⚠ ' + esc(t("msg.bk.needsReview")) + ' — ' + esc(t("msg.bk.needsReview.note")) + "</div>" : "") +
       (b.lastAmendedAt ? '<div class="bk-amended-banner">✎ ' + esc(t("msg.bk.amended")) + ' — ' + esc(t("msg.bk.amended.note")) + " " + esc(new Date(b.lastAmendedAt).toLocaleString()) + "</div>" : "") +
+      (b.groupRef && groupSiblings.length > 1 ? bkGroupBannerHTML(b, groupSiblings, groupGrandTotal) : "") +
       '<div class="bk-staff-label-slot"></div>' +
       '<div class="bk-special-req-slot"></div>' +
       '<div class="bk-detail-grid">' + fields + "</div>" +
@@ -2789,6 +2829,8 @@
         (b.status === "cancelled"
           ? '<button class="mda-action-btn mda-reopen-btn" id="mdaBkCancel">↺ ' + esc(t("msg.bk.reopen")) + "</button>"
           : '<button class="mda-action-btn mda-cancel-btn" id="mdaBkCancel">✕ ' + esc(t("msg.bk.cancel")) + "</button>") +
+        (b.groupRef && groupHasActive
+          ? '<button class="mda-action-btn mda-cancel-btn" id="mdaBkCancelGroup">✕ ' + esc(t("msg.bk.cancelAll")) + "</button>" : "") +
         (isAdmin() ? '<button class="mda-action-btn mda-delete-btn" id="mdaBkDelete">🗑 ' + esc(t("msg.delete")) + "</button>" : "") +
       "</div>" +
       (isAdmin() ? '<div class="mda-delete-hint">' + esc(t("msg.bk.delete.adminHint")) + "</div>" : "") +
@@ -2885,6 +2927,40 @@
             }
           }).catch(() => { bkCancelBtn.disabled = false; });
         }
+      });
+    }
+
+    // Multi-room: chips in the group banner jump between the rooms of this booking.
+    detailArea.querySelectorAll("[data-group-open]").forEach(function (chip) {
+      chip.addEventListener("click", function () {
+        const targetId = chip.getAttribute("data-group-open");
+        msgDetailId = targetId;
+        msgDetailKind = "booking";
+        markBookingRead(targetId);
+        renderBookingDetail(targetId);
+      });
+    });
+
+    // Cancel the ENTIRE booking (every room) in one action — the backend group
+    // cancel route sends the guest ONE cancellation email for the whole booking
+    // instead of one per room, and marks each room cancelled in a transaction.
+    const bkCancelGroupBtn = detailArea.querySelector("#mdaBkCancelGroup");
+    if (bkCancelGroupBtn) {
+      bkCancelGroupBtn.addEventListener("click", () => {
+        const API = window.JPark && window.JPark.api;
+        if (!API || !b.groupRef) return;
+        if (!confirm(t("msg.bk.cancelAll.confirm"))) return;
+        const reason = prompt(t("msg.bk.cancel.reasonPrompt"), "") || undefined;
+        bkCancelGroupBtn.disabled = true;
+        API.post("/api/guest-bookings/group/" + encodeURIComponent(b.groupRef) + "/cancel", { reason }).then((r) => {
+          if (r && !r.error) {
+            if (Array.isArray(r.bookings)) r.bookings.forEach((bk) => updateBookingLocal(bk.id, bk));
+            renderBookingDetail(b.id);
+          } else {
+            bkCancelGroupBtn.disabled = false;
+            U.toast((r && r.error) || t("msg.bk.resend.failed"), "error");
+          }
+        }).catch(() => { bkCancelGroupBtn.disabled = false; });
       });
     }
 

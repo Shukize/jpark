@@ -1054,3 +1054,61 @@ body.bk-pay-open { position: fixed; left: 0; right: 0; overflow: hidden; }
   .bk-pay-box { border-radius: 16px; }
   .bkp-head { border-radius: 16px 16px 0 0; }
 }
+
+/* ---- Multi-room booking: cart flow (assets/js/booking-payment.js) ---- */
+
+/* "Add another room" (solo mode) — a lighter secondary action. */
+.bkp-add-room-btn {
+  width: 100%; padding: 12px; font-size: 0.9rem;
+  background: transparent; color: var(--teal-deep);
+  border: 1.5px dashed var(--teal); border-radius: 12px;
+  font-weight: 700; cursor: pointer;
+}
+.bkp-add-room-btn:hover { background: var(--sand); }
+
+/* Review list: one row per room, price on the right, remove button. */
+.bkp-cart-list { display: flex; flex-direction: column; gap: 8px; }
+.bkp-cart-item {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  background: var(--sand); border: 1px solid var(--line);
+  border-radius: 12px; padding: 10px 14px;
+}
+.bkp-cart-item-main { min-width: 0; }
+.bkp-cart-item-name { font-weight: 700; color: var(--ink); font-size: 0.92rem; }
+.bkp-cart-item-meta { font-size: 0.8rem; color: var(--ink-soft); margin-top: 2px; }
+.bkp-cart-item-side { display: flex; align-items: center; gap: 10px; flex: none; }
+.bkp-cart-item-price { font-weight: 700; color: var(--teal-deep); white-space: nowrap; }
+.bkp-cart-remove {
+  border: none; background: transparent; color: var(--ink-soft);
+  font-size: 1.3rem; line-height: 1; cursor: pointer; padding: 2px 6px; border-radius: 8px;
+}
+.bkp-cart-remove:hover { background: rgba(184, 85, 46, 0.12); color: var(--terracotta-d); }
+
+/* Grand total gets a slightly heavier top rule so it reads as the sum. */
+.bkp-grand-total { border-top: 2px solid var(--teal); margin-top: 4px; padding-top: 10px; }
+
+/* Fixed cart bar on the booking page while a multi-room booking is building. */
+.bkp-cart-bar {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 900;
+  background: var(--teal-deep); color: var(--ivory);
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.18);
+  padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
+}
+.bkp-cart-bar[hidden] { display: none; }
+.bkp-cart-bar-inner {
+  max-width: var(--maxw); margin: 0 auto;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+}
+.bkp-cart-bar-info { font-weight: 700; font-size: 0.95rem; }
+.bkp-cart-bar-actions { display: flex; align-items: center; gap: 10px; }
+.bkp-cart-clear {
+  background: transparent; border: none; color: var(--ivory);
+  opacity: 0.8; font-size: 0.85rem; cursor: pointer; text-decoration: underline;
+}
+.bkp-cart-clear:hover { opacity: 1; }
+.bkp-cart-review { padding: 10px 20px; font-size: 0.9rem; white-space: nowrap; }
+
+@media (max-width: 560px) {
+  .bkp-cart-bar-info { font-size: 0.88rem; }
+  .bkp-cart-review { padding: 10px 14px; }
+}

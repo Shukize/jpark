@@ -1083,6 +1083,24 @@ body.mobile-view .fac-card.large {
   color: #5a4a1a; font-size: 0.86rem; font-weight: 600;
 }
 
+/* Multi-room booking group: a teal "Room X/N" pill in the list, and a banner
+   with clickable per-room chips in the detail view. */
+.bk-row-pill.group { background: #e8f5f3; color: #0c5b58; }
+.bk-group-banner {
+  margin-bottom: 18px; padding: 12px 14px; max-width: 580px;
+  background: #e8f5f3; border: 1px solid #a9d6cb; border-radius: 8px;
+}
+.bk-group-banner-title { color: #0c5b58; font-size: 0.86rem; font-weight: 700; margin-bottom: 8px; }
+.bk-group-grand { font-weight: 700; }
+.bk-group-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.bk-group-chip {
+  border: 1px solid #a9d6cb; background: #fff; color: #0c5b58;
+  border-radius: 999px; padding: 3px 12px; font-size: 0.8rem; font-weight: 600; cursor: pointer;
+}
+.bk-group-chip:hover:not(:disabled) { background: #d6ede8; }
+.bk-group-chip.active { background: #0f766e; color: #fff; border-color: #0f766e; cursor: default; }
+.bk-group-chip.cancelled { opacity: 0.55; text-decoration: line-through; }
+
 /* Cancel / Reopen action button — amber, deliberately distinct from the
    red admin-only Delete button so the two severities never look alike. */
 .mda-cancel-btn { color: #b45309; }

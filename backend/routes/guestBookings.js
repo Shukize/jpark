@@ -141,6 +141,11 @@ const EMAIL_I18N = {
     nonSmoking: 'Non-Smoking', smoking: 'Smoking', yes: 'Yes', no: 'No',
     balanceDue: (money) => `Balance due: ${money}. Payable in person at check-in by cash, credit/debit card, or PromptPay QR at our front desk.`,
     depositNote: 'Please note: a 200 THB deposit for your room key card is collected in cash at check-in (cash only) and refunded in full at check-out.',
+    depositNoteMulti: (n) => `Please note: a ${200 * n} THB deposit for your room key cards (200 THB × ${n} rooms) is collected in cash at check-in (cash only) and refunded in full at check-out.`,
+    roomLabel: (i) => `Room ${i}`,
+    roomsSummary: (n) => `${n} rooms`,
+    subtotal: 'Room total',
+    grandTotal: 'Total (all rooms)',
     closing: 'We look forward to welcoming you. Reply to this email if you need anything before arrival.',
     spamNote: "Can't find this email later, or missing a reply from us? Please check your spam/junk folder — and consider adding us to your contacts.",
     heading: 'Your reservation is confirmed',
@@ -159,6 +164,11 @@ const EMAIL_I18N = {
     nonSmoking: 'ห้องปลอดบุหรี่', smoking: 'ห้องสูบบุหรี่', yes: 'มี', no: 'ไม่มี',
     balanceDue: (money) => `ยอดคงเหลือที่ต้องชำระ: ${money} ชำระได้ที่หน้าเคาน์เตอร์ในวันเช็คอิน ด้วยเงินสด บัตรเครดิต/เดบิต หรือ PromptPay QR`,
     depositNote: 'โปรดทราบ: มีการเรียกเก็บเงินมัดจำบัตรคีย์การ์ด 200 บาท เป็นเงินสดเท่านั้น ณ วันเช็คอิน และคืนเต็มจำนวนเมื่อเช็คเอาท์',
+    depositNoteMulti: (n) => `โปรดทราบ: มีการเรียกเก็บเงินมัดจำบัตรคีย์การ์ด ${200 * n} บาท (200 บาท × ${n} ห้อง) เป็นเงินสดเท่านั้น ณ วันเช็คอิน และคืนเต็มจำนวนเมื่อเช็คเอาท์`,
+    roomLabel: (i) => `ห้องที่ ${i}`,
+    roomsSummary: (n) => `${n} ห้อง`,
+    subtotal: 'ยอดรวมห้องพัก',
+    grandTotal: 'ยอดรวมทั้งหมด',
     closing: 'เรารอต้อนรับท่านด้วยความยินดี หากท่านต้องการความช่วยเหลือใด ๆ ก่อนเดินทางมาถึง กรุณาตอบกลับอีเมลฉบับนี้',
     spamNote: 'หากไม่พบอีเมลนี้ในภายหลัง หรือไม่ได้รับการตอบกลับจากเรา กรุณาตรวจสอบโฟลเดอร์สแปม/จดหมายขยะ และแนะนำให้เพิ่มอีเมลของเราไว้ในรายชื่อผู้ติดต่อ',
     heading: 'การจองของท่านได้รับการยืนยันแล้ว',
@@ -177,6 +187,11 @@ const EMAIL_I18N = {
     nonSmoking: '禁煙', smoking: '喫煙可', yes: 'あり', no: 'なし',
     balanceDue: (money) => `お支払い残額：${money}。チェックイン時にフロントにて現金、クレジット/デビットカード、またはプロンプトペイQRでお支払いください。`,
     depositNote: 'ご注意：ルームキーカードのデポジット200THBを、チェックイン時に現金のみで頂戴いたします。チェックアウト時に全額返金いたします。',
+    depositNoteMulti: (n) => `ご注意：ルームキーカードのデポジット${200 * n} THB（200 THB × ${n}室）を、チェックイン時に現金のみで頂戴いたします。チェックアウト時に全額返金いたします。`,
+    roomLabel: (i) => `お部屋 ${i}`,
+    roomsSummary: (n) => `${n}室`,
+    subtotal: '客室料金',
+    grandTotal: '合計金額（全室）',
     closing: 'ご到着を心よりお待ち申し上げております。ご到着前に何かご要望がございましたら、本メールにご返信ください。',
     spamNote: '後ほどこのメールが見つからない場合や、当ホテルからの返信が届かない場合は、迷惑メールフォルダをご確認いただき、当方のアドレスを連絡先にご登録いただけますようお願いいたします。',
     heading: 'ご予約確定のお知らせ',
@@ -195,6 +210,11 @@ const EMAIL_I18N = {
     nonSmoking: '无烟房', smoking: '吸烟房', yes: '含', no: '不含',
     balanceDue: (money) => `尚需支付金额：${money}。可于入住时在前台以现金、信用卡/借记卡或PromptPay二维码支付。`,
     depositNote: '请注意：房卡押金200泰铢，仅收现金，于入住时收取，退房时全额退还。',
+    depositNoteMulti: (n) => `请注意：房卡押金${200 * n}泰铢（200泰铢 × ${n}间），仅收现金，于入住时收取，退房时全额退还。`,
+    roomLabel: (i) => `房间 ${i}`,
+    roomsSummary: (n) => `${n} 间房`,
+    subtotal: '房费',
+    grandTotal: '总计（全部房间）',
     closing: '期待您的光临。如在抵达前需要任何协助，请直接回复此邮件。',
     spamNote: '稍后找不到这封邮件，或没有收到我们的回复？请检查您的垃圾邮件/垃圾箱文件夹，并建议将我们添加到您的联系人中。',
     heading: '您的预订已确认',
@@ -213,6 +233,11 @@ const EMAIL_I18N = {
     nonSmoking: '無菸房', smoking: '吸菸房', yes: '含', no: '不含',
     balanceDue: (money) => `尚需支付金額：${money}。可於入住時在前台以現金、信用卡/簽帳卡或PromptPay二維碼支付。`,
     depositNote: '請注意：房卡押金200泰銖，僅收現金，於入住時收取，退房時全額退還。',
+    depositNoteMulti: (n) => `請注意：房卡押金${200 * n}泰銖（200泰銖 × ${n}間），僅收現金，於入住時收取，退房時全額退還。`,
+    roomLabel: (i) => `房間 ${i}`,
+    roomsSummary: (n) => `${n} 間房`,
+    subtotal: '房費',
+    grandTotal: '總計（全部房間）',
     closing: '期待您的光臨。如在抵達前需要任何協助，請直接回覆此郵件。',
     spamNote: '稍後找不到這封郵件，或沒有收到我們的回覆？請檢查您的垃圾郵件資料夾，並建議將我們加入您的聯絡人。',
     heading: '您的預訂已確認',
@@ -383,17 +408,182 @@ function confirmationEmail(bk) {
   return { text, html };
 }
 
+// Guest confirmation for a MULTI-ROOM ("group") booking. `rows` are all the
+// guest_bookings rows sharing one group_ref (one per room), ordered by
+// group_index. They share lang/guest/dates/special_requests; each carries its
+// own room/occupancy/breakfast/smoking/total. Renders one line-item per room,
+// then a grand total = the SUM of the authoritative per-room totals — the same
+// numbers computeTotal() charged each row, never a re-derived figure. Localized
+// (all 5 langs) exactly like the single-room confirmationEmail().
+function groupConfirmationEmail(rows) {
+  const first = rows[0];
+  const L = EMAIL_I18N[first.lang] || EMAIL_I18N.en;
+  const n = rows.length;
+  const currency = first.currency || 'THB';
+  const grand = rows.reduce((s, r) => s + Number(r.total || 0), 0);
+  const grandMoney = `${grand} ${currency}`;
+  const balanceDueMoney = (first.payment_method === 'pay_at_checkin' && first.payment_status === 'pending')
+    ? grandMoney : null;
+  const payment = guestPaymentLabel(first, L);
+  const roomMoney = (r) => (r.total != null ? `${r.total} ${currency}` : '—');
+
+  const roomTextBlock = (r, i) => {
+    const smokingText = r.smoking_preference === 'smoking' ? L.smoking : L.nonSmoking;
+    return [
+      `— ${L.roomLabel(i + 1)}: ${r.room || '—'}`,
+      `    ${L.guests}: ${L.adultsChildren(r.adults, r.children)}${L.childAgesSuffix(r.child_ages)}`,
+      `    ${L.roomPref}: ${smokingText}`,
+      `    ${L.breakfast}: ${r.breakfast ? L.yes : L.no}`,
+      `    ${L.subtotal}: ${roomMoney(r)}`,
+    ].join('\n');
+  };
+
+  const lines = [
+    L.greeting(first.guest_name),
+    '',
+    L.intro,
+    '',
+    `${L.confirmation}: ${first.group_ref} (${L.roomsSummary(n)})`,
+    `${L.checkin}: ${formatCheckDate(first.check_in, CHECKIN_TIME)}`,
+    `${L.checkout}: ${formatCheckDate(first.check_out, CHECKOUT_TIME)}`,
+    `${L.nights}: ${first.nights}`,
+    '',
+    ...rows.map((r, i) => roomTextBlock(r, i)),
+    '',
+    `${L.grandTotal}: ${grandMoney}`,
+    ...(payment ? [`${L.payment}: ${payment}`] : []),
+    ...(first.special_requests ? [`${L.specialRequests}: ${first.special_requests}`] : []),
+    ...(balanceDueMoney ? ['', L.balanceDue(balanceDueMoney)] : []),
+    '',
+    L.depositNoteMulti(n),
+    '',
+    L.closing,
+    '',
+    L.spamNote,
+    '',
+    'J Park Hotel, Chonburi',
+  ];
+  const letterhead = emailLetterhead();
+  const text = lines.join('\n') + letterhead.text;
+
+  const roomRowsHtml = rows.map((r, i) => {
+    const smokingText = r.smoking_preference === 'smoking' ? L.smoking : L.nonSmoking;
+    return (
+      `<tr><td colspan="2" style="padding:12px 0 4px;border-top:1px solid #e2e2e2;color:#0f766e;font-weight:bold">${L.roomLabel(i + 1)} — ${escapeHtml(r.room || '—')}</td></tr>` +
+      `<tr><td style="padding:2px 12px 2px 0;color:#555">${L.guests}</td><td style="padding:2px 0">${L.adultsChildren(r.adults, r.children)}${L.childAgesSuffix(r.child_ages)}</td></tr>` +
+      `<tr><td style="padding:2px 12px 2px 0;color:#555">${L.roomPref}</td><td style="padding:2px 0">${smokingText}</td></tr>` +
+      `<tr><td style="padding:2px 12px 2px 0;color:#555">${L.breakfast}</td><td style="padding:2px 0">${r.breakfast ? L.yes : L.no}</td></tr>` +
+      `<tr><td style="padding:2px 12px 6px 0;color:#555">${L.subtotal}</td><td style="padding:2px 0 6px">${roomMoney(r)}</td></tr>`
+    );
+  }).join('');
+
+  const html =
+    `<div style="font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;line-height:1.5">` +
+    `<h2 style="color:#0f766e;margin:0 0 12px">${L.heading}</h2>` +
+    `<p>${L.greeting(first.guest_name)}</p>` +
+    `<p>${L.intro}</p>` +
+    `<table style="border-collapse:collapse;margin:16px 0;min-width:300px">` +
+    `<tr><td style="padding:4px 12px 4px 0;color:#555">${L.confirmation}</td><td style="padding:4px 0"><strong>${first.group_ref}</strong> (${L.roomsSummary(n)})</td></tr>` +
+    `<tr><td style="padding:4px 12px 4px 0;color:#555">${L.checkin}</td><td style="padding:4px 0">${formatCheckDate(first.check_in, CHECKIN_TIME)}</td></tr>` +
+    `<tr><td style="padding:4px 12px 4px 0;color:#555">${L.checkout}</td><td style="padding:4px 0">${formatCheckDate(first.check_out, CHECKOUT_TIME)}</td></tr>` +
+    `<tr><td style="padding:4px 12px 4px 0;color:#555">${L.nights}</td><td style="padding:4px 0">${first.nights}</td></tr>` +
+    roomRowsHtml +
+    `<tr><td style="padding:10px 12px 4px 0;border-top:2px solid #0f766e;color:#0f766e;font-weight:bold">${L.grandTotal}</td><td style="padding:10px 0 4px;border-top:2px solid #0f766e;font-weight:bold">${grandMoney}</td></tr>` +
+    (payment ? `<tr><td style="padding:4px 12px 4px 0;color:#555">${L.payment}</td><td style="padding:4px 0">${payment}</td></tr>` : '') +
+    (first.special_requests ? `<tr><td style="padding:4px 12px 4px 0;color:#555">${L.specialRequests}</td><td style="padding:4px 0">${escapeHtml(first.special_requests)}</td></tr>` : '') +
+    `</table>` +
+    (balanceDueMoney ? `<p style="background:#eef6f4;border:1px solid #a9d6cb;border-radius:8px;padding:10px 14px;color:#0f4a3e">${L.balanceDue(balanceDueMoney)}</p>` : '') +
+    `<p style="background:#fbf3df;border:1px solid #e0c178;border-radius:8px;padding:10px 14px;color:#5a4a1a">${L.depositNoteMulti(n)}</p>` +
+    `<p>${L.closing}</p>` +
+    `<p style="color:#888;font-size:0.85rem">${L.spamNote}</p>` +
+    `<p style="color:#0f766e;font-weight:bold;margin-top:24px">J Park Hotel, Chonburi</p>` +
+    letterhead.html +
+    `</div>`;
+  return { text, html };
+}
+
+// Front-desk notice for a multi-room booking (English, like hotelNotice()).
+function groupHotelNotice(rows) {
+  const first = rows[0];
+  const n = rows.length;
+  const currency = first.currency || 'THB';
+  const grand = rows.reduce((s, r) => s + Number(r.total || 0), 0);
+  const via = first.channel_name || first.channel || 'Direct';
+  const roomMoney = (r) => (r.total != null ? `${r.total} ${currency}` : '—');
+  const roomLine = (r, i) => {
+    const childAges = Array.isArray(r.child_ages) && r.child_ages.length ? ` (ages: ${r.child_ages.join(', ')})` : '';
+    return `  Room ${i + 1}: ${r.room || '—'} — ${r.adults} adult(s), ${r.children} child(ren)${childAges}, `
+      + `${smokingLabel(r)}, breakfast: ${breakfastLabel(r)}, ${roomMoney(r)}`;
+  };
+  const lines = [
+    `New ${n}-room booking via ${via}.`,
+    '',
+    `Confirmation: ${first.group_ref}`,
+    `Guest: ${first.guest_name || '—'}`,
+    `Guest email: ${first.guest_email || '—'}`,
+    `Guest phone: ${first.guest_phone || '—'}`,
+    `Check-in: ${formatCheckDate(first.check_in, CHECKIN_TIME)}`,
+    `Check-out: ${formatCheckDate(first.check_out, CHECKOUT_TIME)}`,
+    `Nights: ${first.nights}`,
+    '',
+    'Rooms:',
+    ...rows.map((r, i) => roomLine(r, i)),
+    '',
+    ...(first.special_requests ? [`Special requests: ${first.special_requests}`, ''] : []),
+    `Grand total (all rooms): ${grand} ${currency}`,
+    '',
+    'This reservation is now in the Guest Booking inbox of the staff console.',
+  ];
+  const letterhead = emailLetterhead();
+  const text = lines.join('\n') + letterhead.text;
+  const roomRowsHtml = rows.map((r, i) => {
+    const childAges = Array.isArray(r.child_ages) && r.child_ages.length ? ` (ages: ${escapeHtml(r.child_ages.join(', '))})` : '';
+    return `<tr><td style="padding:4px 12px 4px 0;color:#555">Room ${i + 1}</td>`
+      + `<td style="padding:4px 0">${escapeHtml(r.room || '—')} — ${r.adults} adult(s), ${r.children} child(ren)${childAges}, ${smokingLabel(r)}, breakfast: ${breakfastLabel(r)}, <strong>${roomMoney(r)}</strong></td></tr>`;
+  }).join('');
+  const html =
+    `<div style="font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;line-height:1.5">` +
+    `<h2 style="color:#0f766e;margin:0 0 12px">New ${n}-room booking via ${via}</h2>` +
+    `<table style="border-collapse:collapse;margin:16px 0">` +
+    `<tr><td style="padding:4px 12px 4px 0;color:#555">Confirmation</td><td style="padding:4px 0"><strong>${first.group_ref}</strong></td></tr>` +
+    `<tr><td style="padding:4px 12px 4px 0;color:#555">Guest</td><td style="padding:4px 0">${first.guest_name || '—'}</td></tr>` +
+    `<tr><td style="padding:4px 12px 4px 0;color:#555">Guest email</td><td style="padding:4px 0">${first.guest_email || '—'}</td></tr>` +
+    `<tr><td style="padding:4px 12px 4px 0;color:#555">Guest phone</td><td style="padding:4px 0">${first.guest_phone || '—'}</td></tr>` +
+    `<tr><td style="padding:4px 12px 4px 0;color:#555">Check-in</td><td style="padding:4px 0">${formatCheckDate(first.check_in, CHECKIN_TIME)}</td></tr>` +
+    `<tr><td style="padding:4px 12px 4px 0;color:#555">Check-out</td><td style="padding:4px 0">${formatCheckDate(first.check_out, CHECKOUT_TIME)}</td></tr>` +
+    `<tr><td style="padding:4px 12px 4px 0;color:#555">Nights</td><td style="padding:4px 0">${first.nights}</td></tr>` +
+    roomRowsHtml +
+    (first.special_requests ? `<tr><td style="padding:4px 12px 4px 0;color:#555">Special requests</td><td style="padding:4px 0">${escapeHtml(first.special_requests)}</td></tr>` : '') +
+    `<tr><td style="padding:8px 12px 4px 0;border-top:2px solid #0f766e;color:#0f766e;font-weight:bold">Grand total</td><td style="padding:8px 0 4px;border-top:2px solid #0f766e;font-weight:bold">${grand} ${currency}</td></tr>` +
+    `</table>` +
+    `<p style="color:#555">This reservation is now in the <strong>Guest Booking</strong> inbox of the staff console.</p>` +
+    letterhead.html +
+    `</div>`;
+  return { text, html };
+}
+
 // Guest-facing cancellation notice. Deliberately generic — the staff-entered
 // cancellation reason (if any) is internal shorthand for front-desk handoff,
 // not guest-facing copy, so it is never included here.
 function cancellationEmail(bk) {
+  // When this booking is one room of a multi-room group, make crystal-clear
+  // that ONLY this room is cancelled and the guest's other rooms are unaffected
+  // — and reference the group's confirmation number they actually hold.
+  const grouped = !!bk.group_ref;
+  const confValue = grouped ? bk.group_ref : bk.ref;
+  const roomValue = grouped && bk.group_index && bk.group_size
+    ? `${bk.room || '—'} (Room ${bk.group_index} of ${bk.group_size})`
+    : (bk.room || '—');
+  const intro = grouped
+    ? 'This is to confirm that one room of your booking at J Park Hotel, Chonburi has been cancelled. Any other rooms in the same booking remain confirmed.'
+    : 'This is to confirm that your reservation at J Park Hotel, Chonburi has been cancelled.';
   const lines = [
     `Dear ${bk.guest_name || 'Guest'},`,
     '',
-    'This is to confirm that your reservation at J Park Hotel, Chonburi has been cancelled.',
+    intro,
     '',
-    `Confirmation: ${bk.ref}`,
-    `Room: ${bk.room || '—'}`,
+    `Confirmation: ${confValue}`,
+    `Room: ${roomValue}`,
     `Check-in: ${bk.check_in}`,
     `Check-out: ${bk.check_out}`,
     '',
@@ -407,14 +597,62 @@ function cancellationEmail(bk) {
   const text = lines.join('\n') + letterhead.text;
   const html =
     `<div style="font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;line-height:1.5">` +
-    `<h2 style="color:#b45309;margin:0 0 12px">Your reservation has been cancelled</h2>` +
+    `<h2 style="color:#b45309;margin:0 0 12px">${grouped ? 'One room of your booking has been cancelled' : 'Your reservation has been cancelled'}</h2>` +
     `<p>Dear ${bk.guest_name || 'Guest'},</p>` +
-    `<p>This is to confirm that your reservation at <strong>J Park Hotel, Chonburi</strong> has been cancelled.</p>` +
+    `<p>${intro}</p>` +
     `<table style="border-collapse:collapse;margin:16px 0">` +
-    `<tr><td style="padding:4px 12px 4px 0;color:#555">Confirmation</td><td style="padding:4px 0"><strong>${bk.ref}</strong></td></tr>` +
-    `<tr><td style="padding:4px 12px 4px 0;color:#555">Room</td><td style="padding:4px 0">${bk.room || '—'}</td></tr>` +
+    `<tr><td style="padding:4px 12px 4px 0;color:#555">Confirmation</td><td style="padding:4px 0"><strong>${confValue}</strong></td></tr>` +
+    `<tr><td style="padding:4px 12px 4px 0;color:#555">Room</td><td style="padding:4px 0">${escapeHtml(roomValue)}</td></tr>` +
     `<tr><td style="padding:4px 12px 4px 0;color:#555">Check-in</td><td style="padding:4px 0">${bk.check_in}</td></tr>` +
     `<tr><td style="padding:4px 12px 4px 0;color:#555">Check-out</td><td style="padding:4px 0">${bk.check_out}</td></tr>` +
+    `</table>` +
+    `<p>No payment was taken online for this booking, so there is nothing to refund.</p>` +
+    `<p>If this cancellation was made in error, or you would like to make a new reservation, please reply to this email or call us.</p>` +
+    `<p style="color:#0f766e;font-weight:bold;margin-top:24px">J Park Hotel, Chonburi</p>` +
+    letterhead.html +
+    `</div>`;
+  return { text, html };
+}
+
+// Guest-facing notice when an ENTIRE multi-room booking is cancelled at once
+// (staff "Cancel entire booking" → POST /group/:groupRef/cancel). One email
+// for the whole group instead of one per room. `rows` are the rooms that were
+// cancelled, ordered by group_index.
+function groupCancellationEmail(rows) {
+  const first = rows[0];
+  const roomLines = rows.map((r, i) => `  Room ${r.group_index || i + 1}: ${r.room || '—'}`);
+  const lines = [
+    `Dear ${first.guest_name || 'Guest'},`,
+    '',
+    `This is to confirm that your entire booking at J Park Hotel, Chonburi (${rows.length} rooms) has been cancelled.`,
+    '',
+    `Confirmation: ${first.group_ref}`,
+    `Check-in: ${first.check_in}`,
+    `Check-out: ${first.check_out}`,
+    'Rooms cancelled:',
+    ...roomLines,
+    '',
+    'No payment was taken online for this booking, so there is nothing to refund.',
+    '',
+    'If this cancellation was made in error, or you would like to make a new reservation, please reply to this email or call us.',
+    '',
+    'J Park Hotel, Chonburi',
+  ];
+  const letterhead = emailLetterhead();
+  const text = lines.join('\n') + letterhead.text;
+  const roomRowsHtml = rows.map((r, i) =>
+    `<tr><td style="padding:4px 12px 4px 0;color:#555">Room ${r.group_index || i + 1}</td><td style="padding:4px 0">${escapeHtml(r.room || '—')}</td></tr>`
+  ).join('');
+  const html =
+    `<div style="font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;line-height:1.5">` +
+    `<h2 style="color:#b45309;margin:0 0 12px">Your booking has been cancelled</h2>` +
+    `<p>Dear ${first.guest_name || 'Guest'},</p>` +
+    `<p>This is to confirm that your entire booking at <strong>J Park Hotel, Chonburi</strong> (${rows.length} rooms) has been cancelled.</p>` +
+    `<table style="border-collapse:collapse;margin:16px 0">` +
+    `<tr><td style="padding:4px 12px 4px 0;color:#555">Confirmation</td><td style="padding:4px 0"><strong>${first.group_ref}</strong></td></tr>` +
+    `<tr><td style="padding:4px 12px 4px 0;color:#555">Check-in</td><td style="padding:4px 0">${first.check_in}</td></tr>` +
+    `<tr><td style="padding:4px 12px 4px 0;color:#555">Check-out</td><td style="padding:4px 0">${first.check_out}</td></tr>` +
+    roomRowsHtml +
     `</table>` +
     `<p>No payment was taken online for this booking, so there is nothing to refund.</p>` +
     `<p>If this cancellation was made in error, or you would like to make a new reservation, please reply to this email or call us.</p>` +
@@ -504,6 +742,9 @@ function row2js(r) {
     guestPhone: r.guest_phone,
     room: r.room,
     roomNumber: r.room_number,
+    groupRef: r.group_ref || null,
+    groupIndex: r.group_index != null ? Number(r.group_index) : null,
+    groupSize: r.group_size != null ? Number(r.group_size) : null,
     checkIn: r.check_in,
     checkOut: r.check_out,
     nights: r.nights,
@@ -548,7 +789,8 @@ function row2js(r) {
 const LIST_COLUMNS = [
   'id', 'ref', 'channel', 'channel_name', 'channel_email',
   'guest_name', 'guest_last_name', 'guest_email', 'guest_phone',
-  'room', 'room_number', 'check_in', 'check_out', 'nights',
+  'room', 'room_number', 'group_ref', 'group_index', 'group_size',
+  'check_in', 'check_out', 'nights',
   'adults', 'children', 'child_ages', 'smoking_preference', 'breakfast',
   'special_requests',
   'total', 'currency', 'status', 'lang',
@@ -688,6 +930,75 @@ async function sendGuestConfirmation(saved, override, actor) {
   });
   if (r.ok) console.log(`[guest-bookings] confirmation emailed to ${saved.guest_email} (${saved.ref})`);
   else if (!r.skipped) console.warn(`[guest-bookings] confirmation email failed (${saved.ref}): ${r.error}`);
+  return r;
+}
+
+/* Fire the hotel notice + guest confirmation for a freshly-created MULTI-ROOM
+   booking. Fetches every room of the group (by group_ref) so the two emails
+   aggregate the whole booking — one email to the guest listing all rooms + the
+   grand total, one to the front desk. Fire-and-forget, mirrors
+   fireBookingEmails(). The guest confirmation is logged against the primary row
+   (group_index 1) with the group_ref as its booking ref. */
+async function fireGroupBookingEmails(groupRef) {
+  let rows;
+  try {
+    const r = await db.query(
+      'SELECT * FROM guest_bookings WHERE group_ref = $1 ORDER BY group_index ASC',
+      [groupRef]
+    );
+    rows = r.rows;
+  } catch (err) {
+    console.error('[guest-bookings] group email fetch error', err);
+    return;
+  }
+  if (!rows.length) return;
+  const first = rows[0];
+
+  const to = hotelRecipients();
+  if (to.length) {
+    const { text, html } = groupHotelNotice(rows);
+    sendEmail({
+      to,
+      subject: `New booking — ${first.channel_name || first.channel || 'Direct'} · ${rows.length} rooms (${groupRef})`,
+      text,
+      html,
+      replyTo: first.guest_email || undefined,
+    }).then((r) => {
+      if (r.ok) console.log(`[guest-bookings] hotel notified of group ${groupRef} (${rows.length} rooms)`);
+      else if (!r.skipped) console.warn(`[guest-bookings] group hotel notice failed (${groupRef}): ${r.error}`);
+    }).catch((err) => console.error('[guest-bookings] group hotel notice error', err));
+  }
+
+  if (first.guest_email) {
+    sendGroupConfirmation(rows).catch((err) => console.error('[guest-bookings] group email error', err));
+  }
+}
+
+// Group guest confirmation send, factored out so the staff "Resend
+// confirmation" action can reuse the exact same aggregated content. `override`
+// lets staff hand-edit the subject/body (e.g. correct a price) before it goes
+// out; `actor` is the signed-in staff member for a manual resend (else null).
+async function sendGroupConfirmation(rows, override, actor) {
+  const first = rows[0];
+  const auto = groupConfirmationEmail(rows);
+  const text = (override && override.text) ? override.text : auto.text;
+  const html = (override && override.text) ? textToHtml(override.text) : auto.html;
+  const subject = (override && override.subject) || `J Park Hotel — booking confirmed (${first.group_ref})`;
+  const to = hotelRecipients();
+  const r = await sendEmail({
+    to: first.guest_email,
+    subject,
+    text,
+    html,
+    replyTo: to[0] || undefined,
+  }, {
+    bookingId: first.id, bookingRef: first.group_ref,
+    kind: actor ? 'resend' : 'confirmation',
+    sentById: actor ? actor.id : null,
+    sentByName: actor ? actor.name : null,
+  });
+  if (r.ok) console.log(`[guest-bookings] group confirmation emailed to ${first.guest_email} (${first.group_ref})`);
+  else if (!r.skipped) console.warn(`[guest-bookings] group confirmation email failed (${first.group_ref}): ${r.error}`);
   return r;
 }
 
@@ -897,6 +1208,15 @@ router.get('/:id/confirmation-preview', requireAuth, async (req, res) => {
     const { rows } = await db.query('SELECT * FROM guest_bookings WHERE id = $1', [req.params.id]);
     if (!rows.length) return res.status(404).json({ error: 'Not found' });
     const bk = rows[0];
+    // A multi-room booking previews/resends as ONE aggregated email listing
+    // every room in the group + the grand total, keyed off the group_ref.
+    if (bk.group_ref) {
+      const { rows: grp } = await db.query(
+        'SELECT * FROM guest_bookings WHERE group_ref = $1 ORDER BY group_index ASC', [bk.group_ref]
+      );
+      const { text } = groupConfirmationEmail(grp);
+      return res.json({ subject: `J Park Hotel — booking confirmed (${bk.group_ref})`, text });
+    }
     const { text } = confirmationEmail(bk);
     res.json({ subject: `J Park Hotel — booking confirmed (${bk.ref})`, text });
   } catch (e) {
@@ -931,15 +1251,27 @@ router.post('/:id/resend-confirmation', requireAuth, async (req, res) => {
       text: typeof b.text === 'string' && b.text.trim() ? b.text : null,
     };
 
-    const result = await sendGuestConfirmation(bk, override, req.user);
+    // For a multi-room booking, resend the ONE aggregated group confirmation
+    // and mark every room of the group amended; otherwise the single-room path.
+    let result;
+    if (bk.group_ref) {
+      const { rows: grp } = await db.query(
+        'SELECT * FROM guest_bookings WHERE group_ref = $1 ORDER BY group_index ASC', [bk.group_ref]
+      );
+      result = await sendGroupConfirmation(grp, override, req.user);
+    } else {
+      result = await sendGuestConfirmation(bk, override, req.user);
+    }
     if (!result.ok) {
       return res.status(result.skipped ? 503 : 502).json({ error: result.error || 'Send failed' });
     }
 
-    const { rows: updated } = await db.query(
-      `UPDATE guest_bookings SET last_amended_at = NOW() WHERE id = $1 RETURNING *`,
-      [req.params.id]
-    );
+    if (bk.group_ref) {
+      await db.query(`UPDATE guest_bookings SET last_amended_at = NOW() WHERE group_ref = $1`, [bk.group_ref]);
+    } else {
+      await db.query(`UPDATE guest_bookings SET last_amended_at = NOW() WHERE id = $1`, [req.params.id]);
+    }
+    const { rows: updated } = await db.query('SELECT * FROM guest_bookings WHERE id = $1', [req.params.id]);
     res.json({ status: 'sent', to: bk.guest_email, booking: row2js(updated[0]) });
   } catch (e) {
     console.error('[guest-bookings] resend-confirmation', e);
@@ -1015,6 +1347,81 @@ router.post('/:id/cancel', requireAuth, async (req, res) => {
   } catch (e) {
     console.error('[guest-bookings] cancel', e);
     res.status(500).json({ error: 'Database error' });
+  }
+});
+
+/* POST /api/guest-bookings/group/:groupRef/cancel — cancel an ENTIRE
+   multi-room booking at once. Cancels every still-active room of the group in
+   one transaction (stamping actor/reason on each), then sends the guest ONE
+   group cancellation email + one staff broadcast, instead of a separate notice
+   per room. Already-cancelled rooms are left untouched. Distinct 3-segment
+   path so it never collides with POST /:id/cancel. */
+router.post('/group/:groupRef/cancel', requireAuth, async (req, res) => {
+  const reason = typeof (req.body && req.body.reason) === 'string'
+    ? (req.body.reason.trim().slice(0, 500) || null)
+    : null;
+  const groupRef = req.params.groupRef;
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+    const { rows: all } = await client.query(
+      "SELECT * FROM guest_bookings WHERE group_ref = $1 ORDER BY group_index ASC FOR UPDATE",
+      [groupRef]
+    );
+    if (!all.length) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Not found' });
+    }
+    const active = all.filter((r) => r.status !== 'cancelled');
+    if (!active.length) {
+      await client.query('ROLLBACK');
+      return res.json({ status: 'already_cancelled', groupRef, cancelled: 0 });
+    }
+    const anyWasConfirmed = active.some((r) => r.status === 'confirmed');
+    const { rows: updated } = await client.query(
+      `UPDATE guest_bookings
+          SET status = 'cancelled',
+              previous_status = status,
+              cancelled_at = NOW(),
+              cancelled_by_id = $1,
+              cancelled_by_name = $2,
+              cancellation_reason = $3
+        WHERE group_ref = $4 AND status <> 'cancelled'
+        RETURNING *`,
+      [req.user.id, req.user.name, reason, groupRef]
+    );
+    await client.query('COMMIT');
+
+    const first = updated[0];
+    if (anyWasConfirmed && first.guest_email) {
+      const { text, html } = groupCancellationEmail(updated);
+      sendEmail({
+        to: first.guest_email,
+        subject: `J Park Hotel — booking cancelled (${groupRef})`,
+        text,
+        html,
+      }, {
+        bookingId: first.id, bookingRef: groupRef, kind: 'cancellation',
+        sentByName: req.user.name,
+      }).then((r) => {
+        if (r.ok) console.log(`[guest-bookings] group cancellation emailed to ${first.guest_email} (${groupRef})`);
+        else if (!r.skipped) console.warn(`[guest-bookings] group cancellation email failed (${groupRef}): ${r.error}`);
+      }).catch((err) => console.error('[guest-bookings] group cancellation email error', err));
+    }
+    broadcastStaffMessage(
+      `Booking cancelled by ${req.user.name} — ${groupRef} (${updated.length} rooms)`,
+      `Guest: ${first.guest_name || '—'}\nRooms: ${updated.map((r) => r.room).join(', ')}\n` +
+        `Check-in: ${first.check_in}\nCheck-out: ${first.check_out}\nRef: ${groupRef}` +
+        (reason ? `\nReason: ${reason}` : '')
+    ).catch((err) => console.error('[guest-bookings] group cancel broadcast error', err));
+
+    res.json({ status: 'cancelled', groupRef, cancelled: updated.length, bookings: updated.map(row2js) });
+  } catch (e) {
+    try { await client.query('ROLLBACK'); } catch (_) {}
+    console.error('[guest-bookings] group cancel', e);
+    res.status(500).json({ error: 'Database error' });
+  } finally {
+    client.release();
   }
 });
 
@@ -1123,6 +1530,7 @@ module.exports = router;
 module.exports.ingestGuestBooking = ingestGuestBooking;
 module.exports.row2js = row2js;
 module.exports.fireBookingEmails = fireBookingEmails;
+module.exports.fireGroupBookingEmails = fireGroupBookingEmails;
 module.exports.hotelNotice = hotelNotice;
 module.exports.hotelRecipients = hotelRecipients;
 module.exports.confirmationEmail = confirmationEmail;

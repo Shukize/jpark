@@ -252,6 +252,31 @@ ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS child_ages JSONB NOT NULL DE
 -- NULL for OTA/manual imports, which never collect it.
 ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS special_requests TEXT;
 
+-- Multi-room ("booking group") linkage (routes/payments.js POST
+-- /reservations/group, direct-website bookings only). A single guest
+-- reservation that holds several rooms is stored as one guest_bookings ROW
+-- PER ROOM — each row is priced independently by the same computeTotal() a
+-- single-room booking uses, and each keeps its own room_number / payment /
+-- cancel state — with all the rows tied together by a shared group_ref.
+--   group_ref   the guest-facing confirmation number for the whole booking
+--               (each row's own `ref` is group_ref || '-R' || group_index, so
+--               the UNIQUE ref constraint still holds and the grouping is
+--               visible in the ref itself). NULL for every single-room,
+--               OTA and day-use booking — those behave exactly as before.
+--   group_index 1-based position of this room within the group (Room 1, 2 …).
+--   group_size  original room count in the group; stays fixed even if a room
+--               is later cancelled, so "Room 2 of 3" stays accurate.
+-- All nullable: existing rows and the untouched single-room path leave them
+-- NULL, so no query behaves differently for a non-grouped booking.
+ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS group_ref   TEXT;
+ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS group_index INTEGER;
+ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS group_size  INTEGER;
+
+-- Lets the staff console fetch every room of a group together, and the
+-- group confirmation/cancellation emails gather their sibling rows cheaply.
+CREATE INDEX IF NOT EXISTS idx_guest_bookings_group_ref
+  ON guest_bookings (group_ref);
+
 -- ── Chat messages (guest ↔ front-desk) ──────────────────────────────────────
 CREATE TABLE IF NOT EXISTS chat_messages (
   id                  SERIAL       PRIMARY KEY,

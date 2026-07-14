@@ -26,6 +26,7 @@ const { sendEmail } = require('../mailer');
 const {
   row2js,
   fireBookingEmails,
+  fireGroupBookingEmails,
   computeNights,
   hotelNotice,
   hotelRecipients,
@@ -36,6 +37,11 @@ const {
 } = require('./guestBookings');
 
 const router = express.Router();
+
+// Hard cap on rooms in a single multi-room ("group") booking — a sanity
+// bound against an abusive/accidental huge payload, comfortably above any
+// real family/tour booking.
+const MAX_GROUP_ROOMS = 8;
 
 // Generous but bounded — guards against scripted flooding of the reservation
 // endpoint (each submission triggers two emails and an inventory-lock query).
@@ -65,6 +71,115 @@ async function computeTotal(room, variantLabel, breakfast, nights, totalGuests, 
   const rate = breakfast ? rateOverrides.effectiveBreakfastRate(effectiveRoom, variant, totalGuests, surcharges) : variant.room;
   const perNight = rate + rateOverrides.computeGuestSurcharge(effectiveRoom, totalGuests, breakfast, surcharges, childAges);
   return perNight * nights;
+}
+
+// ── Shared validation/pricing/insert helpers ─────────────────────────────────
+// Both the single-room POST /reservations and the multi-room POST
+// /reservations/group route through the SAME three helpers below, so the two
+// paths can never diverge on how a guest/date is validated, how a room is
+// priced, or which columns get written. That shared path is the guarantee
+// that "book 1 room" and "book that room as part of a group" charge exactly
+// the same amount.
+
+function validateGuest(guest) {
+  if (!guest.firstName || !guest.email || !guest.phone) {
+    return 'Guest name, email, and phone number are required';
+  }
+  // Lenient email sanity check — the address is the confirmation recipient, so a
+  // typo'd one silently fails to deliver. Kept permissive (one @, a dotted
+  // domain) so real international addresses are never rejected.
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(guest.email).trim())) {
+    return 'Please enter a valid email address';
+  }
+  return null;
+}
+
+function validateDates(checkIn, checkOut) {
+  if (!checkIn || !checkOut) {
+    return 'check-in and check-out are required';
+  }
+  // Dates must be real and chronological. Equal or inverted ranges would
+  // otherwise be floored to a phantom 1-night stay that holds no inventory
+  // (countOverlapping uses check_in < check_out) yet is confirmed and billed.
+  const ciDate = new Date(checkIn);
+  const coDate = new Date(checkOut);
+  if (isNaN(ciDate.getTime()) || isNaN(coDate.getTime()) || coDate <= ciDate) {
+    return 'check-out must be a valid date after check-in';
+  }
+  return null;
+}
+
+// Validate ONE room's own fields (type/variant/breakfast/smoking/occupancy/
+// childAges) against an already-validated shared date range, and price it via
+// computeTotal(). Returns { error } (a 400 message) or { values } ready to
+// insert. `r` is either the whole request body (single-room path) or one
+// entry of the rooms[] array (group path) — the field names are identical.
+async function validateAndPriceRoom(r, nights) {
+  const room = r.room;
+  const variantLabel = r.variantLabel;
+  const breakfast = Boolean(r.breakfast);
+  const adults = r.adults != null ? Number(r.adults) : 1;
+  const children = r.children != null ? Number(r.children) : 0;
+  // Guest preference only (front desk assigns the physical room accordingly)
+  // — anything other than the literal 'smoking' string is the safer default.
+  const smoking = r.smoking === 'smoking' ? 'smoking' : 'non_smoking';
+
+  if (!room || !variantLabel) {
+    return { error: 'room and variantLabel are required' };
+  }
+  // Guest counts must be whole numbers, at least 1 adult — a 0/NaN/negative/
+  // fractional count would slip past the maxGuests guard and either underflow
+  // the breakfast rate (undercharge) or fail the INSERT with a raw 500.
+  if (!Number.isInteger(adults) || adults < 1 || !Number.isInteger(children) || children < 0) {
+    return { error: 'adults must be a whole number ≥ 1 and children a whole number ≥ 0' };
+  }
+  // childAges (one integer per child, 0-17) drives the age-tiered breakfast/
+  // extra-guest pricing — required whenever children > 0 so every child is
+  // deliberately priced, never silently free or full-adult-rate.
+  let childAges = [];
+  if (children > 0) {
+    if (!Array.isArray(r.childAges) || r.childAges.length !== children) {
+      return { error: 'childAges must list one age (0-17) per child' };
+    }
+    childAges = r.childAges.map((a) => Number(a));
+    if (childAges.some((a) => !Number.isInteger(a) || a < 0 || a > 17)) {
+      return { error: 'Each child age must be a whole number between 0 and 17' };
+    }
+  }
+  const roomInfo = roomRates.getRoom(room);
+  if (!roomInfo) return { error: 'Unknown room type' };
+  if (adults + children > roomInfo.maxGuests) {
+    return { error: 'Too many guests for this room type' };
+  }
+  const total = await computeTotal(room, variantLabel, breakfast, nights, adults + children, childAges);
+  if (total == null) return { error: 'Unknown room variant' };
+
+  return { values: { room, variantLabel, breakfast, smoking, adults, children, childAges, total } };
+}
+
+// Insert one confirmed direct booking row. `p.groupRef/groupIndex/groupSize`
+// are omitted (→ NULL) for a single-room booking, so a non-grouped INSERT is
+// byte-for-byte what it was before this feature; they are set for each room
+// of a multi-room group. Runs on whatever client/pool is passed (a shared
+// transaction client for the group path).
+async function insertBookingRow(client, p) {
+  const { rows } = await client.query(
+    `INSERT INTO guest_bookings
+       (ref, channel, channel_name, guest_name, guest_last_name, guest_email, guest_phone,
+        room, check_in, check_out, nights, adults, children, total, currency, status, lang,
+        payment_provider, payment_method, payment_status, smoking_preference, breakfast, child_ages,
+        special_requests, group_ref, group_index, group_size)
+     VALUES ($1,'direct','Direct (Website)',$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'THB','confirmed',$13,
+             'in_person','pay_at_checkin','pending',$14,$15,$16,$17,$18,$19,$20)
+     RETURNING *`,
+    [
+      p.ref, p.guestName, p.guestLastName, p.guestEmail, p.guestPhone || null,
+      p.room, p.checkIn, p.checkOut, p.nights, p.adults, p.children, p.total,
+      p.lang || 'en', p.smoking, p.breakfast, JSON.stringify(p.childAges),
+      p.specialRequests, p.groupRef || null, p.groupIndex || null, p.groupSize || null,
+    ]
+  );
+  return rows[0];
 }
 
 /* GET /booking-availability?checkIn=&checkOut= */
@@ -101,78 +216,26 @@ router.post('/reservations', async (req, res) => {
 
   const b = req.body || {};
   const guest = b.guest || {};
-  const { room, variantLabel, checkIn, checkOut } = b;
-  const breakfast = Boolean(b.breakfast);
-  const adults = b.adults != null ? Number(b.adults) : 1;
-  const children = b.children != null ? Number(b.children) : 0;
-  // Guest preference only (front desk assigns the physical room accordingly)
-  // — not a separate bookable room type, so anything other than the literal
-  // 'smoking' string is treated as the (safer, more common) non-smoking default.
-  const smoking = b.smoking === 'smoking' ? 'smoking' : 'non_smoking';
+  const { checkIn, checkOut } = b;
   // Optional free-text special request the guest typed (late arrival, high
   // floor, allergies…). Trimmed and length-capped so it's safe to store and
   // echo into the confirmation/hotel-notice emails; empty/whitespace -> NULL.
   const specialRequests = typeof guest.note === 'string' && guest.note.trim()
     ? guest.note.trim().slice(0, 1000) : null;
 
-  if (!room || !variantLabel || !checkIn || !checkOut) {
-    return res.status(400).json({ error: 'room, variantLabel, checkIn and checkOut are required' });
-  }
-  if (!guest.firstName || !guest.email || !guest.phone) {
-    return res.status(400).json({ error: 'Guest name, email, and phone number are required' });
-  }
-  // Lenient email sanity check — the address is the confirmation recipient, so a
-  // typo'd one silently fails to deliver. Kept permissive (one @, a dotted
-  // domain) so real international addresses are never rejected.
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(guest.email).trim())) {
-    return res.status(400).json({ error: 'Please enter a valid email address' });
-  }
-
-  // Guest counts must be whole numbers, at least 1 adult. A 0/NaN/negative/
-  // fractional count would otherwise slip past the maxGuests guard below and
-  // either underflow the breakfast rate (undercharge) or fail the INSERT with
-  // a raw 500 instead of a clean 400.
-  if (!Number.isInteger(adults) || adults < 1 || !Number.isInteger(children) || children < 0) {
-    return res.status(400).json({ error: 'adults must be a whole number ≥ 1 and children a whole number ≥ 0' });
-  }
-
-  // Dates must be real and chronological. Equal or inverted ranges would
-  // otherwise be floored to a phantom 1-night stay that holds no inventory
-  // (countOverlapping uses check_in < check_out) yet is confirmed and billed.
-  const ciDate = new Date(checkIn);
-  const coDate = new Date(checkOut);
-  if (isNaN(ciDate.getTime()) || isNaN(coDate.getTime()) || coDate <= ciDate) {
-    return res.status(400).json({ error: 'check-out must be a valid date after check-in' });
-  }
-
-  // childAges (one integer per child, 0-17) enables the age-tiered breakfast/
-  // extra-guest pricing in lib/rateOverrides.js's computeGuestSurcharge() —
-  // required whenever children > 0 so every child is deliberately priced,
-  // never silently defaulted to a free or a full-adult-rate age. Stored
-  // as-is (children === 0 -> '[]') for the confirmation email/staff console.
-  let childAges = [];
-  if (children > 0) {
-    if (!Array.isArray(b.childAges) || b.childAges.length !== children) {
-      return res.status(400).json({ error: 'childAges must list one age (0-17) per child' });
-    }
-    childAges = b.childAges.map((a) => Number(a));
-    if (childAges.some((a) => !Number.isInteger(a) || a < 0 || a > 17)) {
-      return res.status(400).json({ error: 'Each child age must be a whole number between 0 and 17' });
-    }
-  }
-
-  const roomInfo = roomRates.getRoom(room);
-  if (!roomInfo) return res.status(400).json({ error: 'Unknown room type' });
-  if (adults + children > roomInfo.maxGuests) {
-    return res.status(400).json({ error: 'Too many guests for this room type' });
-  }
+  const guestErr = validateGuest(guest);
+  if (guestErr) return res.status(400).json({ error: guestErr });
+  const dateErr = validateDates(checkIn, checkOut);
+  if (dateErr) return res.status(400).json({ error: dateErr });
 
   const nights = computeNights(checkIn, checkOut);
   if (nights > 365) {
     return res.status(400).json({ error: 'Stay length exceeds the maximum of 365 nights' });
   }
-  const total = await computeTotal(room, variantLabel, breakfast, nights, adults + children, childAges);
-  if (total == null) return res.status(400).json({ error: 'Unknown room variant' });
+
+  const priced = await validateAndPriceRoom(b, nights);
+  if (priced.error) return res.status(400).json({ error: priced.error });
+  const v = priced.values;
 
   const guestName = String(guest.firstName || 'Guest').trim();
   const guestLastName = guest.lastName ? String(guest.lastName).trim() : null;
@@ -180,33 +243,21 @@ router.post('/reservations', async (req, res) => {
   const client = await db.connect();
   try {
     await client.query('BEGIN');
-    await client.query('SELECT pg_advisory_xact_lock(hashtext($1)::bigint)', [room]);
+    await client.query('SELECT pg_advisory_xact_lock(hashtext($1)::bigint)', [v.room]);
 
-    const cnt = await countOverlapping(client, room, checkIn, checkOut);
-    if (cnt >= roomRates.getInventory(room)) {
+    const cnt = await countOverlapping(client, v.room, checkIn, checkOut);
+    if (cnt >= roomRates.getInventory(v.room)) {
       await client.query('ROLLBACK');
       return res.status(409).json({ error: 'Sorry, this room type is fully booked for those dates.' });
     }
 
-    const ref = genRef();
-    const { rows } = await client.query(
-      `INSERT INTO guest_bookings
-         (ref, channel, channel_name, guest_name, guest_last_name, guest_email, guest_phone,
-          room, check_in, check_out, nights, adults, children, total, currency, status, lang,
-          payment_provider, payment_method, payment_status, smoking_preference, breakfast, child_ages,
-          special_requests)
-       VALUES ($1,'direct','Direct (Website)',$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'THB','confirmed',$13,
-               'in_person','pay_at_checkin','pending',$14,$15,$16,$17)
-       RETURNING *`,
-      [
-        ref, guestName, guestLastName, guest.email, guest.phone || null,
-        room, checkIn, checkOut, nights, adults, children, total,
-        b.lang || 'en', smoking, breakfast, JSON.stringify(childAges),
-        specialRequests,
-      ]
-    );
+    const saved = await insertBookingRow(client, {
+      ref: genRef(), guestName, guestLastName, guestEmail: guest.email, guestPhone: guest.phone,
+      room: v.room, checkIn, checkOut, nights, adults: v.adults, children: v.children,
+      total: v.total, lang: b.lang, smoking: v.smoking, breakfast: v.breakfast,
+      childAges: v.childAges, specialRequests,
+    });
     await client.query('COMMIT');
-    const saved = rows[0];
 
     fireBookingEmails({ ...saved, inserted: true });
 
@@ -214,6 +265,121 @@ router.post('/reservations', async (req, res) => {
   } catch (e) {
     try { await client.query('ROLLBACK'); } catch (_) {}
     console.error('[payments] reservations', e);
+    res.status(500).json({ error: 'Database error' });
+  } finally {
+    client.release();
+  }
+});
+
+/* POST /reservations/group — create ONE guest reservation that holds several
+   rooms, stored as one guest_bookings row per room, all sharing a group_ref
+   (the guest-facing confirmation number). Every room is validated and priced
+   by the exact same validateAndPriceRoom()/computeTotal() a single-room
+   booking uses — so each room's charge is identical to booking it on its own,
+   and the grand total is simply the sum. All rooms share one date range and
+   one guest contact (per the confirmed design); occupancy/room-type/breakfast/
+   smoking are per room. The whole group is inserted in ONE transaction: if any
+   room is invalid or sold out, nothing is written (never a partial group). */
+router.post('/reservations/group', async (req, res) => {
+  const ip = req.ip || 'unknown';
+  if (rateLimited(ip)) {
+    return res.status(429).json({ error: 'Too many requests. Please try again later.' });
+  }
+
+  const b = req.body || {};
+  const guest = b.guest || {};
+  const { checkIn, checkOut } = b;
+  const rooms = Array.isArray(b.rooms) ? b.rooms : null;
+  const specialRequests = typeof guest.note === 'string' && guest.note.trim()
+    ? guest.note.trim().slice(0, 1000) : null;
+
+  if (!rooms || rooms.length < 2) {
+    return res.status(400).json({ error: 'A group booking needs at least 2 rooms' });
+  }
+  if (rooms.length > MAX_GROUP_ROOMS) {
+    return res.status(400).json({ error: `A single booking can hold at most ${MAX_GROUP_ROOMS} rooms` });
+  }
+
+  const guestErr = validateGuest(guest);
+  if (guestErr) return res.status(400).json({ error: guestErr });
+  const dateErr = validateDates(checkIn, checkOut);
+  if (dateErr) return res.status(400).json({ error: dateErr });
+
+  const nights = computeNights(checkIn, checkOut);
+  if (nights > 365) {
+    return res.status(400).json({ error: 'Stay length exceeds the maximum of 365 nights' });
+  }
+
+  // Validate + price every room up front (no DB writes yet). Any bad room
+  // fails the whole booking with a clear 400 naming the offending room.
+  const priced = [];
+  for (let i = 0; i < rooms.length; i++) {
+    const r = await validateAndPriceRoom(rooms[i], nights);
+    if (r.error) return res.status(400).json({ error: `Room ${i + 1}: ${r.error}` });
+    priced.push(r.values);
+  }
+
+  const guestName = String(guest.firstName || 'Guest').trim();
+  const guestLastName = guest.lastName ? String(guest.lastName).trim() : null;
+
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+
+    // Lock every DISTINCT room type in sorted order so two concurrent group
+    // bookings that share any room type acquire the locks in the same order
+    // and can never deadlock each other.
+    const distinctRooms = [...new Set(priced.map((p) => p.room))].sort();
+    for (const room of distinctRooms) {
+      await client.query('SELECT pg_advisory_xact_lock(hashtext($1)::bigint)', [room]);
+    }
+
+    // Per-type inventory: existing overlapping bookings + how many of this
+    // type this group requests must fit within inventory. (Inventory is 999
+    // for this property so this never realistically trips, but it stays
+    // correct even for a room type booked twice within the same group.)
+    for (const room of distinctRooms) {
+      const requested = priced.filter((p) => p.room === room).length;
+      const existing = await countOverlapping(client, room, checkIn, checkOut);
+      if (existing + requested > roomRates.getInventory(room)) {
+        await client.query('ROLLBACK');
+        return res.status(409).json({ error: `Sorry, ${room} is fully booked for those dates.` });
+      }
+    }
+
+    const groupRef = genRef();
+    const groupSize = priced.length;
+    const savedRows = [];
+    for (let i = 0; i < priced.length; i++) {
+      const v = priced[i];
+      const saved = await insertBookingRow(client, {
+        ref: `${groupRef}-R${i + 1}`,
+        guestName, guestLastName, guestEmail: guest.email, guestPhone: guest.phone,
+        room: v.room, checkIn, checkOut, nights, adults: v.adults, children: v.children,
+        total: v.total, lang: b.lang, smoking: v.smoking, breakfast: v.breakfast,
+        childAges: v.childAges, specialRequests,
+        groupRef, groupIndex: i + 1, groupSize,
+      });
+      savedRows.push(saved);
+    }
+    await client.query('COMMIT');
+
+    // One aggregated guest confirmation + one aggregated hotel notice for the
+    // whole group (fire-and-forget; queries the just-inserted rows by group_ref).
+    fireGroupBookingEmails(groupRef);
+
+    const grandTotal = savedRows.reduce((s, r) => s + Number(r.total || 0), 0);
+    res.status(201).json({
+      status: 'confirmed',
+      groupRef,
+      grandTotal,
+      currency: 'THB',
+      rooms: savedRows.map((r) => ({ ref: r.ref, room: r.room, total: Number(r.total || 0) })),
+      bookings: savedRows.map(row2js),
+    });
+  } catch (e) {
+    try { await client.query('ROLLBACK'); } catch (_) {}
+    console.error('[payments] reservations/group', e);
     res.status(500).json({ error: 'Database error' });
   } finally {
     client.release();

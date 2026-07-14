@@ -61,6 +61,18 @@
       'bk.pay.childAgesLabel': "Children's ages",
       'bk.pay.childAgeN': 'Child {n} age',
       'bk.pay.err.childAges': "Please enter each child's age (0–17) so we can apply the correct breakfast pricing.",
+      'bk.pay.addRoom': 'Add another room',
+      'bk.pay.addToBooking': 'Add to booking',
+      'bk.pay.reviewBook': 'Review & book',
+      'bk.pay.cartTitle': 'Your booking',
+      'bk.pay.roomWord': 'room', 'bk.pay.roomsWord': 'rooms',
+      'bk.pay.grandTotal': 'Total (all rooms)',
+      'bk.pay.remove': 'Remove', 'bk.pay.clearCart': 'Clear',
+      'bk.pay.confirmBooking': 'Confirm booking',
+      'bk.pay.roomsInBooking': 'Rooms in this booking',
+      'bk.pay.datesMismatch': 'All rooms in one booking must share the same check-in and check-out dates. Please review your current booking, or set the dates back to keep adding rooms.',
+      'bk.pay.depositNoteMulti': 'A {amount} THB deposit (200 THB × {n} rooms) for your room key cards is collected in cash only at check-in, and refunded in full at check-out.',
+      'bk.pay.cartEmpty': 'Your booking is empty. Please add at least one room.',
     },
     th: {
       'bk.pay.roomType': 'ประเภทห้อง', 'bk.pay.guestDetails': 'ข้อมูลผู้เข้าพัก',
@@ -90,6 +102,18 @@
       'bk.pay.childAgesLabel': 'อายุของเด็ก',
       'bk.pay.childAgeN': 'อายุเด็กคนที่ {n}',
       'bk.pay.err.childAges': 'กรุณาระบุอายุของเด็กแต่ละคน (0–17 ปี) เพื่อให้เราคิดราคาอาหารเช้าได้อย่างถูกต้อง',
+      'bk.pay.addRoom': 'เพิ่มห้องพัก',
+      'bk.pay.addToBooking': 'เพิ่มเข้าการจอง',
+      'bk.pay.reviewBook': 'ตรวจสอบและจอง',
+      'bk.pay.cartTitle': 'การจองของท่าน',
+      'bk.pay.roomWord': 'ห้อง', 'bk.pay.roomsWord': 'ห้อง',
+      'bk.pay.grandTotal': 'ยอดรวมทั้งหมด',
+      'bk.pay.remove': 'ลบ', 'bk.pay.clearCart': 'ล้าง',
+      'bk.pay.confirmBooking': 'ยืนยันการจอง',
+      'bk.pay.roomsInBooking': 'ห้องพักในการจองนี้',
+      'bk.pay.datesMismatch': 'ห้องพักทุกห้องในการจองเดียวกันต้องมีวันเช็คอินและเช็คเอาท์เดียวกัน กรุณาตรวจสอบการจองปัจจุบัน หรือปรับวันที่กลับเพื่อเพิ่มห้องต่อ',
+      'bk.pay.depositNoteMulti': 'มีการเรียกเก็บเงินมัดจำบัตรคีย์การ์ด {amount} บาท (200 บาท × {n} ห้อง) เป็นเงินสดเท่านั้น ณ วันเช็คอิน และคืนเต็มจำนวนเมื่อเช็คเอาท์',
+      'bk.pay.cartEmpty': 'การจองของท่านยังว่างอยู่ กรุณาเพิ่มห้องพักอย่างน้อยหนึ่งห้อง',
     },
     ja: {
       'bk.pay.roomType': '客室タイプ', 'bk.pay.guestDetails': 'ご宿泊者情報',
@@ -119,6 +143,18 @@
       'bk.pay.childAgesLabel': 'お子様の年齢',
       'bk.pay.childAgeN': 'お子様{n}の年齢',
       'bk.pay.err.childAges': '朝食料金を正しく計算するため、お子様お一人おひとりの年齢（0〜17歳）をご入力ください。',
+      'bk.pay.addRoom': '別のお部屋を追加',
+      'bk.pay.addToBooking': '予約に追加',
+      'bk.pay.reviewBook': '確認して予約',
+      'bk.pay.cartTitle': 'ご予約内容',
+      'bk.pay.roomWord': '室', 'bk.pay.roomsWord': '室',
+      'bk.pay.grandTotal': '合計金額（全室）',
+      'bk.pay.remove': '削除', 'bk.pay.clearCart': 'クリア',
+      'bk.pay.confirmBooking': '予約を確定する',
+      'bk.pay.roomsInBooking': 'この予約のお部屋',
+      'bk.pay.datesMismatch': '1つの予約に含まれるすべてのお部屋は、同じチェックイン・チェックアウト日である必要があります。現在のご予約をご確認いただくか、日付を戻してお部屋を追加してください。',
+      'bk.pay.depositNoteMulti': 'ルームキーカードのデポジット{amount} THB（200 THB × {n}室）を、チェックイン時に現金のみで頂戴いたします。チェックアウト時に全額返金いたします。',
+      'bk.pay.cartEmpty': 'ご予約内容が空です。お部屋を1室以上追加してください。',
     },
     'zh-Hans': {
       'bk.pay.roomType': '房型', 'bk.pay.guestDetails': '入住人信息',
@@ -148,6 +184,18 @@
       'bk.pay.childAgesLabel': '儿童年龄',
       'bk.pay.childAgeN': '第{n}位儿童年龄',
       'bk.pay.err.childAges': '请填写每位儿童的年龄（0–17岁），以便我们计算正确的早餐费用。',
+      'bk.pay.addRoom': '再加一间房',
+      'bk.pay.addToBooking': '加入预订',
+      'bk.pay.reviewBook': '查看并预订',
+      'bk.pay.cartTitle': '您的预订',
+      'bk.pay.roomWord': '间房', 'bk.pay.roomsWord': '间房',
+      'bk.pay.grandTotal': '总计（全部房间）',
+      'bk.pay.remove': '移除', 'bk.pay.clearCart': '清空',
+      'bk.pay.confirmBooking': '确认预订',
+      'bk.pay.roomsInBooking': '此预订的房间',
+      'bk.pay.datesMismatch': '同一预订中的所有房间必须使用相同的入住和退房日期。请先查看当前预订，或将日期改回以继续添加房间。',
+      'bk.pay.depositNoteMulti': '房卡押金{amount}泰铢（200泰铢 × {n}间），仅收现金，于入住时收取，退房时全额退还。',
+      'bk.pay.cartEmpty': '您的预订为空，请至少添加一间房。',
     },
     'zh-Hant': {
       'bk.pay.roomType': '房型', 'bk.pay.guestDetails': '入住人資訊',
@@ -177,6 +225,18 @@
       'bk.pay.childAgesLabel': '兒童年齡',
       'bk.pay.childAgeN': '第{n}位兒童年齡',
       'bk.pay.err.childAges': '請填寫每位兒童的年齡（0–17歲），以便我們計算正確的早餐費用。',
+      'bk.pay.addRoom': '再加一間房',
+      'bk.pay.addToBooking': '加入預訂',
+      'bk.pay.reviewBook': '查看並預訂',
+      'bk.pay.cartTitle': '您的預訂',
+      'bk.pay.roomWord': '間房', 'bk.pay.roomsWord': '間房',
+      'bk.pay.grandTotal': '總計（全部房間）',
+      'bk.pay.remove': '移除', 'bk.pay.clearCart': '清空',
+      'bk.pay.confirmBooking': '確認預訂',
+      'bk.pay.roomsInBooking': '此預訂的房間',
+      'bk.pay.datesMismatch': '同一預訂中的所有房間必須使用相同的入住和退房日期。請先查看目前預訂，或將日期改回以繼續新增房間。',
+      'bk.pay.depositNoteMulti': '房卡押金{amount}泰銖（200泰銖 × {n}間），僅收現金，於入住時收取，退房時全額退還。',
+      'bk.pay.cartEmpty': '您的預訂為空，請至少新增一間房。',
     },
   };
   if (I) I.registerI18n(STR);
@@ -187,6 +247,117 @@
   var overlay = null;
   var box = null;
   var state = null; // current booking context while the modal is open
+
+  // ============================================================
+  //  Multi-room "cart": a single booking can hold several rooms, each priced
+  //  independently (per-room) and submitted together to POST
+  //  /api/v1/reservations/group, which creates one guest_bookings row per room
+  //  sharing a group_ref (the guest-facing confirmation number). All rooms in
+  //  one booking share the same dates (from the search) — different dates means
+  //  a separate booking. The cart lives in sessionStorage so a page refresh or
+  //  language switch doesn't lose it. The displayed prices are estimates; the
+  //  server always recomputes the authoritative per-room charge on submit.
+  // ============================================================
+  var CART_KEY = 'jpark.bookingCart';
+  var cart = loadCart();
+  var pendingGuest = null; // guest details typed before switching to cart mode
+
+  function loadCart() {
+    try { var a = JSON.parse(sessionStorage.getItem(CART_KEY)); return Array.isArray(a) ? a : []; }
+    catch (e) { return []; }
+  }
+  function saveCart() {
+    try { sessionStorage.setItem(CART_KEY, JSON.stringify(cart)); } catch (e) {}
+  }
+  function cartGrandTotal() {
+    return cart.reduce(function (s, it) { return s + Number(it.estTotal || 0); }, 0);
+  }
+  function roomsWord(n) {
+    return n + NB + TR(n === 1 ? 'bk.pay.roomWord' : 'bk.pay.roomsWord');
+  }
+
+  // Snapshot the room the modal is currently configuring into a cart line item.
+  // Carries only the fields the group endpoint needs to re-price server-side
+  // (room, variantLabel, breakfast, smoking, occupancy, childAges) plus a
+  // display estimate + labels.
+  function currentRoomCartItem() {
+    var v = currentVariant();
+    return {
+      room: state.room,
+      roomDisplayName: state.roomDisplayName,
+      variantLabel: v.label,
+      breakfast: state.breakfast,
+      smoking: state.smoking,
+      adults: state.adults,
+      children: state.children,
+      childAges: state.children ? (state.childAges || []).slice() : [],
+      checkIn: state.checkIn,
+      checkOut: state.checkOut,
+      nights: state.nights,
+      estTotal: currentTotal(),
+    };
+  }
+
+  // Add the room currently in the modal to the cart, enforcing the shared-dates
+  // rule (all rooms in one booking share one date range), then return to the
+  // room list (close the modal) with the cart bar updated so the guest can pick
+  // another room or review & book.
+  function addCurrentRoomToCart() {
+    clearFormError();
+    if (!validateChildAges()) { showFormError(TR('bk.pay.err.childAges')); return; }
+    if (cart.length && (cart[0].checkIn !== state.checkIn || cart[0].checkOut !== state.checkOut)) {
+      showFormError(TR('bk.pay.datesMismatch'));
+      return;
+    }
+    capturePendingGuest();
+    cart.push(currentRoomCartItem());
+    saveCart();
+    renderCartBar();
+    close();
+  }
+
+  function capturePendingGuest() {
+    if (!document.getElementById('bkpFirstName')) return; // guest fields not shown
+    var g = {
+      firstName: val('bkpFirstName'),
+      lastName: val('bkpLastName'),
+      email: val('bkpEmail'),
+      phone: val('bkpPhone'),
+      note: val('bkpNote'),
+    };
+    if (g.firstName || g.email || g.phone || g.note) pendingGuest = g;
+  }
+
+  function setInput(id, v) { var el = document.getElementById(id); if (el && v != null) el.value = v; }
+
+  // ---- Cart bar (fixed at the bottom of the booking page) ----
+  var cartBar = null;
+  function buildCartBar() {
+    if (cartBar) return;
+    cartBar = document.createElement('div');
+    cartBar.className = 'bkp-cart-bar';
+    cartBar.hidden = true;
+    document.body.appendChild(cartBar);
+  }
+  function renderCartBar() {
+    buildCartBar();
+    if (!cart.length) { cartBar.hidden = true; return; }
+    cartBar.hidden = false;
+    cartBar.innerHTML =
+      '<div class="bkp-cart-bar-inner">' +
+        '<span class="bkp-cart-bar-info">🛎️ ' + roomsWord(cart.length) + ' · ' + money(cartGrandTotal()) + '</span>' +
+        '<span class="bkp-cart-bar-actions">' +
+          '<button type="button" class="bkp-cart-clear" id="bkpCartClear">' + TR('bk.pay.clearCart') + '</button>' +
+          '<button type="button" class="btn btn-solid bkp-cart-review" id="bkpCartReview">' + TR('bk.pay.reviewBook') + '</button>' +
+        '</span>' +
+      '</div>';
+    cartBar.querySelector('#bkpCartReview').addEventListener('click', openCartReview);
+    cartBar.querySelector('#bkpCartClear').addEventListener('click', function () {
+      cart = [];
+      saveCart();
+      renderCartBar();
+    });
+  }
 
   function build() {
     if (overlay) return;
@@ -320,6 +491,12 @@
   // — see backend/routes/payments.js.
   function renderReservationForm() {
     var v = currentVariant();
+    // In cart mode (a multi-room booking already in progress) this modal is
+    // purely "configure THIS room" — guest details + the single-room "Confirm
+    // reservation" are hidden; the guest adds the room and finishes via the
+    // cart bar's "Review & book". In solo mode it stays the familiar
+    // single-room form, with an extra "Add another room" to start a group.
+    var inCart = cart.length > 0;
     var guestsStr = countWord(state.adults, 'bk.gAdult1', 'bk.gAdultN') +
       (state.children > 0 ? ' · ' + countWord(state.children, 'bk.gChild1', 'bk.gChildN') : '');
 
@@ -365,24 +542,33 @@
         '<div id="bkpSurchargeNotes">' + surchargeNotesHTML() + '</div>' +
         '<div class="bkp-total-row"><span>' + TR('bk.pay.total') + '</span><strong id="bkpTotal">' + money(currentTotal()) + '</strong></div>' +
 
-        '<div class="bkp-guest-fields">' +
-          '<p class="bkp-section-label">' + TR('bk.pay.guestDetails') + '</p>' +
-          '<div class="bkp-grid-2">' +
-            '<div class="bkp-field"><label>' + TR('bk.pay.firstName') + '</label><input id="bkpFirstName" autocomplete="given-name"></div>' +
-            '<div class="bkp-field"><label>' + TR('bk.pay.lastName') + '</label><input id="bkpLastName" autocomplete="family-name"></div>' +
+        // Solo mode: an "Add another room" link (above guest details, since
+        // adding doesn't need them) turns this into a multi-room booking.
+        (inCart ? '' :
+          '<button type="button" class="btn btn-outline bkp-add-room-btn" id="bkpAddRoomBtn">＋ ' + TR('bk.pay.addRoom') + '</button>') +
+
+        // Guest details + deposit + pay-note + single-room confirm only exist
+        // in solo mode; in cart mode they're collected once at Review & book.
+        (inCart ? '' :
+          '<div class="bkp-guest-fields">' +
+            '<p class="bkp-section-label">' + TR('bk.pay.guestDetails') + '</p>' +
+            '<div class="bkp-grid-2">' +
+              '<div class="bkp-field"><label>' + TR('bk.pay.firstName') + '</label><input id="bkpFirstName" autocomplete="given-name"></div>' +
+              '<div class="bkp-field"><label>' + TR('bk.pay.lastName') + '</label><input id="bkpLastName" autocomplete="family-name"></div>' +
+            '</div>' +
+            '<div class="bkp-field"><label>' + TR('bk.pay.email') + '</label><input type="email" id="bkpEmail" autocomplete="email"></div>' +
+            '<div class="bkp-field"><label>' + TR('bk.pay.phone') + '</label><input type="tel" id="bkpPhone" autocomplete="tel"></div>' +
+            '<div class="bkp-field"><label>' + TR('bk.pay.note') + '</label><textarea id="bkpNote" rows="2" placeholder="' + esc(TR('bk.pay.notePlaceholder')) + '"></textarea></div>' +
           '</div>' +
-          '<div class="bkp-field"><label>' + TR('bk.pay.email') + '</label><input type="email" id="bkpEmail" autocomplete="email"></div>' +
-          '<div class="bkp-field"><label>' + TR('bk.pay.phone') + '</label><input type="tel" id="bkpPhone" autocomplete="tel"></div>' +
-          '<div class="bkp-field"><label>' + TR('bk.pay.note') + '</label><textarea id="bkpNote" rows="2" placeholder="' + esc(TR('bk.pay.notePlaceholder')) + '"></textarea></div>' +
-        '</div>' +
-
-        '<div class="bkp-deposit-note"><strong>' + TR('bk.pay.depositTitle') + ':</strong> ' + TR('bk.pay.depositNote') + '</div>' +
-
-        '<p class="bkp-pp-note">' + TR('bk.pay.checkinNote') + '</p>' +
+          '<div class="bkp-deposit-note"><strong>' + TR('bk.pay.depositTitle') + ':</strong> ' + TR('bk.pay.depositNote') + '</div>' +
+          '<p class="bkp-pp-note">' + TR('bk.pay.checkinNote') + '</p>'
+        ) +
 
         '<p class="bkp-form-error" id="bkpFormError" hidden></p>' +
 
-        '<button type="button" class="btn btn-solid bkp-submit-btn" id="bkpSubmitBtn">' + TR('bk.pay.confirmReservation') + '</button>' +
+        (inCart
+          ? '<button type="button" class="btn btn-solid bkp-submit-btn" id="bkpAddRoomBtn">' + TR('bk.pay.addToBooking') + '</button>'
+          : '<button type="button" class="btn btn-solid bkp-submit-btn" id="bkpSubmitBtn">' + TR('bk.pay.confirmReservation') + '</button>') +
       '</div>' +
       resultViewsHTML() +
       '</div>';
@@ -437,7 +623,13 @@
         updateReservationTotals();
       });
     }
-    qs('#bkpSubmitBtn').addEventListener('click', onReservationSubmit);
+    // In cart mode the (single) solid button is "Add to booking" and carries
+    // id bkpAddRoomBtn; in solo mode the outline "Add another room" carries it
+    // and a separate bkpSubmitBtn confirms the single-room booking.
+    var addRoomBtn = qs('#bkpAddRoomBtn');
+    if (addRoomBtn) addRoomBtn.addEventListener('click', addCurrentRoomToCart);
+    var submitBtn = qs('#bkpSubmitBtn');
+    if (submitBtn) submitBtn.addEventListener('click', onReservationSubmit);
   }
 
   function setReservationSubmitting(isSubmitting) {
@@ -578,6 +770,223 @@
       if (titleEl) titleEl.textContent = TR(opts.titleKey);
       if (noteEl) noteEl.textContent = TR(opts.noteKey);
     }
+    var doneBtn = qs('#bkpDoneBtn');
+    if (doneBtn) doneBtn.addEventListener('click', close);
+  }
+
+  // ============================================================
+  //  Cart review — the one place a multi-room booking is finalised: shows
+  //  every room + its per-room price, the grand total, the per-room deposit,
+  //  and the single guest-details form, then posts the whole group.
+  // ============================================================
+  function openCartReview() {
+    if (!cart.length) return;
+    build();
+    state = { review: true };
+    overlay.hidden = false;
+    lockBodyScroll();
+    renderCartReview();
+  }
+
+  function cartItemHTML(it, i, removable) {
+    var guestsStr = countWord(it.adults, 'bk.gAdult1', 'bk.gAdultN') +
+      (it.children > 0 ? ' · ' + countWord(it.children, 'bk.gChild1', 'bk.gChildN') : '');
+    var bfStr = it.breakfast ? TR('bk.withBreakfast') : TR('bk.roomOnly');
+    var name = esc(it.roomDisplayName || it.room) + (it.variantLabel ? ' · ' + esc(it.variantLabel) : '');
+    return '<div class="bkp-cart-item">' +
+      '<div class="bkp-cart-item-main">' +
+        '<div class="bkp-cart-item-name">' + name + '</div>' +
+        '<div class="bkp-cart-item-meta">' + guestsStr + ' · ' + bfStr + '</div>' +
+      '</div>' +
+      '<div class="bkp-cart-item-side">' +
+        '<span class="bkp-cart-item-price">' + money(it.estTotal) + '</span>' +
+        (removable ? '<button type="button" class="bkp-cart-remove" data-cart-index="' + i + '" aria-label="' + esc(TR('bk.pay.remove')) + '">&times;</button>' : '') +
+      '</div>' +
+    '</div>';
+  }
+
+  function renderCartReview() {
+    var ci = cart[0].checkIn, co = cart[0].checkOut, nights = cart[0].nights;
+    var depositAmount = 200 * cart.length;
+    var roomsHTML = cart.map(function (it, i) { return cartItemHTML(it, i, true); }).join('');
+
+    box.innerHTML =
+      '<div class="bkp-head"><span class="bkp-title">' + TR('bk.pay.cartTitle') + ' · ' + roomsWord(cart.length) + '</span>' +
+        '<button type="button" class="bkp-close" aria-label="' + TR('bk.pay.close') + '">&times;</button></div>' +
+      '<div class="bkp-body">' +
+      '<div class="bkp-view" id="bkpViewForm">' +
+
+        '<div class="bkp-summary">' +
+          '<div class="bkp-summary-row"><span>' + fmtDate(ci) + ' &rarr; ' + fmtDate(co) + '</span><span>' + nightsWord(nights) + '</span></div>' +
+          '<div class="bkp-summary-row bkp-summary-time">' + TR('bk.pay.checkinTimeNote') + '</div>' +
+        '</div>' +
+
+        '<p class="bkp-section-label">' + TR('bk.pay.roomsInBooking') + '</p>' +
+        '<div class="bkp-cart-list" id="bkpCartList">' + roomsHTML + '</div>' +
+
+        '<div class="bkp-total-row bkp-grand-total"><span>' + TR('bk.pay.grandTotal') + '</span><strong id="bkpGrandTotal">' + money(cartGrandTotal()) + '</strong></div>' +
+
+        '<div class="bkp-guest-fields">' +
+          '<p class="bkp-section-label">' + TR('bk.pay.guestDetails') + '</p>' +
+          '<div class="bkp-grid-2">' +
+            '<div class="bkp-field"><label>' + TR('bk.pay.firstName') + '</label><input id="bkpFirstName" autocomplete="given-name"></div>' +
+            '<div class="bkp-field"><label>' + TR('bk.pay.lastName') + '</label><input id="bkpLastName" autocomplete="family-name"></div>' +
+          '</div>' +
+          '<div class="bkp-field"><label>' + TR('bk.pay.email') + '</label><input type="email" id="bkpEmail" autocomplete="email"></div>' +
+          '<div class="bkp-field"><label>' + TR('bk.pay.phone') + '</label><input type="tel" id="bkpPhone" autocomplete="tel"></div>' +
+          '<div class="bkp-field"><label>' + TR('bk.pay.note') + '</label><textarea id="bkpNote" rows="2" placeholder="' + esc(TR('bk.pay.notePlaceholder')) + '"></textarea></div>' +
+        '</div>' +
+
+        '<div class="bkp-deposit-note"><strong>' + TR('bk.pay.depositTitle') + ':</strong> ' +
+          (cart.length === 1
+            ? TR('bk.pay.depositNote')
+            : TR('bk.pay.depositNoteMulti').replace('{amount}', String(depositAmount)).replace('{n}', String(cart.length))) + '</div>' +
+
+        '<p class="bkp-pp-note">' + TR('bk.pay.checkinNote') + '</p>' +
+
+        '<p class="bkp-form-error" id="bkpFormError" hidden></p>' +
+
+        '<button type="button" class="btn btn-solid bkp-submit-btn" id="bkpSubmitBtn">' + TR('bk.pay.confirmBooking') + ' · ' + roomsWord(cart.length) + '</button>' +
+      '</div>' +
+      groupResultViewHTML() +
+      '</div>';
+
+    if (pendingGuest) {
+      setInput('bkpFirstName', pendingGuest.firstName);
+      setInput('bkpLastName', pendingGuest.lastName);
+      setInput('bkpEmail', pendingGuest.email);
+      setInput('bkpPhone', pendingGuest.phone);
+      setInput('bkpNote', pendingGuest.note);
+    }
+
+    qs('.bkp-close').addEventListener('click', close);
+    qs('#bkpCartList').addEventListener('click', function (e) {
+      var btn = e.target.closest ? e.target.closest('.bkp-cart-remove') : null;
+      if (!btn) return;
+      cart.splice(parseInt(btn.getAttribute('data-cart-index'), 10), 1);
+      saveCart();
+      renderCartBar();
+      if (!cart.length) { close(); return; }
+      renderCartReview();
+    });
+    qs('#bkpSubmitBtn').addEventListener('click', onGroupSubmit);
+  }
+
+  function groupResultViewHTML() {
+    return (
+      '<div class="bkp-view" id="bkpViewSuccess" hidden>' +
+        '<div class="bkp-success-icon" aria-hidden="true">&#10003;</div>' +
+        '<h3>' + TR('bk.pay.successTitle') + '</h3>' +
+        '<p>' + TR('bk.pay.confirmationLabel') + ': <strong id="bkpRefText"></strong></p>' +
+        '<p class="bkp-section-label">' + TR('bk.pay.roomsInBooking') + '</p>' +
+        '<div class="bkp-cart-list" id="bkpSuccessRooms"></div>' +
+        '<div class="bkp-total-row bkp-grand-total"><span>' + TR('bk.pay.grandTotal') + '</span><strong id="bkpSuccessTotal"></strong></div>' +
+        '<div class="bkp-deposit-note" id="bkpSuccessDeposit"></div>' +
+        '<p class="bkp-success-note bkp-checkin-time-note">' + TR('bk.pay.checkinTimeNote') + '</p>' +
+        '<p class="bkp-success-note bkp-email-sent-note">' + TR('bk.pay.emailSentNote') + '</p>' +
+        '<p class="bkp-success-note bkp-spam-note">' + TR('bk.pay.spamNote') + '</p>' +
+        '<button type="button" class="btn btn-solid" id="bkpDoneBtn">' + TR('bk.pay.done') + '</button>' +
+      '</div>'
+    );
+  }
+
+  function setGroupSubmitting(isSubmitting) {
+    var btn = qs('#bkpSubmitBtn');
+    if (btn) {
+      btn.disabled = isSubmitting;
+      btn.textContent = isSubmitting ? TR('bk.pay.processingText') : (TR('bk.pay.confirmBooking') + ' · ' + roomsWord(cart.length));
+    }
+  }
+
+  function onGroupSubmit() {
+    clearFormError();
+    if (!cart.length) { showFormError(TR('bk.pay.cartEmpty')); return; }
+    if (!validateGuestFields()) return;
+
+    var handle = function (r, single) {
+      if (!r || r.error) {
+        setGroupSubmitting(false);
+        if (!r || r.offline || (r.status && r.status >= 500)) showFormError(TR('bk.pay.err.offline'));
+        else if (r.status === 409) showFormError(r.error || TR('bk.pay.err.soldOut'));
+        else showFormError(r.error || TR('bk.pay.err.generic'));
+        return;
+      }
+      // Normalise the single-room response into the group success shape so
+      // one success view handles both.
+      showGroupSuccess(single
+        ? { groupRef: r.booking.ref, grandTotal: r.booking.total, rooms: [{ room: r.booking.room, total: r.booking.total }] }
+        : r);
+    };
+
+    setGroupSubmitting(true);
+    // A one-room "booking" is just a normal single reservation — the group
+    // endpoint requires 2+ rooms, so route it through /reservations instead.
+    if (cart.length === 1) {
+      var it = cart[0];
+      var singleBody = {
+        room: it.room, variantLabel: it.variantLabel,
+        breakfast: it.breakfast, smoking: it.smoking,
+        checkIn: it.checkIn, checkOut: it.checkOut,
+        adults: it.adults, children: it.children,
+        childAges: it.children ? it.childAges : [],
+        guest: guestPayload(), lang: I ? I.getLang() : 'en',
+      };
+      window.JPark.api.post('/api/v1/reservations', singleBody)
+        .then(function (r) { handle(r, true); })
+        .catch(function () { setGroupSubmitting(false); showFormError(TR('bk.pay.err.offline')); });
+      return;
+    }
+
+    var body = {
+      rooms: cart.map(function (it) {
+        return {
+          room: it.room,
+          variantLabel: it.variantLabel,
+          breakfast: it.breakfast,
+          smoking: it.smoking,
+          adults: it.adults,
+          children: it.children,
+          childAges: it.children ? it.childAges : [],
+        };
+      }),
+      checkIn: cart[0].checkIn,
+      checkOut: cart[0].checkOut,
+      guest: guestPayload(),
+      lang: I ? I.getLang() : 'en',
+    };
+    window.JPark.api.post('/api/v1/reservations/group', body)
+      .then(function (r) { handle(r, false); })
+      .catch(function () { setGroupSubmitting(false); showFormError(TR('bk.pay.err.offline')); });
+  }
+
+  function showGroupSuccess(resp) {
+    var n = (resp.rooms && resp.rooms.length) || cart.length;
+    showView('bkpViewSuccess');
+    var refEl = qs('#bkpRefText');
+    if (refEl) refEl.textContent = resp.groupRef || '';
+    var roomsEl = qs('#bkpSuccessRooms');
+    if (roomsEl && resp.rooms) {
+      roomsEl.innerHTML = resp.rooms.map(function (rm) {
+        return '<div class="bkp-cart-item"><div class="bkp-cart-item-main">' +
+          '<div class="bkp-cart-item-name">' + esc(rm.room) + '</div></div>' +
+          '<div class="bkp-cart-item-side"><span class="bkp-cart-item-price">' + money(rm.total) + '</span></div></div>';
+      }).join('');
+    }
+    var totalEl = qs('#bkpSuccessTotal');
+    if (totalEl) totalEl.textContent = money(resp.grandTotal != null ? resp.grandTotal : cartGrandTotal());
+    var depEl = qs('#bkpSuccessDeposit');
+    if (depEl) {
+      depEl.innerHTML = '<strong>' + TR('bk.pay.depositTitle') + ':</strong> ' +
+        (n === 1
+          ? TR('bk.pay.depositNote')
+          : TR('bk.pay.depositNoteMulti').replace('{amount}', String(200 * n)).replace('{n}', String(n)));
+    }
+    // Booking succeeded — empty the cart now so a refresh can't resubmit it
+    // (the success view already renders from the server response, not the cart).
+    cart = [];
+    saveCart();
+    pendingGuest = null;
+    renderCartBar();
     var doneBtn = qs('#bkpDoneBtn');
     if (doneBtn) doneBtn.addEventListener('click', close);
   }
@@ -733,5 +1142,14 @@
     });
   }
 
-  window.JPark.bookingFlow = { open: open, openDayUse: openDayUse };
+  // Restore the cart bar on load (a sessionStorage cart survives a refresh)
+  // and keep its labels — and an open review modal — in sync with the site
+  // language.
+  renderCartBar();
+  document.addEventListener('jpark:langchange', function () {
+    renderCartBar();
+    if (overlay && !overlay.hidden && state && state.review) renderCartReview();
+  });
+
+  window.JPark.bookingFlow = { open: open, openDayUse: openDayUse, review: openCartReview };
 })();
