@@ -1323,8 +1323,32 @@
   /* Guest bookings forwarded in from OTA channels (Agoda, Booking.com…).
      Every staff member and admin sees the same inbox; "read" is tracked
      per user via readBy, exactly like internal messages. */
+
+  // Direct-only Guest Booking inbox ----------------------------------------
+  // The client asked that only Direct (Website) bookings appear in Guest
+  // Booking; OTA reservations (Agoda, Booking.com, Airbnb, Trip.com, Expedia,
+  // Traveloka, Hotels.com, "other"…) are hidden from every staff-facing view.
+  // Nothing about OTA routing is removed: the email bridge, parser, ingest
+  // API and stored rows are all left intact, so the bookings still arrive and
+  // persist in the background. Flip SHOW_OTA_BOOKINGS back to true to restore
+  // the combined OTA+Direct inbox exactly as before.
+  //
+  // We match on channel_name, not channel: the backend's normChannel() folds
+  // any unrecognized OTA (Traveloka, Hotels.com, generic "other", or a parse
+  // miss) down to channel "direct", so channel alone would leak those OTA
+  // rows into this view. Only genuine website bookings — inserted by
+  // payments.js — carry channel_name "Direct (Website)".
+  const SHOW_OTA_BOOKINGS = false;
+  const DIRECT_CHANNEL_NAME = "Direct (Website)";
+  function isDirectBooking(b) {
+    return !!b && b.channelName === DIRECT_CHANNEL_NAME;
+  }
+  function visibleBookings(list) {
+    return list.filter((b) => SHOW_OTA_BOOKINGS || isDirectBooking(b));
+  }
+
   function getBookingMsgs() {
-    return S.list("guestBookings").slice().sort((a, b) => b.createdAt - a.createdAt);
+    return visibleBookings(S.list("guestBookings")).sort((a, b) => b.createdAt - a.createdAt);
   }
   function isBookingUnread(b) {
     return !b.readBy || !session || !b.readBy.includes(session.id);
@@ -1523,7 +1547,7 @@
 
   function getStarredMsgs() {
     const msgs = getActiveMsgs().filter((m) => m.starred).sort((a, b) => b.createdAt - a.createdAt);
-    const bookings = S.list("guestBookings").filter((b) => b.starred).sort((a, b) => b.createdAt - a.createdAt);
+    const bookings = visibleBookings(S.list("guestBookings")).filter((b) => b.starred).sort((a, b) => b.createdAt - a.createdAt);
     return { msgs, bookings };
   }
 
@@ -4710,7 +4734,7 @@
   }
   function onBookingsChange() {
     if (seenBookings) {
-      S.list("guestBookings").forEach((b) => {
+      visibleBookings(S.list("guestBookings")).forEach((b) => {
         if (!seenBookings.has(b.id)) {
           seenBookings.add(b.id);
           notify(t("staff.notif.booking") + " · " + (b.channelName || "") + " · " + (b.guestName || ""));
