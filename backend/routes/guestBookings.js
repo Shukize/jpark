@@ -863,12 +863,43 @@ router.get('/:id', requireAuth, async (req, res) => {
   }
 });
 
+// ---------------------------------------------------------------------------
+// OTA / channel-manager intake switch (added 2026-07-15).
+// Per the hotel: from now on ONLY Direct (Website) bookings are handled. Every
+// OTA / "Other channel" reservation (Agoda, Booking.com, Airbnb, Trip.com,
+// Expedia, Traveloka, Hotels.com, generic "other" …) must NOT be ingested and
+// must NOT trigger the hotel-notice or guest-confirmation emails — those OTA
+// notices were reaching jparkhotel1@gmail.com (and could reach guests), which
+// the hotel does not want. The OTA machinery (email bridge, parser, ingest
+// API, staff rendering) is deliberately LEFT INTACT; flip HANDLE_OTA_BOOKINGS
+// back to true to restore the previous combined OTA+Direct behaviour exactly.
+const HANDLE_OTA_BOOKINGS = false;
+
+// The only kind of booking still processed. payments.js inserts website
+// bookings with channel_name "Direct (Website)"; that name is the sole reliable
+// marker because normChannel() folds any unrecognized OTA down to the "direct"
+// channel column (see the note in staff.js visibleBookings()). Accepts either
+// the snake_case DB row or the camelCase intake payload.
+const DIRECT_CHANNEL_NAME = 'Direct (Website)';
+function isDirectWebsiteBooking(b) {
+  return !!b && (b.channel_name === DIRECT_CHANNEL_NAME || b.channelName === DIRECT_CHANNEL_NAME);
+}
+
 /* Fire the hotel notice + guest confirmation for a freshly-inserted booking.
    Fire-and-forget: never awaited, never throws into the request path. Only runs
    for a genuinely new, confirmed booking so webhook / re-forward retries
    (ON CONFLICT updates, inserted=false) don't re-send. */
 function fireBookingEmails(saved) {
   if (!saved || !saved.inserted || saved.status !== 'confirmed') return;
+
+  // OTA notifications are disabled — never email the hotel or the guest for a
+  // non-direct booking while HANDLE_OTA_BOOKINGS is off. Defense in depth: the
+  // ingest choke point already drops OTA bookings, but this guarantees no OTA
+  // notice can escape even if some other path ever reaches here.
+  if (!HANDLE_OTA_BOOKINGS && !isDirectWebsiteBooking(saved)) {
+    console.log(`[guest-bookings] OTA emails disabled — skipped notice/confirmation for ${saved.ref} (${saved.channel_name || saved.channel})`);
+    return;
+  }
 
   // 1) Notify the hotel front desk (jparkhotel1@gmail.com) for EVERY booking,
   //    even when the OTA didn't pass a guest email. Mirrors the Guest Booking
@@ -1021,6 +1052,15 @@ async function sendGroupConfirmation(rows, override, actor) {
    `inserted` flag). Throws on DB error. */
 async function ingestGuestBooking(b) {
   b = b || {};
+  // OTA intake disabled — see HANDLE_OTA_BOOKINGS. Every booking arriving here
+  // is from an OTA / channel manager (direct website bookings are inserted by
+  // payments.js, never through this function), so when OTA handling is off we
+  // drop it before any DB write or email. Returns null; the webhook and
+  // email-bridge callers turn that into a benign "ignored" acknowledgement.
+  if (!HANDLE_OTA_BOOKINGS && !isDirectWebsiteBooking(b)) {
+    console.log(`[guest-bookings] OTA intake disabled — ignored ${b.ref || b.bookingId || b.confirmationCode || 'booking'} (${b.channelName || b.channel_name || b.channel || 'other'})`);
+    return null;
+  }
   const channel = normChannel(b.channel || b.source || 'direct');
   const ref = b.ref || b.bookingId || b.confirmationCode
     || ('GB-' + Date.now().toString(36).toUpperCase());
@@ -1113,6 +1153,11 @@ router.post('/', async (req, res) => {
   }
   try {
     const saved = await ingestGuestBooking(req.body || {});
+    // null → OTA handling is disabled (see HANDLE_OTA_BOOKINGS). Acknowledge so
+    // the channel manager doesn't retry, but store nothing and email no one.
+    if (!saved) {
+      return res.status(202).json({ status: 'ignored', reason: 'Only Direct (Website) bookings are handled' });
+    }
     res.status(201).json(row2js(saved));
   } catch (e) {
     if (/check_in and check_out/.test(e.message)) {
