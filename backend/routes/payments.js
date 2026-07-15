@@ -62,14 +62,21 @@ function genRef() {
 // rate — the label is a bed-style preference, not a different product),
 // the breakfast rate itself is also derived from totalGuests rather than
 // the submitted variant, via effectiveBreakfastRate() — see its comment.
-async function computeTotal(room, variantLabel, breakfast, nights, totalGuests, childAges) {
+// `extraBed` is a flat, opt-in physical add-on (+surcharges.extraBed/night),
+// separate from the guest-count surcharge above: it lets a guest pay for a
+// rollaway bed even when the party is a young child the age-tiered math never
+// bills a bed for (children under 9 sleep free). Only honoured for a room that
+// physically allows one (extraBedAvailable); mirrors assets/js/booking-payment
+// .js's extraBedRate() so the charged total matches the displayed one.
+async function computeTotal(room, variantLabel, breakfast, nights, totalGuests, childAges, extraBed) {
   const effectiveRoom = await rateOverrides.getEffectiveRoom(room);
   if (!effectiveRoom) return null;
   const variant = effectiveRoom.variants.find((v) => v.label === variantLabel);
   if (!variant) return null;
   const surcharges = await rateOverrides.getEffectiveSurcharges();
   const rate = breakfast ? rateOverrides.effectiveBreakfastRate(effectiveRoom, variant, totalGuests, surcharges) : variant.room;
-  const perNight = rate + rateOverrides.computeGuestSurcharge(effectiveRoom, totalGuests, breakfast, surcharges, childAges);
+  const bedAddon = (extraBed && effectiveRoom.extraBedAvailable) ? surcharges.extraBed : 0;
+  const perNight = rate + rateOverrides.computeGuestSurcharge(effectiveRoom, totalGuests, breakfast, surcharges, childAges) + bedAddon;
   return perNight * nights;
 }
 
@@ -151,10 +158,15 @@ async function validateAndPriceRoom(r, nights) {
   if (adults + children > roomInfo.maxGuests) {
     return { error: 'Too many guests for this room type' };
   }
-  const total = await computeTotal(room, variantLabel, breakfast, nights, adults + children, childAges);
+  // Opt-in extra bed — a flat add-on, only meaningful for a room that allows
+  // one (silently ignored otherwise so a stale/hostile flag can't inflate the
+  // total on a room with no rollaway). It does NOT count against maxGuests: a
+  // bed is a physical surface for an already-counted guest, not a new head.
+  const extraBed = Boolean(r.extraBed) && !!roomInfo.extraBedAvailable;
+  const total = await computeTotal(room, variantLabel, breakfast, nights, adults + children, childAges, extraBed);
   if (total == null) return { error: 'Unknown room variant' };
 
-  return { values: { room, variantLabel, breakfast, smoking, adults, children, childAges, total } };
+  return { values: { room, variantLabel, breakfast, smoking, adults, children, childAges, extraBed, total } };
 }
 
 // Insert one confirmed direct booking row. `p.groupRef/groupIndex/groupSize`
@@ -168,15 +180,16 @@ async function insertBookingRow(client, p) {
        (ref, channel, channel_name, guest_name, guest_last_name, guest_email, guest_phone,
         room, check_in, check_out, nights, adults, children, total, currency, status, lang,
         payment_provider, payment_method, payment_status, smoking_preference, breakfast, child_ages,
-        special_requests, group_ref, group_index, group_size)
+        special_requests, group_ref, group_index, group_size, extra_bed)
      VALUES ($1,'direct','Direct (Website)',$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'THB','confirmed',$13,
-             'in_person','pay_at_checkin','pending',$14,$15,$16,$17,$18,$19,$20)
+             'in_person','pay_at_checkin','pending',$14,$15,$16,$17,$18,$19,$20,$21)
      RETURNING *`,
     [
       p.ref, p.guestName, p.guestLastName, p.guestEmail, p.guestPhone || null,
       p.room, p.checkIn, p.checkOut, p.nights, p.adults, p.children, p.total,
       p.lang || 'en', p.smoking, p.breakfast, JSON.stringify(p.childAges),
       p.specialRequests, p.groupRef || null, p.groupIndex || null, p.groupSize || null,
+      Boolean(p.extraBed),
     ]
   );
   return rows[0];
@@ -255,7 +268,7 @@ router.post('/reservations', async (req, res) => {
       ref: genRef(), guestName, guestLastName, guestEmail: guest.email, guestPhone: guest.phone,
       room: v.room, checkIn, checkOut, nights, adults: v.adults, children: v.children,
       total: v.total, lang: b.lang, smoking: v.smoking, breakfast: v.breakfast,
-      childAges: v.childAges, specialRequests,
+      childAges: v.childAges, extraBed: v.extraBed, specialRequests,
     });
     await client.query('COMMIT');
 
@@ -357,7 +370,7 @@ router.post('/reservations/group', async (req, res) => {
         guestName, guestLastName, guestEmail: guest.email, guestPhone: guest.phone,
         room: v.room, checkIn, checkOut, nights, adults: v.adults, children: v.children,
         total: v.total, lang: b.lang, smoking: v.smoking, breakfast: v.breakfast,
-        childAges: v.childAges, specialRequests,
+        childAges: v.childAges, extraBed: v.extraBed, specialRequests,
         groupRef, groupIndex: i + 1, groupSize,
       });
       savedRows.push(saved);

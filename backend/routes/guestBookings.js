@@ -134,6 +134,7 @@ const EMAIL_I18N = {
     intro: 'Thank you for choosing J Park Hotel, Chonburi. Your reservation is confirmed.',
     confirmation: 'Confirmation', room: 'Room', checkin: 'Check-in', checkout: 'Check-out',
     nights: 'Nights', guests: 'Guests', roomPref: 'Room preference', breakfast: 'Breakfast',
+    extraBed: 'Extra bed',
     specialRequests: 'Special requests',
     total: 'Total', payment: 'Payment',
     adultsChildren: (a, c) => `${a} adult(s), ${c} child(ren)`,
@@ -157,6 +158,7 @@ const EMAIL_I18N = {
     intro: 'ขอบคุณที่เลือกพักกับ J Park Hotel, Chonburi การจองของท่านได้รับการยืนยันแล้ว',
     confirmation: 'หมายเลขยืนยัน', room: 'ห้องพัก', checkin: 'เช็คอิน', checkout: 'เช็คเอาท์',
     nights: 'จำนวนคืน', guests: 'ผู้เข้าพัก', roomPref: 'ห้องสูบบุหรี่/ปลอดบุหรี่', breakfast: 'อาหารเช้า',
+    extraBed: 'เตียงเสริม',
     specialRequests: 'คำขอพิเศษ',
     total: 'ยอดรวม', payment: 'การชำระเงิน',
     adultsChildren: (a, c) => `ผู้ใหญ่ ${a} ท่าน, เด็ก ${c} ท่าน`,
@@ -180,6 +182,7 @@ const EMAIL_I18N = {
     intro: 'この度はJ Park Hotel, Chonburiをお選びいただき、誠にありがとうございます。ご予約が確定いたしましたのでご案内申し上げます。',
     confirmation: '確認番号', room: '客室', checkin: 'チェックイン', checkout: 'チェックアウト',
     nights: '宿泊数', guests: '宿泊人数', roomPref: 'お部屋のご希望', breakfast: '朝食',
+    extraBed: 'エキストラベッド',
     specialRequests: 'ご要望',
     total: '合計金額', payment: 'お支払い',
     adultsChildren: (a, c) => `大人 ${a}名、子供 ${c}名`,
@@ -203,6 +206,7 @@ const EMAIL_I18N = {
     intro: '感谢您选择下榻J Park Hotel, Chonburi。您的预订已确认。',
     confirmation: '确认号', room: '房型', checkin: '入住', checkout: '退房',
     nights: '住宿晚数', guests: '入住人数', roomPref: '房间偏好', breakfast: '早餐',
+    extraBed: '加床',
     specialRequests: '特殊要求',
     total: '总计', payment: '付款方式',
     adultsChildren: (a, c) => `成人 ${a} 位，儿童 ${c} 位`,
@@ -226,6 +230,7 @@ const EMAIL_I18N = {
     intro: '感謝您選擇下榻J Park Hotel, Chonburi。您的預訂已確認。',
     confirmation: '確認號', room: '房型', checkin: '入住', checkout: '退房',
     nights: '住宿晚數', guests: '入住人數', roomPref: '房間偏好', breakfast: '早餐',
+    extraBed: '加床',
     specialRequests: '特殊要求',
     total: '總計', payment: '付款方式',
     adultsChildren: (a, c) => `成人 ${a} 位，兒童 ${c} 位`,
@@ -300,6 +305,7 @@ function hotelNotice(bk) {
     `Guests: ${guests}`,
     `Room preference: ${smokingLabel(bk)}`,
     `Breakfast: ${breakfastLabel(bk)}`,
+    ...(bk.extra_bed ? ['Extra bed: Yes'] : []),
     ...(bk.special_requests ? [`Special requests: ${bk.special_requests}`] : []),
     `Total: ${money}`,
     ...(payment ? [`Payment: ${payment}`] : []),
@@ -324,6 +330,7 @@ function hotelNotice(bk) {
     `<tr><td style="padding:4px 12px 4px 0;color:#555">Guests</td><td style="padding:4px 0">${guests}</td></tr>` +
     `<tr><td style="padding:4px 12px 4px 0;color:#555">Room preference</td><td style="padding:4px 0">${smokingLabel(bk)}</td></tr>` +
     `<tr><td style="padding:4px 12px 4px 0;color:#555">Breakfast</td><td style="padding:4px 0">${breakfastLabel(bk)}</td></tr>` +
+    (bk.extra_bed ? `<tr><td style="padding:4px 12px 4px 0;color:#555">Extra bed</td><td style="padding:4px 0">Yes</td></tr>` : '') +
     (bk.special_requests ? `<tr><td style="padding:4px 12px 4px 0;color:#555">Special requests</td><td style="padding:4px 0">${escapeHtml(bk.special_requests)}</td></tr>` : '') +
     `<tr><td style="padding:4px 12px 4px 0;color:#555">Total</td><td style="padding:4px 0">${money}</td></tr>` +
     (payment ? `<tr><td style="padding:4px 12px 4px 0;color:#555">Payment</td><td style="padding:4px 0">${payment}</td></tr>` : '') +
@@ -365,6 +372,7 @@ function confirmationEmail(bk) {
     `${L.guests}: ${L.adultsChildren(bk.adults, bk.children)}${L.childAgesSuffix(bk.child_ages)}`,
     `${L.roomPref}: ${smokingText}`,
     `${L.breakfast}: ${breakfastText}`,
+    ...(bk.extra_bed ? [`${L.extraBed}: ${L.yes}`] : []),
     ...(bk.special_requests ? [`${L.specialRequests}: ${bk.special_requests}`] : []),
     `${L.total}: ${money}`,
     ...(payment ? [`${L.payment}: ${payment}`] : []),
@@ -394,6 +402,7 @@ function confirmationEmail(bk) {
     `<tr><td style="padding:4px 12px 4px 0;color:#555">${L.guests}</td><td style="padding:4px 0">${L.adultsChildren(bk.adults, bk.children)}${L.childAgesSuffix(bk.child_ages)}</td></tr>` +
     `<tr><td style="padding:4px 12px 4px 0;color:#555">${L.roomPref}</td><td style="padding:4px 0">${smokingText}</td></tr>` +
     `<tr><td style="padding:4px 12px 4px 0;color:#555">${L.breakfast}</td><td style="padding:4px 0">${breakfastText}</td></tr>` +
+    (bk.extra_bed ? `<tr><td style="padding:4px 12px 4px 0;color:#555">${L.extraBed}</td><td style="padding:4px 0">${L.yes}</td></tr>` : '') +
     (bk.special_requests ? `<tr><td style="padding:4px 12px 4px 0;color:#555">${L.specialRequests}</td><td style="padding:4px 0">${escapeHtml(bk.special_requests)}</td></tr>` : '') +
     `<tr><td style="padding:4px 12px 4px 0;color:#555">${L.total}</td><td style="padding:4px 0">${money}</td></tr>` +
     (payment ? `<tr><td style="padding:4px 12px 4px 0;color:#555">${L.payment}</td><td style="padding:4px 0">${payment}</td></tr>` : '') +
@@ -434,6 +443,7 @@ function groupConfirmationEmail(rows) {
       `    ${L.guests}: ${L.adultsChildren(r.adults, r.children)}${L.childAgesSuffix(r.child_ages)}`,
       `    ${L.roomPref}: ${smokingText}`,
       `    ${L.breakfast}: ${r.breakfast ? L.yes : L.no}`,
+      ...(r.extra_bed ? [`    ${L.extraBed}: ${L.yes}`] : []),
       `    ${L.subtotal}: ${roomMoney(r)}`,
     ].join('\n');
   };
@@ -473,6 +483,7 @@ function groupConfirmationEmail(rows) {
       `<tr><td style="padding:2px 12px 2px 0;color:#555">${L.guests}</td><td style="padding:2px 0">${L.adultsChildren(r.adults, r.children)}${L.childAgesSuffix(r.child_ages)}</td></tr>` +
       `<tr><td style="padding:2px 12px 2px 0;color:#555">${L.roomPref}</td><td style="padding:2px 0">${smokingText}</td></tr>` +
       `<tr><td style="padding:2px 12px 2px 0;color:#555">${L.breakfast}</td><td style="padding:2px 0">${r.breakfast ? L.yes : L.no}</td></tr>` +
+      (r.extra_bed ? `<tr><td style="padding:2px 12px 2px 0;color:#555">${L.extraBed}</td><td style="padding:2px 0">${L.yes}</td></tr>` : '') +
       `<tr><td style="padding:2px 12px 6px 0;color:#555">${L.subtotal}</td><td style="padding:2px 0 6px">${roomMoney(r)}</td></tr>`
     );
   }).join('');
@@ -513,7 +524,7 @@ function groupHotelNotice(rows) {
   const roomLine = (r, i) => {
     const childAges = Array.isArray(r.child_ages) && r.child_ages.length ? ` (ages: ${r.child_ages.join(', ')})` : '';
     return `  Room ${i + 1}: ${r.room || '—'} — ${r.adults} adult(s), ${r.children} child(ren)${childAges}, `
-      + `${smokingLabel(r)}, breakfast: ${breakfastLabel(r)}, ${roomMoney(r)}`;
+      + `${smokingLabel(r)}, breakfast: ${breakfastLabel(r)}${r.extra_bed ? ', extra bed' : ''}, ${roomMoney(r)}`;
   };
   const lines = [
     `New ${n}-room booking via ${via}.`,
@@ -539,7 +550,7 @@ function groupHotelNotice(rows) {
   const roomRowsHtml = rows.map((r, i) => {
     const childAges = Array.isArray(r.child_ages) && r.child_ages.length ? ` (ages: ${escapeHtml(r.child_ages.join(', '))})` : '';
     return `<tr><td style="padding:4px 12px 4px 0;color:#555">Room ${i + 1}</td>`
-      + `<td style="padding:4px 0">${escapeHtml(r.room || '—')} — ${r.adults} adult(s), ${r.children} child(ren)${childAges}, ${smokingLabel(r)}, breakfast: ${breakfastLabel(r)}, <strong>${roomMoney(r)}</strong></td></tr>`;
+      + `<td style="padding:4px 0">${escapeHtml(r.room || '—')} — ${r.adults} adult(s), ${r.children} child(ren)${childAges}, ${smokingLabel(r)}, breakfast: ${breakfastLabel(r)}${r.extra_bed ? ', extra bed' : ''}, <strong>${roomMoney(r)}</strong></td></tr>`;
   }).join('');
   const html =
     `<div style="font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;line-height:1.5">` +
@@ -753,6 +764,7 @@ function row2js(r) {
     childAges: Array.isArray(r.child_ages) ? r.child_ages : [],
     smokingPreference: r.smoking_preference || 'non_smoking',
     breakfast: !!r.breakfast,
+    extraBed: !!r.extra_bed,
     specialRequests: r.special_requests || null,
     total: r.total ? Number(r.total) : null,
     currency: r.currency,
@@ -791,7 +803,7 @@ const LIST_COLUMNS = [
   'guest_name', 'guest_last_name', 'guest_email', 'guest_phone',
   'room', 'room_number', 'group_ref', 'group_index', 'group_size',
   'check_in', 'check_out', 'nights',
-  'adults', 'children', 'child_ages', 'smoking_preference', 'breakfast',
+  'adults', 'children', 'child_ages', 'smoking_preference', 'breakfast', 'extra_bed',
   'special_requests',
   'total', 'currency', 'status', 'lang',
   'payment_provider', 'payment_method', 'payment_status', 'payment_charge_id',

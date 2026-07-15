@@ -2815,6 +2815,7 @@
     }
     fields += bookingField("msg.bk.smokingPref", t("msg.bk.smokingPref." + (b.smokingPreference || "non_smoking")));
     fields += bookingField("msg.bk.breakfast", t(b.breakfast ? "msg.bk.breakfast.yes" : "msg.bk.breakfast.no"));
+    if (b.extraBed) fields += bookingField("msg.bk.extraBed", t("msg.bk.breakfast.yes"));
     fields += bookingField("msg.bk.total", totalStr);
     fields += bookingField("msg.bk.payment", bkPaymentLabel(b));
     fields += bookingField("msg.bk.statusLabel", bkStatusLabel(b.status));

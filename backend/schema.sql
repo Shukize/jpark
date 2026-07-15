@@ -277,6 +277,16 @@ ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS group_size  INTEGER;
 CREATE INDEX IF NOT EXISTS idx_guest_bookings_group_ref
   ON guest_bookings (group_ref);
 
+-- Opt-in physical extra bed / rollaway (routes/payments.js — the booking
+-- modal's "Extra bed" toggle, direct-website bookings only). A flat per-night
+-- surcharge (surcharges.extraBed) already baked into `total`; this boolean
+-- records that the guest requested one so housekeeping sets it up and the
+-- confirmation email / staff detail can itemise it. Distinct from the
+-- age-tiered extra-bed charge the guest-count math applies for a 3rd+ adult —
+-- this is the explicit toggle, offered only when that math bills no bed (e.g.
+-- a young child). FALSE for OTA/manual/day-use and every pre-existing row.
+ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS extra_bed BOOLEAN NOT NULL DEFAULT FALSE;
+
 -- ── Chat messages (guest ↔ front-desk) ──────────────────────────────────────
 CREATE TABLE IF NOT EXISTS chat_messages (
   id                  SERIAL       PRIMARY KEY,
