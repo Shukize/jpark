@@ -998,6 +998,10 @@ body.bk-pay-open { position: fixed; left: 0; right: 0; overflow: hidden; }
 .bkp-radio:has(input:checked) { border-color: var(--teal); background: rgba(12, 91, 88, 0.06); }
 .bkp-radio input { accent-color: var(--teal); }
 
+/* Opt-in extra-bed toggle: a single full-width checkbox pill (reuses the
+   .bkp-radio look so it highlights when ticked). */
+.bkp-checkbox { align-self: stretch; }
+
 .bkp-surcharge-line {
   font-size: 0.8rem; color: var(--ink-soft); text-align: right; padding: 1px 2px;
 }

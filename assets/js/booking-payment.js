@@ -43,6 +43,7 @@
       'bk.pay.depositNote': 'A 200 THB deposit for your room key card is collected in cash only at check-in, and refunded in full at check-out.',
       'bk.pay.total': 'Total',
       'bk.pay.extraBedLine': 'Extra bed (3rd guest)', 'bk.pay.extraBreakfastLine': 'Extra breakfast guest',
+      'bk.pay.extraBedLabel': 'Extra bed', 'bk.pay.extraBedAdd': 'Add an extra bed for a 3rd guest',
       'bk.pay.processingText': 'Processing…',
       'bk.pay.cancel': 'Cancel', 'bk.pay.close': 'Close',
       'bk.pay.successTitle': 'Booking confirmed!', 'bk.pay.confirmationLabel': 'Confirmation number',
@@ -84,6 +85,7 @@
       'bk.pay.depositNote': 'มีการเรียกเก็บเงินมัดจำบัตรคีย์การ์ด 200 บาท เป็นเงินสดเท่านั้น ณ วันเช็คอิน และคืนเต็มจำนวนเมื่อเช็คเอาท์',
       'bk.pay.total': 'ยอดรวม',
       'bk.pay.extraBedLine': 'เตียงเสริม (ผู้เข้าพักคนที่ 3)', 'bk.pay.extraBreakfastLine': 'อาหารเช้าเพิ่มเติม',
+      'bk.pay.extraBedLabel': 'เตียงเสริม', 'bk.pay.extraBedAdd': 'เพิ่มเตียงเสริมสำหรับผู้เข้าพักคนที่ 3',
       'bk.pay.processingText': 'กำลังดำเนินการ…',
       'bk.pay.cancel': 'ยกเลิก', 'bk.pay.close': 'ปิด',
       'bk.pay.successTitle': 'ยืนยันการจองแล้ว!', 'bk.pay.confirmationLabel': 'หมายเลขยืนยัน',
@@ -125,6 +127,7 @@
       'bk.pay.depositNote': 'ルームキーカードのデポジット200THBを、チェックイン時に現金のみで頂戴いたします。チェックアウト時に全額返金いたします。',
       'bk.pay.total': '合計',
       'bk.pay.extraBedLine': 'エキストラベッド（3人目）', 'bk.pay.extraBreakfastLine': '追加の朝食',
+      'bk.pay.extraBedLabel': 'エキストラベッド', 'bk.pay.extraBedAdd': '3人目にエキストラベッドを追加',
       'bk.pay.processingText': '処理中…',
       'bk.pay.cancel': 'キャンセル', 'bk.pay.close': '閉じる',
       'bk.pay.successTitle': 'ご予約が確定しました！', 'bk.pay.confirmationLabel': '確認番号',
@@ -166,6 +169,7 @@
       'bk.pay.depositNote': '房卡押金200泰铢，仅收现金，于入住时收取，退房时全额退还。',
       'bk.pay.total': '总计',
       'bk.pay.extraBedLine': '加床（第3位客人）', 'bk.pay.extraBreakfastLine': '额外早餐',
+      'bk.pay.extraBedLabel': '加床', 'bk.pay.extraBedAdd': '为第3位客人加一张床',
       'bk.pay.processingText': '处理中…',
       'bk.pay.cancel': '取消', 'bk.pay.close': '关闭',
       'bk.pay.successTitle': '预订成功！', 'bk.pay.confirmationLabel': '确认号',
@@ -207,6 +211,7 @@
       'bk.pay.depositNote': '房卡押金200泰銖，僅收現金，於入住時收取，退房時全額退還。',
       'bk.pay.total': '總計',
       'bk.pay.extraBedLine': '加床（第3位客人）', 'bk.pay.extraBreakfastLine': '額外早餐',
+      'bk.pay.extraBedLabel': '加床', 'bk.pay.extraBedAdd': '為第3位客人加一張床',
       'bk.pay.processingText': '處理中…',
       'bk.pay.cancel': '取消', 'bk.pay.close': '關閉',
       'bk.pay.successTitle': '預訂成功！', 'bk.pay.confirmationLabel': '確認號',
@@ -288,7 +293,7 @@
       variantLabel: v.label,
       breakfast: state.breakfast,
       smoking: state.smoking,
-      adults: state.adults,
+      adults: effectiveAdults(),
       children: state.children,
       childAges: state.children ? (state.childAges || []).slice() : [],
       checkIn: state.checkIn,
@@ -403,6 +408,23 @@
 
   // ---- Views -------------------------------------------------
   function currentVariant() { return state.variants[state.variantIndex]; }
+  // An opted-in extra bed is simply one more adult-equivalent guest: it flows
+  // through the exact same guest-count pricing path as a party that had
+  // searched with a 3rd adult, so there is never a second, divergent copy of
+  // the extra-bed math (booking-page.js's computeGuestSurcharge stays the one
+  // source of truth). Only ever true for a room where extraBedAvailable and
+  // there was room under maxGuests — see extraBedEligible()/open().
+  function effectiveAdults() { return (state.adults || 0) + (state.extraBed ? 1 : 0); }
+  // Offer the toggle only when the room allows an extra bed AND the searched
+  // party is exactly at the base 2 adults with capacity to spare — i.e. the
+  // added bed is a genuine, chargeable 3rd guest. If they already searched
+  // with 3+ adults the extra bed is baked into the party already, so hiding
+  // it here avoids double-counting it.
+  function extraBedEligible() {
+    return !!state.extraBedAvailable &&
+      (state.adults || 0) >= 2 &&
+      ((state.adults || 0) + (state.children || 0)) < (state.maxGuests || 0);
+  }
   // For an occupancy-tier room (all variants share the same room-only
   // rate — Single/Twin/Double is a bed-style preference, not a different
   // product), the breakfast price depends on how many guests are actually
@@ -412,7 +434,7 @@
   // of which variant the guest ends up selecting below.
   function breakfastRate(v) {
     var P = window.JPark && window.JPark.pricing;
-    var totalGuests = (state.adults || 0) + (state.children || 0);
+    var totalGuests = effectiveAdults() + (state.children || 0);
     if (P && P.isOccupancyTier({ variants: state.variants })) {
       return P.occupancyBreakfastPrice({ variants: state.variants }, totalGuests);
     }
@@ -428,7 +450,7 @@
   function currentSurcharge() {
     var P = window.JPark && window.JPark.pricing;
     if (!P) return 0;
-    var totalGuests = (state.adults || 0) + (state.children || 0);
+    var totalGuests = effectiveAdults() + (state.children || 0);
     return P.computeGuestSurcharge({ extraBedAvailable: state.extraBedAvailable }, totalGuests, state.breakfast, state.childAges);
   }
   function currentTotal() { return (currentRate() + currentSurcharge()) * state.nights; }
@@ -443,7 +465,7 @@
     if (!P) return '';
     var surcharges = P.getSurcharges();
     var childAges = state.childAges || [];
-    var adults = state.adults || 0;
+    var adults = effectiveAdults();
     var olderChildren = childAges.filter(function (a) { return Number(a) >= 9; }).length;
     var youngerChildren = childAges.filter(function (a) { var n = Number(a); return n >= 5 && n < 9; }).length;
     var extraAdults = Math.max(0, adults - 2) + olderChildren;
@@ -468,6 +490,23 @@
   // silently under- or over-pay by an unset field defaulting to "free" or
   // "adult rate". Values are read/written directly on state.childAges by the
   // input listener wired in wireReservationForm().
+  // Opt-in extra-bed checkbox — only rendered for a room that allows one and
+  // whose searched party leaves room for a 3rd guest (extraBedEligible()).
+  // Priced as one more adult; the per-night surcharge is shown on the pill and
+  // itemised in surchargeNotesHTML() once ticked.
+  function extraBedFieldHTML() {
+    if (!extraBedEligible()) return '';
+    var P = window.JPark && window.JPark.pricing;
+    var bed = P ? P.getSurcharges().extraBed : 0;
+    return '<div class="bkp-field" id="bkpExtraBedField">' +
+      '<label class="bkp-label">' + TR('bk.pay.extraBedLabel') + '</label>' +
+      '<label class="bkp-radio bkp-checkbox">' +
+        '<input type="checkbox" id="bkpExtraBed"' + (state.extraBed ? ' checked' : '') + '> ' +
+        esc(TR('bk.pay.extraBedAdd')) + ' · +' + money(bed) +
+      '</label>' +
+    '</div>';
+  }
+
   function childAgesHTML() {
     if (!state.children) return '';
     var inputs = '';
@@ -538,6 +577,8 @@
           '<label class="bkp-radio"><input type="radio" name="bkpSmoking" value="non_smoking"' + (state.smoking !== 'smoking' ? ' checked' : '') + '> ' + TR('bk.pay.nonSmoking') + '</label>' +
           '<label class="bkp-radio"><input type="radio" name="bkpSmoking" value="smoking"' + (state.smoking === 'smoking' ? ' checked' : '') + '> ' + TR('bk.pay.smoking') + '</label>' +
         '</div></div>' +
+
+        extraBedFieldHTML() +
 
         '<div id="bkpSurchargeNotes">' + surchargeNotesHTML() + '</div>' +
         '<div class="bkp-total-row"><span>' + TR('bk.pay.total') + '</span><strong id="bkpTotal">' + money(currentTotal()) + '</strong></div>' +
@@ -613,6 +654,13 @@
     qs('#bkpSmokingRow').addEventListener('change', function (e) {
       if (e.target.name === 'bkpSmoking') state.smoking = e.target.value;
     });
+    var extraBed = qs('#bkpExtraBed');
+    if (extraBed) {
+      extraBed.addEventListener('change', function (e) {
+        state.extraBed = !!e.target.checked;
+        updateReservationTotals();
+      });
+    }
     var childAgesField = qs('#bkpChildAgesField');
     if (childAgesField) {
       childAgesField.addEventListener('input', function (e) {
@@ -667,7 +715,7 @@
       smoking: state.smoking,
       checkIn: state.checkIn,
       checkOut: state.checkOut,
-      adults: state.adults,
+      adults: effectiveAdults(),
       children: state.children,
       childAges: state.children ? state.childAges : [],
       guest: guestPayload(),
@@ -1040,6 +1088,7 @@
       variantIndex: variantIndex,
       breakfast: false,
       smoking: 'non_smoking',
+      extraBed: false,
     };
     overlay.hidden = false;
     lockBodyScroll();
