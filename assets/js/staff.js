@@ -4660,7 +4660,10 @@
     setCount("countChat", chatUnread);
     setCount("countMessages", msgUnread);
     const total = pending + chatUnread + msgUnread;
-    document.title = (total ? "(" + total + ") " : "") + "Staff Console · J Park Hotel";
+    // Keep the browser tab flagged as unread until every request/chat/booking
+    // is read — the count and the word stay in the title so the front desk can
+    // tell at a glance from any tab that something is waiting.
+    document.title = (total ? "🔔 " + total + " " + t("staff.notif.unread") + " · " : "") + "Staff Console · J Park Hotel";
   }
   function setCount(id, n) {
     const el = document.getElementById(id);
@@ -4673,9 +4676,19 @@
       try { Notification.requestPermission(); } catch (_) {}
     }
   }
+  // Reuse a single AudioContext across chimes. Creating a fresh one per ping
+  // leaks contexts and browsers cap them (~6 in Chrome), after which the sound
+  // silently stops — bad for a console that may chime all shift. We also
+  // resume() a context the autoplay policy left "suspended" so the first ping
+  // after the page was backgrounded still sounds.
+  let chimeCtx = null;
   function playChime() {
     try {
-      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      if (!chimeCtx) chimeCtx = new AC();
+      const ctx = chimeCtx;
+      if (ctx.state === "suspended" && ctx.resume) ctx.resume();
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.connect(gain); gain.connect(ctx.destination);
@@ -4734,14 +4747,20 @@
     updateBadges();
   }
   function onBookingsChange() {
+    // Chime once per change even if several rows land together (a multi-room
+    // group booking inserts N rows sharing one group_ref), so the front desk
+    // hears one clear ping instead of an overlapping burst.
+    let newBooking = false;
     if (seenBookings) {
       visibleBookings(S.list("guestBookings")).forEach((b) => {
         if (!seenBookings.has(b.id)) {
           seenBookings.add(b.id);
+          newBooking = true;
           notify(t("staff.notif.booking") + " · " + (b.channelName || "") + " · " + (b.guestName || ""));
         }
       });
     }
+    if (newBooking) playChime();
     // renderMessages() itself skips rebuilding the open booking detail pane
     // while a "Resend confirmation" edit is in progress (bkResendEditingId)
     // — badges/counts below are harmless to keep live either way.
