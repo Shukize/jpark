@@ -107,6 +107,8 @@
   let selectedThread = null;
   // Live-chat thread bulk-select state
   let chatMultiSelect = false;
+  // Live-chat thread filter: all | guests | visitors
+  let chatFilter = "all";
   let selectedChatIds = new Set();
   let seenReq = null;
   let seenBookings = null;
@@ -288,13 +290,22 @@
           lang: remote.lang, escalated: remote.escalated,
           assignedStaffId: remote.assignedStaffId,
           assignedStaffName: remote.assignedStaffName,
+          guestKind: remote.guestKind, guestVerified: remote.guestVerified,
+          bookingId: remote.bookingId, bookingRef: remote.bookingRef,
+          confirmedBy: remote.confirmedBy,
           unreadForStaff: remote.unreadForStaff, lastMsg: remote.lastMsg,
           lastAt: remote.lastAt, messages: [],
         });
         dirty = true;
       } else if (local[idx].unreadForStaff !== remote.unreadForStaff
               || local[idx].lastMsg !== remote.lastMsg
-              || local[idx].assignedStaffId !== remote.assignedStaffId) {
+              || local[idx].assignedStaffId !== remote.assignedStaffId
+              // Identity changes on its own (a guest signs in mid-chat, another
+              // console confirms a guest) with no new message to notice it by.
+              || local[idx].guestKind !== remote.guestKind
+              || local[idx].guestVerified !== remote.guestVerified
+              || local[idx].guestName !== remote.guestName
+              || local[idx].room !== remote.room) {
         if (remote.id === selectedThread && local[idx].lastMsg !== remote.lastMsg) {
           reloadSelected = true;
         }
@@ -303,6 +314,10 @@
           lastAt: remote.lastAt, escalated: remote.escalated,
           assignedStaffId: remote.assignedStaffId,
           assignedStaffName: remote.assignedStaffName,
+          guestName: remote.guestName, room: remote.room,
+          guestKind: remote.guestKind, guestVerified: remote.guestVerified,
+          bookingId: remote.bookingId, bookingRef: remote.bookingRef,
+          confirmedBy: remote.confirmedBy,
         });
         dirty = true;
       }
@@ -902,10 +917,137 @@
     return myAssignedChats().reduce((s, c) => s + (c.unreadForStaff || 0), 0);
   }
 
+  /* ---- who am I talking to? ----------------------------------------------
+     Every thread used to read "Guest" with no room, so there was no way to
+     tell a guest in 204 from someone pricing a room. A thread now carries the
+     identity the guest gave at POST /api/chat/identify, in three tiers:
+       verified    — last name + room (or booking ref) matched a live booking
+       unconfirmed — says they're staying but nothing matched. OTA and walk-in
+                     guests land here by definition (neither reaches
+                     guest_bookings), so it's a prompt to check the register
+                     and hit "Confirm guest", not a reason to distrust them
+       visitor     — told us up front they're only asking a question
+     unknown covers threads that predate this and never identified.           */
+  function chatTier(c) {
+    if (c.guestKind === "guest") return c.guestVerified ? "verified" : "unconfirmed";
+    if (c.guestKind === "visitor") return "visitor";
+    return "unknown";
+  }
+  const TIER_MARK = { verified: "✅", unconfirmed: "🔶", visitor: "⚪", unknown: "•" };
+  const TIER_KEY = {
+    verified: "staff.chat.tier.guest",
+    unconfirmed: "staff.chat.tier.unconfirmed",
+    visitor: "staff.chat.tier.visitor",
+    unknown: "staff.chat.tier.unknown",
+  };
+  function chatDisplayName(c) {
+    if (chatTier(c) === "visitor") return t("staff.chat.tier.visitor");
+    if (c.guestName) {
+      return c.guestName + (c.room ? " · " + t("staff.requests.room") + " " + c.room : "");
+    }
+    return t("staff.chat.tier.unknown");
+  }
+  function chatMatchesFilter(c) {
+    if (chatFilter === "guests") return c.guestKind === "guest";
+    if (chatFilter === "visitors") return c.guestKind !== "guest";
+    return true;
+  }
+
+  /* The booking behind a verified thread. The console already polls every
+     booking into the "guestBookings" table, so this needs no extra request —
+     and it reads the RAW list rather than visibleBookings(), which hides
+     non-direct channels the chat sign-in still legitimately matches. */
+  function chatBooking(c) {
+    if (!c || (!c.bookingId && !c.bookingRef)) return null;
+    return S.list("guestBookings").find(
+      (b) => (c.bookingId && b.id === c.bookingId) || (c.bookingRef && b.ref === c.bookingRef)
+    ) || null;
+  }
+
+  /* The band under the conversation header: the guest's booking when we have
+     one (the context the hotel asked to see next to the chat), or the prompt
+     to vouch for a guest we couldn't match. Nothing at all for a visitor. */
+  function chatIdentityStrip(c, tier) {
+    if (tier === "visitor" || tier === "unknown") return "";
+
+    const bits = [];
+    if (tier === "verified") {
+      const b = chatBooking(c);
+      if (c.bookingRef) bits.push(esc(t("msg.bk.ref")) + " " + esc(c.bookingRef));
+      if (b) {
+        if (b.room) bits.push(esc(b.room));
+        if (b.checkIn && b.checkOut) {
+          // The API hands dates back as full timestamps; formatDate wants a
+          // bare YYYY-MM-DD and renders it in the reader's own language.
+          bits.push(esc(U.formatDate(String(b.checkIn).slice(0, 10))) +
+                    " → " + esc(U.formatDate(String(b.checkOut).slice(0, 10))));
+        }
+        if (b.nights) bits.push(esc(t("msg.bk.nights")) + " " + esc(b.nights));
+        if (b.channelName) bits.push(esc(b.channelName));
+        const stay = bookingStayStatus(b);
+        if (stay) bits.push('<b class="cci-stay ' + stay + '">' + esc(t("staff.chat.stay." + stay)) + "</b>");
+      }
+      if (c.confirmedBy) {
+        bits.push(esc(t("staff.chat.confirmedBy").replace("{name}", c.confirmedBy)));
+      }
+      if (!bits.length) return "";
+      return '<div class="cc-conv-id verified">' + bits.join('<span class="cci-sep">·</span>') + "</div>";
+    }
+
+    // Unconfirmed: everything here came from the guest, so say so plainly and
+    // give the front desk the one-tap way to vouch for them.
+    return '<div class="cc-conv-id unconfirmed">' +
+      '<span class="cci-note">' + esc(t("staff.chat.noBooking")) + "</span>" +
+      '<button type="button" class="cc-confirm-btn" id="ccConfirm">' +
+        esc(t("staff.chat.confirmGuest")) + "</button>" +
+    "</div>";
+  }
+
+  /* Where a booking sits relative to today, in ICT — mirrors stayStatus() in
+     backend/lib/guestLookup.js so the console and the sign-in agree. */
+  function bookingStayStatus(b) {
+    if (!b || !b.checkIn || !b.checkOut) return null;
+    const today = new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10);
+    const ci = String(b.checkIn).slice(0, 10);
+    const co = String(b.checkOut).slice(0, 10);
+    if (today < ci) return "upcoming";
+    if (today > co) return "past";
+    return "in_house";
+  }
+
+  /* Front desk vouches for a guest the lookup couldn't match — an OTA or
+     walk-in arrival, or one whose booking isn't in the system. Optimistic
+     locally, then written server-side so every console sees it. */
+  async function confirmChatGuest(c) {
+    if (!confirm(t("staff.chat.confirmGuestPrompt"))) return;
+    const API = window.JPark && window.JPark.api;
+    if (API) {
+      const res = await API.patch(
+        "/api/chat/" + encodeURIComponent(c.id) + "/confirm-guest", {}
+      );
+      if (res && res.error) {
+        U.toast(t("staff.chat.confirmFailed") + ": " + res.error, "error");
+        return;
+      }
+    }
+    const all = S.list("chats");
+    const i = all.findIndex((x) => x.id === c.id);
+    if (i >= 0) {
+      all[i] = Object.assign({}, all[i], {
+        guestVerified: true,
+        confirmedBy: session ? session.name : null,
+      });
+      S.write("chats", all);
+    }
+    U.toast(t("staff.chat.confirmed"), "success");
+    renderChat();
+  }
+
   function renderChat() {
     const threadsEl = document.getElementById("chatThreads");
     const convEl = document.getElementById("chatConv");
-    const chats = S.list("chats").filter((c) => c.escalated).slice().sort((a, b) => {
+    const allChats = S.list("chats").filter((c) => c.escalated);
+    const chats = allChats.filter(chatMatchesFilter).slice().sort((a, b) => {
       if (!!a.pinned !== !!b.pinned) return a.pinned ? -1 : 1;
       return b.lastAt - a.lastAt;
     });
@@ -914,8 +1056,31 @@
     // deleted thread doesn't keep its checkbox state.
     const visibleIds = new Set(chats.map((c) => c.id));
     selectedChatIds.forEach((id) => { if (!visibleIds.has(id)) selectedChatIds.delete(id); });
+    // Drop the open conversation when the filter hides it, or the reply box
+    // stays pinned to a thread that's no longer in the list.
+    if (selectedThread && !visibleIds.has(selectedThread)) selectedThread = null;
 
     threadsEl.innerHTML = "";
+
+    // Guests / visitors filter — the whole point of the identity step is being
+    // able to look at just one group.
+    if (allChats.length) {
+      const filters = document.createElement("div");
+      filters.className = "req-filters cc-filters";
+      [
+        ["all", "staff.chat.filterAll"],
+        ["guests", "staff.chat.filterGuests"],
+        ["visitors", "staff.chat.filterVisitors"],
+      ].forEach(([key, label]) => {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = chatFilter === key ? "active" : "";
+        b.textContent = t(label);
+        b.addEventListener("click", () => { chatFilter = key; renderChat(); });
+        filters.appendChild(b);
+      });
+      threadsEl.appendChild(filters);
+    }
 
     // Toolbar: multi-select toggle + bulk-delete (only useful when items exist).
     if (chats.length) {
@@ -966,10 +1131,14 @@
         const assignedLabel = c.assignedStaffName
           ? (mine ? t("staff.chat.assignedYou") : t("staff.chat.assignedTo").replace("{name}", c.assignedStaffName))
           : t("staff.chat.unassigned");
+        const tier = chatTier(c);
         inner +=
           '<div class="cct-body">' +
             '<div class="cct-name">' + (c.pinned ? '<span class="cct-pinned">📌</span>' : "") + (mine && c.unreadForStaff ? '<span class="cct-unread"></span>' : "") +
-              esc(c.guestName || "Guest") + (c.room ? " · " + esc(t("staff.requests.room")) + " " + esc(c.room) : "") + "</div>" +
+              '<span class="cct-mark" title="' + esc(t(TIER_KEY[tier])) + '">' + TIER_MARK[tier] + "</span>" +
+              esc(chatDisplayName(c)) + "</div>" +
+            (tier === "unconfirmed"
+              ? '<div class="cct-tier unconfirmed">' + esc(t("staff.chat.tier.unconfirmed")) + "</div>" : "") +
             '<div class="cct-last">' + esc(c.lastMsg || "") + "</div>" +
             '<div class="cct-assigned' + (mine ? " mine" : "") + '">' + esc(assignedLabel) + "</div>" +
             '<div class="cct-lang">' + esc((I.LANG_NAMES[c.lang] || c.lang || "")) +
@@ -1025,11 +1194,14 @@
     const ownerLabel = conv.assignedStaffName
       ? (mineConv ? t("staff.chat.assignedYou") : t("staff.chat.assignedTo").replace("{name}", conv.assignedStaffName))
       : t("staff.chat.unassigned");
+    const convTier = chatTier(conv);
     let html =
-      '<div class="cc-conv-head"><span class="cch-name">' + esc(conv.guestName || "Guest") +
-        (conv.room ? " · " + esc(t("staff.requests.room")) + " " + esc(conv.room) : "") + "</span>" +
+      '<div class="cc-conv-head"><span class="cch-name">' +
+        '<span class="cch-mark" title="' + esc(t(TIER_KEY[convTier])) + '">' + TIER_MARK[convTier] + "</span>" +
+        esc(chatDisplayName(conv)) + "</span>" +
         '<span class="cch-owner' + (mineConv ? " mine" : "") + '">' + esc(ownerLabel) + "</span>" +
         '<span class="cch-lang">' + esc(t("staff.chat.guestLang")) + ": " + esc(I.LANG_NAMES[conv.lang] || conv.lang || "") + "</span></div>" +
+      chatIdentityStrip(conv, convTier) +
       '<div class="cc-conv-body" id="ccBody"></div>';
     if (mineConv) {
       html +=
@@ -1052,7 +1224,7 @@
       if (m.from === "system") {
         div.textContent = m.text;
       } else {
-        const label = m.from === "guest" ? (conv.guestName || t("chat.you"))
+        const label = m.from === "guest" ? (conv.guestName || t(TIER_KEY[convTier]))
                     : m.from === "staff" ? (m.staffName || t("chat.staff"))
                     : m.from === "bot"   ? t("chat.bot")
                     : t("chat.staff");
@@ -1093,6 +1265,8 @@
     }
     const takeBtn = document.getElementById("ccTakeover");
     if (takeBtn) takeBtn.addEventListener("click", () => takeOverChat(conv));
+    const confirmBtn = document.getElementById("ccConfirm");
+    if (confirmBtn) confirmBtn.addEventListener("click", () => confirmChatGuest(conv));
   }
 
   function markThreadRead(id) {

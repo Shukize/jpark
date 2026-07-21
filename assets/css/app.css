@@ -255,6 +255,46 @@ body.has-banner .site-header { } /* header stays fixed; banner scrolls above */
 .msg-tr-note { margin: 10px 0 0; color: var(--terracotta); opacity: .85; }
 .msg.system { align-self: center; background: transparent; color: var(--ink-soft); font-size: 0.8rem; font-style: italic; text-align: center; max-width: 100%; }
 
+/* ── Live chat: who's chatting ──────────────────────────────────────────────
+   Sits between the messages and the quick topics: a chooser + sign-in form
+   until the guest says whether they're staying, then a compact chip. Never
+   disables the input — the assistant stays usable for anyone. */
+.chat-id { padding: 0 16px; }
+.chat-id.open { padding: 12px 16px; border-top: 1px solid var(--line); background: var(--paper); }
+.chat-id .cid-ask { margin: 0 0 9px; font-size: 0.86rem; font-weight: 600; color: var(--ink); }
+.chat-id .cid-choices { display: flex; flex-direction: column; gap: 7px; }
+.chat-id .cid-btn {
+  border: 1.5px solid var(--line); background: #fff; border-radius: 999px;
+  padding: 9px 14px; font-size: 0.83rem; font-weight: 600; cursor: pointer;
+  color: var(--teal); font-family: var(--sans); text-align: left;
+}
+.chat-id .cid-btn:hover:not(:disabled) { background: var(--teal); color: var(--ivory); border-color: var(--teal); }
+.chat-id .cid-btn:disabled { opacity: .6; cursor: default; }
+.chat-id .cid-guest { border-color: var(--teal); }
+.chat-id .cid-error { margin: 8px 0 0; font-size: 0.78rem; color: var(--terracotta); line-height: 1.4; }
+.chat-id .cid-lede { margin: 0 0 9px; font-size: 0.78rem; color: var(--ink-soft); line-height: 1.45; }
+.chat-id .cid-field { display: block; margin-bottom: 7px; }
+.chat-id .cid-field span { display: block; font-size: 0.72rem; font-weight: 600; color: var(--ink-soft); margin-bottom: 3px; }
+.chat-id .cid-field input {
+  width: 100%; border: 1.5px solid var(--line); border-radius: 10px;
+  padding: 8px 11px; font-size: 0.86rem; font-family: var(--sans); background: #fff;
+}
+.chat-id .cid-field input:focus { outline: none; border-color: var(--teal); }
+.chat-id .cid-or { margin: 8px 0; text-align: center; font-size: 0.72rem; color: var(--ink-soft); }
+.chat-id .cid-actions { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+.chat-id .cid-go { background: var(--teal); color: var(--ivory); border-color: var(--teal); }
+.chat-id .cid-go:hover:not(:disabled) { opacity: .9; }
+.chat-id .cid-back { background: none; border: none; font-size: 0.78rem; color: var(--ink-soft); cursor: pointer; font-family: var(--sans); }
+.chat-id.settled { padding: 8px 16px 0; }
+.chat-id .cid-chip {
+  display: flex; align-items: center; gap: 7px; font-size: 0.75rem;
+  color: var(--ink-soft); background: var(--paper); border: 1px solid var(--line);
+  border-radius: 999px; padding: 5px 12px;
+}
+.chat-id.verified .cid-chip { border-color: var(--teal); color: var(--teal); }
+.chat-id .cid-who { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chat-id .cid-change { background: none; border: none; font-size: 0.72rem; color: var(--teal); cursor: pointer; font-family: var(--sans); text-decoration: underline; }
+
 .chat-quick { display: flex; flex-wrap: wrap; gap: 7px; padding: 0 16px 10px; }
 .chat-quick button {
   border: 1.5px solid var(--line); background: #fff; border-radius: 999px;
@@ -399,9 +439,38 @@ body.staff-body { background: #eef1ef; }
 .cc-threads-bar .cc-btn-danger { color: var(--terracotta); border-color: rgba(193,103,73,0.3); }
 .cc-threads-bar .cc-btn-danger:hover:not(:disabled) { background: rgba(193,103,73,0.08); }
 .cc-threads-bar .cc-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+/* Guests / visitors filter above the thread list — same pill look as the
+   service-requests filters, sitting above the select/delete toolbar. */
+.cc-filters.req-filters { margin: 0; padding: 10px 12px 2px; background: var(--paper); position: sticky; top: 0; z-index: 2; }
+.cc-filters.req-filters button { padding: 5px 13px; font-size: 0.78rem; }
+
+/* Tier markers: ✅ verified against a booking, 🔶 self-declared (OTA /
+   walk-in) awaiting a front-desk check, ⚪ just asking. */
+.cc-thread .cct-mark, .cc-conv-head .cch-mark { font-size: 0.8rem; line-height: 1; flex-shrink: 0; }
+.cc-thread .cct-tier { display: inline-block; font-size: 0.66rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; margin-top: 3px; }
+.cc-thread .cct-tier.unconfirmed { color: var(--gold, #c9952a); }
+
 .cc-conv { background: #fff; border: 1px solid var(--line); border-radius: 14px; display: flex; flex-direction: column; overflow: hidden; }
 .cc-conv-head { padding: 14px 18px; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 12px; }
-.cc-conv-head .cch-name { font-weight: 600; }
+.cc-conv-head .cch-name { font-weight: 600; display: flex; align-items: center; gap: 7px; }
+
+/* The booking behind a verified guest, or the prompt to vouch for one we
+   couldn't match — the context the front desk reads while replying. */
+.cc-conv-id { padding: 9px 18px; border-bottom: 1px solid var(--line); font-size: 0.76rem; display: flex; align-items: center; flex-wrap: wrap; gap: 7px; }
+.cc-conv-id.verified { background: rgba(19,125,120,0.06); color: var(--ink-soft); }
+.cc-conv-id.unconfirmed { background: rgba(201,149,42,0.1); color: var(--ink); }
+.cc-conv-id .cci-sep { opacity: .45; }
+.cc-conv-id .cci-stay { font-weight: 700; }
+.cc-conv-id .cci-stay.in_house { color: var(--teal); }
+.cc-conv-id .cci-stay.upcoming { color: var(--gold, #c9952a); }
+.cc-conv-id .cci-stay.past { color: var(--ink-soft); }
+.cc-conv-id .cci-note { flex: 1; min-width: 0; }
+.cc-conv-id .cc-confirm-btn {
+  border: 1px solid var(--teal); background: var(--teal); color: var(--ivory);
+  border-radius: 999px; padding: 5px 14px; font-size: 0.76rem; font-weight: 600;
+  cursor: pointer; font-family: var(--sans); flex-shrink: 0;
+}
+.cc-conv-id .cc-confirm-btn:hover { opacity: .9; }
 .cc-conv-head .cch-lang { font-size: 0.74rem; color: var(--ink-soft); margin-left: auto; }
 .cc-conv-body { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
 .cc-conv-empty { margin: auto; color: var(--ink-soft); }

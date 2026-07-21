@@ -66,8 +66,17 @@
     };
   }
 
+  // `roomNumber` is the physical room the front desk assigns at check-in;
+  // `room` is the room TYPE ("deluxe"). Prefer the number — it's what the guest
+  // and the staff console both mean by "room" — and keep `ref` so the live-chat
+  // widget can identify this guest without asking them all over again.
   function setGuest(info) {
-    guest = { bookingId: info.bookingId, name: info.name, room: info.room };
+    guest = {
+      bookingId: info.bookingId,
+      ref: info.ref,
+      name: info.name,
+      room: info.roomNumber || info.room,
+    };
     S.setSession("guest", guest);
   }
 

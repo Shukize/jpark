@@ -3,24 +3,49 @@
    GET  /api/chat?guestId=X       get conversation (guest or staff)
    GET  /api/chat/all             all conversations summary (staff)
    POST /api/chat                 post a message
+   POST /api/chat/identify        guest says who they are (guest / visitor)
    PATCH /api/chat/:guestId/read  mark staff messages read (guest)
    PATCH /api/chat/:guestId/assign  switch which staff owns a chat
+   PATCH /api/chat/:guestId/confirm-guest  staff vouch for a self-declared guest
    PATCH /api/chat/:guestId/rename  rename a chat thread
    PATCH /api/chat/message/:id/pin  toggle pin on a single message
    DELETE /api/chat/:guestId      remove a chat thread
    POST /api/chat/bulk-delete     remove several threads at once
+
+   Who's talking: a thread carries an identity (guest_kind / guest_verified /
+   booking_*) set ONLY by /identify and /confirm-guest. Every other write
+   inherits it from the thread — a message POST can never name itself, which
+   is what let the old free-text guestName field label anyone as anyone.
    ============================================================ */
 const express = require('express');
 const db = require('../db');
 const { requireAuth, verifyToken } = require('../middleware/auth');
 const { makeLimiter } = require('../lib/rateLimit');
+const { findBooking, stayStatus } = require('../lib/guestLookup');
 
 const router = express.Router();
 
 // Public chat POST is unauthenticated by design (guests have no login), so
 // guard it against flooding and cap message length. 30 posts/min per IP.
 const chatPostRateLimited = makeLimiter(30, 60 * 1000);
+// Identifying is a booking lookup, so it carries the same guest-enumeration
+// risk as the guest-portal login — but it CANNOT use that route's tight
+// per-IP budget: everyone chatting from the hotel's own Wi-Fi shares one
+// public IP, so a 20/10min ceiling would lock out real guests on a busy
+// evening after a handful of arrivals had signed in. Instead the per-IP
+// ceiling is loose enough to absorb a whole floor of guests, and a second,
+// tight per-thread budget stops any single widget grinding through guesses.
+// (guestId is client-chosen, so the per-thread limit alone proves nothing —
+// it just makes scripted retries from one chat box pointless.)
+const identifyIpRateLimited = makeLimiter(60, 10 * 60 * 1000);
+const identifyThreadRateLimited = makeLimiter(8, 10 * 60 * 1000);
 const MAX_CHAT_TEXT = 2000;
+
+// Identity columns, listed once — they're read back on nearly every query and
+// an explicit projection keeps this table's egress down (a SELECT * on the
+// staff poll is what suspended the database in July).
+const IDENTITY_COLS =
+  'guest_kind, guest_verified, booking_id, booking_ref, confirmed_by';
 
 function row2msg(r) {
   return {
@@ -74,6 +99,138 @@ router.get('/available-staff', async (_req, res) => {
   }
 });
 
+/* POST /api/chat/identify — the guest says who they are, before the front desk
+   is ever pulled in. Public (guests have no login); see the limiters above for
+   why its abuse budget is shaped differently from the guest portal's.
+
+   Body: { guestId, kind: 'guest'|'visitor', lastName?, room?, ref?,
+           unconfirmed?, systemText?, lang }
+
+   Three outcomes, which is what the staff console renders as its three tiers:
+     • kind 'visitor'                → just asking; no name, no room.
+     • kind 'guest' + booking found  → verified. Name/room/ref are taken from
+       the BOOKING ROW, never from the request, so the badge means something.
+     • kind 'guest' + no booking     → answered { verified: false } and nothing
+       is stamped; the widget then offers "continue anyway", which comes back
+       with unconfirmed:true and records the self-declared details. This is the
+       only route open to OTA and walk-in guests — neither ever reaches
+       guest_bookings (see HANDLE_OTA_BOOKINGS in routes/guestBookings.js) —
+       so they're recorded honestly as unconfirmed for staff to vouch for
+       rather than being turned away.
+
+   The identity is stamped across every existing row AND written as a fresh
+   system message. The message isn't cosmetic: the chooser usually fires before
+   the guest has sent anything, so with no rows to update the identity would
+   have nowhere to live. It doubles as the in-thread audit line staff read. */
+router.post('/identify', async (req, res) => {
+  const { guestId, kind, lastName, room, ref, unconfirmed, systemText, lang } = req.body || {};
+  if (!guestId) return res.status(400).json({ error: 'guestId required' });
+  if (identifyIpRateLimited(req.ip || 'unknown') || identifyThreadRateLimited(guestId)) {
+    return res.status(429).json({ error: 'Too many attempts. Please try again in a few minutes.' });
+  }
+  if (kind !== 'guest' && kind !== 'visitor') {
+    return res.status(400).json({ error: "kind must be 'guest' or 'visitor'" });
+  }
+
+  try {
+    let identity = {
+      guest_kind: 'visitor',
+      guest_verified: false,
+      guest_name: null,
+      room: null,
+      booking_id: null,
+      booking_ref: null,
+    };
+    let booking = null;
+
+    if (kind === 'guest') {
+      booking = await findBooking({ ref, lastName, room });
+      if (booking) {
+        identity = {
+          guest_kind: 'guest',
+          guest_verified: true,
+          guest_name: booking.guest_last_name || booking.guest_name,
+          room: booking.room_number || booking.room,
+          booking_id: booking.id,
+          booking_ref: booking.ref,
+        };
+      } else if (unconfirmed) {
+        // Self-declared. Capped like any other guest-supplied string.
+        identity = {
+          guest_kind: 'guest',
+          guest_verified: false,
+          guest_name: lastName ? String(lastName).trim().slice(0, 100) : null,
+          room: room ? String(room).trim().slice(0, 20) : null,
+          booking_id: null,
+          booking_ref: null,
+        };
+      } else {
+        // Nothing matched and they haven't chosen to continue anyway — say so
+        // without touching the thread, so a typo doesn't strand them mid-tier.
+        return res.json({ ok: true, verified: false, matched: false });
+      }
+    }
+
+    const client = await db.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query(
+        `UPDATE chat_messages
+            SET guest_kind = $1, guest_verified = $2, guest_name = $3, room = $4,
+                booking_id = $5, booking_ref = $6, confirmed_by = NULL
+          WHERE guest_id = $7`,
+        [
+          identity.guest_kind, identity.guest_verified, identity.guest_name,
+          identity.room, identity.booking_id, identity.booking_ref, guestId,
+        ]
+      );
+      if (systemText) {
+        // The widget sends its already-localised line as a template; the name
+        // and room are filled in HERE, from whatever was actually resolved, so
+        // the confirmation the guest reads can't claim a room nobody checked.
+        const line = String(systemText)
+          .replace('{name}', identity.guest_name || '')
+          .replace('{room}', identity.room || '')
+          .slice(0, 500);
+        await client.query(
+          `INSERT INTO chat_messages
+             (guest_id, guest_name, room, from_role, body, lang,
+              guest_kind, guest_verified, booking_id, booking_ref)
+           VALUES ($1,$2,$3,'system',$4,$5,$6,$7,$8,$9)`,
+          [
+            guestId, identity.guest_name, identity.room,
+            line, lang || 'en',
+            identity.guest_kind, identity.guest_verified,
+            identity.booking_id, identity.booking_ref,
+          ]
+        );
+      }
+      await client.query('COMMIT');
+    } catch (e) {
+      await client.query('ROLLBACK');
+      throw e;
+    } finally {
+      client.release();
+    }
+
+    res.json({
+      ok: true,
+      matched: !!booking,
+      kind: identity.guest_kind,
+      verified: identity.guest_verified,
+      name: identity.guest_name,
+      room: identity.room,
+      ref: identity.booking_ref,
+      checkIn: booking ? booking.check_in : null,
+      checkOut: booking ? booking.check_out : null,
+      stayStatus: stayStatus(booking),
+    });
+  } catch (e) {
+    console.error('[chat] identify', e);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
 /* GET /api/chat/all — all conversations grouped by guest (staff only).
    Includes the currently assigned staff so every console can show who owns
    each thread (and only that account's badge ticks). */
@@ -87,6 +244,7 @@ router.get('/all', requireAuth, async (_req, res) => {
         escalated,
         assigned_staff_id,
         assigned_staff_name,
+        guest_kind, guest_verified, booking_id, booking_ref, confirmed_by,
         created_at AS last_at,
         (SELECT COUNT(*) FROM chat_messages cm2
           WHERE cm2.guest_id = cm.guest_id
@@ -111,6 +269,11 @@ router.get('/all', requireAuth, async (_req, res) => {
       escalated: r.escalated,
       assignedStaffId: r.assigned_staff_id,
       assignedStaffName: r.assigned_staff_name,
+      guestKind: r.guest_kind,
+      guestVerified: !!r.guest_verified,
+      bookingId: r.booking_id,
+      bookingRef: r.booking_ref,
+      confirmedBy: r.confirmed_by,
       lastAt: new Date(r.last_at).getTime(),
       unreadForStaff: Number(r.unread_for_staff),
     }));
@@ -127,7 +290,10 @@ router.get('/', async (req, res) => {
   if (!guestId) return res.status(400).json({ error: 'guestId required' });
   try {
     const { rows } = await db.query(
-      `SELECT * FROM chat_messages WHERE guest_id = $1 ORDER BY created_at ASC`,
+      `SELECT id, guest_name, room, from_role, from_name, body, lang, escalated,
+              assigned_staff_id, assigned_staff_name, pinned, created_at,
+              ${IDENTITY_COLS}
+         FROM chat_messages WHERE guest_id = $1 ORDER BY created_at ASC`,
       [guestId]
     );
     const messages = rows.map(row2msg);
@@ -156,6 +322,11 @@ router.get('/', async (req, res) => {
       escalated,
       assignedStaffId,
       assignedStaffName,
+      guestKind: last ? last.guest_kind : null,
+      guestVerified: last ? !!last.guest_verified : false,
+      bookingId: last ? last.booking_id : null,
+      bookingRef: last ? last.booking_ref : null,
+      confirmedBy: last ? last.confirmed_by : null,
       unreadForGuest,
       lastMsg: last ? last.body : '',
       lastAt: last ? new Date(last.created_at).getTime() : null,
@@ -166,6 +337,23 @@ router.get('/', async (req, res) => {
     res.status(500).json({ error: 'Database error' });
   }
 });
+
+/* Resolve who a thread belongs to. /identify stamps every row of the thread,
+   so the newest row is authoritative; threads that predate /identify (or where
+   the guest never signed in) simply carry a null kind and whatever guest_name
+   they already had, which is why this reads those two back too rather than
+   letting a message POST re-supply them. */
+async function currentIdentity(guestId) {
+  const { rows } = await db.query(
+    `SELECT guest_name, room, ${IDENTITY_COLS}
+       FROM chat_messages
+      WHERE guest_id = $1
+      ORDER BY created_at DESC
+      LIMIT 1`,
+    [guestId]
+  );
+  return rows[0] || null;
+}
 
 /* Resolve the current assignment for a guest_id (latest non-null pair). */
 async function currentAssignment(guestId) {
@@ -189,8 +377,11 @@ router.post('/', async (req, res) => {
   if (chatPostRateLimited(req.ip || 'unknown')) {
     return res.status(429).json({ error: 'Too many messages. Please slow down.' });
   }
+  // guestName/room are deliberately NOT read from the body: who a thread
+  // belongs to comes from the thread itself (POST /identify), so a message
+  // can't quietly relabel itself as a guest in room 204.
   const {
-    guestId, guestName, room, from, fromName, text, lang, escalated,
+    guestId, from, fromName, text, lang, escalated,
     assignedStaffId, assignedStaffName,
   } = req.body || {};
   if (!guestId || !text) return res.status(400).json({ error: 'guestId and text required' });
@@ -236,16 +427,21 @@ router.post('/', async (req, res) => {
       if (prior.length) escFlag = true;
     }
 
+    // Inherit the thread's identity so every row answers "who is this?" on its
+    // own — the staff console's summary reads the latest row per thread.
+    const id = (await currentIdentity(guestId)) || {};
+
     const { rows } = await db.query(
       `INSERT INTO chat_messages
          (guest_id, guest_name, room, from_role, from_name, body, lang, escalated,
-          assigned_staff_id, assigned_staff_name)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
-       RETURNING *`,
+          assigned_staff_id, assigned_staff_name,
+          guest_kind, guest_verified, booking_id, booking_ref, confirmed_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+       RETURNING id, from_role, from_name, body, lang, escalated, pinned, created_at`,
       [
         guestId,
-        guestName ? String(guestName).slice(0, 100) : null,
-        room || null,
+        id.guest_name || null,
+        id.room || null,
         role,
         senderName,
         bodyText,
@@ -253,6 +449,11 @@ router.post('/', async (req, res) => {
         escFlag,
         assignId,
         assignName,
+        id.guest_kind || null,
+        !!id.guest_verified,
+        id.booking_id || null,
+        id.booking_ref || null,
+        id.confirmed_by || null,
       ]
     );
     res.status(201).json(row2msg(rows[0]));
@@ -288,23 +489,70 @@ router.patch('/:guestId/assign', requireAuth, async (req, res) => {
     if (!rowCount) return res.status(404).json({ error: 'thread not found' });
 
     if (systemText) {
+      // Carry the identity onto this row like any other insert — it becomes
+      // the thread's newest row, and currentIdentity() reads the newest row.
+      const id = (await currentIdentity(req.params.guestId)) || {};
       await db.query(
         `INSERT INTO chat_messages
-           (guest_id, from_role, body, lang, escalated,
-            assigned_staff_id, assigned_staff_name)
-         VALUES ($1, 'system', $2, $3, TRUE, $4, $5)`,
+           (guest_id, guest_name, room, from_role, body, lang, escalated,
+            assigned_staff_id, assigned_staff_name,
+            guest_kind, guest_verified, booking_id, booking_ref, confirmed_by)
+         VALUES ($1, $2, $3, 'system', $4, $5, TRUE, $6, $7, $8, $9, $10, $11, $12)`,
         [
           req.params.guestId,
+          id.guest_name || null,
+          id.room || null,
           String(systemText).slice(0, 500),
           lang || 'en',
           String(staffId),
           String(staffName).slice(0, 100),
+          id.guest_kind || null,
+          !!id.guest_verified,
+          id.booking_id || null,
+          id.booking_ref || null,
+          id.confirmed_by || null,
         ]
       );
     }
     res.json({ ok: true });
   } catch (e) {
     console.error('[chat] assign', e);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+/* PATCH /api/chat/:guestId/confirm-guest — the front desk vouches for a guest
+   the system couldn't match (OTA, walk-in, booking not in yet): staff check the
+   register, then flip the thread from "says they're in room 204" to confirmed.
+   Body: { bookingId?, bookingRef?, room?, name? } — all optional; pass them to
+   attach a booking staff located by hand. Update-only: deliberately no system
+   message, since this is an internal check the guest shouldn't watch happen. */
+router.patch('/:guestId/confirm-guest', requireAuth, async (req, res) => {
+  const { bookingId, bookingRef, room, name } = req.body || {};
+  try {
+    const { rowCount } = await db.query(
+      `UPDATE chat_messages
+          SET guest_kind = 'guest',
+              guest_verified = TRUE,
+              confirmed_by = $1,
+              booking_id  = COALESCE($2, booking_id),
+              booking_ref = COALESCE($3, booking_ref),
+              room        = COALESCE($4, room),
+              guest_name  = COALESCE($5, guest_name)
+        WHERE guest_id = $6`,
+      [
+        String(req.user.name || '').slice(0, 100),
+        bookingId ? String(bookingId) : null,
+        bookingRef ? String(bookingRef) : null,
+        room ? String(room).trim().slice(0, 20) : null,
+        name ? String(name).trim().slice(0, 100) : null,
+        req.params.guestId,
+      ]
+    );
+    if (!rowCount) return res.status(404).json({ error: 'thread not found' });
+    res.json({ ok: true, confirmedBy: req.user.name });
+  } catch (e) {
+    console.error('[chat] confirm-guest', e);
     res.status(500).json({ error: 'Database error' });
   }
 });

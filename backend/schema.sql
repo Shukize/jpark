@@ -309,6 +309,22 @@ ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS assigned_staff_id   VARCHAR(5
 ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS assigned_staff_name VARCHAR(100);
 ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS pinned              BOOLEAN NOT NULL DEFAULT FALSE;
 
+-- Who the front desk is actually talking to (added 2026-07-21). Set ONLY by
+-- POST /api/chat/identify, never from a plain message POST — the guest widget
+-- used to pass guest_name/room as free text nobody had checked, so every thread
+-- read "Guest" with no room. guest_kind 'guest' + guest_verified TRUE means the
+-- last name + room number (or booking ref) matched a live guest_bookings row;
+-- 'guest' + FALSE is a self-declared stay we couldn't match (OTA / walk-in —
+-- those never reach guest_bookings, see HANDLE_OTA_BOOKINGS in
+-- routes/guestBookings.js), which staff can vouch for via
+-- PATCH /api/chat/:guestId/confirm-guest. 'visitor' is someone just asking.
+-- The existing guest_name/room columns carry the last name + room number.
+ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS guest_kind     VARCHAR(20);  -- guest | visitor
+ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS guest_verified BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS booking_id     TEXT;
+ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS booking_ref    TEXT;
+ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS confirmed_by   VARCHAR(100); -- staff who vouched
+
 CREATE INDEX IF NOT EXISTS idx_chat_guest
   ON chat_messages (guest_id, created_at);
 

@@ -26,6 +26,7 @@ const { normalizeIp } = require('../lib/ip');
 const { lookupGeo } = require('../lib/geoIp');
 const { parseUserAgent } = require('../lib/deviceInfo');
 const { makeLimiter } = require('../lib/rateLimit');
+const { findBooking } = require('../lib/guestLookup');
 
 let bcrypt;
 try { bcrypt = require('bcrypt'); } catch (_) { bcrypt = null; }
@@ -38,13 +39,6 @@ const MAX_SESSIONS_PER_EMPLOYEE = 6;
 const refreshRateLimited = makeLimiter(30, 60 * 1000);     // 30/min per IP
 const loginRateLimited = makeLimiter(10, 10 * 60 * 1000);  // 10 staff-login attempts / 10min per IP
 const guestLoginRateLimited = makeLimiter(20, 10 * 60 * 1000); // 20 guest-portal lookups / 10min per IP
-
-// Escape a value used inside a SQL LIKE/ILIKE pattern so caller-supplied `%`
-// and `_` are matched literally instead of as wildcards (paired with ESCAPE
-// '\' on the query). Without this, e.g. ref="%" matches every booking.
-function escapeLike(s) {
-  return String(s).replace(/[\\%_]/g, '\\$&');
-}
 
 // A random, unambiguous temporary password for admin-triggered resets. Returned
 // ONCE to the admin (the DB only ever keeps the bcrypt hash) — this replaces the
@@ -265,38 +259,23 @@ router.post('/guest-login', async (req, res) => {
     return res.status(429).json({ error: 'Too many attempts. Please try again later.' });
   }
   const { lastName, room, ref } = req.body || {};
+  if (!(ref && ref.trim()) && !(lastName && room)) {
+    return res.status(400).json({ error: 'Provide lastName + room, or ref' });
+  }
   try {
-    let rows;
-    // ILIKE inputs are wildcard-escaped so a value like "%" can't match every
-    // booking (guest enumeration). ESCAPE '\' pairs with escapeLike().
-    if (ref && ref.trim()) {
-      ({ rows } = await db.query(
-        `SELECT id, ref, guest_name, guest_last_name, room, check_in, check_out, status
-           FROM guest_bookings WHERE ref ILIKE $1 ESCAPE '\\' AND status != 'cancelled' LIMIT 1`,
-        [escapeLike(ref.trim())]
-      ));
-    } else if (lastName && room) {
-      ({ rows } = await db.query(
-        `SELECT id, ref, guest_name, guest_last_name, room, check_in, check_out, status
-           FROM guest_bookings
-          WHERE guest_last_name ILIKE $1 ESCAPE '\\' AND room = $2 AND status != 'cancelled'
-          ORDER BY check_in DESC LIMIT 1`,
-        [escapeLike(lastName.trim()), room.trim()]
-      ));
-    } else {
-      return res.status(400).json({ error: 'Provide lastName + room, or ref' });
-    }
+    // Shared with the live-chat sign-in (POST /api/chat/identify) so both
+    // accept the same details. NB the room field now matches the physical
+    // room_number as well as the room type — see lib/guestLookup.js.
+    const bk = await findBooking({ ref, lastName, room });
+    if (!bk) return res.status(404).json({ error: 'Booking not found' });
 
-    if (!rows || !rows.length)
-      return res.status(404).json({ error: 'Booking not found' });
-
-    const bk = rows[0];
     res.json({
       bookingId: bk.id,
       ref: bk.ref,
       name: bk.guest_name,
       lastName: bk.guest_last_name,
       room: bk.room,
+      roomNumber: bk.room_number,
       checkIn: bk.check_in,
       checkOut: bk.check_out,
     });

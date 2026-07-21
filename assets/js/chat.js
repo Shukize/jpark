@@ -14,18 +14,28 @@
   // Visitors who aren't signed in as staff/admin get a fresh chat box on every
   // visit: rotate their guestId and drop any stale cached conversation so the
   // widget opens clean. Staff/admin viewing the site keep their session intact.
+  // "Visit" means once per browser session, NOT once per page load — rotating
+  // on every load threw away a live conversation on a reload or a trip to the
+  // booking page and back, leaving the front desk replying into a thread the
+  // guest could no longer see (and, now, one labelled with their real name).
   function hasStaffSession() {
     try { return !!JSON.parse(localStorage.getItem("jpark.staff") || "null"); }
     catch (_) { return false; }
   }
-  if (!hasStaffSession()) {
+  const VISIT_FLAG = "jpark.chatVisit";
+  function visitAlreadyStarted() {
+    try { return !!sessionStorage.getItem(VISIT_FLAG); } catch (_) { return false; }
+  }
+  if (!hasStaffSession() && !visitAlreadyStarted()) {
     try {
+      sessionStorage.setItem(VISIT_FLAG, String(Date.now()));
       const oldGid = localStorage.getItem("jpark.guestId");
       localStorage.removeItem("jpark.guestId");
       if (oldGid) {
         const all = S.list("chats").filter((c) => c.id !== oldGid);
         S.write("chats", all);
       }
+      S.clearSession("chatIdentity"); // a new visit re-asks who's chatting
     } catch (_) {}
   }
   const gid = S.guestId();
@@ -83,9 +93,281 @@
     return topic.id === "rates" ? await ratesAnswer() : t(topic.a);
   }
 
-  let panel, fab, body, badge, openState = false;
+  let panel, fab, body, badge, idBox, openState = false;
   let pollTimer = null;
   let lastMsgCount = 0; // for detecting new staff replies
+
+  /* ─────────────── who's chatting ────────────────────────────────────────────
+     The front desk used to see every thread as an anonymous "Guest" with no
+     room, so they couldn't tell a guest in room 204 from someone pricing a
+     room. Before the bot's first answer the widget now asks which one this is;
+     the answer is verified server-side (POST /api/chat/identify) and it is the
+     server, not this file, that decides whether a thread counts as a guest.
+     identity: { kind:'guest'|'visitor', verified:bool, name, room, ref }      */
+  let identity = null;
+  let idView = null; // 'choose' | 'form' | null (chip / hidden)
+  let idError = "";
+  let idBusy = false;
+  let pendingUnmatched = null; // { lastName, room, ref } awaiting "continue anyway"
+  let pendingEscalate = false; // a hand-off was blocked waiting on an identity
+
+  function loadIdentity() {
+    identity = S.getSession("chatIdentity") || null;
+  }
+  function saveIdentity(next) {
+    identity = next;
+    S.setSession("chatIdentity", next);
+    // Keep the local conversation label in step so the cached copy doesn't
+    // contradict what the server now knows about this thread.
+    const conv = getLocalConv();
+    if (conv) {
+      conv.guestName = next && next.kind === "guest" ? next.name : null;
+      conv.room = next && next.kind === "guest" ? next.room : "";
+      saveLocalConv(conv);
+    }
+  }
+
+  // Which message a failed /identify call deserves: too many tries, no
+  // connection, or a genuinely unmatched booking.
+  function idErrorKey(res) {
+    if (res && res.status === 429) return "chat.id.tooMany";
+    if (!res || res.offline) return "chat.id.offline";
+    return "chat.id.notFound";
+  }
+
+  async function apiIdentify(payload) {
+    const API = window.JPark.api;
+    if (!API) return { error: "offline", offline: true };
+    return await API.post(
+      "/api/chat/identify",
+      Object.assign({ guestId: gid, lang: I.getLang() }, payload)
+    );
+  }
+
+  // The localised template for the thread's confirmation line. {name}/{room}
+  // are left in place deliberately — the server fills them from the booking it
+  // actually resolved, so the line can't announce a room nobody verified.
+  function identityLine(kind, verified) {
+    if (kind === "visitor") return t("chat.id.sysVisitor");
+    return t(verified ? "chat.id.sysVerified" : "chat.id.sysUnconfirmed");
+  }
+
+  /* Mirror the identity the server just recorded into the local message list,
+     so the guest sees the same confirmation line staff do without waiting for
+     the next poll. */
+  function pushIdentityLine(res) {
+    const text = identityLine(res.kind, res.verified)
+      .replace("{name}", res.name || "")
+      .replace("{room}", res.room || "");
+    const conv = ensureLocalConv();
+    conv.messages.push({ id: S.genId(), from: "system", text, lang: I.getLang(), ts: Date.now() });
+    conv.lastMsg = text; conv.lastAt = Date.now();
+    saveLocalConv(conv);
+    lastMsgCount = 0; // force the next sync to re-read the thread from the API
+  }
+
+  async function chooseVisitor() {
+    if (idBusy) return;
+    idBusy = true; idError = ""; renderIdentity();
+    const res = await apiIdentify({ kind: "visitor", systemText: t("chat.id.sysVisitor") });
+    idBusy = false;
+    if (!res || res.error) { idError = t(idErrorKey(res)); renderIdentity(); return; }
+    saveIdentity({ kind: "visitor", verified: false, name: null, room: null, ref: null });
+    idView = null;
+    pushIdentityLine({ kind: "visitor" });
+    renderIdentity(); render();
+    resumeEscalate();
+  }
+
+  /* A hand-off that was waiting on "who are you?" picks up where it left off,
+     so the guest doesn't have to ask for the front desk a second time. */
+  function resumeEscalate() {
+    if (!pendingEscalate) return;
+    pendingEscalate = false;
+    escalate();
+  }
+
+  /* Sign in as a staying guest. `unconfirmed` is the second pass, after the
+     lookup found nothing and the guest chose to continue anyway — the honest
+     path for OTA and walk-in guests, who never appear in the booking table. */
+  async function submitGuest(lastName, room, ref, unconfirmed) {
+    if (idBusy) return;
+    if (!(ref && ref.trim()) && !(lastName.trim() && room.trim())) {
+      idError = t("chat.id.needDetails"); renderIdentity(); return;
+    }
+    idBusy = true; idError = ""; renderIdentity();
+    // A first attempt sends the VERIFIED template: the server only writes it
+    // when the booking actually matched, and answers "not found" without
+    // touching the thread otherwise. The retry sends the unconfirmed one.
+    const res = await apiIdentify({
+      kind: "guest", lastName, room, ref,
+      unconfirmed: !!unconfirmed,
+      systemText: identityLine("guest", !unconfirmed),
+    });
+    idBusy = false;
+
+    // A failed REQUEST is not a failed lookup. Saying "we couldn't find that
+    // booking" to someone who was merely rate-limited pushes a real guest down
+    // the "continue anyway" path and lands unconfirmed work on the front desk.
+    if (!res || res.error) { idError = t(idErrorKey(res)); renderIdentity(); return; }
+
+    if (!res.matched && !unconfirmed) {
+      // Nothing stamped server-side yet — offer to continue as an enquiry.
+      pendingUnmatched = { lastName, room, ref };
+      idError = t("chat.id.notFound");
+      renderIdentity();
+      return;
+    }
+
+    pendingUnmatched = null;
+    saveIdentity({
+      kind: "guest", verified: !!res.verified,
+      name: res.name, room: res.room, ref: res.ref || null,
+    });
+    idView = null;
+    pushIdentityLine(res);
+    renderIdentity(); render();
+    resumeEscalate();
+  }
+
+  /* If they already signed into the guest portal on this tab, don't ask again —
+     re-check that booking server-side and adopt it silently. */
+  async function adoptPortalSession() {
+    if (identity) return;
+    const g = S.getSession("guest");
+    if (!g || !(g.ref || g.room)) return;
+    const res = await apiIdentify({
+      kind: "guest", ref: g.ref, lastName: g.name, room: g.room,
+      systemText: identityLine("guest", true),
+    });
+    if (!res || res.error || !res.matched) return;
+    saveIdentity({
+      kind: "guest", verified: !!res.verified,
+      name: res.name, room: res.room, ref: res.ref || null,
+    });
+    idView = null;
+    pushIdentityLine(res);
+    renderIdentity();
+  }
+
+  function chipText() {
+    if (!identity) return "";
+    if (identity.kind === "visitor") return t("chat.id.chipVisitor");
+    const key = identity.verified ? "chat.id.chipGuest" : "chat.id.chipUnconfirmed";
+    if (!identity.room) return identity.name || "";
+    return t(key)
+      .replace("{room}", identity.room)
+      .replace("{name}", identity.name || "");
+  }
+
+  function renderIdentity() {
+    if (!idBox) return;
+    idBox.innerHTML = "";
+
+    // Settled: a compact chip with a way back to change it.
+    if (identity && !idView) {
+      idBox.className = "chat-id settled" + (identity.verified ? " verified" : "");
+      const chip = document.createElement("div");
+      chip.className = "cid-chip";
+      chip.innerHTML =
+        '<span class="cid-mark" aria-hidden="true">' +
+          (identity.kind === "visitor" ? "💬" : identity.verified ? "✅" : "🔶") + "</span>" +
+        '<span class="cid-who"></span>';
+      chip.querySelector(".cid-who").textContent = chipText();
+      const change = document.createElement("button");
+      change.type = "button"; change.className = "cid-change";
+      change.textContent = t("chat.id.change");
+      change.addEventListener("click", () => { idView = "choose"; idError = ""; renderIdentity(); });
+      chip.appendChild(change);
+      idBox.appendChild(chip);
+      return;
+    }
+
+    if (!identity && !idView) idView = "choose";
+    idBox.className = "chat-id open";
+
+    if (idView === "choose") {
+      const ask = document.createElement("p");
+      ask.className = "cid-ask"; ask.textContent = t("chat.id.ask");
+      idBox.appendChild(ask);
+      const row = document.createElement("div");
+      row.className = "cid-choices";
+      const guestBtn = document.createElement("button");
+      guestBtn.type = "button"; guestBtn.className = "cid-btn cid-guest";
+      guestBtn.textContent = t("chat.id.guestBtn");
+      guestBtn.addEventListener("click", () => {
+        idView = "form"; idError = ""; pendingUnmatched = null; renderIdentity();
+      });
+      const visitorBtn = document.createElement("button");
+      visitorBtn.type = "button"; visitorBtn.className = "cid-btn cid-visitor";
+      visitorBtn.textContent = t("chat.id.visitorBtn");
+      visitorBtn.disabled = idBusy;
+      visitorBtn.addEventListener("click", chooseVisitor);
+      row.appendChild(guestBtn); row.appendChild(visitorBtn);
+      idBox.appendChild(row);
+      if (idError) {
+        const err = document.createElement("p");
+        err.className = "cid-error"; err.textContent = idError;
+        idBox.appendChild(err);
+      }
+      return;
+    }
+
+    // idView === 'form'
+    const form = document.createElement("form");
+    form.className = "cid-form";
+    form.innerHTML =
+      '<p class="cid-lede">' + U.escapeHtml(t("chat.id.signInLede")) + "</p>" +
+      '<label class="cid-field"><span>' + U.escapeHtml(t("chat.id.lastName")) + "</span>" +
+        '<input type="text" name="last" autocomplete="family-name" /></label>' +
+      '<label class="cid-field"><span>' + U.escapeHtml(t("chat.id.roomNo")) + "</span>" +
+        '<input type="text" name="room" inputmode="numeric" autocomplete="off" /></label>' +
+      '<p class="cid-or">' + U.escapeHtml(t("chat.id.or")) + "</p>" +
+      '<label class="cid-field"><span>' + U.escapeHtml(t("chat.id.ref")) + "</span>" +
+        '<input type="text" name="ref" placeholder="' + U.escapeHtml(t("chat.id.refPh")) + '" autocomplete="off" /></label>';
+
+    if (idError) {
+      const err = document.createElement("p");
+      err.className = "cid-error"; err.textContent = idError;
+      form.appendChild(err);
+    }
+
+    const actions = document.createElement("div");
+    actions.className = "cid-actions";
+    const submit = document.createElement("button");
+    submit.type = "submit"; submit.className = "cid-btn cid-go";
+    submit.disabled = idBusy;
+    submit.textContent = idBusy ? t("chat.id.checking")
+      : pendingUnmatched ? t("chat.id.continueAnyway") : t("chat.id.continue");
+    const back = document.createElement("button");
+    back.type = "button"; back.className = "cid-back";
+    back.textContent = t("chat.id.back");
+    back.addEventListener("click", () => {
+      idView = "choose"; idError = ""; pendingUnmatched = null; renderIdentity();
+    });
+    actions.appendChild(submit); actions.appendChild(back);
+    form.appendChild(actions);
+
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const last = form.elements.last.value;
+      const room = form.elements.room.value;
+      const ref  = form.elements.ref.value;
+      // Second press on an unmatched set of details = "continue anyway".
+      const again = !!pendingUnmatched;
+      submitGuest(last, room, ref, again);
+    });
+    idBox.appendChild(form);
+
+    // Re-fill what they typed so a failed lookup doesn't wipe the form.
+    if (pendingUnmatched) {
+      form.elements.last.value = pendingUnmatched.lastName || "";
+      form.elements.room.value = pendingUnmatched.room || "";
+      form.elements.ref.value  = pendingUnmatched.ref || "";
+    }
+    const first = form.querySelector("input");
+    if (first) setTimeout(() => first.focus(), 40);
+  }
 
   function playChime() {
     try {
@@ -143,11 +425,11 @@
   async function apiPostMessage(from, text, opts) {
     const API = window.JPark.api;
     if (!API) return;
-    const g = S.getSession("guest");
+    // No guestName/room here: who the thread belongs to is set once, and
+    // checked, by POST /api/chat/identify — the server ignores any name a
+    // message tries to claim for itself.
     await API.post("/api/chat", {
       guestId: gid,
-      guestName: g ? g.name : (getLocalConv() || {}).guestName || "Guest",
-      room: g ? g.room : (getLocalConv() || {}).room || "",
       from: from,
       fromName: opts && opts.staffName ? opts.staffName : (from === "guest" ? null : "J Park"),
       text,
@@ -294,6 +576,19 @@
   }
 
   async function escalate() {
+    // Last gate before a real person is pulled in: the front desk should never
+    // open a thread without knowing whether they're talking to someone in a
+    // room or someone browsing. Anyone who skipped the chooser (or dismissed
+    // it) gets it back here instead of a hand-off.
+    if (!identity) {
+      pendingEscalate = true;
+      idView = idView || "choose";
+      idError = t("chat.id.required");
+      renderIdentity();
+      if (idBox) idBox.scrollIntoView({ block: "nearest" });
+      return;
+    }
+    pendingEscalate = false;
     const conv = ensureLocalConv();
     if (!conv.escalated) {
       conv.escalated = true;
@@ -384,6 +679,8 @@
     if (conv && conv.unreadForGuest) { conv.unreadForGuest = 0; saveLocalConv(conv); }
     setBadge(0);
     render();
+    renderIdentity();
+    adoptPortalSession();
     startPoll();
     setTimeout(() => { const inp = panel.querySelector(".chat-input input"); if (inp) inp.focus(); }, 60);
   }
@@ -419,10 +716,12 @@
         '<button class="ch-close" aria-label="' + U.escapeHtml(t("chat.close")) + '">&times;</button>' +
       "</div>" +
       '<div class="chat-body"></div>' +
+      '<div class="chat-id"></div>' +
       '<div class="chat-quick"></div>' +
       '<form class="chat-input"><input type="text" placeholder="' + U.escapeHtml(t("chat.placeholder")) + '" aria-label="' + U.escapeHtml(t("chat.placeholder")) + '" /><button type="submit" aria-label="' + U.escapeHtml(t("chat.send")) + '">➤</button></form>';
     document.body.appendChild(panel);
     body = panel.querySelector(".chat-body");
+    idBox = panel.querySelector(".chat-id");
 
     fab.addEventListener("click", open);
     panel.querySelector(".ch-close").addEventListener("click", close);
@@ -440,11 +739,13 @@
     input.setAttribute("aria-label", t("chat.placeholder"));
     if (fab) fab.setAttribute("aria-label", t("chat.open"));
     render();
+    renderIdentity();
   }
 
   document.addEventListener("DOMContentLoaded", () => {
     build();
     loadRates();
+    loadIdentity();
 
     S.on("chats", () => {
       const conv = getLocalConv(); if (!conv) return;
