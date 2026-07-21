@@ -1024,6 +1024,17 @@ body.bk-pay-open { position: fixed; left: 0; right: 0; overflow: hidden; }
   font-size: 0.82rem; color: #5a4a1a; line-height: 1.5;
 }
 
+/* Required deposit acknowledgement — a full-width checkbox pill sitting
+   directly under the deposit note. Reuses .bkp-radio/.bkp-checkbox so it
+   highlights teal when ticked; .bkp-ack-error flags it (terracotta) if the
+   guest tries to book without confirming. */
+.bkp-deposit-ack { align-items: flex-start; line-height: 1.45; }
+.bkp-deposit-ack input { margin-top: 2px; flex-shrink: 0; }
+.bkp-deposit-ack.bkp-ack-error {
+  border-color: var(--terracotta-d);
+  background: rgba(184, 85, 46, 0.08);
+}
+
 .bkp-pp-note { font-size: 0.85rem; color: var(--ink-soft); line-height: 1.5; }
 
 .bkp-form-error {

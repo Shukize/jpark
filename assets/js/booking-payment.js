@@ -41,6 +41,8 @@
       'bk.pay.note': 'Special requests (optional)', 'bk.pay.notePlaceholder': 'Late arrival, high floor, allergies…',
       'bk.pay.depositTitle': 'Please note',
       'bk.pay.depositNote': 'A 200 THB deposit for your room key card is collected in cash only at check-in, and refunded in full at check-out.',
+      'bk.pay.depositAck': 'I understand a refundable key-card deposit is collected in cash at check-in.',
+      'bk.pay.err.depositAck': 'Please tick the box to confirm you understand the deposit.',
       'bk.pay.total': 'Total',
       'bk.pay.extraBedLine': 'Extra bed (3rd guest)', 'bk.pay.extraBreakfastLine': 'Extra breakfast guest',
       'bk.pay.extraBedLabel': 'Extra bed', 'bk.pay.extraBedAdd': 'Add an extra bed',
@@ -83,6 +85,8 @@
       'bk.pay.note': 'คำขอพิเศษ (ไม่บังคับ)', 'bk.pay.notePlaceholder': 'มาถึงดึก ต้องการชั้นสูง แพ้อาหาร…',
       'bk.pay.depositTitle': 'โปรดทราบ',
       'bk.pay.depositNote': 'มีการเรียกเก็บเงินมัดจำบัตรคีย์การ์ด 200 บาท เป็นเงินสดเท่านั้น ณ วันเช็คอิน และคืนเต็มจำนวนเมื่อเช็คเอาท์',
+      'bk.pay.depositAck': 'ข้าพเจ้าเข้าใจว่าต้องวางเงินมัดจำบัตรคีย์การ์ด (คืนเต็มจำนวน) เป็นเงินสด ณ วันเช็คอิน',
+      'bk.pay.err.depositAck': 'กรุณาทำเครื่องหมายในช่องเพื่อยืนยันว่าคุณเข้าใจเงื่อนไขการมัดจำ',
       'bk.pay.total': 'ยอดรวม',
       'bk.pay.extraBedLine': 'เตียงเสริม (ผู้เข้าพักคนที่ 3)', 'bk.pay.extraBreakfastLine': 'อาหารเช้าเพิ่มเติม',
       'bk.pay.extraBedLabel': 'เตียงเสริม', 'bk.pay.extraBedAdd': 'เพิ่มเตียงเสริม',
@@ -125,6 +129,8 @@
       'bk.pay.note': 'ご要望（任意）', 'bk.pay.notePlaceholder': '到着が遅れる、高層階希望、アレルギーなど…',
       'bk.pay.depositTitle': 'ご注意',
       'bk.pay.depositNote': 'ルームキーカードのデポジット200THBを、チェックイン時に現金のみで頂戴いたします。チェックアウト時に全額返金いたします。',
+      'bk.pay.depositAck': 'ルームキーカードのデポジット（返金あり）をチェックイン時に現金でお支払いいただくことを理解しました。',
+      'bk.pay.err.depositAck': 'デポジットについて理解したことを確認するため、チェックボックスにチェックを入れてください。',
       'bk.pay.total': '合計',
       'bk.pay.extraBedLine': 'エキストラベッド（3人目）', 'bk.pay.extraBreakfastLine': '追加の朝食',
       'bk.pay.extraBedLabel': 'エキストラベッド', 'bk.pay.extraBedAdd': 'エキストラベッドを追加',
@@ -167,6 +173,8 @@
       'bk.pay.note': '特殊要求（可选）', 'bk.pay.notePlaceholder': '晚到、高楼层、过敏信息等…',
       'bk.pay.depositTitle': '请注意',
       'bk.pay.depositNote': '房卡押金200泰铢，仅收现金，于入住时收取，退房时全额退还。',
+      'bk.pay.depositAck': '我了解房卡押金需于入住时以现金支付，退房时全额退还。',
+      'bk.pay.err.depositAck': '请勾选此框以确认您已了解押金说明。',
       'bk.pay.total': '总计',
       'bk.pay.extraBedLine': '加床（第3位客人）', 'bk.pay.extraBreakfastLine': '额外早餐',
       'bk.pay.extraBedLabel': '加床', 'bk.pay.extraBedAdd': '加一张床',
@@ -209,6 +217,8 @@
       'bk.pay.note': '特殊要求（可選）', 'bk.pay.notePlaceholder': '晚到、高樓層、過敏資訊等…',
       'bk.pay.depositTitle': '請注意',
       'bk.pay.depositNote': '房卡押金200泰銖，僅收現金，於入住時收取，退房時全額退還。',
+      'bk.pay.depositAck': '我了解房卡押金需於入住時以現金支付，退房時全額退還。',
+      'bk.pay.err.depositAck': '請勾選此框以確認您已了解押金說明。',
       'bk.pay.total': '總計',
       'bk.pay.extraBedLine': '加床（第3位客人）', 'bk.pay.extraBreakfastLine': '額外早餐',
       'bk.pay.extraBedLabel': '加床', 'bk.pay.extraBedAdd': '加一張床',
@@ -527,6 +537,17 @@
     '</div>';
   }
 
+  // Required deposit acknowledgement — the guest must actively tick this to
+  // confirm they've understood the (refundable, cash-at-check-in) key-card
+  // deposit spelled out in the note directly above before we take the booking.
+  // Reuses the .bkp-radio/.bkp-checkbox pill look so it highlights when ticked.
+  function depositAckHTML() {
+    return '<label class="bkp-radio bkp-checkbox bkp-deposit-ack" id="bkpDepositAckRow">' +
+      '<input type="checkbox" id="bkpDepositAck"' + (state && state.depositAck ? ' checked' : '') + '> ' +
+      esc(TR('bk.pay.depositAck')) +
+    '</label>';
+  }
+
   function childAgesHTML() {
     if (!state.children) return '';
     var inputs = '';
@@ -622,6 +643,7 @@
             '<div class="bkp-field"><label>' + TR('bk.pay.note') + '</label><textarea id="bkpNote" rows="2" placeholder="' + esc(TR('bk.pay.notePlaceholder')) + '"></textarea></div>' +
           '</div>' +
           '<div class="bkp-deposit-note"><strong>' + TR('bk.pay.depositTitle') + ':</strong> ' + TR('bk.pay.depositNote') + '</div>' +
+          depositAckHTML() +
           '<p class="bkp-pp-note">' + TR('bk.pay.checkinNote') + '</p>'
         ) +
 
@@ -698,6 +720,7 @@
     if (addRoomBtn) addRoomBtn.addEventListener('click', addCurrentRoomToCart);
     var submitBtn = qs('#bkpSubmitBtn');
     if (submitBtn) submitBtn.addEventListener('click', onReservationSubmit);
+    wireDepositAck();
   }
 
   function setReservationSubmitting(isSubmitting) {
@@ -720,6 +743,34 @@
     });
   }
 
+  // The deposit acknowledgement is a hard gate on both submit paths: no
+  // booking is sent until the guest has actively ticked it. On a miss we flag
+  // the box and surface the same inline error used for the other required
+  // fields; ticking it (see wireDepositAck) clears the flag.
+  function validateDepositAck() {
+    var cb = qs('#bkpDepositAck');
+    if (cb && !cb.checked) {
+      showFormError(TR('bk.pay.err.depositAck'));
+      var row = qs('#bkpDepositAckRow');
+      if (row) row.classList.add('bkp-ack-error');
+      if (cb.focus) cb.focus();
+      return false;
+    }
+    return true;
+  }
+  function wireDepositAck() {
+    var cb = qs('#bkpDepositAck');
+    if (!cb) return;
+    cb.addEventListener('change', function (e) {
+      state.depositAck = !!e.target.checked;
+      if (e.target.checked) {
+        var row = qs('#bkpDepositAckRow');
+        if (row) row.classList.remove('bkp-ack-error');
+        clearFormError();
+      }
+    });
+  }
+
   function onReservationSubmit() {
     clearFormError();
     if (!validateGuestFields()) return;
@@ -727,6 +778,7 @@
       showFormError(TR('bk.pay.err.childAges'));
       return;
     }
+    if (!validateDepositAck()) return;
     var v = currentVariant();
     var body = {
       room: state.room,
@@ -912,6 +964,8 @@
             ? TR('bk.pay.depositNote')
             : TR('bk.pay.depositNoteMulti').replace('{amount}', String(depositAmount)).replace('{n}', String(cart.length))) + '</div>' +
 
+        depositAckHTML() +
+
         '<p class="bkp-pp-note">' + TR('bk.pay.checkinNote') + '</p>' +
 
         '<p class="bkp-form-error" id="bkpFormError" hidden></p>' +
@@ -940,6 +994,7 @@
       renderCartReview();
     });
     qs('#bkpSubmitBtn').addEventListener('click', onGroupSubmit);
+    wireDepositAck();
   }
 
   function groupResultViewHTML() {
@@ -972,6 +1027,7 @@
     clearFormError();
     if (!cart.length) { showFormError(TR('bk.pay.cartEmpty')); return; }
     if (!validateGuestFields()) return;
+    if (!validateDepositAck()) return;
 
     var handle = function (r, single) {
       if (!r || r.error) {
