@@ -14,7 +14,10 @@ travelling alone with a child were being **overcharged 190 THB a night**, and du
 outage the staff console could be opened by anyone using a password printed in the public page
 source. The ninth is a one-line DNS change only you can make.
 
-Nothing has been committed or deployed. Everything is in the working tree for your review.
+**Everything below is now committed, pushed and live** (commits `aec5d1b`, `7c2e12b`, `e037a52`;
+GitHub Pages deploy succeeded, production serving `?v=e037a52`). The three items that remain are
+yours to do — one DNS change, one hosting toggle, one mailbox setting — and are listed under
+"Needs you".
 
 ---
 
@@ -31,6 +34,8 @@ Nothing has been committed or deployed. Everything is in the working tree for yo
 | **F6** | Medium | Every page **drifted sideways** — 34px on desktop, 10px on a phone | **Fixed** |
 | **F7** | Medium | The homepage weighed **12.4 MB** on first view | **Fixed** (12.4 MB → 1.97 MB) |
 | **F8** | Medium | **Two DMARC records** in DNS, which per the standard means the domain has *no* DMARC at all | **Needs you** (DNS) |
+
+All eight code fixes are deployed. F8 is a DNS record only you can change.
 
 ---
 
@@ -173,19 +178,35 @@ Three things I fixed on those grounds:
 - **Two `<h1>` headings** on the homepage (the intro overlay and the real hero title) — the
   decorative one is no longer a heading.
 
-And three judgement calls that are **yours, not mine**:
+Three things I flagged as judgement calls have since been done, on your instruction:
 
-1. **"Reset all demo data" is still a button in the admin console.** On a live property one click
-   discards real requests, messages and bookings. I have not removed it because I don't know if you
-   still use it — but it should either go, or sit behind a typed confirmation.
-2. **No cancellation policy is shown to a guest anywhere before they book.** Since payment happens
-   at check-in, a guest currently commits without being told what happens if they don't arrive. That
-   is a policy decision to write, not a bug to fix.
-3. **Google Fonts loads from Google's servers on every page view.** It works, but it tells a third
-   party about every visitor, and it is a render-blocking external dependency. Self-hosting the two
-   font files would remove both concerns.
+1. **"Reset all demo data" is gone as a one-click action.** It is now labelled *"Clear this
+   browser's working data"* — the old name made real work sound like sample data — and it requires
+   typing `CLEAR` after being told plainly what is lost. Five languages.
+2. **A cancellation policy now appears before the guest commits**, beside the deposit note in the
+   payment step and again on the confirmation screen: nothing is charged now, you pay at check-in,
+   contact us with your confirmation number to change or cancel. That is a description of how the
+   system already behaves — **if the property has stricter terms (a no-show charge, a deadline),
+   `bk.pay.cancelNote` in `assets/js/booking-payment.js` is the string to rewrite**, in all five
+   languages.
+3. **Google Fonts is no longer loaded from Google.** The three families are served from
+   `assets/fonts/`, so no guest's page view is reported to a third party and the typography no
+   longer depends on a host we don't control. Measured after the change: **zero third-party hosts
+   contacted on page load** (was two), and only the four character subsets actually needed are
+   downloaded. Regenerate with `tools/refresh-fonts.sh` if the families ever change.
 
----
+And the photos were re-exported: the Grand Suite folder was still full-camera-size (3840px, up to
+1.6MB each). **14.3 MB → 2.0 MB** for those eleven pictures, at 1920px — more than any browser
+displays. `optimize_new_images.py` does this and deliberately skips anything a re-encode would not
+actually shrink; 144 of 155 candidates were already at their best, and forcing them through would
+have cost a second generation of JPEG loss to make some *larger* (one 81 KB photo came back at
+239 KB during testing).
+
+**Homepage on a throttled 4G phone, cold cache: 12.4 MB and 54 requests at the start of this
+sweep → 2.1 MB and 31 requests now.** Largest-contentful-paint is still slow on that deliberately
+harsh profile because the hero photo is 505 KB; converting the handful of remaining large JPEGs to
+WebP/AVIF is the next meaningful win, and is a quality decision on your photography rather than a
+bug.
 
 ## Needs you
 
@@ -196,10 +217,11 @@ And three judgement calls that are **yours, not mine**:
   keep the one with `rua=`. (SPF and DKIM for Resend are correctly configured — that part is fine.)
   Once you have seen a few weeks of reports, consider moving `p=none` to `p=quarantine`: hotels are
   a standard phishing target and today anyone can send mail as your domain.
-- **Photo weight.** The homepage is now 1.97 MB, but a single 1,046 KB room photo still dominates
-  it, and there are **112 images over 300 KB** (98 MB total). Re-exporting the largest at a sane
-  width would cut the remaining page weight by more than half. `optimize_images.py` in the repo root
-  already does this — I have not run it, because re-encoding your photography is your call.
+- **Photo weight — the next step is a format decision.** The oversized photos have been
+  re-exported (14.3 MB → 2.0 MB for the Grand Suite folder), and the homepage is down to 2.1 MB.
+  The remaining weight is a handful of already-efficient 1920px JPEGs of 300–500 KB each, including
+  the 505 KB hero. Going further means WebP/AVIF, which is a judgement call about how your
+  photography should look — say the word and it is a short job.
 - **Security headers.** The site is served straight from GitHub Pages, which cannot add them, so
   there is no HSTS, no clickjacking protection and no content-type protection. Proxying the domain
   through Cloudflare (the DNS is already there) would let you add all three without touching code.
@@ -210,25 +232,36 @@ And three judgement calls that are **yours, not mine**:
 
 ## What changed in the code
 
-Fourteen files, all uncommitted. Mine are:
+Shipped across three commits — `aec5d1b` (the fixes), `7c2e12b` (self-hosted fonts + asset
+version bump) and `e037a52` (the rest, plus this report):
 
 | File | Why |
 |---|---|
-| `assets/js/staff.js` | F1 — offline credential fallback removed |
+| `assets/js/staff.js` | F1 — offline credential fallback removed; typed confirmation on the data-clearing button |
 | `assets/js/store.js` | F1 — seeded passwords deleted |
-| `assets/js/i18n-app.js` | F1 — new offline message, all 5 languages |
+| `assets/js/i18n-app.js` | F1 offline message + the clear-data confirmation strings, all 5 languages |
 | `backend/routes/payments.js` | F2 rate limits, F3 pricing, F4 input sanitising |
-| `backend/lib/rateOverrides.js` | F3 — breakfast steps on adults |
-| `assets/js/booking-page.js`, `assets/js/booking-payment.js` | F3 — the quote matches the charge |
+| `backend/lib/rateOverrides.js` | F3 — breakfast steps on adults, not on heads |
+| `assets/js/booking-page.js`, `assets/js/booking-payment.js` | F3 — the quote matches the charge; cancellation policy before commitment |
 | `backend/routes/auth.js` | F9 — per-device bucket no longer pools strangers |
 | `backend/routes/chat.js` | F5 — vouching verifies the reference |
 | `assets/css/style.css` | F6 — sideways drift |
 | `assets/js/main.js` | F7 — carousel loads as needed |
+| `assets/css/fonts.css`, `assets/fonts/`, `tools/refresh-fonts.sh`, the four HTML pages | fonts served from our own origin |
+| `optimize_new_images.py`, `images/Grand Suite 1 Bedroom/*` | oversized photos re-exported |
 | `index.html` | second `<h1>` |
 
-`assets/js/chat.js` and `assets/css/app.css` (and part of `assets/js/staff.js` and
-`backend/routes/chat.js`) contain **your own in-progress chat-continuity work**, which was already
-in the tree — I have not touched it. It was loaded during all browser testing and produced no errors.
+`assets/js/chat.js`, `assets/js/util.js` and `assets/css/app.css` are **your own chat-continuity
+work** (commit `ec6673a`, "Live chat: tell the guest when the front desk answers") — I did not
+write or modify it. It was loaded throughout the browser testing and produced no console errors.
+
+**Deployment verified live:** GitHub Pages build succeeded, production serves `?v=e037a52`, all
+four pages return 200, `assets/css/fonts.css` resolves, the deployed HTML contains **zero**
+references to Google's font hosts, and the re-exported room photo is served at 142 KB (was
+1,046 KB). The API answers `/health` in ~0.1s. Render rebuilds on the same push and its build
+command runs the backend test suite (24/24 passing), so a broken backend cannot deploy — but
+confirm the Render dashboard shows `e037a52` as its live commit, since that is the one thing not
+observable from outside.
 
 ---
 
