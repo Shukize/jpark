@@ -432,6 +432,13 @@ body.staff-body { background: #eef1ef; }
   background: #d94b2b; color: #fff; font-weight: 900; font-size: 0.82rem;
   animation: jpBlink 1s steps(1, end) infinite;
 }
+/* where the room actually is — building reads as strongly as the room number
+   (housekeeping walks to it), room type is supporting detail */
+.staff-req .sr-building {
+  background: var(--gold); color: var(--teal-deep); font-weight: 700;
+  padding: 4px 12px; border-radius: 8px; font-size: 0.84rem; white-space: nowrap;
+}
+.staff-req .sr-roomtype { color: var(--ink-soft); font-size: 0.86rem; white-space: nowrap; }
 /* who filed the request, and whether we could match them to a booking */
 .staff-req .sr-guest { color: var(--ink-soft); }
 .staff-req .sr-unverified { color: #b06a12; font-weight: 600; white-space: nowrap; }

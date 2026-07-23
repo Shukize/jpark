@@ -311,6 +311,8 @@
       // — an OTA or walk-in guest comes through as false, not missing.
       guestVerified: r.guestVerified === true || r.guest_verified === true,
       bookingRef: r.bookingRef || r.booking_ref || null,
+      building: r.building != null ? Number(r.building) : null,
+      roomType: r.roomType || r.room_type || null,
       status: r.status === "in_progress" ? "progress"
             : r.status === "preparing"   ? "progress"
             : r.status === "delivered"   ? "done"
@@ -971,6 +973,11 @@
       card.innerHTML =
         '<div class="sr-head">' +
           '<span class="sr-room">' + esc(t("staff.requests.room")) + " " + esc(r.room) + "</span>" +
+          // Which of the five buildings, and the room type — read off the
+          // guest's booking when it filed (lib/buildings.js). Housekeeping
+          // can't act on a room number alone across a five-building site.
+          (r.building ? '<span class="sr-building">' + esc(t("building.n").replace("{n}", r.building)) + "</span>" : "") +
+          (r.roomType ? '<span class="sr-roomtype">' + esc(r.roomType) + "</span>" : "") +
           '<span class="sr-title">' + esc(reqTitle(r)) + "</span>" +
           (unread ? '<span class="sr-bang" aria-hidden="true">!</span>' : "") +
           (r.status === "pending" ? '<span class="sr-new">' + esc(t("track.status.pending").toUpperCase()) + "</span>" : "") +

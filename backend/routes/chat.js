@@ -113,10 +113,11 @@ router.get('/available-staff', async (_req, res) => {
      • kind 'guest' + no booking     → answered { verified: false } and nothing
        is stamped; the widget then offers "continue anyway", which comes back
        with unconfirmed:true and records the self-declared details. This is the
-       only route open to OTA and walk-in guests — neither ever reaches
-       guest_bookings (see HANDLE_OTA_BOOKINGS in routes/guestBookings.js) —
-       so they're recorded honestly as unconfirmed for staff to vouch for
-       rather than being turned away.
+       route walk-in guests take, and any guest whose stay simply isn't on
+       file, so they're recorded honestly as unconfirmed for staff to vouch
+       for rather than being turned away. (OTA reservations ARE filed again as
+       of 2026-07-23 — see STORE_OTA_BOOKINGS in routes/guestBookings.js — so
+       an OTA guest whose confirmation reached us verifies normally.)
 
    The identity is stamped across every existing row AND written as a fresh
    system message. The message isn't cosmetic: the chooser usually fires before

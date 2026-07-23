@@ -17,6 +17,7 @@ const { sendEmail } = require('../mailer');
 const { makeLimiter } = require('../lib/rateLimit');
 const { countOverlapping } = require('../lib/availability');
 const roomRates = require('../lib/roomRates');
+const { resolveBuilding } = require('../lib/buildings');
 
 const router = express.Router();
 
@@ -864,16 +865,31 @@ router.get('/:id', requireAuth, async (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
-// OTA / channel-manager intake switch (added 2026-07-15).
-// Per the hotel: from now on ONLY Direct (Website) bookings are handled. Every
-// OTA / "Other channel" reservation (Agoda, Booking.com, Airbnb, Trip.com,
-// Expedia, Traveloka, Hotels.com, generic "other" …) must NOT be ingested and
-// must NOT trigger the hotel-notice or guest-confirmation emails — those OTA
-// notices were reaching jparkhotel1@gmail.com (and could reach guests), which
-// the hotel does not want. The OTA machinery (email bridge, parser, ingest
-// API, staff rendering) is deliberately LEFT INTACT; flip HANDLE_OTA_BOOKINGS
-// back to true to restore the previous combined OTA+Direct behaviour exactly.
-const HANDLE_OTA_BOOKINGS = false;
+// OTA / channel-manager switches.
+//
+// 2026-07-15: the hotel asked for OTA reservations (Agoda, Booking.com,
+// Airbnb, Trip.com, Expedia, Traveloka, Hotels.com, generic "other" …) to be
+// dropped entirely, because the resulting notices were reaching
+// jparkhotel1@gmail.com and could reach guests. That was done with a single
+// flag covering BOTH storing the booking and emailing about it.
+//
+// 2026-07-23: the hotel then asked that OTA guests be able to use guest
+// services, the guest portal and live chat, and that the staff see which
+// BUILDING each guest is in — which is only knowable from the confirmation
+// itself. Both need the reservation to exist in guest_bookings, so the one
+// flag is now two:
+//
+//   STORE_OTA_BOOKINGS — file the reservation, so an OTA guest signs in as a
+//     verified guest and their room type + building are known.
+//   SEND_OTA_EMAILS    — the part the hotel actually objected to. Stays OFF:
+//     no hotel notice, no guest confirmation, for any non-direct booking.
+//
+// The Guest Bookings inbox is filtered separately in the console
+// (SHOW_OTA_BOOKINGS in staff.js), so the list the front desk reads is
+// unaffected by storing these. Set STORE_OTA_BOOKINGS back to false to
+// restore the 2026-07-15 drop-everything behaviour.
+const STORE_OTA_BOOKINGS = true;
+const SEND_OTA_EMAILS = false;
 
 // The only kind of booking still processed. payments.js inserts website
 // bookings with channel_name "Direct (Website)"; that name is the sole reliable
@@ -892,11 +908,11 @@ function isDirectWebsiteBooking(b) {
 function fireBookingEmails(saved) {
   if (!saved || !saved.inserted || saved.status !== 'confirmed') return;
 
-  // OTA notifications are disabled — never email the hotel or the guest for a
-  // non-direct booking while HANDLE_OTA_BOOKINGS is off. Defense in depth: the
-  // ingest choke point already drops OTA bookings, but this guarantees no OTA
-  // notice can escape even if some other path ever reaches here.
-  if (!HANDLE_OTA_BOOKINGS && !isDirectWebsiteBooking(saved)) {
+  // OTA notifications stay disabled — never email the hotel or the guest for a
+  // non-direct booking. This is now the ONLY thing stopping those emails: OTA
+  // reservations are filed again (STORE_OTA_BOOKINGS) so guest services and
+  // the building lookup work, and they reach this function like any other.
+  if (!SEND_OTA_EMAILS && !isDirectWebsiteBooking(saved)) {
     console.log(`[guest-bookings] OTA emails disabled — skipped notice/confirmation for ${saved.ref} (${saved.channel_name || saved.channel})`);
     return;
   }
@@ -1052,12 +1068,13 @@ async function sendGroupConfirmation(rows, override, actor) {
    `inserted` flag). Throws on DB error. */
 async function ingestGuestBooking(b) {
   b = b || {};
-  // OTA intake disabled — see HANDLE_OTA_BOOKINGS. Every booking arriving here
-  // is from an OTA / channel manager (direct website bookings are inserted by
-  // payments.js, never through this function), so when OTA handling is off we
-  // drop it before any DB write or email. Returns null; the webhook and
-  // email-bridge callers turn that into a benign "ignored" acknowledgement.
-  if (!HANDLE_OTA_BOOKINGS && !isDirectWebsiteBooking(b)) {
+  // Every booking arriving here is from an OTA / channel manager (direct
+  // website bookings are inserted by payments.js, never through this
+  // function). With STORE_OTA_BOOKINGS on they are filed normally — emails are
+  // suppressed further down instead (fireBookingEmails). Returns null when
+  // storage is off; the webhook and email-bridge callers turn that into a
+  // benign "ignored" acknowledgement.
+  if (!STORE_OTA_BOOKINGS && !isDirectWebsiteBooking(b)) {
     console.log(`[guest-bookings] OTA intake disabled — ignored ${b.ref || b.bookingId || b.confirmationCode || 'booking'} (${b.channelName || b.channel_name || b.channel || 'other'})`);
     return null;
   }
@@ -1085,13 +1102,16 @@ async function ingestGuestBooking(b) {
   const { rows } = await db.query(
     `INSERT INTO guest_bookings
        (ref, channel, channel_name, channel_email, guest_name, guest_last_name,
-        guest_email, guest_phone, room, check_in, check_out, nights, adults,
+        guest_email, guest_phone, room, building, check_in, check_out, nights, adults,
         children, total, currency, status, lang, confirmation,
         payment_provider, payment_method, payment_status, payment_charge_id,
         needs_review)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25)
      ON CONFLICT (ref) DO UPDATE SET
        status = EXCLUDED.status,
+       -- A re-forwarded confirmation may be the one that finally names the
+       -- building; never overwrite a known building with an unknown one.
+       building = COALESCE(EXCLUDED.building, guest_bookings.building),
        -- Only stamp cancellation metadata when THIS update is the one moving
        -- the row into 'cancelled' — avoids clobbering a staff cancellation's
        -- reason/actor if the same OTA cancellation email is ever re-forwarded.
@@ -1114,6 +1134,12 @@ async function ingestGuestBooking(b) {
       b.guestEmail || b.guest_email || null,
       b.guestPhone || b.guest_phone || null,
       b.room || b.roomType || b.room_type || null,
+      // Which of the five buildings, read off the room type and — for an OTA
+      // reservation — the confirmation email itself. This is the only point
+      // where that whole email is in hand, so it's resolved once, here.
+      b.building != null
+        ? b.building
+        : resolveBuilding(b.room || b.roomType || b.room_type, b.confirmation || b.body),
       checkIn,
       checkOut,
       nights,
@@ -1153,7 +1179,7 @@ router.post('/', async (req, res) => {
   }
   try {
     const saved = await ingestGuestBooking(req.body || {});
-    // null → OTA handling is disabled (see HANDLE_OTA_BOOKINGS). Acknowledge so
+    // null → OTA storage is disabled (see STORE_OTA_BOOKINGS). Acknowledge so
     // the channel manager doesn't retry, but store nothing and email no one.
     if (!saved) {
       return res.status(202).json({ status: 'ignored', reason: 'Only Direct (Website) bookings are handled' });

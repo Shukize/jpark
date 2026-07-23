@@ -9,6 +9,7 @@
    can never drift into answering differently for the same guest.
    ============================================================ */
 const db = require('../db');
+const { buildingForBooking } = require('./buildings');
 
 // Escape a value used inside a SQL LIKE/ILIKE pattern so caller-supplied `%`
 // and `_` are matched literally instead of as wildcards (paired with ESCAPE
@@ -18,7 +19,8 @@ function escapeLike(s) {
 }
 
 const COLS = `id, ref, channel, channel_name, guest_name, guest_last_name,
-              room, room_number, check_in, check_out, nights, adults, children, status`;
+              room, room_number, building, check_in, check_out, nights,
+              adults, children, status`;
 
 /* Find the booking a guest is identifying themselves with.
 
@@ -92,12 +94,22 @@ function stayStatus(bk) {
    the same. The flag only tells the front desk which requests to check
    against the register first. */
 async function verifyGuest(bookingRef) {
-  if (!bookingRef) return { verified: false, ref: null };
+  const none = { verified: false, ref: null, roomType: null, building: null };
+  if (!bookingRef) return none;
   try {
     const bk = await findBooking({ ref: bookingRef });
-    return { verified: !!bk, ref: bk ? bk.ref : null };
+    if (!bk) return none;
+    // Room type and building ride along so the request card can say
+    // "Room 407 · Building 4 · Studio B4" without a second lookup. `room` is
+    // the room TYPE (the physical number is room_number) — see findBooking.
+    return {
+      verified: true,
+      ref: bk.ref,
+      roomType: bk.room || null,
+      building: buildingForBooking(bk),
+    };
   } catch (_) {
-    return { verified: false, ref: null }; // never fail a guest request over this
+    return none; // never fail a guest request over this
   }
 }
 

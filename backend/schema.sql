@@ -357,6 +357,19 @@ ALTER TABLE orders           ADD COLUMN IF NOT EXISTS booking_ref    VARCHAR(100
 ALTER TABLE service_requests ADD COLUMN IF NOT EXISTS guest_verified BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE service_requests ADD COLUMN IF NOT EXISTS booking_ref    VARCHAR(100);
 
+-- Where to actually walk. The property spans five buildings, so a room number
+-- alone doesn't locate a guest. Snapshotted onto each request/order from the
+-- guest's booking at the moment they file it (see lib/buildings.js).
+ALTER TABLE orders           ADD COLUMN IF NOT EXISTS building  SMALLINT;
+ALTER TABLE orders           ADD COLUMN IF NOT EXISTS room_type VARCHAR(50);
+ALTER TABLE service_requests ADD COLUMN IF NOT EXISTS building  SMALLINT;
+ALTER TABLE service_requests ADD COLUMN IF NOT EXISTS room_type VARCHAR(50);
+
+-- Worked out once at intake, when the whole confirmation email is still in
+-- hand: the room type names it for direct bookings ("Studio B4"), and OTA
+-- confirmations carry it on the room-type or unit line.
+ALTER TABLE guest_bookings   ADD COLUMN IF NOT EXISTS building  SMALLINT;
+
 CREATE INDEX IF NOT EXISTS idx_orders_guest
   ON orders (guest_id, created_at DESC);
 

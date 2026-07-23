@@ -41,6 +41,10 @@ function row2js(r) {
     lang: r.lang || 'en',
     guestVerified: r.guest_verified === true,
     bookingRef: r.booking_ref || null,
+    // Where to actually walk: the property spans five buildings, so the room
+    // number alone doesn't locate the guest (see lib/buildings.js).
+    building: r.building != null ? Number(r.building) : null,
+    roomType: r.room_type || null,
     status: normaliseStatus(r.status),
     createdAt: new Date(r.created_at).getTime(),
     updatedAt: r.updated_at ? new Date(r.updated_at).getTime() : null,
@@ -110,8 +114,9 @@ router.post('/', async (req, res) => {
     const { rows } = await db.query(
       `INSERT INTO service_requests
          (guest_id, guest_name, room_number, type, kind, title_key, title,
-          items, deliver_at, total, note, lang, guest_verified, booking_ref)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+          items, deliver_at, total, note, lang, guest_verified, booking_ref,
+          building, room_type)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
        RETURNING *`,
       [
         b.guestId,
@@ -128,6 +133,8 @@ router.post('/', async (req, res) => {
         b.lang || 'en',
         who.verified,
         who.ref,
+        who.building,
+        who.roomType,
       ]
     );
     res.status(201).json(row2js(rows[0]));

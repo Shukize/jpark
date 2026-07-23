@@ -34,6 +34,8 @@ function row2js(r) {
     total: r.total ? Number(r.total) : null,
     guestVerified: r.guest_verified === true,
     bookingRef: r.booking_ref || null,
+    building: r.building != null ? Number(r.building) : null,
+    roomType: r.room_type || null,
     status: normaliseStatus(r.status),
     kind: 'order',
     category: 'dining',
@@ -91,8 +93,8 @@ router.post('/', async (req, res) => {
     const who = await verifyGuest(bookingRef);
     const { rows } = await db.query(
       `INSERT INTO orders (guest_id, guest_name, room_number, items, deliver_at, notes, total,
-                           guest_verified, booking_ref)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
+                           guest_verified, booking_ref, building, room_type)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
       [
         guestId,
         guestName || 'Guest',
@@ -103,6 +105,8 @@ router.post('/', async (req, res) => {
         total != null ? total : null,
         who.verified,
         who.ref,
+        who.building,
+        who.roomType,
       ]
     );
     res.status(201).json(row2js(rows[0]));

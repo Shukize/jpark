@@ -27,6 +27,7 @@ const { lookupGeo } = require('../lib/geoIp');
 const { parseUserAgent } = require('../lib/deviceInfo');
 const { makeLimiter } = require('../lib/rateLimit');
 const { findBooking } = require('../lib/guestLookup');
+const { buildingForBooking } = require('../lib/buildings');
 
 let bcrypt;
 try { bcrypt = require('bcrypt'); } catch (_) { bcrypt = null; }
@@ -288,6 +289,11 @@ router.post('/guest-login', async (req, res) => {
         lastName: bk.guest_last_name,
         room: bk.room,
         roomNumber: bk.room_number,
+        // `room` is the room TYPE; surfaced explicitly so the portal can show
+        // the guest "Room 407 · Building 4 · Studio B4" without guessing which
+        // of the two "room" fields it's holding.
+        roomType: bk.room || null,
+        building: buildingForBooking(bk),
         checkIn: bk.check_in,
         checkOut: bk.check_out,
       });
@@ -316,6 +322,10 @@ router.post('/guest-login', async (req, res) => {
       lastName: String(lastName).trim().slice(0, 60),
       room: roomStr,
       roomNumber: roomStr,
+      // Unknown, and deliberately not guessed: there is no room-number →
+      // building rule at this property (see lib/buildings.js).
+      roomType: null,
+      building: null,
     });
   } catch (e) {
     console.error('[auth] guest-login', e);

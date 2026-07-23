@@ -128,7 +128,7 @@ router.post('/', async (req, res) => {
 
   try {
     const saved = await ingestGuestBooking(parsed);
-    // null → OTA handling is disabled (see HANDLE_OTA_BOOKINGS in
+    // null → OTA storage is disabled (see STORE_OTA_BOOKINGS in
     // routes/guestBookings.js). Acknowledge the forwarder so it stops retrying,
     // but the booking is intentionally not stored and no email is sent.
     if (!saved) {

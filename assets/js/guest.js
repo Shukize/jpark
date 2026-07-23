@@ -84,6 +84,10 @@
       // get the full portal either way; the flag rides along so the front desk
       // can check the register (see routes/serviceRequests.js verifyGuest).
       verified: info.verified !== false,
+      // Read off the booking (lib/buildings.js). Null when we don't know —
+      // never guessed from the room number.
+      roomType: info.roomType || null,
+      building: info.building || null,
     };
     S.setSession("guest", guest);
   }
@@ -94,7 +98,14 @@
     els.portal.classList.toggle("show", !!guest);
     if (guest) {
       els.pbName.textContent = guest.name;
-      els.pbRoom.textContent = guest.room;
+      // "407 · Building 4 · Studio B4" — the guest sees exactly what the front
+      // desk sees on their request, so there's no confusion over which room or
+      // which building is being talked about. Parts we don't know are omitted.
+      els.pbRoom.textContent = [
+        guest.room,
+        guest.building ? t("building.n").replace("{n}", guest.building) : "",
+        guest.roomType || "",
+      ].filter(Boolean).join(" · ");
       renderUnconfirmedNote();
       renderMatrix();
       renderMenu();
