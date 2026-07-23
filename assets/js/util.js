@@ -65,6 +65,30 @@
     }
   }
 
+  // Clock time for a single chat message. A thread is read top-to-bottom, so
+  // same-day messages only need HH:MM; anything older carries its date too, so
+  // the front desk can tell "asked 10 minutes ago" from "asked on Tuesday"
+  // without opening anything. Locale-aware, like formatDate above.
+  function messageTime(ts) {
+    if (!ts) return "";
+    const lang = (window.JPark && window.JPark.i18n) ? window.JPark.i18n.getLang() : "en";
+    const locale = DATE_LOCALE[lang] || "en-GB";
+    const d = new Date(ts);
+    if (isNaN(d.getTime())) return "";
+    const now = new Date();
+    const sameDay = d.getDate() === now.getDate()
+      && d.getMonth() === now.getMonth()
+      && d.getFullYear() === now.getFullYear();
+    const opts = sameDay
+      ? { hour: "2-digit", minute: "2-digit" }
+      : { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" };
+    try {
+      return d.toLocaleString(locale, opts);
+    } catch (_) {
+      return d.toLocaleString();
+    }
+  }
+
   window.JPark = window.JPark || {};
-  window.JPark.util = { escapeHtml, toast, timeAgo, money, formatDate };
+  window.JPark.util = { escapeHtml, toast, timeAgo, money, formatDate, messageTime };
 })();

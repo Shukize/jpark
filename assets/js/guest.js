@@ -44,7 +44,11 @@
   async function tryLogin(last, room, ref) {
     const API = window.JPark.api;
     if (API) {
-      const body = ref ? { ref: ref.trim() } : { lastName: last.trim(), room: room.trim() };
+      // guestId rides along so the server can rate-limit per device instead of
+      // per IP — the whole hotel shares one Wi-Fi address (see auth.js).
+      const body = ref
+        ? { ref: ref.trim(), guestId: S.guestId() }
+        : { lastName: last.trim(), room: room.trim(), guestId: S.guestId() };
       const res = await API.post("/api/auth/guest-login", body);
       if (!res.error) return res; // { bookingId, name, lastName, room, ref }
       // 404 = auth route not deployed yet; 5xx = server error — fall through to localStorage.
@@ -76,6 +80,10 @@
       ref: info.ref,
       name: info.name,
       room: info.roomNumber || info.room,
+      // false for an OTA / walk-in guest we couldn't match to a booking. They
+      // get the full portal either way; the flag rides along so the front desk
+      // can check the register (see routes/serviceRequests.js verifyGuest).
+      verified: info.verified !== false,
     };
     S.setSession("guest", guest);
   }
@@ -87,6 +95,7 @@
     if (guest) {
       els.pbName.textContent = guest.name;
       els.pbRoom.textContent = guest.room;
+      renderUnconfirmedNote();
       renderMatrix();
       renderMenu();
       renderCart();
@@ -94,6 +103,27 @@
       startTrackerPoll();
     } else {
       stopTrackerPoll();
+    }
+  }
+
+  /* A guest we couldn't match to a booking still gets the whole portal — they
+     just get told, once, that the front desk will confirm who they are. Kept
+     out of the way (a quiet strip, not an error) because for an OTA or
+     walk-in guest this is the normal, expected path, not a mistake. */
+  function renderUnconfirmedNote() {
+    const bar = document.querySelector("#svcPortal .portal-bar");
+    if (!bar) return;
+    let note = document.getElementById("pbUnconfirmed");
+    if (guest && guest.verified === false) {
+      if (!note) {
+        note = document.createElement("p");
+        note.id = "pbUnconfirmed";
+        note.className = "pb-unconfirmed";
+        bar.insertAdjacentElement("afterend", note);
+      }
+      note.textContent = t("gate.unconfirmed");
+    } else if (note) {
+      note.remove();
     }
   }
 
@@ -173,6 +203,7 @@
       titleKey,
       title: t(titleKey),
       lang: I.getLang(),
+      bookingRef: guest.ref || null, // server re-checks this to set the verified flag
     };
 
     const API = window.JPark.api;
@@ -183,7 +214,16 @@
         renderTracker();
         return;
       }
-      if (!res.offline) { U.toast(t("matrix.sent"), "success"); return; }
+      // A server-side rejection used to be reported to the guest as "Request
+      // sent!" — so when every POST started 500ing, guests kept tapping and
+      // waiting for towels that no one had been told about. Only a genuinely
+      // unreachable API (offline) falls through to the local queue; a server
+      // that answered and said no is told to the guest, plainly.
+      if (!res.offline) {
+        console.error("[guest] service request failed:", res.error);
+        U.toast(t("matrix.failed"), "error");
+        return;
+      }
     }
     // Offline fallback
     S.insert("requests", Object.assign(payload, { room: guest.room, status: "pending" }));
@@ -288,15 +328,24 @@
     const payload = {
       guestId, guestName: guest.name, room: guest.room,
       items, deliverAt: deliver, notes: note, total,
+      bookingRef: guest.ref || null,
     };
 
     const API = window.JPark.api;
     if (API) {
       const res = await API.post("/api/orders", payload);
-      if (!res.error || res.offline) {
+      if (!res.error) {
         cart = {}; renderCart();
         U.toast(t("rs.placed"), "success");
         renderTracker();
+        return;
+      }
+      // Same rule as submitService(): a rejected order is never reported as
+      // placed. Keep the cart intact so the guest can retry rather than
+      // re-picking every dish.
+      if (!res.offline) {
+        console.error("[guest] order failed:", res.error);
+        U.toast(t("matrix.failed"), "error");
         return;
       }
     }
@@ -418,12 +467,20 @@
 
   async function cancelItem(r) {
     const API = window.JPark.api;
-    if (API && !String(r.id).startsWith("ord-")) {
-      await API.patch("/api/service-requests/" + r.id, { status: "cancelled" });
-    } else if (API && String(r.id).startsWith("ord-")) {
-      await API.patch("/api/orders/" + r.id.replace("ord-", ""), { status: "cancelled" });
-    } else {
+    // The guest has no login, so the cancel is authorised by the guestId they
+    // were issued — the server scopes the UPDATE to that guest's own pending
+    // rows. Without it these calls came back 401 and the item just sat there.
+    const guestId = S.guestId();
+    let res = null;
+    if (API && String(r.id).startsWith("ord-")) {
+      res = await API.patch("/api/orders/" + r.id.replace("ord-", ""), { status: "cancelled", guestId });
+    } else if (API && r.id != null) {
+      res = await API.patch("/api/service-requests/" + r.id, { status: "cancelled", guestId });
+    }
+    if (!res || (res.error && res.offline)) {
       S.update("requests", r.id, { status: "cancelled" });
+    } else if (res.error) {
+      U.toast(t("matrix.failed"), "error");
     }
     renderTracker();
   }

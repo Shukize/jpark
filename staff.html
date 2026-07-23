@@ -192,6 +192,9 @@
   <main class="dash-main">
     <!-- requests -->
     <section class="dash-panel show" id="panel-requests">
+      <!-- announced to screen readers when requests are waiting, so the alert
+           isn't carried by a blinking colour alone -->
+      <span id="reqAlertLive" class="sr-only" role="status" aria-live="polite"></span>
       <h2 data-i18n="staff.requests.title">Guest requests</h2>
       <p class="panel-lede" data-i18n="matrix.lede"></p>
       <div class="req-filters" id="reqFilters"></div>

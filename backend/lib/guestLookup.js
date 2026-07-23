@@ -83,4 +83,22 @@ function stayStatus(bk) {
   return 'in_house';
 }
 
-module.exports = { escapeLike, findBooking, stayStatus };
+/* Did the guest who filed this request/order actually match a booking?
+
+   Re-checked server-side from the booking ref the portal was issued at
+   sign-in, rather than trusted from the request body — a client can claim
+   anything. It is NOT a gate: an OTA or walk-in guest has no row in
+   guest_bookings by design (see routes/guestBookings.js) and is served all
+   the same. The flag only tells the front desk which requests to check
+   against the register first. */
+async function verifyGuest(bookingRef) {
+  if (!bookingRef) return { verified: false, ref: null };
+  try {
+    const bk = await findBooking({ ref: bookingRef });
+    return { verified: !!bk, ref: bk ? bk.ref : null };
+  } catch (_) {
+    return { verified: false, ref: null }; // never fail a guest request over this
+  }
+}
+
+module.exports = { escapeLike, findBooking, stayStatus, verifyGuest };

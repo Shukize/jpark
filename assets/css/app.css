@@ -77,6 +77,14 @@ body.has-banner .site-header { } /* header stays fixed; banner scrolls above */
   padding: 8px 18px; border-radius: 999px; font-size: 0.8rem; font-weight: 600; cursor: pointer;
 }
 .portal-bar .btn-signout:hover { background: rgba(247,242,232,0.26); }
+/* Shown to a guest we couldn't match to a booking (OTA, walk-in). Informational
+   — the portal works exactly the same — so it reads as a note, not an error. */
+.pb-unconfirmed {
+  margin: -16px 0 22px; padding: 11px 16px;
+  background: #fdf4e3; border: 1px solid #e8cf9a; border-radius: 12px;
+  color: #7a5a12; font-size: 0.86rem; line-height: 1.5;
+}
+.pb-unconfirmed::before { content: "🔶 "; }
 
 .portal-card {
   background: #fff; border: 1px solid var(--line); border-radius: 20px;
@@ -255,6 +263,22 @@ body.has-banner .site-header { } /* header stays fixed; banner scrolls above */
 .msg-tr-note { margin: 10px 0 0; color: var(--terracotta); opacity: .85; }
 .msg.system { align-self: center; background: transparent; color: var(--ink-soft); font-size: 0.8rem; font-style: italic; text-align: center; max-width: 100%; }
 
+/* Per-message timestamp (guest widget + staff console). Quiet enough to read
+   past, always the last line of the bubble — .msg-notes is the host the
+   async "translated from X" note lands in, which keeps it above the time. */
+.msg-notes { display: block; }
+.msg-time {
+  display: block; text-align: right; margin-top: 4px;
+  font-size: 0.66rem; letter-spacing: .02em; opacity: .55;
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.msg.guest .msg-time { color: rgba(247,242,232,0.9); opacity: .75; }
+.msg.system .msg-time { text-align: center; font-style: normal; }
+.cc-conv-body .msg.staff .msg-time { color: rgba(247,242,232,0.9); opacity: .75; }
+.cc-conv-body .msg.guest .msg-time { color: inherit; opacity: .55; }
+/* keep the timestamp clear of the pin button in the staff console */
+.cc-conv-body .msg .msg-time { padding-right: 16px; }
+
 /* ── Live chat: who's chatting ──────────────────────────────────────────────
    Sits between the messages and the quick topics: a chooser + sign-in form
    until the guest says whether they're staying, then a compact chip. Never
@@ -373,6 +397,49 @@ body.staff-body { background: #eef1ef; }
   min-width: 20px; height: 20px; border-radius: 999px; display: none; align-items: center; justify-content: center; padding: 0 6px;
 }
 .nav-item .ni-count.show { display: flex; }
+
+/* ── Unread guest requests ──────────────────────────────────────────────────
+   A guest request is a job someone has to walk upstairs and do, so it gets a
+   louder signal than a count: the sidebar entry pulses and carries a blinking
+   "!" until a person has actually opened the panel (see markRequestsRead in
+   staff.js). Motion is the only thing animated, and it's dropped entirely for
+   anyone who has asked their OS for reduced motion — the "!" itself, the
+   count, and the tab title all still say the same thing. */
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+@keyframes jpBlink { 0%, 60% { opacity: 1; } 61%, 100% { opacity: .15; } }
+@keyframes jpAlertPulse {
+  0%, 100% { background: rgba(217,138,43,.16); }
+  50%      { background: rgba(217,138,43,.42); }
+}
+.nav-item .ni-alert {
+  margin-left: 6px; flex: none;
+  min-width: 20px; height: 20px; border-radius: 999px;
+  display: flex; align-items: center; justify-content: center;
+  background: #d94b2b; color: #fff; font-weight: 900; font-size: 0.82rem;
+  animation: jpBlink 1s steps(1, end) infinite;
+}
+.nav-item.has-alert:not(.active) { animation: jpAlertPulse 1.6s ease-in-out infinite; }
+.nav-item.has-alert .ni-count { margin-left: auto; }
+
+/* the same "!" on the individual card that hasn't been read */
+.staff-req.unread-req { border-left-color: #d94b2b !important; box-shadow: 0 0 0 2px rgba(217,75,43,.18); }
+.staff-req .sr-bang {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 20px; height: 20px; border-radius: 999px;
+  background: #d94b2b; color: #fff; font-weight: 900; font-size: 0.82rem;
+  animation: jpBlink 1s steps(1, end) infinite;
+}
+/* who filed the request, and whether we could match them to a booking */
+.staff-req .sr-guest { color: var(--ink-soft); }
+.staff-req .sr-unverified { color: #b06a12; font-weight: 600; white-space: nowrap; }
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-item .ni-alert, .staff-req .sr-bang, .nav-item.has-alert:not(.active) { animation: none; }
+}
+
 .dash-side .ds-spacer { flex: 1; }
 .dash-side .ds-foot { border-top: 1px solid rgba(247,242,232,0.16); padding-top: 14px; margin-top: 8px; }
 .dash-side .ds-user { font-size: 0.85rem; margin-bottom: 10px; }

@@ -115,6 +115,44 @@
   let lastChatUnread = 0;
   let lastSeenChatMsg = {};  // { [guestId]: lastMsg } — tracks what we've already notified/seen per thread
 
+  /* ---- Guest requests: unread state ---------------------------------------
+     A guest asking for towels is a job someone has to physically do, so it
+     can't rely on whoever happens to be looking at the right panel at the
+     right second. A request stays UNREAD — blinking "!" on the nav item and
+     on its own card, plus a chime — until a person actually looks at the
+     Guest Requests panel. The acknowledged ids live in localStorage, so
+     reloading the page (or the browser restarting overnight) does NOT quietly
+     clear the alert the way the in-memory seenReq set does. */
+  const REQ_ACK_KEY = "jpark.requestsAcked";
+  const REQ_ACK_MAX = 400;          // keep the stored list from growing forever
+  const REQ_READ_DWELL_MS = 4000;   // panel must stay open this long to count as "read"
+  const REQ_RECHIME_MS = 120000;    // nag again every 2 min while something is unread
+  let reqAcked = loadReqAcked();
+  let reqReadTimer = null;
+  let reqBlinkTimer = null;
+  let lastReqChimeAt = 0;
+
+  function loadReqAcked() {
+    try {
+      const raw = JSON.parse(localStorage.getItem(REQ_ACK_KEY) || "[]");
+      return new Set(Array.isArray(raw) ? raw.map(String) : []);
+    } catch (_) { return new Set(); }
+  }
+  function saveReqAcked() {
+    try {
+      let ids = Array.from(reqAcked);
+      if (ids.length > REQ_ACK_MAX) ids = ids.slice(ids.length - REQ_ACK_MAX);
+      reqAcked = new Set(ids);
+      localStorage.setItem(REQ_ACK_KEY, JSON.stringify(ids));
+    } catch (_) { /* storage full / private mode — degrade to in-memory only */ }
+  }
+  // Open work the front desk hasn't looked at yet.
+  function unreadRequests() {
+    return S.list("requests").filter(function (r) {
+      return r.status === "pending" && !reqAcked.has(String(r.id));
+    });
+  }
+
   // Messages state
   let msgView = "inbox";
   let msgDetailId = null;
@@ -244,33 +282,67 @@
   }
 
   document.addEventListener("visibilitychange", function () {
-    if (document.visibilityState === "visible" && _pollTimer) _pollAll();
+    if (document.visibilityState !== "visible") return;
+    if (_pollTimer) _pollAll();
+    // Coming back to a backgrounded console only counts as reading the
+    // requests once the panel is actually on screen again.
+    if (panel === "requests") markRequestsRead();
   });
 
+  // One row of the Guest Requests board, from either source table. Reads both
+  // the camelCase the API sends today and the raw snake_case an older server
+  // would return, so a half-rolled-out deploy still renders.
+  function _reqRow(r, idPrefix) {
+    return {
+      id: (idPrefix || "") + String(r.id),
+      kind: r.kind || "service",
+      category: r.category || r.type || r.kind,
+      titleKey: r.titleKey || r.title_key,
+      title: r.title,
+      room: r.room || r.roomNumber || r.room_number,
+      guestName: r.guestName || r.guest_name,
+      guestId: r.guestId || r.guest_id,
+      items: r.items || [],
+      deliverAt: r.deliverAt || r.deliver_at,
+      note: r.note || r.notes,
+      total: r.total,
+      lang: r.lang || "en",
+      // Set server-side from the booking ref (lib/guestLookup.js verifyGuest)
+      // — an OTA or walk-in guest comes through as false, not missing.
+      guestVerified: r.guestVerified === true || r.guest_verified === true,
+      bookingRef: r.bookingRef || r.booking_ref || null,
+      status: r.status === "in_progress" ? "progress"
+            : r.status === "preparing"   ? "progress"
+            : r.status === "delivered"   ? "done"
+            : (r.status || "pending"),
+      createdAt: r.createdAt || (r.created_at ? new Date(r.created_at).getTime() : 0),
+    };
+  }
+
+  // In-room dining orders live in their own table and were never polled here,
+  // so a guest could place an order, see it in their tracker, and no one at
+  // the front desk would ever know. Both sources feed the one board; order
+  // ids are prefixed "ord-" so status updates route back to the right table
+  // (see updateReqStatus).
   async function _pollRequests() {
     const API = window.JPark && window.JPark.api;
     if (!API) return;
-    const data = await API.get("/api/service-requests");
-    if (!Array.isArray(data)) return;
-    const reqs = data.map(function (r) {
-      return {
-        id: String(r.id),
-        kind: r.kind || "service",
-        category: r.type || r.kind,
-        titleKey: r.title_key || r.titleKey,
-        title: r.title,
-        room: r.room_number,
-        guestName: r.guest_name || r.guestName,
-        guestId: r.guest_id || r.guestId,
-        items: r.items || [],
-        deliverAt: r.deliver_at || r.deliverAt,
-        note: r.note || r.notes,
-        total: r.total,
-        lang: r.lang || "en",
-        status: r.status === "in_progress" ? "progress" : (r.status || "pending"),
-        createdAt: r.created_at ? new Date(r.created_at).getTime() : (r.createdAt || 0),
-      };
-    });
+    const [srData, ordData] = await Promise.all([
+      API.get("/api/service-requests"),
+      API.get("/api/orders"),
+    ]);
+    // A failed fetch must not be mistaken for "no requests" and wipe the board.
+    if (!Array.isArray(srData)) {
+      if (srData && !srData.offline) console.error("[staff] service requests poll failed:", srData.error);
+      return;
+    }
+    const reqs = srData.map(function (r) { return _reqRow(r, ""); });
+    if (Array.isArray(ordData)) {
+      ordData.forEach(function (o) { reqs.push(_reqRow(o, "ord-")); });
+    } else if (ordData && !ordData.offline) {
+      console.error("[staff] orders poll failed:", ordData.error);
+    }
+    reqs.sort(function (a, b) { return b.createdAt - a.createdAt; });
     S.write("requests", reqs);
   }
 
@@ -520,6 +592,7 @@
 
     renderAvatarInSidebar();
     selectPanel(panel);
+    updateRequestAlert();
     updateBadges();
     requestNotifyPermission();
     startApiPolling();
@@ -533,6 +606,10 @@
     document.querySelectorAll(".nav-item").forEach((b) => b.classList.toggle("active", b.dataset.panel === name));
     document.querySelectorAll(".dash-panel").forEach((p) => p.classList.toggle("show", p.id === "panel-" + name));
     renderPanel();
+    // Opening Guest Requests starts the "has anyone actually looked at this?"
+    // dwell timer; leaving it cancels any timer still running.
+    if (name === "requests") markRequestsRead();
+    else if (reqReadTimer) { clearTimeout(reqReadTimer); reqReadTimer = null; }
     // Opening the messages panel triggers a fresh pull so the user sees any
     // server-side activity that landed since the last 6s poll tick.
     if (name === "messages") _pollMessages();
@@ -861,8 +938,22 @@
     list.innerHTML = "";
     reqs.forEach((r) => {
       const card = document.createElement("div");
-      card.className = "staff-req " + r.status;
+      const unread = r.status === "pending" && !reqAcked.has(String(r.id));
+      card.className = "staff-req " + r.status + (unread ? " unread-req" : "");
       let detail = "";
+      // Who filed it. A request from someone whose name+room didn't match a
+      // booking (OTA guest, walk-in, or a wrong room number) is still actioned
+      // — it's just flagged so the desk can check the register first.
+      const who = [r.guestName, r.lang && r.lang !== "en" ? (I.LANG_NAMES[r.lang] || r.lang) : ""]
+        .filter(Boolean).join(" · ");
+      if (who) {
+        detail += '<div class="sr-detail sr-guest">' + esc(who) +
+          (r.guestVerified === false
+            ? ' <span class="sr-unverified" title="' + esc(t("staff.requests.unverifiedHint")) + '">🔶 ' +
+              esc(t("staff.chat.tier.unconfirmed")) + "</span>"
+            : "") +
+          "</div>";
+      }
       if (r.kind === "order") {
         detail += '<div class="sr-detail"><b>' + esc(t("staff.requests.items")) + ":</b> " +
           esc((r.items || []).map((it) => it.qty + "× " + t(it.key)).join(", ")) +
@@ -881,6 +972,7 @@
         '<div class="sr-head">' +
           '<span class="sr-room">' + esc(t("staff.requests.room")) + " " + esc(r.room) + "</span>" +
           '<span class="sr-title">' + esc(reqTitle(r)) + "</span>" +
+          (unread ? '<span class="sr-bang" aria-hidden="true">!</span>' : "") +
           (r.status === "pending" ? '<span class="sr-new">' + esc(t("track.status.pending").toUpperCase()) + "</span>" : "") +
           '<span class="sr-time">' + esc(U.timeAgo(r.createdAt)) + "</span>" +
         "</div>" + detail +
@@ -898,11 +990,21 @@
 
   function updateReqStatus(id, status) {
     S.update("requests", id, { status: status });
+    markRequestsRead(true); // acting on the board is the strongest "I've seen it"
     const API = window.JPark && window.JPark.api;
-    if (API) {
-      const apiStatus = status === "progress" ? "in_progress" : status;
-      API.patch("/api/service-requests/" + id, { status: apiStatus }).catch(function () {});
-    }
+    if (!API) return;
+    // "ord-" ids come from the orders table (see _pollRequests).
+    const isOrder = String(id).indexOf("ord-") === 0;
+    const path = isOrder
+      ? "/api/orders/" + String(id).slice(4)
+      : "/api/service-requests/" + id;
+    API.patch(path, { status: status }).then(function (res) {
+      if (res && res.error && !res.offline) {
+        console.error("[staff] request status update failed:", res.error);
+        U.toast(t("staff.requests.updateFailed"), "error");
+        _pollRequests(); // put the card back the way the server sees it
+      }
+    }).catch(function () {});
   }
 
   /* ====================  LIVE CHAT  ==================== */
@@ -1230,8 +1332,22 @@
                     : t("chat.staff");
         div.innerHTML = '<span class="msg-from">' + esc(label) + "</span>";
         const span = document.createElement("span"); div.appendChild(span);
+        // The "translated from X" note resolves asynchronously — give it a
+        // host above the timestamp so it can't land below it.
+        const noteHost = document.createElement("span");
+        noteHost.className = "msg-notes";
+        div.appendChild(noteHost);
         if (m.lang && m.lang === cur) span.textContent = m.text;
-        else J.translate.fill(span, m.text, div);
+        else J.translate.fill(span, m.text, noteHost);
+      }
+      // Every message carries the time it was sent. Without it the front desk
+      // couldn't tell a question asked a minute ago from one left overnight.
+      if (m.ts) {
+        const time = document.createElement("time");
+        time.className = "msg-time";
+        time.dateTime = new Date(m.ts).toISOString();
+        time.textContent = U.messageTime(m.ts);
+        div.appendChild(time);
       }
       // Pin toggle is available on every persisted message (skip ephemeral
       // ids that never made it to the server — they don't have a numeric id).
@@ -4823,7 +4939,83 @@
   }
 
   /* ====================  BADGES + NOTIFICATIONS  ==================== */
+
+  /* Blinking "!" beside Guest Requests in the sidebar, and on each unread
+     card. Driven by a class rather than a JS interval so it costs nothing
+     when idle, and it honours prefers-reduced-motion (see app.css) for
+     anyone who can't work with a flashing screen. */
+  function updateRequestAlert() {
+    const unread = unreadRequests().length;
+    const nav = document.querySelector('.nav-item[data-panel="requests"]');
+    if (nav) {
+      nav.classList.toggle("has-alert", unread > 0);
+      let bang = nav.querySelector(".ni-alert");
+      if (unread > 0 && !bang) {
+        bang = document.createElement("span");
+        bang.className = "ni-alert";
+        bang.textContent = "!";
+        bang.setAttribute("aria-hidden", "true");
+        nav.appendChild(bang);
+      } else if (!unread && bang) {
+        bang.remove();
+      }
+    }
+    // Screen-reader + tab-title signal, so the alert isn't colour/motion only.
+    const live = document.getElementById("reqAlertLive");
+    if (live) {
+      const msg = unread ? t("staff.requests.unread").replace("{n}", unread) : "";
+      if (live.textContent !== msg) live.textContent = msg;
+    }
+    scheduleRequestRechime(unread);
+  }
+
+  /* While anything is still unread, ping again every couple of minutes — a
+     single chime at 3am gets missed. Silenced as soon as the panel is read,
+     and never fires while the front desk is actually looking at the list. */
+  function scheduleRequestRechime(unread) {
+    if (!unread) {
+      if (reqBlinkTimer) { clearInterval(reqBlinkTimer); reqBlinkTimer = null; }
+      return;
+    }
+    if (reqBlinkTimer) return;
+    reqBlinkTimer = setInterval(function () {
+      if (!unreadRequests().length) {
+        clearInterval(reqBlinkTimer); reqBlinkTimer = null; return;
+      }
+      const looking = panel === "requests" && document.visibilityState === "visible";
+      if (looking) return;
+      if (Date.now() - lastReqChimeAt < REQ_RECHIME_MS - 500) return;
+      lastReqChimeAt = Date.now();
+      playChime();
+    }, REQ_RECHIME_MS);
+  }
+
+  /* "Read" = a human had the Guest Requests panel open, in a visible tab, for
+     a few seconds. Acting on a card (Start / Done) counts immediately. */
+  function markRequestsRead(immediate) {
+    if (reqReadTimer) { clearTimeout(reqReadTimer); reqReadTimer = null; }
+    const commit = function () {
+      reqReadTimer = null;
+      if (panel !== "requests" || document.visibilityState !== "visible") return;
+      let changed = false;
+      S.list("requests").forEach(function (r) {
+        if (!reqAcked.has(String(r.id))) { reqAcked.add(String(r.id)); changed = true; }
+      });
+      if (changed) {
+        saveReqAcked();
+        updateRequestAlert();
+        updateBadges();
+        if (panel === "requests") renderRequests();
+      }
+    };
+    if (immediate) commit();
+    else reqReadTimer = setTimeout(commit, REQ_READ_DWELL_MS);
+  }
+
   function updateBadges() {
+    // The count is "jobs still open" — it must NOT drop just because someone
+    // glanced at the panel. Whether anyone has SEEN them is a separate signal,
+    // carried by the blinking "!" (updateRequestAlert).
     const pending = S.list("requests").filter((r) => r.status === "pending").length;
     // Live-chat badge is per-user: count only threads assigned to me that
     // still have unread guest messages. That's why a 1/2 only ever shows on
@@ -4888,17 +5080,24 @@
 
   /* ====================  REAL-TIME WIRING  ==================== */
   function onRequestsChange() {
+    let newPending = false;
     if (seenReq) {
       S.list("requests").forEach((r) => {
         if (!seenReq.has(r.id)) {
           seenReq.add(r.id);
           if (r.status === "pending") {
+            newPending = true;
             notify(t("staff.notif.request") + " · " + t("staff.requests.room") + " " + r.room + ": " + reqTitle(r));
           }
         }
       });
     }
-    if (panel === "requests") renderRequests();
+    // Guest requests used to arrive in silence while bookings and chats both
+    // chimed — the one queue that means someone has to walk to a room was the
+    // easiest to miss. Chime once per batch, like onBookingsChange().
+    if (newPending) { lastReqChimeAt = Date.now(); playChime(); }
+    if (panel === "requests") { renderRequests(); markRequestsRead(); }
+    updateRequestAlert();
     updateBadges();
   }
   function onChatsChange() {

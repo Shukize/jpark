@@ -625,6 +625,18 @@
     return t("chat.bot");
   }
 
+  /* Stamp a bubble with the time it was sent. Called for every message,
+     including system notices, so a returning guest can see whether the front
+     desk answered five minutes ago or yesterday evening. */
+  function appendTime(host, ts) {
+    if (!ts) return;
+    const el = document.createElement("time");
+    el.className = "msg-time";
+    el.dateTime = new Date(ts).toISOString();
+    el.textContent = U.messageTime(ts);
+    host.appendChild(el);
+  }
+
   function render() {
     const conv = getLocalConv();
     const cur  = I.getLang();
@@ -638,9 +650,17 @@
         } else {
           div.innerHTML = '<span class="msg-from">' + U.escapeHtml(fromLabel(m.from)) + "</span>";
           const span = document.createElement("span"); div.appendChild(span);
+          // "Translated from X" arrives later, asynchronously. Give it its own
+          // host ABOVE the timestamp, or it lands underneath whenever a
+          // translation happens to come back.
+          const noteHost = document.createElement("span");
+          noteHost.className = "msg-notes";
+          div.appendChild(noteHost);
           if (m.lang && m.lang === cur) span.textContent = m.text;
-          else JPark.translate.fill(span, m.text, div);
+          else JPark.translate.fill(span, m.text, noteHost);
         }
+        // When the message was sent — always the last line of the bubble.
+        appendTime(div, m.ts);
         body.appendChild(div);
       });
     }

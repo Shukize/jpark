@@ -177,10 +177,74 @@ async function restoreFalsePositiveCancellations() {
   }
 }
 
+/* schema.sql is all CREATE TABLE IF NOT EXISTS, so a table that already
+   exists NEVER picks up columns added to the file later. service_requests
+   grew kind/title_key/title/deliver_at/total/lang and renamed notes → note
+   after the first databases were created, which means a long-lived database
+   and a fresh one disagree about the shape of the same table — and whichever
+   way the route was written, one of them broke. Bring any older table up to
+   the current shape, idempotently, before anything queries it. */
+async function alignServiceRequestColumns() {
+  const { rows } = await db.query(
+    `SELECT column_name FROM information_schema.columns
+      WHERE table_name = 'service_requests'`
+  );
+  const have = new Set(rows.map((r) => r.column_name));
+  if (!have.size) return; // table doesn't exist yet — schema.sql just made it
+
+  const ADD = [
+    ['kind',       `VARCHAR(20) NOT NULL DEFAULT 'service'`],
+    ['title_key',  'VARCHAR(100)'],
+    ['title',      'TEXT'],
+    ['deliver_at', 'VARCHAR(20)'],
+    ['total',      'NUMERIC(10,2)'],
+    ['note',       'TEXT'],
+    ['lang',       `VARCHAR(10) DEFAULT 'en'`],
+    ['updated_at', 'TIMESTAMPTZ NOT NULL DEFAULT NOW()'],
+    ['guest_verified', 'BOOLEAN NOT NULL DEFAULT FALSE'],
+    ['booking_ref', 'VARCHAR(100)'],
+  ];
+  for (const [col, type] of ADD) {
+    if (!have.has(col)) {
+      await db.query(`ALTER TABLE service_requests ADD COLUMN ${col} ${type}`);
+      console.log(`[migrate] service_requests: added missing column "${col}"`);
+    }
+  }
+  // Legacy "notes" column: fold anything it holds into "note", then drop it so
+  // there is exactly one place a request note can live.
+  if (have.has('notes')) {
+    await db.query('UPDATE service_requests SET note = COALESCE(note, notes)');
+    await db.query('ALTER TABLE service_requests DROP COLUMN notes');
+    console.log('[migrate] service_requests: merged legacy "notes" into "note"');
+  }
+}
+
+/* Both boards now speak pending → progress → done → cancelled (see
+   routes/orders.js). Rewrite rows still carrying the old order-only words so
+   the staff filters and the guest tracker don't skip them. */
+async function alignOrderStatuses() {
+  const { rowCount } = await db.query(
+    `UPDATE orders
+        SET status = CASE status WHEN 'preparing' THEN 'progress'
+                                 WHEN 'delivered' THEN 'done'
+                                 WHEN 'in_progress' THEN 'progress' END
+      WHERE status IN ('preparing', 'delivered', 'in_progress')`
+  );
+  if (rowCount) console.log(`[migrate] orders: normalised ${rowCount} legacy status value(s)`);
+  const sr = await db.query(
+    `UPDATE service_requests SET status = 'progress' WHERE status = 'in_progress'`
+  );
+  if (sr.rowCount) console.log(`[migrate] service_requests: normalised ${sr.rowCount} legacy status value(s)`);
+}
+
 async function migrate() {
   const sql = require('fs').readFileSync(require('path').join(__dirname, 'schema.sql'), 'utf8');
   await db.query(sql);
   console.log('[migrate] schema up to date');
+
+  await alignServiceRequestColumns();
+  await alignOrderStatuses();
+  console.log('[migrate] guest request tables aligned');
 
   await removeHousekeeping();
   console.log('[migrate] housekeeping employees removed');

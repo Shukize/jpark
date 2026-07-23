@@ -38,7 +38,15 @@ const ABSOLUTE_SESSION_DAYS = 7;
 const MAX_SESSIONS_PER_EMPLOYEE = 6;
 const refreshRateLimited = makeLimiter(30, 60 * 1000);     // 30/min per IP
 const loginRateLimited = makeLimiter(10, 10 * 60 * 1000);  // 10 staff-login attempts / 10min per IP
-const guestLoginRateLimited = makeLimiter(20, 10 * 60 * 1000); // 20 guest-portal lookups / 10min per IP
+// Guest-portal sign-in. A tight per-IP budget is wrong here for the same
+// reason it was wrong on POST /api/chat/identify (see the note there): every
+// guest on the hotel's own Wi-Fi shares ONE public IP, so a 20/10min ceiling
+// locked out real guests as soon as a few arrivals had signed in — and now
+// that OTA and walk-in guests use this door too, that is most of the house.
+// So: a per-IP ceiling loose enough for a whole floor, plus a tight per-device
+// budget that makes scripted guessing from one browser pointless.
+const guestLoginRateLimited = makeLimiter(60, 10 * 60 * 1000);
+const guestLoginDeviceRateLimited = makeLimiter(8, 10 * 60 * 1000);
 
 // A random, unambiguous temporary password for admin-triggered resets. Returned
 // ONCE to the admin (the DB only ever keeps the bcrypt hash) — this replaces the
@@ -255,10 +263,14 @@ router.post('/refresh', async (req, res) => {
 
 /* ---- POST /api/auth/guest-login ---- */
 router.post('/guest-login', async (req, res) => {
-  if (guestLoginRateLimited(normalizeIp(req.ip))) {
+  const { lastName, room, ref, guestId } = req.body || {};
+  // guestId is the id the portal issued this browser; it is client-chosen, so
+  // it proves nothing on its own — it just stops one widget grinding through
+  // guesses without punishing the rest of the hotel behind the same NAT.
+  if (guestLoginRateLimited(normalizeIp(req.ip))
+      || guestLoginDeviceRateLimited(String(guestId || room || 'unknown'))) {
     return res.status(429).json({ error: 'Too many attempts. Please try again later.' });
   }
-  const { lastName, room, ref } = req.body || {};
   if (!(ref && ref.trim()) && !(lastName && room)) {
     return res.status(400).json({ error: 'Provide lastName + room, or ref' });
   }
@@ -267,17 +279,43 @@ router.post('/guest-login', async (req, res) => {
     // accept the same details. NB the room field now matches the physical
     // room_number as well as the room type — see lib/guestLookup.js.
     const bk = await findBooking({ ref, lastName, room });
-    if (!bk) return res.status(404).json({ error: 'Booking not found' });
+    if (bk) {
+      return res.json({
+        verified: true,
+        bookingId: bk.id,
+        ref: bk.ref,
+        name: bk.guest_name,
+        lastName: bk.guest_last_name,
+        room: bk.room,
+        roomNumber: bk.room_number,
+        checkIn: bk.check_in,
+        checkOut: bk.check_out,
+      });
+    }
 
-    res.json({
-      bookingId: bk.id,
-      ref: bk.ref,
-      name: bk.guest_name,
-      lastName: bk.guest_last_name,
-      room: bk.room,
-      roomNumber: bk.room_number,
-      checkIn: bk.check_in,
-      checkOut: bk.check_out,
+    /* No booking matched — but "no row in guest_bookings" does NOT mean "not
+       a guest of this hotel". Anyone who booked through an OTA is absent by
+       design (OTA intake is off, see routes/guestBookings.js), as is every
+       walk-in, and as is anyone whose booking predates that switch. Turning
+       those people away meant the guest in room 407 could not ask for a towel.
+
+       So they're let in UNCONFIRMED: the portal works, and every request they
+       file is flagged for the front desk to check against the register. It is
+       deliberately not a security boundary — the portal orders towels, it
+       does not spend money or expose anyone else's data — but it does need a
+       room to deliver to, so a plausible room is still required. */
+    const roomStr = String(room || '').trim();
+    if (!lastName || !String(lastName).trim() || !/^[A-Za-z0-9-]{1,10}$/.test(roomStr)) {
+      return res.status(404).json({ error: 'Booking not found' });
+    }
+    return res.json({
+      verified: false,
+      bookingId: null,
+      ref: null,
+      name: String(lastName).trim().slice(0, 60),
+      lastName: String(lastName).trim().slice(0, 60),
+      room: roomStr,
+      roomNumber: roomStr,
     });
   } catch (e) {
     console.error('[auth] guest-login', e);

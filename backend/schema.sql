@@ -44,6 +44,11 @@ CREATE TABLE IF NOT EXISTS service_requests (
   total       NUMERIC(10,2),
   note        TEXT,
   lang        VARCHAR(10)  DEFAULT 'en',
+  -- Did this guest's details match a real booking at sign-in? OTA and walk-in
+  -- guests can use the portal without matching (see auth.js guest-login), so
+  -- the front desk is shown which ones to check against the register.
+  guest_verified BOOLEAN   NOT NULL DEFAULT FALSE,
+  booking_ref VARCHAR(100),
   status      VARCHAR(20)  NOT NULL DEFAULT 'pending',  -- pending | progress | done | cancelled
   created_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
   updated_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW()
@@ -342,6 +347,15 @@ CREATE TABLE IF NOT EXISTS orders (
   created_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
   updated_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
+
+-- CREATE TABLE IF NOT EXISTS never adds columns to a table that already
+-- exists, so anything added after the first deploy needs an explicit ALTER
+-- (same idiom as chat_messages above). See migrate.js for the one thing this
+-- can't express: folding the legacy service_requests.notes into note.
+ALTER TABLE orders           ADD COLUMN IF NOT EXISTS guest_verified BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE orders           ADD COLUMN IF NOT EXISTS booking_ref    VARCHAR(100);
+ALTER TABLE service_requests ADD COLUMN IF NOT EXISTS guest_verified BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE service_requests ADD COLUMN IF NOT EXISTS booking_ref    VARCHAR(100);
 
 CREATE INDEX IF NOT EXISTS idx_orders_guest
   ON orders (guest_id, created_at DESC);
