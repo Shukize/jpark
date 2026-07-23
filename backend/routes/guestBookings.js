@@ -754,6 +754,10 @@ function row2js(r) {
     guestPhone: r.guest_phone,
     room: r.room,
     roomNumber: r.room_number,
+    // Which of the five buildings, resolved once at intake (lib/buildings.js).
+    // The staff console shows it next to the room on the guest panel and the
+    // live-chat identity strip — a room number alone doesn't locate a guest here.
+    building: r.building != null ? Number(r.building) : null,
     groupRef: r.group_ref || null,
     groupIndex: r.group_index != null ? Number(r.group_index) : null,
     groupSize: r.group_size != null ? Number(r.group_size) : null,
@@ -802,7 +806,7 @@ function row2js(r) {
 const LIST_COLUMNS = [
   'id', 'ref', 'channel', 'channel_name', 'channel_email',
   'guest_name', 'guest_last_name', 'guest_email', 'guest_phone',
-  'room', 'room_number', 'group_ref', 'group_index', 'group_size',
+  'room', 'room_number', 'building', 'group_ref', 'group_index', 'group_size',
   'check_in', 'check_out', 'nights',
   'adults', 'children', 'child_ages', 'smoking_preference', 'breakfast', 'extra_bed',
   'special_requests',

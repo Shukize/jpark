@@ -10,6 +10,7 @@ const express = require('express');
 const db = require('../db');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const { verifyGuest } = require('../lib/guestLookup');
+const { buildStaffPatch } = require('../lib/requestPatch');
 
 const router = express.Router();
 
@@ -36,6 +37,13 @@ function row2js(r) {
     bookingRef: r.booking_ref || null,
     building: r.building != null ? Number(r.building) : null,
     roomType: r.room_type || null,
+    // Same board state as a service request — the console shows one merged
+    // board, so both tables answer with the same fields (see schema.sql).
+    isTest: r.is_test === true,
+    assignedStaffId: r.assigned_staff_id || null,
+    assignedStaffName: r.assigned_staff_name || null,
+    staffNote: r.staff_note || null,
+    confirmedBy: r.confirmed_by || null,
     status: normaliseStatus(r.status),
     kind: 'order',
     category: 'dining',
@@ -117,14 +125,20 @@ router.post('/', async (req, res) => {
 });
 
 /* PATCH /api/orders/:id
-   Staff (authenticated) can move an order through any status. A guest has no
-   login, so — exactly as in serviceRequests.js — they may cancel their OWN
-   pending order by passing the guestId they were issued, scoped in the WHERE
-   clause so it can never touch another guest's order. */
+   Staff (authenticated) can move an order through any status and set the same
+   board state a service request carries (test flag, assignment, staff note,
+   booking link) — see lib/requestPatch.js, which both routes share so the one
+   merged board behaves identically on either kind of card.
+
+   A guest has no login, so — exactly as in serviceRequests.js — they may cancel
+   their OWN pending order by passing the guestId they were issued, scoped in
+   the WHERE clause so it can never touch another guest's order. */
 router.patch('/:id', async (req, res) => {
   const { status, guestId } = req.body || {};
-  const next = normaliseStatus(status);
-  if (!status || !VALID_STATUS.includes(next))
+  // Status is optional now: a staff PATCH may only be assigning the order or
+  // adding a note. It is still validated whenever it IS supplied.
+  const next = status ? normaliseStatus(status) : null;
+  if (next && !VALID_STATUS.includes(next))
     return res.status(400).json({ error: `status must be one of: ${VALID_STATUS.join(', ')}` });
 
   if (next === 'cancelled' && guestId) {
@@ -145,26 +159,59 @@ router.patch('/:id', async (req, res) => {
 
   return requireAuth(req, res, async () => {
     try {
+      // `notes` is this table's spelling of the guest's own note (service
+      // requests call the same thing `note`) — everything else matches.
+      const patch = await buildStaffPatch(req.body, req.user, { guestNoteColumn: 'notes' });
+      if (patch.error) return res.status(400).json({ error: patch.error });
+      const sets = patch.sets.slice();
+      const vals = patch.vals.slice();
+      if (next) { vals.push(next); sets.push(`status = $${vals.length}`); }
+      if (!sets.length) return res.status(400).json({ error: 'Nothing to update' });
+
+      vals.push(req.params.id);
       const { rows } = await db.query(
-        'UPDATE orders SET status = $1 WHERE id = $2 RETURNING *',
-        [next, req.params.id]
+        `UPDATE orders SET ${sets.join(', ')} WHERE id = $${vals.length} RETURNING *`,
+        vals
       );
       if (!rows.length) return res.status(404).json({ error: 'Order not found' });
       res.json(row2js(rows[0]));
     } catch (e) {
-      console.error('[orders] patch', e);
+      console.error('[orders] patch', e, JSON.stringify(req.body || {}));
       res.status(500).json({ error: 'Database error' });
     }
   });
 });
 
-/* DELETE /api/orders/:id (admin) */
+/* DELETE /api/orders/:id (admin)
+   Staff dismiss instead (PATCH status 'cancelled'), which keeps the row. */
 router.delete('/:id', requireAdmin, async (req, res) => {
   try {
     await db.query('DELETE FROM orders WHERE id = $1', [req.params.id]);
     res.json({ deleted: true });
   } catch (e) {
     console.error('[orders] delete', e);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+/* POST /api/orders/bulk-delete (admin)
+   Body: { ids: [...] }. Twin of the service-requests route — the board's
+   bulk delete spans both tables and sends one call to each. */
+router.post('/bulk-delete', requireAdmin, async (req, res) => {
+  const { ids } = req.body || {};
+  if (!Array.isArray(ids) || !ids.length) {
+    return res.status(400).json({ error: 'ids[] required' });
+  }
+  const numeric = ids.map(Number).filter((n) => Number.isInteger(n));
+  if (!numeric.length) return res.status(400).json({ error: 'ids[] must be numeric' });
+  try {
+    const { rowCount } = await db.query(
+      'DELETE FROM orders WHERE id = ANY($1::int[])',
+      [numeric]
+    );
+    res.json({ ok: true, deleted: rowCount });
+  } catch (e) {
+    console.error('[orders] bulk-delete', e);
     res.status(500).json({ error: 'Database error' });
   }
 });

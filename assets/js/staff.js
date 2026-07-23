@@ -37,7 +37,10 @@
     { id: "dining", label: "nav.dining" },
     { id: "concierge", label: "nav.concierge" }, { id: "gallery", label: "nav.gallery" }
   ];
-  const REQ_FILTERS = ["all", "pending", "progress", "done"];
+  // "dismissed" is status 'cancelled' — the tab exists so a request a staff
+  // member cleared off the board can still be found and put back. (Permanent
+  // deletion is admin-only and leaves nothing behind, by design.)
+  const REQ_FILTERS = ["all", "pending", "progress", "done", "dismissed"];
   // "resent" is not a booking status (b.status stays confirmed/pending/
   // cancelled) — it's a synthetic filter over b.lastAmendedAt, handled as a
   // special case in filterBookings() below rather than a status match.
@@ -83,6 +86,19 @@
   let session = null;
   let panel = "requests";
   let reqFilter = "all";
+  // Guest Requests board state. The board is a working queue, so it carries
+  // the same controls a paper one would: which department, a search, and a
+  // separate view for requests filed while testing the portal (which are kept
+  // but never counted — see isLiveRequest()).
+  let reqDept = "all";
+  let reqSearch = "";
+  let reqShowTest = false;
+  let reqMultiSelect = false;
+  let selectedReqIds = new Set();
+  let reqAgeTimer = null;
+  // Which guest the slide-over panel is showing, so a poll can refresh it in
+  // place instead of closing it under the reader.
+  let guestPanelCtx = null;
   let bkFilter = "all";
   let bkSearchQuery = "";
   // Booking id whose "Resend confirmation" edit panel is currently open, or
@@ -146,10 +162,12 @@
       localStorage.setItem(REQ_ACK_KEY, JSON.stringify(ids));
     } catch (_) { /* storage full / private mode — degrade to in-memory only */ }
   }
-  // Open work the front desk hasn't looked at yet.
+  // Open work the front desk hasn't looked at yet. A request marked as a test
+  // filing is deliberately not open work — otherwise every trial tap the owner
+  // makes while checking the portal keeps blinking and chiming at the desk.
   function unreadRequests() {
     return S.list("requests").filter(function (r) {
-      return r.status === "pending" && !reqAcked.has(String(r.id));
+      return isLiveRequest(r) && r.status === "pending" && !reqAcked.has(String(r.id));
     });
   }
 
@@ -276,9 +294,15 @@
       if (document.visibilityState === "hidden") return;
       _pollAll();
     }, 10000);
+    // Waiting times tick on their own clock, not the poll's: a card that has
+    // been open 9 minutes must turn amber at 10 even if nothing changed
+    // server-side. Only the age chips are touched (refreshRequestAges), never
+    // the whole board — re-rendering would fight the search box for focus.
+    if (!reqAgeTimer) reqAgeTimer = setInterval(refreshRequestAges, 30000);
   }
   function stopApiPolling() {
     if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
+    if (reqAgeTimer) { clearInterval(reqAgeTimer); reqAgeTimer = null; }
   }
 
   document.addEventListener("visibilitychange", function () {
@@ -313,6 +337,13 @@
       bookingRef: r.bookingRef || r.booking_ref || null,
       building: r.building != null ? Number(r.building) : null,
       roomType: r.roomType || r.room_type || null,
+      // Board state: who's handling it, the desk's own note, whether it was
+      // filed while testing, and who vouched for an unmatched guest.
+      isTest: r.isTest === true || r.is_test === true,
+      assignedStaffId: r.assignedStaffId || r.assigned_staff_id || null,
+      assignedStaffName: r.assignedStaffName || r.assigned_staff_name || null,
+      staffNote: r.staffNote || r.staff_note || null,
+      confirmedBy: r.confirmedBy || r.confirmed_by || null,
       status: r.status === "in_progress" ? "progress"
             : r.status === "preparing"   ? "progress"
             : r.status === "delivered"   ? "done"
@@ -604,6 +635,9 @@
   function selectPanel(name) {
     if ((name === "site" || name === "team" || name === "maintenance" || name === "accountLogs") && !isAdmin()) name = "requests";
     if (name === "company") name = "messages"; // redirect legacy hash
+    // The guest panel belongs to whichever board opened it; leaving that board
+    // (including via its own "open this guest's chat" button) closes it.
+    if (panel !== name) closeGuestPanel();
     panel = name;
     document.querySelectorAll(".nav-item").forEach((b) => b.classList.toggle("active", b.dataset.panel === name));
     document.querySelectorAll(".dash-panel").forEach((p) => p.classList.toggle("show", p.id === "panel-" + name));
@@ -907,55 +941,248 @@
     return r.titleKey ? t(r.titleKey) : (r.title || "");
   }
 
+  /* Which of the four service departments a request belongs to. The categories
+     are the guest portal's own (see MATRIX in assets/js/guest.js); orders come
+     through as "dining". Anything unrecognised falls to the front desk, which
+     is who picks up an unclassified job in practice. */
+  const REQ_DEPTS = [
+    { id: "housekeeping", ico: "🧺", labelKey: "matrix.cat.housekeeping" },
+    { id: "maintenance",  ico: "🔧", labelKey: "matrix.cat.maintenance" },
+    { id: "dining",       ico: "🍽️", labelKey: "matrix.cat.dining" },
+    { id: "frontdesk",    ico: "🛎️", labelKey: "matrix.cat.frontdesk" },
+  ];
+  function reqDeptOf(r) {
+    const c = (r && r.category) || "";
+    return REQ_DEPTS.some((d) => d.id === c) ? c : "frontdesk";
+  }
+  function reqDeptIco(r) {
+    const d = REQ_DEPTS.find((x) => x.id === reqDeptOf(r));
+    return d ? d.ico : "🛎️";
+  }
+
+  /* How long a job has been waiting, and how bad that is. A guest who asked
+     for towels 25 minutes ago and one who asked 25 seconds ago rendered
+     identically before, so the oldest job was the easiest to miss. Only OPEN
+     work ages — a completed request is a log entry, not a clock. */
+  const REQ_WARN_MS = 10 * 60 * 1000;
+  const REQ_LATE_MS = 20 * 60 * 1000;
+  function reqAgeLevel(r) {
+    if (!r || (r.status !== "pending" && r.status !== "progress")) return null;
+    const ms = Date.now() - (r.createdAt || 0);
+    return ms >= REQ_LATE_MS ? "late" : ms >= REQ_WARN_MS ? "warn" : "ok";
+  }
+  function reqElapsed(createdAt) {
+    const mins = Math.max(0, Math.floor((Date.now() - (createdAt || 0)) / 60000));
+    if (mins < 60) return t("staff.requests.waitMin").replace("{m}", mins);
+    const h = Math.floor(mins / 60);
+    return t("staff.requests.waitHour").replace("{h}", h).replace("{m}", mins % 60);
+  }
+
+  /* Real work in front of the front desk: not a test filing, not dismissed.
+     Everything that counts — the nav badge, the unread "!", the chime — is
+     measured on this, so marking something as a test genuinely silences it. */
+  function isLiveRequest(r) {
+    return !!r && !r.isTest && r.status !== "cancelled";
+  }
+
+  // Everything a search box should be able to find a card by.
+  function reqSearchText(r) {
+    return [
+      r.room, r.guestName, r.bookingRef, r.roomType, reqTitle(r),
+      r.building ? t("building.n").replace("{n}", r.building) : "",
+      r.assignedStaffName, r.note, r.staffNote,
+    ].filter(Boolean).join(" ").toLowerCase();
+  }
+
+  /* The rows the board is currently showing, in the order the desk works them:
+     pending first and OLDEST first (longest-waiting guest served first), then
+     in-progress the same way, then finished newest-first as a log. */
+  function boardRequests() {
+    const q = reqSearch.trim().toLowerCase();
+    return S.list("requests").filter(function (r) {
+      // The test board is a separate view, not an extra row on the real one.
+      if (reqShowTest !== !!r.isTest) return false;
+      if (reqFilter === "dismissed") {
+        if (r.status !== "cancelled") return false;
+      } else {
+        if (r.status === "cancelled") return false;
+        if (reqFilter !== "all" && r.status !== reqFilter) return false;
+      }
+      if (reqDept !== "all" && reqDeptOf(r) !== reqDept) return false;
+      if (q && reqSearchText(r).indexOf(q) < 0) return false;
+      return true;
+    }).sort(function (a, b) {
+      const rank = { pending: 0, progress: 1, done: 2, cancelled: 3 };
+      const ra = rank[a.status] != null ? rank[a.status] : 9;
+      const rb = rank[b.status] != null ? rank[b.status] : 9;
+      if (ra !== rb) return ra - rb;
+      return ra <= 1 ? a.createdAt - b.createdAt : b.createdAt - a.createdAt;
+    });
+  }
+
+  // Counts for the status chips — same test/department/search context as the
+  // board itself, so a chip never promises rows the filter won't show.
+  function reqStatusCounts() {
+    const q = reqSearch.trim().toLowerCase();
+    const pool = S.list("requests").filter(function (r) {
+      if (reqShowTest !== !!r.isTest) return false;
+      if (reqDept !== "all" && reqDeptOf(r) !== reqDept) return false;
+      if (q && reqSearchText(r).indexOf(q) < 0) return false;
+      return true;
+    });
+    const counts = { all: 0, pending: 0, progress: 0, done: 0, dismissed: 0 };
+    pool.forEach(function (r) {
+      if (r.status === "cancelled") { counts.dismissed++; return; }
+      counts.all++;
+      if (counts[r.status] != null) counts[r.status]++;
+    });
+    return counts;
+  }
+
+  /* The toolbar is built ONCE and then only relabelled. Rebuilding it every
+     render — and the board re-renders on every 10s poll — would blow away the
+     search box's focus and half-typed text under the user's fingers. */
+  function renderReqToolbar() {
+    const wrap = document.getElementById("reqToolbar");
+    if (!wrap) return;
+    if (!wrap.firstChild) {
+      wrap.innerHTML =
+        '<div class="rt-search"><span class="rt-search-ico" aria-hidden="true">🔍</span>' +
+          '<input type="search" id="reqSearch" autocomplete="off" /></div>' +
+        '<button type="button" class="rt-btn" id="reqTestToggle"></button>' +
+        '<button type="button" class="rt-btn" id="reqSelectToggle"></button>';
+      const input = wrap.querySelector("#reqSearch");
+      input.addEventListener("input", function () {
+        reqSearch = input.value;
+        renderRequests();
+      });
+      wrap.querySelector("#reqTestToggle").addEventListener("click", function () {
+        reqShowTest = !reqShowTest;
+        selectedReqIds.clear();
+        renderRequests();
+      });
+      wrap.querySelector("#reqSelectToggle").addEventListener("click", function () {
+        reqMultiSelect = !reqMultiSelect;
+        if (!reqMultiSelect) selectedReqIds.clear();
+        renderRequests();
+      });
+    }
+    const input = wrap.querySelector("#reqSearch");
+    input.placeholder = t("staff.requests.searchPh");
+    input.setAttribute("aria-label", t("staff.requests.searchPh"));
+    if (input.value !== reqSearch) input.value = reqSearch;
+
+    const testBtn = wrap.querySelector("#reqTestToggle");
+    testBtn.className = "rt-btn rt-test" + (reqShowTest ? " active" : "");
+    testBtn.textContent = "🧪 " + t(reqShowTest ? "staff.requests.testHide" : "staff.requests.testShow");
+
+    const selBtn = wrap.querySelector("#reqSelectToggle");
+    selBtn.className = "rt-btn" + (reqMultiSelect ? " active" : "");
+    selBtn.textContent = t(reqMultiSelect ? "staff.chat.cancelSelect" : "staff.chat.select");
+  }
+
   function renderFilters() {
+    const counts = reqStatusCounts();
     const wrap = document.getElementById("reqFilters");
     wrap.innerHTML = "";
     REQ_FILTERS.forEach((f) => {
       const b = document.createElement("button");
+      b.type = "button";
       b.className = (f === reqFilter ? "active" : "");
-      b.textContent = f === "all" ? t("staff.requests.filterAll") : t("track.status." + f);
+      const label = f === "all" ? t("staff.requests.filterAll")
+                  : f === "dismissed" ? t("staff.requests.filterDismissed")
+                  : t("track.status." + f);
+      b.textContent = label;
+      const n = counts[f] || 0;
+      if (n) {
+        const chip = document.createElement("span");
+        chip.className = "rf-count";
+        chip.textContent = n;
+        b.appendChild(chip);
+      }
       b.addEventListener("click", () => { reqFilter = f; renderRequests(); });
       wrap.appendChild(b);
     });
+
+    // Department chips: housekeeping doesn't want to read the maintenance
+    // queue at 7am, and vice versa.
+    const dept = document.getElementById("reqDepts");
+    if (dept) {
+      dept.innerHTML = "";
+      [{ id: "all", ico: "", labelKey: "staff.requests.deptAll" }].concat(REQ_DEPTS).forEach((d) => {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = (d.id === reqDept ? "active" : "");
+        b.textContent = (d.ico ? d.ico + " " : "") + t(d.labelKey);
+        b.addEventListener("click", () => { reqDept = d.id; renderRequests(); });
+        dept.appendChild(b);
+      });
+    }
+  }
+
+  /* Bulk bar — only while multi-select is on. Delete is admin-only: staff
+     dismiss instead, which keeps the row (see the routes' DELETE guards). */
+  function renderReqBulkBar() {
+    const bar = document.getElementById("reqBulkBar");
+    if (!bar) return;
+    bar.innerHTML = "";
+    bar.hidden = !reqMultiSelect;
+    if (!reqMultiSelect) return;
+    const n = selectedReqIds.size;
+    const label = document.createElement("span");
+    label.className = "rbb-count";
+    label.textContent = t("staff.requests.selected").replace("{n}", n);
+    bar.appendChild(label);
+
+    function addBtn(labelText, cls, handler) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "cc-btn " + (cls || "");
+      b.disabled = !n;
+      b.textContent = labelText;
+      b.addEventListener("click", handler);
+      bar.appendChild(b);
+    }
+    addBtn(t("staff.requests.done"), "", () => bulkRequests("done"));
+    addBtn("🧪 " + t(reqShowTest ? "staff.requests.unmarkTest" : "staff.requests.markTest"), "", () => bulkRequests("test"));
+    addBtn(t("staff.requests.dismiss"), "", () => bulkRequests("dismiss"));
+    if (isAdmin()) addBtn("🗑 " + t("msg.delete"), "cc-btn-danger", () => bulkRequests("delete"));
   }
 
   function renderRequests() {
+    renderReqToolbar();
     renderFilters();
+    renderReqBulkBar();
     const list = document.getElementById("reqList");
-    let reqs = S.list("requests").filter((r) => r.status !== "cancelled");
-    if (reqFilter !== "all") reqs = reqs.filter((r) => r.status === reqFilter);
-    reqs.sort((a, b) => {
-      const order = { pending: 0, progress: 1, done: 2 };
-      if (order[a.status] !== order[b.status]) return order[a.status] - order[b.status];
-      return b.createdAt - a.createdAt;
-    });
+    const reqs = boardRequests();
+
+    // Drop selections for rows the current filter no longer shows, so a bulk
+    // action can never touch a card the user can't see.
+    const visible = new Set(reqs.map((r) => String(r.id)));
+    Array.from(selectedReqIds).forEach((id) => { if (!visible.has(id)) selectedReqIds.delete(id); });
 
     const lede = document.querySelector("#panel-requests .panel-lede");
     if (lede) lede.textContent = "";
 
     if (!reqs.length) {
-      list.innerHTML = '<p class="track-empty">' + esc(t("staff.requests.empty")) + "</p>";
+      const emptyKey = reqSearch.trim() ? "staff.requests.noMatch"
+                     : reqShowTest ? "staff.requests.noTest"
+                     : "staff.requests.empty";
+      list.innerHTML = '<p class="track-empty">' + esc(t(emptyKey)) + "</p>";
       return;
     }
     list.innerHTML = "";
     reqs.forEach((r) => {
       const card = document.createElement("div");
-      const unread = r.status === "pending" && !reqAcked.has(String(r.id));
-      card.className = "staff-req " + r.status + (unread ? " unread-req" : "");
+      const unread = r.status === "pending" && !r.isTest && !reqAcked.has(String(r.id));
+      const age = reqAgeLevel(r);
+      card.className = "staff-req " + r.status +
+        (unread ? " unread-req" : "") +
+        (r.isTest ? " test-req" : "") +
+        (age ? " age-" + age : "");
+      card.dataset.reqId = String(r.id);
+
       let detail = "";
-      // Who filed it. A request from someone whose name+room didn't match a
-      // booking (OTA guest, walk-in, or a wrong room number) is still actioned
-      // — it's just flagged so the desk can check the register first.
-      const who = [r.guestName, r.lang && r.lang !== "en" ? (I.LANG_NAMES[r.lang] || r.lang) : ""]
-        .filter(Boolean).join(" · ");
-      if (who) {
-        detail += '<div class="sr-detail sr-guest">' + esc(who) +
-          (r.guestVerified === false
-            ? ' <span class="sr-unverified" title="' + esc(t("staff.requests.unverifiedHint")) + '">🔶 ' +
-              esc(t("staff.chat.tier.unconfirmed")) + "</span>"
-            : "") +
-          "</div>";
-      }
       if (r.kind === "order") {
         detail += '<div class="sr-detail"><b>' + esc(t("staff.requests.items")) + ":</b> " +
           esc((r.items || []).map((it) => it.qty + "× " + t(it.key)).join(", ")) +
@@ -963,14 +1190,54 @@
         if (r.deliverAt) detail += '<div class="sr-detail">' + esc(t("staff.requests.deliver")) + ": " +
           esc(r.deliverAt === "asap" ? t("rs.asap") : r.deliverAt) + "</div>";
       }
+      // The guest's own words and the desk's note are kept visibly apart —
+      // one is a request, the other is a record of what was done about it.
       if (r.note) detail += '<div class="sr-detail">' + esc(t("staff.requests.note")) + ": " + esc(r.note) + "</div>";
+      if (r.staffNote) detail += '<div class="sr-detail sr-staffnote">📝 ' + esc(r.staffNote) + "</div>";
+
+      // Who filed it. A request from someone whose name+room didn't match a
+      // booking (OTA guest, walk-in, or a wrong room number) is still actioned
+      // — it's just flagged so the desk can check the register first, and the
+      // name opens the guest's booking rather than being a dead end.
+      const tier = r.guestVerified ? "verified" : "unconfirmed";
+      const guestRow =
+        '<div class="sr-guestrow">' +
+          '<button type="button" class="sr-guest-btn" title="' + esc(t("staff.guest.openHint")) + '">' +
+            '<span class="sr-tier">' + TIER_MARK[tier] + "</span>" +
+            esc(r.guestName || t("staff.chat.tier.unknown")) +
+          "</button>" +
+          (r.lang && r.lang !== "en"
+            ? '<span class="sr-lang">' + esc(I.LANG_NAMES[r.lang] || r.lang) + "</span>" : "") +
+          (r.guestVerified === false
+            ? '<span class="sr-unverified" title="' + esc(t("staff.requests.unverifiedHint")) + '">🔶 ' +
+              esc(t("staff.chat.tier.unconfirmed")) + "</span>"
+            : "") +
+          (r.confirmedBy
+            ? '<span class="sr-confirmed">' + esc(t("staff.chat.confirmedBy").replace("{name}", r.confirmedBy)) + "</span>"
+            : "") +
+        "</div>";
+
+      // Ownership, so two people don't walk to the same room.
+      const mine = r.assignedStaffId && session && r.assignedStaffId === session.id;
+      const assignLabel = r.assignedStaffName
+        ? (mine ? t("staff.requests.takenByYou") : t("staff.requests.takenBy").replace("{name}", r.assignedStaffName))
+        : t("staff.requests.unassigned");
+      const assignBtn = r.status === "done" || r.status === "cancelled" ? ""
+        : mine ? '<button type="button" class="sr-ghost act-release">' + esc(t("staff.requests.release")) + "</button>"
+        : '<button type="button" class="sr-ghost act-take">' +
+            esc(t(r.assignedStaffId ? "staff.requests.takeOver" : "staff.requests.take")) + "</button>";
 
       let actions = "";
       if (r.status === "pending") actions = '<button class="act-start">' + esc(t("staff.requests.start")) + "</button>";
       else if (r.status === "progress") actions = '<button class="act-done">' + esc(t("staff.requests.done")) + "</button>";
       else if (r.status === "done") actions = '<button class="act-reopen">' + esc(t("staff.requests.reopen")) + "</button>";
+      else if (r.status === "cancelled") actions = '<button class="act-restore">' + esc(t("staff.requests.restore")) + "</button>";
 
       card.innerHTML =
+        (reqMultiSelect
+          ? '<input type="checkbox" class="sr-check"' + (selectedReqIds.has(String(r.id)) ? " checked" : "") +
+            ' aria-label="' + esc(t("staff.chat.select")) + '" />'
+          : "") +
         '<div class="sr-head">' +
           '<span class="sr-room">' + esc(t("staff.requests.room")) + " " + esc(r.room) + "</span>" +
           // Which of the five buildings, and the room type — read off the
@@ -978,40 +1245,571 @@
           // can't act on a room number alone across a five-building site.
           (r.building ? '<span class="sr-building">' + esc(t("building.n").replace("{n}", r.building)) + "</span>" : "") +
           (r.roomType ? '<span class="sr-roomtype">' + esc(r.roomType) + "</span>" : "") +
-          '<span class="sr-title">' + esc(reqTitle(r)) + "</span>" +
+          '<span class="sr-title"><span class="sr-dept" aria-hidden="true">' + reqDeptIco(r) + "</span>" +
+            esc(reqTitle(r)) + "</span>" +
           (unread ? '<span class="sr-bang" aria-hidden="true">!</span>' : "") +
+          (r.isTest ? '<span class="sr-test">' + esc(t("staff.requests.test")) + "</span>" : "") +
           (r.status === "pending" ? '<span class="sr-new">' + esc(t("track.status.pending").toUpperCase()) + "</span>" : "") +
+          (age ? '<span class="sr-age ' + age + '">' + esc(reqElapsed(r.createdAt)) + "</span>" : "") +
           '<span class="sr-time">' + esc(U.timeAgo(r.createdAt)) + "</span>" +
-        "</div>" + detail +
-        '<div class="sr-actions">' + actions + "</div>";
+        "</div>" +
+        guestRow + detail +
+        '<div class="sr-assign' + (mine ? " mine" : "") + '"><span>' + esc(assignLabel) + "</span>" + assignBtn + "</div>" +
+        '<div class="sr-actions">' + actions +
+          '<button type="button" class="sr-ghost act-note">' + esc(t("staff.requests.addNote")) + "</button>" +
+          '<button type="button" class="sr-ghost act-chat">💬 ' + esc(t("staff.requests.openChat")) + "</button>" +
+          '<button type="button" class="sr-ghost act-test">🧪 ' +
+            esc(t(r.isTest ? "staff.requests.unmarkTest" : "staff.requests.markTest")) + "</button>" +
+          (r.status === "cancelled" ? ""
+            : '<button type="button" class="sr-ghost act-dismiss">' + esc(t("staff.requests.dismiss")) + "</button>") +
+          (isAdmin() ? '<button type="button" class="sr-ghost sr-danger act-delete">🗑</button>' : "") +
+        "</div>";
 
-      const startBtn = card.querySelector(".act-start");
-      const doneBtn = card.querySelector(".act-done");
-      const reopenBtn = card.querySelector(".act-reopen");
-      if (startBtn) startBtn.addEventListener("click", () => updateReqStatus(r.id, "progress"));
-      if (doneBtn) doneBtn.addEventListener("click", () => updateReqStatus(r.id, "done"));
-      if (reopenBtn) reopenBtn.addEventListener("click", () => updateReqStatus(r.id, "progress"));
+      const on = (sel, fn) => {
+        const el = card.querySelector(sel);
+        if (el) el.addEventListener("click", fn);
+      };
+      on(".act-start", () => updateReqStatus(r.id, "progress"));
+      on(".act-done", () => updateReqStatus(r.id, "done"));
+      on(".act-reopen", () => updateReqStatus(r.id, "progress"));
+      on(".act-restore", () => updateReqStatus(r.id, "pending"));
+      on(".sr-guest-btn", () => openGuestPanel({ request: r }));
+      on(".act-take", () => assignRequest(r, session));
+      on(".act-release", () => assignRequest(r, null));
+      on(".act-note", () => editRequestNote(r));
+      on(".act-chat", () => openRequestChat(r));
+      on(".act-test", () => toggleRequestTest(r));
+      on(".act-dismiss", () => dismissRequest(r));
+      on(".act-delete", () => deleteRequest(r));
+
+      const check = card.querySelector(".sr-check");
+      if (check) {
+        check.addEventListener("change", () => {
+          if (check.checked) selectedReqIds.add(String(r.id));
+          else selectedReqIds.delete(String(r.id));
+          renderReqBulkBar();
+        });
+      }
       list.appendChild(card);
     });
   }
 
-  function updateReqStatus(id, status) {
-    S.update("requests", id, { status: status });
-    markRequestsRead(true); // acting on the board is the strongest "I've seen it"
-    const API = window.JPark && window.JPark.api;
-    if (!API) return;
-    // "ord-" ids come from the orders table (see _pollRequests).
-    const isOrder = String(id).indexOf("ord-") === 0;
-    const path = isOrder
+  /* Keep the waiting times honest without re-rendering the whole board every
+     half minute (which would fight the poll and reset the search box). Only
+     the age chips are touched, in place. */
+  function refreshRequestAges() {
+    if (panel !== "requests") return;
+    const rows = S.list("requests");
+    document.querySelectorAll("#reqList .staff-req").forEach(function (card) {
+      const chip = card.querySelector(".sr-age");
+      if (!chip) return;
+      const r = rows.find((x) => String(x.id) === card.dataset.reqId);
+      const level = reqAgeLevel(r);
+      if (!level) return;
+      chip.textContent = reqElapsed(r.createdAt);
+      chip.className = "sr-age " + level;
+      card.classList.remove("age-ok", "age-warn", "age-late");
+      card.classList.add("age-" + level);
+    });
+  }
+
+  // "ord-" ids come from the orders table (see _pollRequests), and route back
+  // to it; everything else is a service request.
+  function reqApiPath(id) {
+    return String(id).indexOf("ord-") === 0
       ? "/api/orders/" + String(id).slice(4)
       : "/api/service-requests/" + id;
-    API.patch(path, { status: status }).then(function (res) {
+  }
+
+  /* Every board action: apply locally for an instant response, then write it
+     server-side and put the card back the way the server sees it if that
+     fails. `patch` is sent as-is to the API; `local` is what the optimistic
+     row should look like (they differ where the server derives fields). */
+  function patchRequest(id, patch, local) {
+    // Ids reach here as numbers (straight off the API) AND as strings (out of
+    // the bulk-selection set), while the store matches on ===. Resolve the
+    // row's own id first, or the optimistic update silently misses and the
+    // card sits unchanged until the next poll.
+    const row = S.list("requests").find((r) => String(r.id) === String(id));
+    const rowId = row ? row.id : id;
+    S.update("requests", rowId, local || patch);
+    markRequestsRead(true); // acting on the board is the strongest "I've seen it"
+    const API = window.JPark && window.JPark.api;
+    if (!API) return Promise.resolve(null);
+    return API.patch(reqApiPath(rowId), patch).then(function (res) {
       if (res && res.error && !res.offline) {
-        console.error("[staff] request status update failed:", res.error);
+        console.error("[staff] request update failed:", res.error);
         U.toast(t("staff.requests.updateFailed"), "error");
-        _pollRequests(); // put the card back the way the server sees it
+        _pollRequests();
       }
-    }).catch(function () {});
+      return res;
+    }).catch(function () { return null; });
+  }
+
+  function updateReqStatus(id, status) {
+    patchRequest(id, { status: status });
+  }
+
+  /* Take / take over / release. The staff member's name rides along so every
+     other console can show who has it without a second lookup — same shape as
+     live-chat thread assignment. */
+  function assignRequest(r, who) {
+    if (who && r.assignedStaffId && r.assignedStaffId !== who.id
+        && !confirm(t("staff.requests.takeOverConfirm").replace("{name}", r.assignedStaffName || ""))) return;
+    patchRequest(r.id, {
+      assignedStaffId: who ? who.id : null,
+      assignedStaffName: who ? who.name : null,
+    });
+  }
+
+  function editRequestNote(r) {
+    const next = prompt(t("staff.requests.notePrompt"), r.staffNote || "");
+    if (next == null) return;
+    patchRequest(r.id, { staffNote: next.trim() });
+  }
+
+  function toggleRequestTest(r) {
+    const next = !r.isTest;
+    if (next && !confirm(t("staff.requests.markTestConfirm"))) return;
+    // The API field is `test`, the row's field is `isTest` — pass the local
+    // shape explicitly or the card sits there unchanged until the next poll.
+    patchRequest(r.id, { test: next }, { isTest: next });
+    U.toast(t(next ? "staff.requests.markedTest" : "staff.requests.unmarkedTest"), "success");
+  }
+
+  /* Dismiss keeps the row — it stays under the Dismissed tab and can be put
+     back. That's the difference from Delete, which only an admin can do. */
+  function dismissRequest(r) {
+    if (!confirm(t("staff.requests.dismissConfirm"))) return;
+    updateReqStatus(r.id, "cancelled");
+  }
+
+  async function deleteRequest(r) {
+    if (!isAdmin()) return;
+    if (!confirm(t("staff.requests.deleteConfirm"))) return;
+    const API = window.JPark && window.JPark.api;
+    if (API) {
+      const res = await API.del(reqApiPath(r.id));
+      if (res && res.error && !res.offline) {
+        U.toast(t("staff.requests.deleteFailed") + ": " + res.error, "error");
+        return;
+      }
+    }
+    S.write("requests", S.list("requests").filter((x) => String(x.id) !== String(r.id)));
+    selectedReqIds.delete(String(r.id));
+    U.toast(t("staff.requests.deleted"), "success");
+    renderRequests();
+  }
+
+  /* Jump from a request straight into that guest's live chat. */
+  function openRequestChat(r) {
+    const chat = chatForGuest(r);
+    if (!chat) { U.toast(t("staff.requests.noChat")); return; }
+    closeGuestPanel();
+    selectedThread = chat.id;
+    chatFilter = "all";
+    selectPanel("chat");
+    markThreadRead(chat.id);
+    _loadThreadMessages(chat.id).then(() => renderChat());
+  }
+
+  /* Bulk actions over the checked cards. Delete is one call per table rather
+     than one per card (see each route's POST /bulk-delete). */
+  async function bulkRequests(action) {
+    const ids = Array.from(selectedReqIds);
+    if (!ids.length) return;
+    if (action === "delete") {
+      if (!isAdmin()) return;
+      if (!confirm(t("staff.requests.bulkDeleteConfirm").replace("{n}", ids.length))) return;
+      const API = window.JPark && window.JPark.api;
+      if (API) {
+        const orderIds = ids.filter((id) => id.indexOf("ord-") === 0).map((id) => Number(id.slice(4)));
+        const reqIds = ids.filter((id) => id.indexOf("ord-") !== 0).map(Number);
+        const calls = [];
+        if (reqIds.length) calls.push(API.post("/api/service-requests/bulk-delete", { ids: reqIds }));
+        if (orderIds.length) calls.push(API.post("/api/orders/bulk-delete", { ids: orderIds }));
+        const results = await Promise.all(calls);
+        const failed = results.find((res) => res && res.error && !res.offline);
+        if (failed) { U.toast(t("staff.requests.deleteFailed") + ": " + failed.error, "error"); return; }
+      }
+      const drop = new Set(ids);
+      S.write("requests", S.list("requests").filter((x) => !drop.has(String(x.id))));
+      U.toast(t("staff.requests.bulkDeleted").replace("{n}", ids.length), "success");
+    } else if (action === "test") {
+      const next = !reqShowTest; // the test board un-marks; the real board marks
+      ids.forEach((id) => patchRequest(id, { test: next }, { isTest: next }));
+      U.toast(t(next ? "staff.requests.markedTest" : "staff.requests.unmarkedTest"), "success");
+    } else if (action === "dismiss") {
+      if (!confirm(t("staff.requests.dismissConfirm"))) return;
+      ids.forEach((id) => updateReqStatus(id, "cancelled"));
+    } else if (action === "done") {
+      ids.forEach((id) => updateReqStatus(id, "done"));
+    }
+    selectedReqIds.clear();
+    reqMultiSelect = false;
+    renderRequests();
+  }
+
+  /* ====================  GUEST PANEL  ====================
+     "Who is this, and where are they?" — one slide-over shared by the Guest
+     Requests board and the live-chat header, so both answer the question the
+     same way. Everything it shows is already in the console's polled tables
+     (requests, chats, guestBookings): opening it costs no extra request, which
+     matters on a board that polls every 10 seconds.
+
+     It is also where an unmatched guest gets fixed. An OTA or walk-in guest
+     never matches a booking automatically (see verifyGuest in
+     backend/lib/guestLookup.js), so their card has no building — and on a
+     five-building property that means nobody knows where to walk. Staff check
+     the register, link the booking here, and the request gains the building,
+     room type and verified badge from the booking itself.                    */
+
+  // The guest's chat thread, seen from a request. Both come from S.guestId(),
+  // so the ids match within one visit — but assets/js/chat.js rotates a
+  // visitor's guestId once per browser session, so a guest who asked for
+  // towels yesterday and is chatting today has a different thread id. Hence
+  // the booking-ref and room+name fallbacks.
+  function chatForGuest(r) {
+    if (!r) return null;
+    const chats = S.list("chats");
+    let hit = r.guestId ? chats.find((c) => c.id === r.guestId) : null;
+    if (!hit && r.bookingRef) hit = chats.find((c) => c.bookingRef === r.bookingRef);
+    if (!hit && r.room && r.guestName) {
+      const name = String(r.guestName).toLowerCase();
+      hit = chats.find((c) => c.room === r.room && String(c.guestName || "").toLowerCase() === name);
+    }
+    return hit || null;
+  }
+
+  // The booking behind a request. Reads the RAW booking list, not
+  // visibleBookings() — that one hides non-direct channels, which an OTA
+  // guest's own reservation legitimately is (same reasoning as chatBooking()).
+  function bookingForRequest(r) {
+    if (!r || !r.bookingRef) return null;
+    return S.list("guestBookings").find((b) => b.ref === r.bookingRef) || null;
+  }
+
+  /* Resolve the panel's subject freshly from the store on every render, so a
+     poll landing while it's open updates it in place instead of showing a
+     snapshot from when it was opened. */
+  function guestPanelSubject(ctx) {
+    if (!ctx) return null;
+    if (ctx.kind === "request") {
+      const r = S.list("requests").find((x) => String(x.id) === String(ctx.id));
+      if (!r) return null;
+      const booking = bookingForRequest(r);
+      return {
+        kind: "request", request: r, chat: chatForGuest(r), booking: booking,
+        name: r.guestName, room: r.room,
+        building: r.building || (booking ? booking.building : null),
+        roomType: r.roomType || (booking ? booking.room : null),
+        lang: r.lang, tier: r.guestVerified ? "verified" : "unconfirmed",
+        bookingRef: r.bookingRef, confirmedBy: r.confirmedBy,
+      };
+    }
+    const c = S.list("chats").find((x) => x.id === ctx.id);
+    if (!c) return null;
+    const booking = chatBooking(c);
+    return {
+      kind: "chat", chat: c, request: null, booking: booking,
+      name: c.guestName, room: c.room || (booking ? booking.roomNumber : null),
+      building: booking ? booking.building : null,
+      roomType: booking ? booking.room : null,
+      lang: c.lang, tier: chatTier(c),
+      bookingRef: c.bookingRef, confirmedBy: c.confirmedBy,
+    };
+  }
+
+  // Everything else this guest currently has open, so the desk can carry the
+  // towels and the extra pillow in one trip.
+  function otherRequestsFor(subj) {
+    const cur = subj.request ? String(subj.request.id) : null;
+    const name = String(subj.name || "").toLowerCase();
+    return S.list("requests").filter(function (r) {
+      if (String(r.id) === cur || r.isTest || r.status === "cancelled") return false;
+      if (subj.bookingRef && r.bookingRef === subj.bookingRef) return true;
+      if (subj.request && subj.request.guestId && r.guestId === subj.request.guestId) return true;
+      return !!(subj.room && r.room === subj.room && name && String(r.guestName || "").toLowerCase() === name);
+    }).sort((a, b) => b.createdAt - a.createdAt);
+  }
+
+  function openGuestPanel(opts) {
+    guestPanelCtx = opts.request
+      ? { kind: "request", id: String(opts.request.id) }
+      : { kind: "chat", id: opts.chat.id };
+    document.getElementById("guestPanelOverlay").hidden = false;
+    document.getElementById("guestPanel").hidden = false;
+    renderGuestPanel();
+  }
+
+  function closeGuestPanel() {
+    guestPanelCtx = null;
+    const p = document.getElementById("guestPanel");
+    const o = document.getElementById("guestPanelOverlay");
+    if (p) p.hidden = true;
+    if (o) o.hidden = true;
+  }
+
+  function renderGuestPanel() {
+    if (!guestPanelCtx) return;
+    const panelEl = document.getElementById("guestPanel");
+    const bodyEl = document.getElementById("guestPanelBody");
+    if (!panelEl || panelEl.hidden) return;
+    const subj = guestPanelSubject(guestPanelCtx);
+    if (!subj) { closeGuestPanel(); return; }
+
+    // A poll re-renders this panel while it's open, so anything the user is
+    // part-way through typing has to survive the rebuild — otherwise a booking
+    // search resets itself every few seconds under their fingers.
+    const prevSearch = bodyEl.querySelector("#gpLinkSearch");
+    const keptQuery = prevSearch ? prevSearch.value : null;
+    const keptFocus = prevSearch && document.activeElement === prevSearch;
+
+    document.getElementById("gpTier").textContent = TIER_MARK[subj.tier] || "•";
+    document.getElementById("gpTier").title = t(TIER_KEY[subj.tier] || "staff.chat.tier.unknown");
+    document.getElementById("gpName").textContent = subj.name || t("staff.chat.tier.unknown");
+
+    const b = subj.booking;
+    // Where they are, in the words housekeeping uses on the radio.
+    const where = [
+      subj.room ? t("staff.requests.room") + " " + subj.room : "",
+      subj.building ? t("building.n").replace("{n}", subj.building) : "",
+      subj.roomType || "",
+    ].filter(Boolean).join(" · ");
+
+    let html =
+      '<div class="gp-tierline ' + subj.tier + '">' + esc(t(TIER_KEY[subj.tier] || "staff.chat.tier.unknown")) +
+        (subj.confirmedBy ? " · " + esc(t("staff.chat.confirmedBy").replace("{name}", subj.confirmedBy)) : "") +
+      "</div>" +
+      (where ? '<div class="gp-where">' + esc(where) + "</div>" : "") +
+      (subj.lang ? '<div class="gp-lang">' + esc(t("staff.chat.guestLang")) + ": " +
+        esc(I.LANG_NAMES[subj.lang] || subj.lang) + "</div>" : "");
+
+    if (b) {
+      const stay = bookingStayStatus(b);
+      let fields = "";
+      fields += bookingField("msg.bk.ref", b.ref);
+      fields += bookingField("staff.guest.channel", b.channelName);
+      fields += bookingField("msg.bk.checkin", b.checkIn ? U.formatDate(String(b.checkIn).slice(0, 10)) : "");
+      fields += bookingField("msg.bk.checkout", b.checkOut ? U.formatDate(String(b.checkOut).slice(0, 10)) : "");
+      fields += bookingField("msg.bk.nights", b.nights);
+      fields += bookingField("msg.bk.room", b.room);
+      fields += bookingField("msg.bk.roomNumber", b.roomNumber);
+      fields += bookingField("msg.bk.adults", b.adults);
+      if (b.children) fields += bookingField("msg.bk.children", b.children);
+      fields += bookingField("msg.bk.breakfast", t(b.breakfast ? "msg.bk.breakfast.yes" : "msg.bk.breakfast.no"));
+      fields += bookingField("msg.bk.smokingPref", t("msg.bk.smokingPref." + (b.smokingPreference || "non_smoking")));
+      if (b.extraBed) fields += bookingField("msg.bk.extraBed", t("msg.bk.breakfast.yes"));
+      fields += bookingField("msg.bk.phone", b.guestPhone);
+      fields += bookingField("msg.bk.email", b.guestEmail);
+      if (b.total != null) fields += bookingField("msg.bk.total", (b.currency || "THB") + " " + Number(b.total).toLocaleString());
+      fields += bookingField("msg.bk.statusLabel", bkStatusLabel(b.status));
+      html +=
+        '<div class="gp-section">' +
+          '<div class="gp-section-title">' + esc(t("staff.guest.booking")) +
+            (stay ? ' <b class="cci-stay ' + stay + '">' + esc(t("staff.chat.stay." + stay)) + "</b>" : "") +
+          "</div>" +
+          '<div class="bk-detail-grid">' + fields + "</div>" +
+          (b.specialRequests
+            ? '<div class="gp-special">✱ ' + esc(b.specialRequests) + "</div>" : "") +
+        "</div>";
+    } else {
+      // No booking on file. This is the normal path for a walk-in, so it reads
+      // as a next step rather than an error.
+      html +=
+        '<div class="gp-section gp-nobooking">' +
+          '<div class="gp-section-title">' + esc(t("staff.guest.noBooking")) + "</div>" +
+          '<p class="gp-hint">' + esc(t("staff.guest.noBookingHint")) + "</p>" +
+          '<div class="gp-link-search">' +
+            '<input type="search" id="gpLinkSearch" placeholder="' + esc(t("staff.guest.searchPh")) + '" autocomplete="off" />' +
+          "</div>" +
+          '<div class="gp-link-results" id="gpLinkResults"></div>' +
+        "</div>";
+    }
+
+    // Manual building, for a guest with no booking anywhere on file. Never
+    // guessed from the room number — this is a human reading the key-card
+    // sleeve (see backend/lib/buildings.js).
+    if (subj.kind === "request") {
+      let opts = '<option value="">' + esc(t("staff.guest.buildingUnknown")) + "</option>";
+      for (let i = 1; i <= 5; i++) {
+        opts += '<option value="' + i + '"' + (Number(subj.building) === i ? " selected" : "") + ">" +
+          esc(t("building.n").replace("{n}", i)) + "</option>";
+      }
+      html +=
+        '<div class="gp-section">' +
+          '<div class="gp-section-title">' + esc(t("staff.guest.buildingTitle")) + "</div>" +
+          '<select id="gpBuilding" class="gp-select">' + opts + "</select>" +
+        "</div>";
+    }
+
+    const others = otherRequestsFor(subj);
+    if (others.length) {
+      html +=
+        '<div class="gp-section">' +
+          '<div class="gp-section-title">' + esc(t("staff.guest.otherRequests")) + "</div>" +
+          '<ul class="gp-others">' +
+            others.map(function (o) {
+              return '<li><span class="gp-other-status ' + esc(o.status) + '">' +
+                esc(t("track.status." + o.status)) + "</span>" + esc(reqTitle(o)) +
+                '<span class="gp-other-time">' + esc(U.timeAgo(o.createdAt)) + "</span></li>";
+            }).join("") +
+          "</ul>" +
+        "</div>";
+    }
+
+    // Actions. "Open booking" only appears when the booking is actually
+    // reachable in Messages — the Guest Booking inbox is Direct-only
+    // (SHOW_OTA_BOOKINGS), so offering it for an OTA row would dead-end.
+    html += '<div class="gp-actions">';
+    if (subj.chat) html += '<button type="button" class="gp-btn" id="gpOpenChat">💬 ' + esc(t("staff.requests.openChat")) + "</button>";
+    if (b && isDirectBooking(b)) html += '<button type="button" class="gp-btn" id="gpOpenBooking">📄 ' + esc(t("staff.guest.openBooking")) + "</button>";
+    if (subj.kind === "chat" && subj.tier === "unconfirmed") {
+      html += '<button type="button" class="gp-btn gp-btn-gold" id="gpConfirmChat">' + esc(t("staff.chat.confirmGuest")) + "</button>";
+    }
+    html += "</div>";
+
+    bodyEl.innerHTML = html;
+
+    const linkInput = bodyEl.querySelector("#gpLinkSearch");
+    if (linkInput) {
+      const results = bodyEl.querySelector("#gpLinkResults");
+      const run = function () { renderBookingMatches(results, linkInput.value, subj); };
+      linkInput.addEventListener("input", run);
+      // Seed with the guest's own details — most of the time the booking is
+      // right there under their surname and staff need type nothing.
+      linkInput.value = keptQuery != null ? keptQuery : (subj.name || subj.room || "");
+      run();
+      if (keptFocus) linkInput.focus();
+    }
+
+    const buildingSel = bodyEl.querySelector("#gpBuilding");
+    if (buildingSel) {
+      buildingSel.addEventListener("change", function () {
+        const v = buildingSel.value ? Number(buildingSel.value) : null;
+        patchRequest(subj.request.id, { building: v }, { building: v });
+        U.toast(t("staff.guest.buildingSaved"), "success");
+      });
+    }
+
+    const openChatBtn = bodyEl.querySelector("#gpOpenChat");
+    if (openChatBtn) openChatBtn.addEventListener("click", function () {
+      const target = subj.chat;
+      closeGuestPanel();
+      selectedThread = target.id;
+      chatFilter = "all";
+      selectPanel("chat");
+      markThreadRead(target.id);
+      _loadThreadMessages(target.id).then(() => renderChat());
+    });
+
+    const openBkBtn = bodyEl.querySelector("#gpOpenBooking");
+    if (openBkBtn) openBkBtn.addEventListener("click", function () {
+      closeGuestPanel();
+      msgPrevView = "inbox";
+      msgDetailId = b.id;
+      msgDetailKind = "booking";
+      msgView = "detail";
+      markBookingRead(b.id);
+      selectPanel("messages");
+      renderMessages();
+    });
+
+    const confirmBtn = bodyEl.querySelector("#gpConfirmChat");
+    if (confirmBtn) confirmBtn.addEventListener("click", function () { confirmChatGuest(subj.chat); });
+  }
+
+  /* Booking search for the "link this guest to a booking" flow. Filters the
+     bookings the console has already polled — no query, no extra egress — on
+     the three things a front-desk agent has in front of them: the surname, the
+     room number, or the reference on the guest's phone. */
+  function renderBookingMatches(container, query, subj) {
+    if (!container) return;
+    const q = String(query || "").trim().toLowerCase();
+    if (q.length < 2) {
+      container.innerHTML = '<p class="gp-hint">' + esc(t("staff.guest.searchHint")) + "</p>";
+      return;
+    }
+    const matches = S.list("guestBookings").filter(function (bk) {
+      if (bk.status === "cancelled") return false;
+      return [bk.ref, bk.guestName, bk.lastName, bk.roomNumber, bk.room, bk.guestEmail]
+        .filter(Boolean).join(" ").toLowerCase().indexOf(q) >= 0;
+    }).sort(function (a, c) {
+      // The stay covering today first — a returning guest is here on this one.
+      const rank = (x) => (bookingStayStatus(x) === "in_house" ? 0 : bookingStayStatus(x) === "upcoming" ? 1 : 2);
+      return rank(a) - rank(c) || c.createdAt - a.createdAt;
+    }).slice(0, 6);
+
+    if (!matches.length) {
+      container.innerHTML = '<p class="gp-hint">' + esc(t("staff.guest.searchNone")) + "</p>";
+      return;
+    }
+    container.innerHTML = "";
+    matches.forEach(function (bk) {
+      const row = document.createElement("button");
+      row.type = "button";
+      row.className = "gp-match";
+      const stay = bookingStayStatus(bk);
+      row.innerHTML =
+        '<span class="gp-match-name">' + esc(bk.guestName || bk.lastName || "—") + "</span>" +
+        '<span class="gp-match-meta">' + esc([
+          bk.ref,
+          bk.roomNumber ? t("staff.requests.room") + " " + bk.roomNumber : bk.room,
+          bk.building ? t("building.n").replace("{n}", bk.building) : "",
+          bk.checkIn ? U.formatDate(String(bk.checkIn).slice(0, 10)) : "",
+        ].filter(Boolean).join(" · ")) + "</span>" +
+        (stay ? '<span class="cci-stay ' + stay + '">' + esc(t("staff.chat.stay." + stay)) + "</span>" : "");
+      row.addEventListener("click", function () { linkGuestToBooking(subj, bk); });
+      container.appendChild(row);
+    });
+  }
+
+  /* Staff have checked the register and found the reservation. The server
+     re-reads the booking from the ref (it will not take the verified flag or
+     the building from the browser), so a hand-linked request ends up in
+     exactly the state an automatically-matched one would. */
+  async function linkGuestToBooking(subj, bk) {
+    if (subj.kind === "request") {
+      const res = await patchRequest(subj.request.id, { bookingRef: bk.ref }, {
+        bookingRef: bk.ref,
+        guestVerified: true,
+        building: bk.building || subj.request.building || null,
+        roomType: bk.room || subj.request.roomType || null,
+        confirmedBy: session ? session.name : null,
+      });
+      if (res && res.error && !res.offline) return;
+      U.toast(t("staff.guest.linked"), "success");
+    }
+    // A chat thread the same guest has open is vouched for at the same time,
+    // so the front desk doesn't have to confirm the same person twice.
+    const chat = subj.chat;
+    if (chat && !chat.guestVerified) {
+      const API = window.JPark && window.JPark.api;
+      if (API) {
+        const res = await API.patch("/api/chat/" + encodeURIComponent(chat.id) + "/confirm-guest", {
+          bookingId: bk.id, bookingRef: bk.ref,
+          room: bk.roomNumber || null, name: bk.lastName || bk.guestName || null,
+        });
+        if (res && res.error && !res.offline) {
+          U.toast(t("staff.chat.confirmFailed") + ": " + res.error, "error");
+        } else {
+          const all = S.list("chats");
+          const i = all.findIndex((x) => x.id === chat.id);
+          if (i >= 0) {
+            all[i] = Object.assign({}, all[i], {
+              guestKind: "guest", guestVerified: true, bookingId: bk.id, bookingRef: bk.ref,
+              room: bk.roomNumber || all[i].room,
+              confirmedBy: session ? session.name : null,
+            });
+            S.write("chats", all);
+          }
+          if (subj.kind === "chat") U.toast(t("staff.chat.confirmed"), "success");
+        }
+      }
+    }
+    renderGuestPanel();
+    if (panel === "requests") renderRequests();
+    if (panel === "chat") renderChat();
   }
 
   /* ====================  LIVE CHAT  ==================== */
@@ -1084,6 +1882,10 @@
       const b = chatBooking(c);
       if (c.bookingRef) bits.push(esc(t("msg.bk.ref")) + " " + esc(c.bookingRef));
       if (b) {
+        // Which of the five buildings — the same thing the requests board
+        // shows, so a chat about a broken air-conditioner can be walked to
+        // without looking the guest up somewhere else.
+        if (b.building) bits.push(esc(t("building.n").replace("{n}", b.building)));
         if (b.room) bits.push(esc(b.room));
         if (b.checkIn && b.checkOut) {
           // The API hands dates back as full timestamps; formatDate wants a
@@ -1305,9 +2107,13 @@
       : t("staff.chat.unassigned");
     const convTier = chatTier(conv);
     let html =
-      '<div class="cc-conv-head"><span class="cch-name">' +
+      '<div class="cc-conv-head">' +
+        // The name is a button: same slide-over the Guest Requests board opens,
+        // so "who am I talking to, and what's their booking" is one click from
+        // either surface.
+        '<button type="button" class="cch-name cch-name-btn" title="' + esc(t("staff.guest.openHint")) + '">' +
         '<span class="cch-mark" title="' + esc(t(TIER_KEY[convTier])) + '">' + TIER_MARK[convTier] + "</span>" +
-        esc(chatDisplayName(conv)) + "</span>" +
+        esc(chatDisplayName(conv)) + "</button>" +
         '<span class="cch-owner' + (mineConv ? " mine" : "") + '">' + esc(ownerLabel) + "</span>" +
         '<span class="cch-lang">' + esc(t("staff.chat.guestLang")) + ": " + esc(I.LANG_NAMES[conv.lang] || conv.lang || "") + "</span></div>" +
       chatIdentityStrip(conv, convTier) +
@@ -1390,6 +2196,8 @@
     if (takeBtn) takeBtn.addEventListener("click", () => takeOverChat(conv));
     const confirmBtn = document.getElementById("ccConfirm");
     if (confirmBtn) confirmBtn.addEventListener("click", () => confirmChatGuest(conv));
+    const nameBtn = convEl.querySelector(".cch-name-btn");
+    if (nameBtn) nameBtn.addEventListener("click", () => openGuestPanel({ chat: conv }));
   }
 
   function markThreadRead(id) {
@@ -5023,7 +5831,7 @@
     // The count is "jobs still open" — it must NOT drop just because someone
     // glanced at the panel. Whether anyone has SEEN them is a separate signal,
     // carried by the blinking "!" (updateRequestAlert).
-    const pending = S.list("requests").filter((r) => r.status === "pending").length;
+    const pending = S.list("requests").filter((r) => isLiveRequest(r) && r.status === "pending").length;
     // Live-chat badge is per-user: count only threads assigned to me that
     // still have unread guest messages. That's why a 1/2 only ever shows on
     // the account the guest is currently connected to.
@@ -5092,7 +5900,8 @@
       S.list("requests").forEach((r) => {
         if (!seenReq.has(r.id)) {
           seenReq.add(r.id);
-          if (r.status === "pending") {
+          // A test filing is recorded but never announced (isLiveRequest).
+          if (r.status === "pending" && isLiveRequest(r)) {
             newPending = true;
             notify(t("staff.notif.request") + " · " + t("staff.requests.room") + " " + r.room + ": " + reqTitle(r));
           }
@@ -5104,6 +5913,7 @@
     // easiest to miss. Chime once per batch, like onBookingsChange().
     if (newPending) { lastReqChimeAt = Date.now(); playChime(); }
     if (panel === "requests") { renderRequests(); markRequestsRead(); }
+    renderGuestPanel(); // keep an open guest panel in step with the poll
     updateRequestAlert();
     updateBadges();
   }
@@ -5124,6 +5934,7 @@
     if (shouldNotify) { notify(t("staff.notif.chat")); playChime(); }
     lastChatUnread = totalChatUnread();
     if (panel === "chat") renderChat();
+    renderGuestPanel(); // a guest signing in mid-chat updates the open panel
     updateBadges();
   }
   function onBookingsChange() {
@@ -5406,6 +6217,13 @@
     document.getElementById("profileModal").addEventListener("click", (e) => {
       if (e.target === document.getElementById("profileModal")) closeProfileModal();
     });
+    // guest panel (shared by the requests board and live chat)
+    document.getElementById("guestPanelClose").addEventListener("click", closeGuestPanel);
+    document.getElementById("guestPanelOverlay").addEventListener("click", closeGuestPanel);
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && guestPanelCtx) closeGuestPanel();
+    });
+
     document.getElementById("pmChangePhoto").addEventListener("click", () => { if (avatarInput) avatarInput.click(); });
     document.getElementById("pmSavePass").addEventListener("click", submitProfilePassword);
     document.getElementById("pmForgotPass").addEventListener("click", profileForgotPass);

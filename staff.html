@@ -197,7 +197,13 @@
       <span id="reqAlertLive" class="sr-only" role="status" aria-live="polite"></span>
       <h2 data-i18n="staff.requests.title">Guest requests</h2>
       <p class="panel-lede" data-i18n="matrix.lede"></p>
+      <!-- All four are filled by renderRequests() in assets/js/staff.js. The
+           toolbar holds a live search box, so it is built once and only
+           relabelled afterwards — the board re-renders on every 10s poll. -->
+      <div class="req-toolbar" id="reqToolbar"></div>
       <div class="req-filters" id="reqFilters"></div>
+      <div class="req-filters req-depts" id="reqDepts"></div>
+      <div class="req-bulkbar" id="reqBulkBar" hidden></div>
       <div class="staff-list" id="reqList"></div>
     </section>
 
@@ -467,6 +473,22 @@
 </div>
 
 <div class="toast-wrap" id="toastWrap" aria-live="polite"></div>
+
+<!-- ============ GUEST PANEL ============
+     One slide-over answering "who is this?", opened from a guest's name on the
+     Guest Requests board and from a live-chat thread's header. Filled by
+     openGuestPanel() in assets/js/staff.js. -->
+<div class="guest-panel-overlay" id="guestPanelOverlay" hidden></div>
+<aside class="guest-panel" id="guestPanel" role="dialog" aria-modal="false" aria-labelledby="gpName" hidden>
+  <div class="gp-head">
+    <div class="gp-ident">
+      <span class="gp-tier" id="gpTier"></span>
+      <span class="gp-name" id="gpName"></span>
+    </div>
+    <button class="gp-close" id="guestPanelClose" aria-label="Close">✕</button>
+  </div>
+  <div class="gp-body" id="guestPanelBody"></div>
+</aside>
 
 <!-- ============ PROFILE MODAL ============ -->
 <div class="profile-modal-overlay" id="profileModal" role="dialog" aria-modal="true" hidden>

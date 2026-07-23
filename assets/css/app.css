@@ -483,6 +483,165 @@ body.staff-body { background: #eef1ef; }
 .act-start { background: #2b7fd9; color: #fff; }
 .act-done { background: #2bb35a; color: #fff; }
 .act-reopen { background: var(--sand); color: var(--ink); }
+.act-restore { background: var(--sand); color: var(--ink); }
+
+/* ── Guest Requests board ───────────────────────────────────────────────────
+   The panel is a working queue, not a list: a search, department chips, live
+   counts, ownership and a waiting clock, because the desk needs to know at a
+   glance WHO is waiting, WHERE, and WHO ELSE is already on it. */
+.req-toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
+.req-toolbar .rt-search { position: relative; flex: 1 1 260px; max-width: 420px; }
+.req-toolbar .rt-search-ico { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); font-size: 0.85rem; opacity: .55; pointer-events: none; }
+.req-toolbar .rt-search input {
+  width: 100%; border: 1.5px solid var(--line); border-radius: 999px;
+  padding: 8px 14px 8px 34px; font-family: var(--sans); font-size: 0.86rem; background: #fff;
+}
+.req-toolbar .rt-search input:focus { outline: none; border-color: var(--teal-soft); }
+.req-toolbar .rt-btn {
+  border: 1.5px solid var(--line); background: #fff; border-radius: 999px;
+  padding: 7px 15px; font-size: 0.82rem; font-weight: 600; cursor: pointer;
+  color: var(--ink-soft); font-family: var(--sans);
+}
+.req-toolbar .rt-btn:hover { border-color: var(--teal-soft); }
+.req-toolbar .rt-btn.active { background: var(--teal); color: var(--ivory); border-color: var(--teal); }
+.req-toolbar .rt-btn.rt-test.active { background: var(--ink-soft); border-color: var(--ink-soft); }
+.req-filters .rf-count {
+  display: inline-block; margin-left: 7px; min-width: 18px; padding: 0 5px;
+  border-radius: 999px; background: var(--paper); color: var(--ink-soft);
+  font-size: 0.72rem; font-weight: 700; text-align: center;
+}
+.req-filters button.active .rf-count { background: rgba(255,255,255,0.25); color: var(--ivory); }
+.req-depts { margin-top: -8px; }
+.req-depts button { padding: 5px 13px; font-size: 0.78rem; }
+.req-bulkbar {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 10px 14px; margin-bottom: 14px; border: 1px solid var(--line);
+  border-radius: 12px; background: var(--paper);
+}
+/* display:flex above would otherwise beat the browser's [hidden] rule and
+   leave an empty bar sitting on the board whenever multi-select is off. */
+.req-bulkbar[hidden] { display: none; }
+.req-bulkbar .rbb-count { font-size: 0.82rem; font-weight: 700; color: var(--ink-soft); margin-right: 4px; }
+.req-bulkbar .cc-btn { font-size: 0.82rem; padding: 6px 12px; border: 1px solid var(--line); background: #fff; border-radius: 999px; cursor: pointer; color: var(--ink); font-family: var(--sans); }
+.req-bulkbar .cc-btn:hover:not(:disabled) { border-color: var(--teal-soft); }
+.req-bulkbar .cc-btn:disabled { opacity: .5; cursor: not-allowed; }
+.req-bulkbar .cc-btn-danger { color: var(--terracotta); border-color: rgba(193,103,73,0.3); }
+
+.staff-req .sr-check { width: 18px; height: 18px; cursor: pointer; align-self: flex-start; }
+.staff-req .sr-dept { margin-right: 6px; }
+/* How long a guest has been waiting. Colour is never the only signal — the
+   elapsed time is written out next to it. */
+.staff-req .sr-age { font-size: 0.72rem; font-weight: 700; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
+.staff-req .sr-age.ok { background: var(--paper); color: var(--ink-soft); }
+.staff-req .sr-age.warn { background: rgba(217,138,43,.16); color: #9a5f13; }
+.staff-req .sr-age.late { background: rgba(217,75,43,.16); color: #a83318; }
+.staff-req.age-warn { border-left-color: #d98a2b; }
+.staff-req.age-late { border-left-color: #d94b2b; }
+/* A request filed while testing the portal: kept, visibly set apart, and
+   counted nowhere (see isLiveRequest in staff.js). */
+.staff-req.test-req { opacity: .78; background: repeating-linear-gradient(135deg, #fff, #fff 12px, var(--paper) 12px, var(--paper) 24px); }
+.staff-req .sr-test { background: var(--ink-soft); color: #fff; font-size: 0.66rem; font-weight: 800; padding: 3px 8px; border-radius: 999px; letter-spacing: .05em; }
+
+.staff-req .sr-guestrow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 0.88rem; }
+.staff-req .sr-guest-btn {
+  background: none; border: none; border-bottom: 1px dashed var(--teal-soft);
+  padding: 0 0 1px; cursor: pointer; font-family: var(--sans); font-size: 0.9rem;
+  font-weight: 600; color: var(--teal); display: inline-flex; align-items: center; gap: 6px;
+}
+.staff-req .sr-guest-btn:hover { color: var(--teal-deep); border-bottom-style: solid; }
+.staff-req .sr-tier { font-size: 0.8rem; line-height: 1; }
+.staff-req .sr-lang { font-size: 0.74rem; color: var(--teal-soft); text-transform: uppercase; letter-spacing: .04em; }
+.staff-req .sr-confirmed { font-size: 0.74rem; color: var(--ink-soft); font-style: italic; }
+.staff-req .sr-staffnote { color: var(--ink); background: var(--paper); border-radius: 8px; padding: 6px 10px; }
+.staff-req .sr-assign { display: flex; align-items: center; gap: 10px; font-size: 0.78rem; color: var(--ink-soft); font-style: italic; }
+.staff-req .sr-assign.mine { color: var(--teal-soft); font-weight: 600; font-style: normal; }
+.staff-req .sr-actions .sr-ghost {
+  background: #fff; border: 1px solid var(--line); color: var(--ink-soft);
+  padding: 7px 14px; font-weight: 600;
+}
+.staff-req .sr-actions .sr-ghost:hover { border-color: var(--teal-soft); color: var(--ink); }
+.staff-req .sr-actions .sr-danger:hover { color: var(--terracotta); border-color: rgba(193,103,73,0.4); }
+.staff-req .sr-assign .sr-ghost {
+  background: #fff; border: 1px solid var(--line); border-radius: 999px;
+  padding: 4px 12px; font-size: 0.76rem; font-weight: 600; cursor: pointer;
+  color: var(--ink-soft); font-family: var(--sans); font-style: normal;
+}
+.staff-req .sr-assign .sr-ghost:hover { border-color: var(--teal-soft); color: var(--ink); }
+
+/* ── Guest panel (slide-over) ───────────────────────────────────────────────
+   Opened from a guest's name on the requests board or a chat thread's header.
+   Deliberately a side panel rather than a modal: staff keep reading the board
+   underneath while they check who the guest is. */
+.guest-panel-overlay { position: fixed; inset: 0; background: rgba(20,30,28,0.28); z-index: 60; }
+.guest-panel {
+  position: fixed; top: 0; right: 0; bottom: 0; width: min(420px, 92vw); z-index: 61;
+  background: var(--ivory, #fff); border-left: 1px solid var(--line);
+  box-shadow: -14px 0 40px rgba(20,30,28,0.16);
+  display: flex; flex-direction: column;
+}
+.guest-panel[hidden], .guest-panel-overlay[hidden] { display: none; }
+.gp-head { display: flex; align-items: center; gap: 10px; padding: 16px 18px; border-bottom: 1px solid var(--line); background: var(--teal); color: var(--ivory); }
+.gp-head .gp-ident { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; }
+.gp-head .gp-name { font-family: var(--serif); font-size: 1.15rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.gp-head .gp-close { background: transparent; border: none; color: var(--ivory); font-size: 1rem; cursor: pointer; padding: 4px 8px; border-radius: 8px; }
+.gp-head .gp-close:hover { background: rgba(255,255,255,0.16); }
+.gp-body { flex: 1; overflow-y: auto; padding: 16px 18px 26px; }
+.gp-tierline { font-size: 0.76rem; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; }
+.gp-tierline.verified { color: var(--teal); }
+.gp-tierline.unconfirmed { color: var(--gold, #c9952a); }
+.gp-tierline.visitor, .gp-tierline.unknown { color: var(--ink-soft); }
+.gp-where { font-size: 1rem; font-weight: 600; margin-top: 4px; color: var(--ink); }
+.gp-lang { font-size: 0.78rem; color: var(--ink-soft); margin-top: 2px; }
+.gp-section { margin-top: 20px; }
+.gp-section-title { font-size: 0.74rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-soft); margin-bottom: 8px; }
+/* Same label/value grid as the booking detail view, tightened for the narrower
+   panel — keep a real column gap or long labels butt against their value. */
+.gp-section .bk-detail-grid { gap: 5px 14px; margin-bottom: 0; max-width: none; }
+.gp-hint { font-size: 0.82rem; color: var(--ink-soft); margin: 0 0 8px; }
+.gp-special { margin-top: 8px; font-size: 0.84rem; background: rgba(201,149,42,0.12); border-radius: 8px; padding: 8px 10px; }
+.gp-nobooking { background: rgba(201,149,42,0.08); border: 1px solid rgba(201,149,42,0.25); border-radius: 12px; padding: 12px 14px; }
+.gp-link-search input, .gp-select {
+  width: 100%; border: 1.5px solid var(--line); border-radius: 10px;
+  padding: 8px 12px; font-family: var(--sans); font-size: 0.86rem; background: #fff;
+}
+.gp-link-search input:focus, .gp-select:focus { outline: none; border-color: var(--teal-soft); }
+.gp-link-results { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.gp-match {
+  text-align: left; background: #fff; border: 1px solid var(--line); border-radius: 10px;
+  padding: 9px 12px; cursor: pointer; font-family: var(--sans);
+  display: flex; flex-direction: column; gap: 2px;
+}
+.gp-match:hover { border-color: var(--teal-soft); background: var(--paper); }
+.gp-match .gp-match-name { font-weight: 700; font-size: 0.88rem; color: var(--ink); }
+.gp-match .gp-match-meta { font-size: 0.76rem; color: var(--ink-soft); }
+.gp-match .cci-stay { font-size: 0.72rem; font-weight: 700; }
+.gp-match .cci-stay.in_house { color: var(--teal); }
+.gp-match .cci-stay.upcoming { color: var(--gold, #c9952a); }
+.gp-match .cci-stay.past { color: var(--ink-soft); }
+.gp-others { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.gp-others li { display: flex; align-items: center; gap: 8px; font-size: 0.84rem; background: var(--paper); border-radius: 8px; padding: 7px 10px; }
+.gp-other-status { font-size: 0.66rem; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; padding: 2px 7px; border-radius: 999px; background: #fff; border: 1px solid var(--line); }
+.gp-other-status.pending { color: #9a5f13; }
+.gp-other-status.progress { color: #2b7fd9; }
+.gp-other-status.done { color: #2bb35a; }
+.gp-other-time { margin-left: auto; font-size: 0.74rem; color: var(--ink-soft); }
+.gp-actions { display: flex; flex-direction: column; gap: 8px; margin-top: 22px; }
+.gp-btn {
+  border: 1.5px solid var(--line); background: #fff; border-radius: 999px;
+  padding: 10px 16px; font-size: 0.86rem; font-weight: 600; cursor: pointer;
+  color: var(--ink); font-family: var(--sans);
+}
+.gp-btn:hover { border-color: var(--teal-soft); background: var(--paper); }
+.gp-btn-gold { background: var(--teal); border-color: var(--teal); color: var(--ivory); }
+.gp-btn-gold:hover { opacity: .9; background: var(--teal); }
+
+/* The chat header's guest name is a button opening the same panel. */
+.cc-conv-head .cch-name-btn {
+  background: none; border: none; padding: 0; cursor: pointer;
+  font-family: var(--sans); font-size: 1rem; color: var(--teal);
+  border-bottom: 1px dashed var(--teal-soft);
+}
+.cc-conv-head .cch-name-btn:hover { color: var(--teal-deep); border-bottom-style: solid; }
 
 /* chat console */
 .chat-console { display: grid; grid-template-columns: 280px 1fr; gap: 18px; height: 70vh; min-height: 440px; }

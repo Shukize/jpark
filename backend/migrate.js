@@ -203,6 +203,14 @@ async function alignServiceRequestColumns() {
     ['updated_at', 'TIMESTAMPTZ NOT NULL DEFAULT NOW()'],
     ['guest_verified', 'BOOLEAN NOT NULL DEFAULT FALSE'],
     ['booking_ref', 'VARCHAR(100)'],
+    // Front-desk board state — see the block in schema.sql for what each is
+    // for. Listed here too so a database that predates them converges by the
+    // same path every other late-added service_requests column took.
+    ['is_test', 'BOOLEAN NOT NULL DEFAULT FALSE'],
+    ['assigned_staff_id', 'VARCHAR(50)'],
+    ['assigned_staff_name', 'VARCHAR(100)'],
+    ['staff_note', 'TEXT'],
+    ['confirmed_by', 'VARCHAR(100)'],
   ];
   for (const [col, type] of ADD) {
     if (!have.has(col)) {

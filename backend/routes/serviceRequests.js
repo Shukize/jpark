@@ -18,6 +18,7 @@ const express = require('express');
 const db = require('../db');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const { verifyGuest } = require('../lib/guestLookup');
+const { buildStaffPatch } = require('../lib/requestPatch');
 const router = express.Router();
 
 /* The guest portal and the staff console both speak camelCase and the
@@ -45,6 +46,15 @@ function row2js(r) {
     // number alone doesn't locate the guest (see lib/buildings.js).
     building: r.building != null ? Number(r.building) : null,
     roomType: r.room_type || null,
+    // Front-desk board state (see schema.sql). A test request is kept but
+    // never counted: the console hides it from the board, the badge and the
+    // chime. staffNote is the desk's own note and is deliberately NOT `note`,
+    // which holds the guest's own words.
+    isTest: r.is_test === true,
+    assignedStaffId: r.assigned_staff_id || null,
+    assignedStaffName: r.assigned_staff_name || null,
+    staffNote: r.staff_note || null,
+    confirmedBy: r.confirmed_by || null,
     status: normaliseStatus(r.status),
     createdAt: new Date(r.created_at).getTime(),
     updatedAt: r.updated_at ? new Date(r.updated_at).getTime() : null,
@@ -147,10 +157,13 @@ router.post('/', async (req, res) => {
 });
 
 /* PATCH /:id
-   Staff (authenticated) can move a request through any status. A guest has no
-   login, so they may cancel their OWN pending request by passing the guestId
-   they were issued — scoped in the WHERE clause, so it can't touch anyone
-   else's. Everything else still requires a staff token. */
+   Staff (authenticated) can move a request through any status, and set the
+   board state the front desk works with — see lib/requestPatch.js for the full
+   field list and why the verified/building fields are resolved server-side.
+
+   A guest has no login, so they may cancel their OWN pending request by passing
+   the guestId they were issued — scoped in the WHERE clause, so it can't touch
+   anyone else's. Everything else still requires a staff token. */
 router.patch('/:id', async (req, res) => {
   const { status, note, notes, guestId } = req.body || {};
   const next = status ? normaliseStatus(status) : null;
@@ -178,30 +191,61 @@ router.patch('/:id', async (req, res) => {
 
   return requireAuth(req, res, async () => {
     try {
+      const patch = await buildStaffPatch(req.body, req.user, { guestNoteColumn: 'note' });
+      if (patch.error) return res.status(400).json({ error: patch.error });
+      const sets = patch.sets.slice();
+      const vals = patch.vals.slice();
+      if (next) { vals.push(next); sets.push(`status = $${vals.length}`); }
+      if (!sets.length) return res.status(400).json({ error: 'Nothing to update' });
+
+      vals.push(req.params.id);
       const { rows } = await db.query(
-        `UPDATE service_requests
-            SET status = COALESCE($1, status),
-                note   = COALESCE($2, note)
-          WHERE id = $3
+        `UPDATE service_requests SET ${sets.join(', ')}
+          WHERE id = $${vals.length}
           RETURNING *`,
-        [next, note || notes || null, req.params.id]
+        vals
       );
       if (!rows.length) return res.status(404).json({ error: 'Request not found' });
       res.json(row2js(rows[0]));
     } catch (err) {
-      console.error('[service-requests] patch', err);
+      console.error('[service-requests] patch', err, JSON.stringify(req.body || {}));
       res.status(500).json({ error: 'Database error' });
     }
   });
 });
 
-/* DELETE /:id  (admin only) */
+/* DELETE /:id  (admin only)
+   Front-desk staff dismiss a request instead (PATCH status 'cancelled'), which
+   keeps the row for the record; a permanent delete stays an admin action. */
 router.delete('/:id', requireAdmin, async (req, res) => {
   try {
     await db.query('DELETE FROM service_requests WHERE id = $1', [req.params.id]);
     res.json({ deleted: true });
   } catch (err) {
     console.error('[service-requests] delete', err);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+/* POST /bulk-delete  (admin only)
+   Body: { ids: [1, 2, ...] }. Idempotent — unknown ids are ignored. Mirrors
+   POST /api/chat/bulk-delete so clearing a board of test rows is one call
+   rather than one round-trip per card. */
+router.post('/bulk-delete', requireAdmin, async (req, res) => {
+  const { ids } = req.body || {};
+  if (!Array.isArray(ids) || !ids.length) {
+    return res.status(400).json({ error: 'ids[] required' });
+  }
+  const numeric = ids.map(Number).filter((n) => Number.isInteger(n));
+  if (!numeric.length) return res.status(400).json({ error: 'ids[] must be numeric' });
+  try {
+    const { rowCount } = await db.query(
+      'DELETE FROM service_requests WHERE id = ANY($1::int[])',
+      [numeric]
+    );
+    res.json({ ok: true, deleted: rowCount });
+  } catch (err) {
+    console.error('[service-requests] bulk-delete', err);
     res.status(500).json({ error: 'Database error' });
   }
 });

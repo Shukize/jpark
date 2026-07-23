@@ -370,6 +370,39 @@ ALTER TABLE service_requests ADD COLUMN IF NOT EXISTS room_type VARCHAR(50);
 -- confirmations carry it on the room-type or unit line.
 ALTER TABLE guest_bookings   ADD COLUMN IF NOT EXISTS building  SMALLINT;
 
+-- ── Front-desk request board (added 2026-07-23) ──────────────────────────────
+-- The Guest Requests panel is the queue someone has to physically walk, so it
+-- carries the same working state a hotel's own board does. All five columns
+-- exist identically on BOTH tables — the console merges service_requests and
+-- orders into one board (see _pollRequests() in assets/js/staff.js), so a
+-- column present on only one of them would render as a hole on half the cards.
+--
+--   is_test              A request filed while testing the portal. Kept (not
+--                        deleted) so it can be un-marked, but excluded from the
+--                        board, the nav badge, the chime and notifications —
+--                        otherwise every trial tap blinks at the front desk
+--                        forever.
+--   assigned_staff_id/   Who is walking to the room. Denormalised name, exactly
+--   assigned_staff_name  as chat_messages does for thread ownership.
+--   staff_note           The front desk's own note ("towels left at door
+--                        18:40"). DELIBERATELY separate from `note`, which is
+--                        the GUEST's own words — writing staff text there would
+--                        destroy what the guest actually asked for.
+--   confirmed_by         Staff member who vouched for a guest the automatic
+--                        booking lookup couldn't match, mirroring
+--                        chat_messages.confirmed_by. Set by PATCH when staff
+--                        link a request to a booking they found by hand.
+ALTER TABLE orders           ADD COLUMN IF NOT EXISTS is_test             BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE orders           ADD COLUMN IF NOT EXISTS assigned_staff_id   VARCHAR(50);
+ALTER TABLE orders           ADD COLUMN IF NOT EXISTS assigned_staff_name VARCHAR(100);
+ALTER TABLE orders           ADD COLUMN IF NOT EXISTS staff_note          TEXT;
+ALTER TABLE orders           ADD COLUMN IF NOT EXISTS confirmed_by        VARCHAR(100);
+ALTER TABLE service_requests ADD COLUMN IF NOT EXISTS is_test             BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE service_requests ADD COLUMN IF NOT EXISTS assigned_staff_id   VARCHAR(50);
+ALTER TABLE service_requests ADD COLUMN IF NOT EXISTS assigned_staff_name VARCHAR(100);
+ALTER TABLE service_requests ADD COLUMN IF NOT EXISTS staff_note          TEXT;
+ALTER TABLE service_requests ADD COLUMN IF NOT EXISTS confirmed_by        VARCHAR(100);
+
 CREATE INDEX IF NOT EXISTS idx_orders_guest
   ON orders (guest_id, created_at DESC);
 
