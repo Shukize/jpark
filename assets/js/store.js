@@ -112,11 +112,17 @@
     { id: "bk4", ref: "JP-1004", lastName: "suksawat",  room: "508" }
   ];
 
-  // NOTE: This is a front-end demo. In a real deployment passwords would be
-  // hashed and verified on a server — never stored in the browser.
+  // Passwords are verified ONLY by the backend (bcrypt hash → signed JWT), so
+  // no password belongs in this seed. They used to be here — admin/admin123
+  // and staff/staff123, shipped in the page source of the public site — and
+  // assets/js/staff.js's login() would fall back to checking them locally
+  // whenever the API was unreachable, which meant any backend outage turned
+  // the staff console into an open door for anyone who read our JavaScript.
+  // These rows exist now only to name the seats a session can be validated
+  // against while offline; they can no longer admit anybody.
   const SEED_STAFF = [
-    { id: "u_admin", username: "admin", password: "admin123", name: "Hotel Admin", role: "admin", active: true },
-    { id: "u_staff", username: "staff", password: "staff123", name: "Front Desk",  role: "staff", active: true }
+    { id: "u_admin", username: "admin", name: "Hotel Admin", role: "admin", active: true },
+    { id: "u_staff", username: "staff", name: "Front Desk",  role: "staff", active: true }
   ];
 
   const SEED_MENU = [

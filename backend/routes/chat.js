@@ -531,6 +531,24 @@ router.patch('/:guestId/assign', requireAuth, async (req, res) => {
 router.patch('/:guestId/confirm-guest', requireAuth, async (req, res) => {
   const { bookingId, bookingRef, room, name } = req.body || {};
   try {
+    // A supplied reference must be a REAL one. The ✅ badge is the front desk
+    // saying "I checked the register"; without this it only said "somebody
+    // typed something", so one transposed character (JP-1O01 for JP-1001) put
+    // a confident green badge on a guest nobody had actually matched. Same
+    // rule, and the same verifyGuest() call, that lib/requestPatch.js applies
+    // when staff link a reservation to a request. Vouching with no reference
+    // at all stays allowed: that is a human vouching by name and room.
+    let confirmedRef = bookingRef ? String(bookingRef).trim() : null;
+    let confirmedRoom = room ? String(room).trim().slice(0, 20) : null;
+    if (confirmedRef) {
+      const bk = await findBooking({ ref: confirmedRef });
+      if (!bk) {
+        return res.status(400).json({ error: 'No booking matches that reference' });
+      }
+      confirmedRef = bk.ref;
+      // Prefer the room the booking actually names over anything typed.
+      if (bk.room_number) confirmedRoom = String(bk.room_number).slice(0, 20);
+    }
     const { rowCount } = await db.query(
       `UPDATE chat_messages
           SET guest_kind = 'guest',
@@ -544,8 +562,8 @@ router.patch('/:guestId/confirm-guest', requireAuth, async (req, res) => {
       [
         String(req.user.name || '').slice(0, 100),
         bookingId ? String(bookingId) : null,
-        bookingRef ? String(bookingRef) : null,
-        room ? String(room).trim().slice(0, 20) : null,
+        confirmedRef,
+        confirmedRoom,
         name ? String(name).trim().slice(0, 100) : null,
         req.params.guestId,
       ]

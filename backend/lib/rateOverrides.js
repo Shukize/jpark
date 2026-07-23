@@ -210,11 +210,20 @@ function occBaseGuests(label) {
   return /twin|double|2 bedroom/i.test(label) ? 2 : 1;
 }
 
-function effectiveBreakfastRate(room, variant, totalGuests, surcharges) {
+// Counts ADULTS, never total guests. Children are priced once, by age, in
+// computeGuestSurcharge() (free 0-4, flat childBreakfast5to8 for 5-8, adult
+// rate from 9). Counting them here as well billed them twice: a lone parent
+// with an infant was charged the 2-breakfast tier (+190/night) on top of
+// whatever the age tier said, so 1 adult + a 3-year-old with breakfast came
+// to 1300 instead of the rate card's 1110, and 1 adult + a 12-year-old to
+// 1990 instead of 1800. Same class of mistake as the 2026-07-14 Twin
+// overcharge this function was written to fix — that one corrected the
+// variant's base occupancy, this one corrects who is counted against it.
+function effectiveBreakfastRate(room, variant, adults, surcharges) {
   if (!isOccupancyTier(room)) return variant.bf;
   const step = surcharges.extraBreakfastGuest;
-  const guests = Math.min(Number(totalGuests || 0), 2);
-  return variant.bf + step * (guests - occBaseGuests(variant.label));
+  const paying = Math.min(Number(adults || 0), 2);
+  return variant.bf + step * (paying - occBaseGuests(variant.label));
 }
 
 async function getEffectiveRoom(name) {

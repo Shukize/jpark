@@ -798,9 +798,9 @@
 
     var fromRoom = Math.min.apply(null, room.variants.map(function (v) { return v.room; }));
     var occTier = isOccupancyTier(room);
-    var totalGuestsNow = adults + children;
     var ratesHTML = room.variants.map(function (v) {
-      var bfShown = occTier ? occupancyBreakfastPrice(room, totalGuestsNow) : v.bf;
+      // Adults only — children are priced by age, not by the breakfast tier.
+      var bfShown = occTier ? occupancyBreakfastPrice(room, adults) : v.bf;
       return '<div class="rr-rate">' +
                '<span class="rr-rate-label">' + variantLabel(v.label) + '</span>' +
                '<span class="rr-rate-val">' +
@@ -1046,8 +1046,13 @@
   function isOccupancyTier(room) {
     return room.variants.every(function (v) { return v.room === room.variants[0].room; });
   }
-  function occupancyBreakfastPrice(room, totalGuests) {
-    return (Number(totalGuests) || 0) <= 1
+  // Takes ADULTS, not total guests. A child is priced once, by age, in
+  // computeGuestSurcharge() above (free 0-4, flat 5-8, adult rate from 9);
+  // counting them here too billed a lone parent the 2-breakfast tier on top
+  // of the child's own age price. Mirrors backend/lib/rateOverrides.js's
+  // effectiveBreakfastRate(), which takes the same count.
+  function occupancyBreakfastPrice(room, adults) {
+    return (Number(adults) || 0) <= 1
       ? room.variants[0].bf
       : room.variants[0].bf + SURCHARGES.extraBreakfastGuest;
   }

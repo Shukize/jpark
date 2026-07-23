@@ -43,9 +43,35 @@ const router = express.Router();
 // real family/tour booking.
 const MAX_GROUP_ROOMS = 8;
 
-// Generous but bounded — guards against scripted flooding of the reservation
-// endpoint (each submission triggers two emails and an inventory-lock query).
-const rateLimited = makeLimiter(10, 10 * 60 * 1000);
+// Guards against scripted flooding of the reservation endpoint (each
+// submission triggers two emails and an inventory-lock query) WITHOUT ever
+// turning a real guest away.
+//
+// This was 10 per 10 minutes per IP, which is a booking-losing ceiling: the
+// hotel's own Wi-Fi is one NAT address, Thai mobile carriers are heavily
+// CGNAT'd, and an office or a wedding party books from a single egress IP —
+// so the 11th reservation from a whole building was refused. Worse, the
+// limiter counts ATTEMPTS, so ten failed validations from one guest (a typo'd
+// email, a date they kept changing) locked that guest out for ten minutes at
+// the final step of the funnel, with nobody told it happened.
+//
+// Same shape as the guest-login limiters in routes/auth.js: a loose per-IP
+// ceiling that a whole building can share, plus a tight per-device budget
+// that stops one scripted browser hammering the endpoint.
+const rateLimited = makeLimiter(120, 10 * 60 * 1000);
+const deviceRateLimited = makeLimiter(12, 10 * 60 * 1000);
+
+// The booking page sends a stable per-browser id; fall back to the IP so a
+// caller that omits it is still bounded.
+function bookingDeviceKey(req) {
+  const b = req.body || {};
+  const raw = b.clientId || b.deviceId || b.guestId ||
+    (req.get && (req.get('X-JPark-Device') || req.get('x-jpark-device')));
+  return raw ? 'd:' + String(raw).slice(0, 64) : 'ip:' + (req.ip || 'unknown');
+}
+function bookingRateLimited(req) {
+  return rateLimited(req.ip || 'unknown') || deviceRateLimited(bookingDeviceKey(req));
+}
 
 function genRef() {
   return 'JP-' + Date.now().toString(36).toUpperCase() + '-' + crypto.randomBytes(2).toString('hex').toUpperCase();
@@ -60,8 +86,10 @@ function genRef() {
 // backend/lib/rateOverrides.js's computeGuestSurcharge(). For an occupancy-
 // tier room (Single/Twin/Double variants all share the same room-only
 // rate — the label is a bed-style preference, not a different product),
-// the breakfast rate itself is also derived from totalGuests rather than
+// the breakfast rate itself is also derived from the ADULT count rather than
 // the submitted variant, via effectiveBreakfastRate() — see its comment.
+// Adults, not total guests: a child is priced exactly once, by age, inside
+// computeGuestSurcharge().
 // `extraBed` is a flat, opt-in physical add-on (+surcharges.extraBed/night),
 // separate from the guest-count surcharge above: it lets a guest pay for a
 // rollaway bed even when the party is a young child the age-tiered math never
@@ -74,7 +102,10 @@ async function computeTotal(room, variantLabel, breakfast, nights, totalGuests, 
   const variant = effectiveRoom.variants.find((v) => v.label === variantLabel);
   if (!variant) return null;
   const surcharges = await rateOverrides.getEffectiveSurcharges();
-  const rate = breakfast ? rateOverrides.effectiveBreakfastRate(effectiveRoom, variant, totalGuests, surcharges) : variant.room;
+  const adults = Array.isArray(childAges)
+    ? Math.max(0, Number(totalGuests || 0) - childAges.length)
+    : Number(totalGuests || 0);
+  const rate = breakfast ? rateOverrides.effectiveBreakfastRate(effectiveRoom, variant, adults, surcharges) : variant.room;
   const bedAddon = (extraBed && effectiveRoom.extraBedAvailable) ? surcharges.extraBed : 0;
   const perNight = rate + rateOverrides.computeGuestSurcharge(effectiveRoom, totalGuests, breakfast, surcharges, childAges) + bedAddon;
   return perNight * nights;
@@ -87,6 +118,28 @@ async function computeTotal(room, variantLabel, breakfast, nights, totalGuests, 
 // priced, or which columns get written. That shared path is the guarantee
 // that "book 1 room" and "book that room as part of a group" charge exactly
 // the same amount.
+
+// guest_name / guest_last_name / guest_email / guest_phone are VARCHAR(100),
+// (100)/(150)/(50), and Postgres rejects a NUL byte in any text value. An
+// over-long paste or a mangled autofill therefore used to reach the INSERT and
+// come back as a bare 500 "Database error" at the last step of the booking
+// funnel, with no guidance for the guest. Trim to what the columns hold and
+// strip control characters, the same treatment `specialRequests` already gets.
+function cleanField(v, max) {
+  if (v == null) return v;
+  // eslint-disable-next-line no-control-regex
+  return String(v).replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, max);
+}
+function sanitiseGuest(guest) {
+  const g = guest || {};
+  return Object.assign({}, g, {
+    firstName: cleanField(g.firstName, 100),
+    lastName:  cleanField(g.lastName, 100),
+    email:     cleanField(g.email, 150),
+    phone:     cleanField(g.phone, 50),
+    note:      cleanField(g.note, 1000),
+  });
+}
 
 function validateGuest(guest) {
   if (!guest.firstName || !guest.email || !guest.phone) {
@@ -223,12 +276,12 @@ router.get('/booking-availability', async (req, res) => {
    any live admin rate overrides. */
 router.post('/reservations', async (req, res) => {
   const ip = req.ip || 'unknown';
-  if (rateLimited(ip)) {
+  if (bookingRateLimited(req)) {
     return res.status(429).json({ error: 'Too many requests. Please try again later.' });
   }
 
   const b = req.body || {};
-  const guest = b.guest || {};
+  const guest = sanitiseGuest(b.guest);
   const { checkIn, checkOut } = b;
   // Optional free-text special request the guest typed (late arrival, high
   // floor, allergies…). Trimmed and length-capped so it's safe to store and
@@ -295,12 +348,12 @@ router.post('/reservations', async (req, res) => {
    room is invalid or sold out, nothing is written (never a partial group). */
 router.post('/reservations/group', async (req, res) => {
   const ip = req.ip || 'unknown';
-  if (rateLimited(ip)) {
+  if (bookingRateLimited(req)) {
     return res.status(429).json({ error: 'Too many requests. Please try again later.' });
   }
 
   const b = req.body || {};
-  const guest = b.guest || {};
+  const guest = sanitiseGuest(b.guest);
   const { checkIn, checkOut } = b;
   const rooms = Array.isArray(b.rooms) ? b.rooms : null;
   const specialRequests = typeof guest.note === 'string' && guest.note.trim()
@@ -461,12 +514,12 @@ function dayUseGuestEmail(bk, preferredTime) {
    matches, so day-use rows never block or get blocked by anything. */
 router.post('/payments/dayuse-booking', async (req, res) => {
   const ip = req.ip || 'unknown';
-  if (rateLimited(ip)) {
+  if (bookingRateLimited(req)) {
     return res.status(429).json({ error: 'Too many requests. Please try again later.' });
   }
 
   const b = req.body || {};
-  const guest = b.guest || {};
+  const guest = sanitiseGuest(b.guest);
   const { room, date } = b;
   const preferredTime = typeof b.preferredTime === 'string' ? b.preferredTime.trim().slice(0, 200) : '';
   const specialRequests = typeof guest.note === 'string' && guest.note.trim()

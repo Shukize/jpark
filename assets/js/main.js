@@ -26,7 +26,12 @@
     COFFEE_IMAGES.forEach((src, i) => {
       const slide = document.createElement("div");
       slide.className = "slide" + (i === 0 ? " active" : "");
-      slide.style.backgroundImage = `url('${enc(src)}')`;
+      // The URL is parked on the element and only turned into a real
+      // background-image when the slide is about to be seen (see load()).
+      // Assigning it here downloaded every slide the moment the page opened —
+      // eight full-size photos, ~3.3MB, for a section that is below the fold
+      // and whose carousel does not even start until it scrolls into view.
+      slide.dataset.bg = enc(src);
       track.appendChild(slide);
 
       if (dotsWrap) {
@@ -44,10 +49,22 @@
     let timer = null;
     const DELAY = 5000;
 
+    /* Give a slide its photo the first time it is needed, and warm the one
+       after it so the 5s cross-fade never lands on an empty panel. */
+    function load(n) {
+      const el = slides[(n + slides.length) % slides.length];
+      if (el && el.dataset.bg) {
+        el.style.backgroundImage = `url('${el.dataset.bg}')`;
+        delete el.dataset.bg;
+      }
+    }
+
     function go(n, fromClick) {
       slides[index].classList.remove("active");
       if (dots[index]) dots[index].classList.remove("active");
       index = (n + slides.length) % slides.length;
+      load(index);
+      load(index + 1);
       slides[index].classList.add("active");
       if (dots[index]) dots[index].classList.add("active");
       if (fromClick) restart();
@@ -61,9 +78,17 @@
     const section = document.getElementById("coffee");
     if ("IntersectionObserver" in window && section) {
       new IntersectionObserver((entries) => {
-        entries.forEach((e) => (e.isIntersecting ? start() : stop()));
+        entries.forEach((e) => {
+          if (e.isIntersecting) { load(0); load(1); start(); } else { stop(); }
+        });
       }, { threshold: 0.15 }).observe(section);
+      // Start fetching the first slide slightly before it is scrolled to, so
+      // the section is never briefly blank on a fast scroll.
+      new IntersectionObserver((entries, obs) => {
+        if (entries.some((e) => e.isIntersecting)) { load(0); obs.disconnect(); }
+      }, { rootMargin: "600px" }).observe(section);
     } else {
+      load(0); load(1);
       start();
     }
 

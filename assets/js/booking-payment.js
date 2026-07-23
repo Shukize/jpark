@@ -459,9 +459,11 @@
   // of which variant the guest ends up selecting below.
   function breakfastRate(v) {
     var P = window.JPark && window.JPark.pricing;
-    var totalGuests = (state.adults || 0) + (state.children || 0);
+    // Adults only. Children are priced once, by age, in currentSurcharge();
+    // adding them here as well billed a lone parent the 2-breakfast tier on
+    // top of the child's own age price.
     if (P && P.isOccupancyTier({ variants: state.variants })) {
-      return P.occupancyBreakfastPrice({ variants: state.variants }, totalGuests);
+      return P.occupancyBreakfastPrice({ variants: state.variants }, state.adults || 0);
     }
     return v.bf;
   }

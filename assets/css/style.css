@@ -30,7 +30,11 @@
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
-html { scroll-behavior: smooth; scroll-padding-top: 84px; }
+/* overflow-x on <html> as well as body: with only body clipped, <html>
+   remains the scroll container and any element that paints past the viewport
+   still drags the page sideways. Belt and braces behind the per-container
+   clipping on .hero-media / .coffee-carousel. */
+html { scroll-behavior: smooth; scroll-padding-top: 84px; overflow-x: hidden; }
 
 body {
   font-family: var(--sans);
@@ -179,7 +183,12 @@ h1, h2, h3 { font-weight: 500; line-height: 1.12; letter-spacing: 0.01em; }
 
 /* ---------------- hero ---------------- */
 .hero { position: relative; min-height: 100svh; display: flex; align-items: center; color: var(--ivory); padding-top: 90px; padding-bottom: 86px; }
-.hero-media { position: absolute; inset: 0; z-index: -1; }
+/* overflow:hidden matters — the image inside animates from scale(1.08)
+   (slowZoom, below), so without clipping it sticks out past the viewport and
+   the whole document gains a sideways scroll (34px at 1440, 10px on a phone).
+   body{overflow-x:hidden} does not prevent that, because <html> stays the
+   scroll container. */
+.hero-media { position: absolute; inset: 0; z-index: -1; overflow: hidden; }
 .hero-media img { width: 100%; height: 100%; object-fit: cover; animation: slowZoom 18s ease-out forwards; }
 .hero-scrim {
   position: absolute; inset: 0;
@@ -311,7 +320,8 @@ h1, h2, h3 { font-weight: 500; line-height: 1.12; letter-spacing: 0.01em; }
 
 /* ---------------- Midnight Coffee Club ---------------- */
 .coffee { position: relative; min-height: 100svh; display: flex; align-items: center; overflow: hidden; color: var(--ivory); }
-.coffee-carousel { position: absolute; inset: 0; z-index: 0; }
+/* Same reason as .hero-media: every inactive .slide sits at scale(1.06). */
+.coffee-carousel { position: absolute; inset: 0; z-index: 0; overflow: hidden; }
 .coffee-carousel .slide {
   position: absolute; inset: 0; opacity: 0; transform: scale(1.06);
   background-size: cover; background-position: center;

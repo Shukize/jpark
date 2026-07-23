@@ -201,35 +201,36 @@
     return u && u.active ? s : null;
   }
 
-  /* Local (localStorage) credential check — used as fallback when the API is offline. */
-  function loginLocal(username, password) {
-    const u = S.list("staff").find((x) => x.username.toLowerCase() === username.trim().toLowerCase());
-    if (!u || u.password !== password) return { error: t("staff.login.error") };
-    if (!u.active) return { error: t("staff.login.disabled") };
-    return { user: { id: u.id, name: u.name, role: u.role, username: u.username }, mustChange: !!u.mustChange, staffId: u.id };
-  }
+  /* Server-only login. The backend verifies a bcrypt hash and issues a signed
+     JWT; nothing else may admit anyone.
 
-  /* Server-first login: verifies bcrypt password on the backend, which issues a
-     signed JWT. Falls back to loginLocal() when the API is unreachable. */
+     There used to be a loginLocal() fallback that checked the typed password
+     against the localStorage store whenever the API was unreachable, returned
+     404, or returned any 5xx. That store is seeded by assets/js/store.js with
+     admin/admin123 and staff/staff123 — both readable in the page source of
+     the public site. So during any backend outage (Render cold-start failure,
+     the Neon suspension of 2026-07-13, or simply a browser put into offline
+     mode) anyone who opened /staff.html could sign in as admin with a password
+     printed in our own JavaScript. Offline the console has no real data to
+     show anyway, so the fallback bought nothing and cost the front door. */
   async function login(username, password) {
     const API = window.JPark && window.JPark.api;
-    if (API) {
-      const res = await API.post("/api/auth/login", { username, password });
-      if (!res.error) {
-        // Backend issued a proper JWT — store it and build user from the payload.
-        try { localStorage.setItem("jpark.staff.token", res.token); } catch (_) {}
-        if (res.must_change_password) {
-          return { mustChange: true, staffId: res.user.id, user: res.user };
-        }
-        return { user: res.user };
+    if (!API) return { error: t("staff.login.offline") };
+    const res = await API.post("/api/auth/login", { username, password });
+    if (!res.error) {
+      // Backend issued a proper JWT — store it and build user from the payload.
+      try { localStorage.setItem("jpark.staff.token", res.token); } catch (_) {}
+      if (res.must_change_password) {
+        return { mustChange: true, staffId: res.user.id, user: res.user };
       }
-      // 404 = auth route not deployed yet; 5xx = server error — fall through to localStorage.
-      if (!res.offline && res.status !== 404 && res.status < 500) {
-        return { error: res.error || t("staff.login.error") };
-      }
+      return { user: res.user };
     }
-    // API offline or auth route unavailable — fall back to localStorage credentials.
-    return loginLocal(username, password);
+    // The server could not be reached (or could not answer): say so plainly
+    // rather than letting anyone in.
+    if (res.offline || res.status === 404 || res.status >= 500) {
+      return { error: t("staff.login.offline") };
+    }
+    return { error: res.error || t("staff.login.error") };
   }
 
   /* ---- login sub-views (sign in / new staff / forgot password|username) ---- */
@@ -938,7 +939,15 @@
       const names = (r.items || []).map((it) => it.qty + "× " + t(it.key)).join(", ");
       return t("staff.requests.order") + " — " + names;
     }
-    return r.titleKey ? t(r.titleKey) : (r.title || "");
+    // t() returns the key itself when it isn't in the dictionary, so a key
+    // that is ever renamed or retired would print raw ("req.towels") on the
+    // card for every request already filed under it. The row also carries the
+    // plain-text title the guest saw, so fall back to that.
+    if (r.titleKey) {
+      const label = t(r.titleKey);
+      if (label && label !== r.titleKey) return label;
+    }
+    return r.title || "";
   }
 
   /* Which of the four service departments a request belongs to. The categories
