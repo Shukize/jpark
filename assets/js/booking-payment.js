@@ -41,6 +41,8 @@
       'bk.pay.note': 'Special requests (optional)', 'bk.pay.notePlaceholder': 'Late arrival, high floor, allergies…',
       'bk.pay.depositTitle': 'Please note',
       'bk.pay.depositNote': 'A 200 THB deposit for your room key card is collected in cash only at check-in, and refunded in full at check-out.',
+      'bk.pay.cancelTitle': 'Changes and cancellation',
+      'bk.pay.cancelNote': 'Nothing is charged now — you pay in person at check-in. To change or cancel your reservation, contact the hotel by phone or email with your confirmation number and the front desk will take care of it.',
       'bk.pay.depositAck': 'I understand a refundable key-card deposit is collected in cash at check-in.',
       'bk.pay.err.depositAck': 'Please tick the box to confirm you understand the deposit.',
       'bk.pay.total': 'Total',
@@ -85,6 +87,8 @@
       'bk.pay.note': 'คำขอพิเศษ (ไม่บังคับ)', 'bk.pay.notePlaceholder': 'มาถึงดึก ต้องการชั้นสูง แพ้อาหาร…',
       'bk.pay.depositTitle': 'โปรดทราบ',
       'bk.pay.depositNote': 'มีการเรียกเก็บเงินมัดจำบัตรคีย์การ์ด 200 บาท เป็นเงินสดเท่านั้น ณ วันเช็คอิน และคืนเต็มจำนวนเมื่อเช็คเอาท์',
+      'bk.pay.cancelTitle': 'การเปลี่ยนแปลงและการยกเลิก',
+      'bk.pay.cancelNote': 'ยังไม่มีการเรียกเก็บเงินในขณะนี้ ท่านชำระเงินด้วยตนเอง ณ วันเช็คอิน หากต้องการเปลี่ยนแปลงหรือยกเลิกการจอง กรุณาติดต่อโรงแรมทางโทรศัพท์หรืออีเมลพร้อมแจ้งหมายเลขการจอง แล้วแผนกต้อนรับจะดำเนินการให้',
       'bk.pay.depositAck': 'ข้าพเจ้าเข้าใจว่าต้องวางเงินมัดจำบัตรคีย์การ์ด (คืนเต็มจำนวน) เป็นเงินสด ณ วันเช็คอิน',
       'bk.pay.err.depositAck': 'กรุณาทำเครื่องหมายในช่องเพื่อยืนยันว่าคุณเข้าใจเงื่อนไขการมัดจำ',
       'bk.pay.total': 'ยอดรวม',
@@ -129,6 +133,8 @@
       'bk.pay.note': 'ご要望（任意）', 'bk.pay.notePlaceholder': '到着が遅れる、高層階希望、アレルギーなど…',
       'bk.pay.depositTitle': 'ご注意',
       'bk.pay.depositNote': 'ルームキーカードのデポジット200THBを、チェックイン時に現金のみで頂戴いたします。チェックアウト時に全額返金いたします。',
+      'bk.pay.cancelTitle': '変更・キャンセルについて',
+      'bk.pay.cancelNote': '現時点でのご請求はございません。お支払いはチェックイン時に現地にて承ります。ご予約の変更・キャンセルをご希望の場合は、予約番号をお控えのうえ、お電話またはメールにてホテルへご連絡ください。フロントにて対応いたします。',
       'bk.pay.depositAck': 'ルームキーカードのデポジット（返金あり）をチェックイン時に現金でお支払いいただくことを理解しました。',
       'bk.pay.err.depositAck': 'デポジットについて理解したことを確認するため、チェックボックスにチェックを入れてください。',
       'bk.pay.total': '合計',
@@ -173,6 +179,8 @@
       'bk.pay.note': '特殊要求（可选）', 'bk.pay.notePlaceholder': '晚到、高楼层、过敏信息等…',
       'bk.pay.depositTitle': '请注意',
       'bk.pay.depositNote': '房卡押金200泰铢，仅收现金，于入住时收取，退房时全额退还。',
+      'bk.pay.cancelTitle': '变更与取消',
+      'bk.pay.cancelNote': '现在不收取任何费用，您在入住时当面付款。如需变更或取消预订，请携预订编号致电或发送邮件与酒店联系，前台将为您处理。',
       'bk.pay.depositAck': '我了解房卡押金需于入住时以现金支付，退房时全额退还。',
       'bk.pay.err.depositAck': '请勾选此框以确认您已了解押金说明。',
       'bk.pay.total': '总计',
@@ -217,6 +225,8 @@
       'bk.pay.note': '特殊要求（可選）', 'bk.pay.notePlaceholder': '晚到、高樓層、過敏資訊等…',
       'bk.pay.depositTitle': '請注意',
       'bk.pay.depositNote': '房卡押金200泰銖，僅收現金，於入住時收取，退房時全額退還。',
+      'bk.pay.cancelTitle': '變更與取消',
+      'bk.pay.cancelNote': '現在不收取任何費用，您於入住時當面付款。如需變更或取消訂房，請攜訂房編號致電或發送電子郵件與飯店聯絡，櫃檯將為您處理。',
       'bk.pay.depositAck': '我了解房卡押金需於入住時以現金支付，退房時全額退還。',
       'bk.pay.err.depositAck': '請勾選此框以確認您已了解押金說明。',
       'bk.pay.total': '總計',
@@ -645,6 +655,10 @@
             '<div class="bkp-field"><label>' + TR('bk.pay.note') + '</label><textarea id="bkpNote" rows="2" placeholder="' + esc(TR('bk.pay.notePlaceholder')) + '"></textarea></div>' +
           '</div>' +
           '<div class="bkp-deposit-note"><strong>' + TR('bk.pay.depositTitle') + ':</strong> ' + TR('bk.pay.depositNote') + '</div>' +
+          // A guest must know how to change or cancel BEFORE they commit, not
+          // only afterwards in the email. Nothing is charged online, so this
+          // states exactly that and how to reach us.
+          '<div class="bkp-deposit-note bkp-cancel-note"><strong>' + TR('bk.pay.cancelTitle') + ':</strong> ' + TR('bk.pay.cancelNote') + '</div>' +
           depositAckHTML() +
           '<p class="bkp-pp-note">' + TR('bk.pay.checkinNote') + '</p>'
         ) +
@@ -827,6 +841,7 @@
         '<h3>' + TR('bk.pay.successTitle') + '</h3>' +
         '<p>' + TR('bk.pay.confirmationLabel') + ': <strong id="bkpRefText"></strong></p>' +
         '<div class="bkp-deposit-note"><strong>' + TR('bk.pay.depositTitle') + ':</strong> ' + TR('bk.pay.depositNote') + '</div>' +
+        '<div class="bkp-deposit-note bkp-cancel-note"><strong>' + TR('bk.pay.cancelTitle') + ':</strong> ' + TR('bk.pay.cancelNote') + '</div>' +
         '<p class="bkp-success-note bkp-checkin-time-note">' + TR('bk.pay.checkinTimeNote') + '</p>' +
         '<p class="bkp-success-note bkp-email-sent-note">' + TR('bk.pay.emailSentNote') + '</p>' +
         '<p class="bkp-success-note bkp-spam-note">' + TR('bk.pay.spamNote') + '</p>' +

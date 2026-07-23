@@ -6325,7 +6325,17 @@
       renderAnnouncements();
     });
     document.getElementById("edResetAll").addEventListener("click", () => {
-      if (!confirm("Reset all demo data? This clears requests, chats, messages and content.")) return;
+      // This wipes the local working copy of requests, chats, messages and
+      // content. On a live property that is real work, so a single OK click is
+      // far too cheap a way to lose it — the operator has to type the word.
+      // (Server-side records are not touched; this only clears what this
+      // browser holds. Said plainly, because "reset demo data" reads harmless.)
+      const phrase = t("staff.site.resetConfirmWord");
+      const typed = prompt(t("staff.site.resetConfirmPrompt").replace("{word}", phrase));
+      if (!typed || typed.trim().toLowerCase() !== phrase.toLowerCase()) {
+        if (typed !== null) U.toast(t("staff.site.resetCancelled"), "error");
+        return;
+      }
       S.resetAll();
       if (!validSession(session)) { setSession(null); showLogin(); return; }
       seenReq = new Set(S.list("requests").map((r) => r.id));

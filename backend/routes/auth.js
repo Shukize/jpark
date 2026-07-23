@@ -268,8 +268,19 @@ router.post('/guest-login', async (req, res) => {
   // guestId is the id the portal issued this browser; it is client-chosen, so
   // it proves nothing on its own — it just stops one widget grinding through
   // guesses without punishing the rest of the hotel behind the same NAT.
+  //
+  // The fallback must stay DISTINCT per caller. It used to end in the literal
+  // string 'unknown', which put every guest who signed in with a booking
+  // reference (no guestId, no room — exactly what the confirmation email tells
+  // them to use) into ONE shared 8-per-10-minutes bucket for the whole
+  // property. Eight reference sign-ins and the ninth guest was refused, and so
+  // was everyone after them, on any device, from any network, until the window
+  // rolled. Proven with ten different guests on ten different IPs: all ten
+  // refused. Falling back to the reference and then the IP keeps the per-caller
+  // ceiling meaningful without ever pooling strangers together.
+  const deviceKey = String(guestId || room || ref || normalizeIp(req.ip) || 'unknown');
   if (guestLoginRateLimited(normalizeIp(req.ip))
-      || guestLoginDeviceRateLimited(String(guestId || room || 'unknown'))) {
+      || guestLoginDeviceRateLimited(deviceKey)) {
     return res.status(429).json({ error: 'Too many attempts. Please try again later.' });
   }
   if (!(ref && ref.trim()) && !(lastName && room)) {
