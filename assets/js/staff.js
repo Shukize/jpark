@@ -1822,12 +1822,21 @@
   }
 
   /* ====================  LIVE CHAT  ==================== */
-  // Per-user unread: only chats currently assigned to the signed-in account
-  // contribute to the badge/chime, so admins and other Front-Desk users don't
-  // get pinged about threads they aren't handling.
+  // Per-user unread: chats assigned to the signed-in account contribute to the
+  // badge/chime, so Front-Desk users don't get pinged about threads a
+  // colleague is already handling.
+  //
+  // UNASSIGNED threads ping everyone, because they are nobody's yet and were
+  // therefore nobody's problem: the widget only names an owner when a Front
+  // Desk employee is on shift at that moment (GET /api/chat/available-staff
+  // deliberately excludes admins), so every guest who chatted outside shift
+  // hours — evenings, exactly when the hotel tested this — arrived in silence.
+  // No badge, no chime, no notification, on any console.
   function myAssignedChats() {
     if (!session) return [];
-    return S.list("chats").filter((c) => c.escalated && c.assignedStaffId === session.id);
+    return S.list("chats").filter(
+      (c) => c.escalated && (!c.assignedStaffId || c.assignedStaffId === session.id)
+    );
   }
   function totalChatUnread() {
     return myAssignedChats().reduce((s, c) => s + (c.unreadForStaff || 0), 0);
@@ -2047,7 +2056,8 @@
         // Show which staff member owns the chat right in the list so anyone
         // browsing knows who's currently responsible — only that account's
         // unread dot lights up (it's filtered by myAssignedChats() above).
-        const mine = c.assignedStaffId && session && c.assignedStaffId === session.id;
+        // Unassigned threads count as everyone's (see myAssignedChats).
+        const mine = !!session && (!c.assignedStaffId || c.assignedStaffId === session.id);
         const assignedLabel = c.assignedStaffName
           ? (mine ? t("staff.chat.assignedYou") : t("staff.chat.assignedTo").replace("{name}", c.assignedStaffName))
           : t("staff.chat.unassigned");
@@ -2110,7 +2120,13 @@
     // Only the assigned account can reply. Anyone else sees a read-only
     // banner with "Take over chat" so they can grab the thread when the
     // assignee is on break / off shift.
-    const mineConv = conv.assignedStaffId && session && conv.assignedStaffId === session.id;
+    //
+    // A thread with NO owner is answerable by anyone, and answering it claims
+    // it. It used to show the same read-only banner as a colleague's thread,
+    // which meant every guest who chatted outside Front Desk shift hours (the
+    // widget can only name an owner who is on shift) hit a console where the
+    // reply box was hidden behind a "take over from Guest?" confirmation.
+    const mineConv = !!session && (!conv.assignedStaffId || conv.assignedStaffId === session.id);
     const ownerLabel = conv.assignedStaffName
       ? (mineConv ? t("staff.chat.assignedYou") : t("staff.chat.assignedTo").replace("{name}", conv.assignedStaffName))
       : t("staff.chat.unassigned");
@@ -2188,7 +2204,7 @@
       }
       bodyEl.appendChild(div);
     });
-    bodyEl.scrollTop = bodyEl.scrollHeight;
+    U.pinToBottom(bodyEl);
 
     const ccForm = document.getElementById("ccForm");
     if (ccForm) {
@@ -2215,6 +2231,12 @@
     if (i >= 0 && all[i].unreadForStaff) { all[i].unreadForStaff = 0; S.write("chats", all); }
   }
 
+  // Replies are sent one at a time. Fired concurrently, two messages typed a
+  // few seconds apart can reach the database in either order — which is how a
+  // "สวัสดีค่ะ" ends up sitting between two questions that were asked after
+  // it, in the guest's transcript as well as ours.
+  let chatSendChain = Promise.resolve();
+
   function staffReply(id, text) {
     const all = S.list("chats");
     const i = all.findIndex((c) => c.id === id);
@@ -2222,11 +2244,14 @@
     const c = all[i];
     // Only the assigned account is allowed to type into this thread. If the
     // current user isn't the owner, send them down the take-over path first.
+    // An unowned thread is fair game, and replying to it takes ownership.
     if (c.assignedStaffId && c.assignedStaffId !== session.id) {
       U.toast(t("staff.chat.notAssigned"), "error");
       return;
     }
     c.escalated = true;
+    c.assignedStaffId = session.id;
+    c.assignedStaffName = session.name;
     c.messages.push({ id: S.genId(), from: "staff", text: text, staffName: session.name, ts: Date.now() });
     c.lastMsg = text; c.lastAt = Date.now();
     c.unreadForStaff = 0;
@@ -2236,11 +2261,13 @@
     // Persist reply to backend
     const API = window.JPark && window.JPark.api;
     if (API) {
-      API.post("/api/chat", {
-        guestId: id, guestName: c.guestName, room: c.room,
-        from: "staff", fromName: session.name, text: text,
-        lang: I.getLang(), escalated: true,
-        assignedStaffId: session.id, assignedStaffName: session.name,
+      chatSendChain = chatSendChain.then(function () {
+        return API.post("/api/chat", {
+          guestId: id, guestName: c.guestName, room: c.room,
+          from: "staff", fromName: session.name, text: text,
+          lang: I.getLang(), escalated: true,
+          assignedStaffId: session.id, assignedStaffName: session.name,
+        });
       }).catch(function () {});
     }
   }

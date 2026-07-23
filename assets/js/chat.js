@@ -18,6 +18,19 @@
   // on every load threw away a live conversation on a reload or a trip to the
   // booking page and back, leaving the front desk replying into a thread the
   // guest could no longer see (and, now, one labelled with their real name).
+  //
+  // A browser session is still far too short a life for a conversation. On a
+  // phone, "session" ends when the tab is closed or the browser is evicted
+  // from memory — so a guest who asked something at 20:00, locked their
+  // phone, and came back at 20:05 landed on a BRAND NEW thread with an empty
+  // history, while the front desk's reply sat in the thread they'd just been
+  // rotated out of. (That is also why the console fills up with anonymous
+  // duplicate "Guest" threads.) So a thread that is still warm is resumed
+  // instead: only a conversation nobody has touched for RESUME_WINDOW_MS is
+  // retired, which keeps the original point — the next person to pick up a
+  // shared device doesn't inherit a stranger's chat.
+  const RESUME_WINDOW_MS = 12 * 60 * 60 * 1000; // 12h
+  let resumedThread = false;
   function hasStaffSession() {
     try { return !!JSON.parse(localStorage.getItem("jpark.staff") || "null"); }
     catch (_) { return false; }
@@ -30,12 +43,18 @@
     try {
       sessionStorage.setItem(VISIT_FLAG, String(Date.now()));
       const oldGid = localStorage.getItem("jpark.guestId");
-      localStorage.removeItem("jpark.guestId");
-      if (oldGid) {
-        const all = S.list("chats").filter((c) => c.id !== oldGid);
-        S.write("chats", all);
+      const prev = oldGid ? S.list("chats").find((c) => c.id === oldGid) : null;
+      const stillWarm = !!prev && Date.now() - (prev.lastAt || 0) < RESUME_WINDOW_MS;
+      if (stillWarm) {
+        // Same guest, same conversation. Who they are is re-read from the
+        // server on the first sync (adoptServerIdentity), so resuming doesn't
+        // mean trusting a stale local label either.
+        resumedThread = true;
+      } else {
+        localStorage.removeItem("jpark.guestId");
+        if (oldGid) S.write("chats", S.list("chats").filter((c) => c.id !== oldGid));
+        S.clearSession("chatIdentity"); // a new visit re-asks who's chatting
       }
-      S.clearSession("chatIdentity"); // a new visit re-asks who's chatting
     } catch (_) {}
   }
   const gid = S.guestId();
@@ -94,7 +113,8 @@
   }
 
   let panel, fab, body, badge, idBox, openState = false;
-  let pollTimer = null;
+  let pollTimer = null;  // full conversation sync, while the panel is open
+  let watchTimer = null; // cheap "has the front desk answered?" while it isn't
   let lastMsgCount = 0; // for detecting new staff replies
 
   /* ─────────────── who's chatting ────────────────────────────────────────────
@@ -113,6 +133,24 @@
 
   function loadIdentity() {
     identity = S.getSession("chatIdentity") || null;
+  }
+  /* A resumed conversation — or simply a second tab — has no identity in this
+     tab's sessionStorage, but the SERVER still knows whose thread this is:
+     /identify stamped it onto every row. Read it back instead of asking the
+     guest to introduce themselves again halfway through a conversation the
+     front desk is already answering. */
+  function adoptServerIdentity(remote) {
+    if (identity || !remote || !remote.guestKind) return;
+    identity = {
+      kind: remote.guestKind,
+      verified: !!remote.guestVerified,
+      name: remote.guestName || null,
+      room: remote.room || null,
+      ref: remote.bookingRef || null,
+    };
+    S.setSession("chatIdentity", identity);
+    idView = null;
+    renderIdentity();
   }
   function saveIdentity(next) {
     identity = next;
@@ -422,13 +460,19 @@
     return res; // { id, guestName, room, messages, escalated, unreadForGuest, ... }
   }
 
-  async function apiPostMessage(from, text, opts) {
+  // Messages are posted strictly one after another. They used to go out
+  // concurrently — the guest's message and the bot's follow-up 650ms later,
+  // for instance — and two requests in flight at once can reach the database
+  // in either order, which shuffles the transcript everyone reads afterwards.
+  let postChain = Promise.resolve();
+
+  function apiPostMessage(from, text, opts) {
     const API = window.JPark.api;
-    if (!API) return;
+    if (!API) return Promise.resolve();
     // No guestName/room here: who the thread belongs to is set once, and
     // checked, by POST /api/chat/identify — the server ignores any name a
     // message tries to claim for itself.
-    await API.post("/api/chat", {
+    postChain = postChain.then(() => API.post("/api/chat", {
       guestId: gid,
       from: from,
       fromName: opts && opts.staffName ? opts.staffName : (from === "guest" ? null : "J Park"),
@@ -439,7 +483,8 @@
       // row so the staff console can route notifications to that account.
       assignedStaffId: opts && opts.assignedStaffId ? opts.assignedStaffId : undefined,
       assignedStaffName: opts && opts.assignedStaffName ? opts.assignedStaffName : undefined,
-    });
+    })).catch(function () { /* offline — the local copy still shows */ });
+    return postChain;
   }
 
   /* ─────────────── conversation helpers ─────────────────────────────────── */
@@ -458,14 +503,35 @@
     apiPostMessage(from, text, opts);
   }
 
+  /* Two markers, both server-clock (never Date.now(): a phone whose clock is
+     a few minutes out would otherwise decide the front desk's reply had
+     already been read):
+       seenAt    — newest message the guest has actually had on screen.
+       alertedAt — newest message we've already chimed/badged for, so the
+                   watcher below doesn't re-announce the same reply every tick.
+     Both live on the cached conversation, so they survive a page reload. */
+  function markSeen(ts) {
+    const conv = getLocalConv();
+    if (!conv) return;
+    const seen = Math.max(conv.seenAt || 0, ts || 0);
+    // Written only when something actually moves: saving republishes the
+    // conversation to every listener, and re-rendering the panel under a guest
+    // every few seconds would yank them back to the bottom mid-read.
+    if (seen === (conv.seenAt || 0)
+        && seen <= (conv.alertedAt || 0)
+        && !conv.unreadForGuest) return;
+    conv.seenAt = seen;
+    conv.alertedAt = Math.max(conv.alertedAt || 0, seen);
+    conv.unreadForGuest = 0;
+    saveLocalConv(conv);
+  }
+
   async function syncFromApi() {
     const remote = await apiGetConv();
     if (!remote || !remote.messages) return;
+    adoptServerIdentity(remote);
     const conv = ensureLocalConv();
-    if (remote.messages.length > lastMsgCount) {
-      // New messages arrived — check for new staff replies
-      const newMsgs = remote.messages.slice(lastMsgCount);
-      const hasStaffReply = newMsgs.some((m) => m.from === "staff");
+    if (remote.messages.length !== lastMsgCount) {
       lastMsgCount = remote.messages.length;
       // Rebuild local conv from API truth
       const rebuilt = Object.assign({}, conv, {
@@ -474,20 +540,64 @@
           staffName: m.fromName, lang: m.lang, ts: m.ts,
         })),
         escalated: remote.escalated,
-        unreadForGuest: remote.unreadForGuest || 0,
         lastMsg: remote.lastMsg || conv.lastMsg,
         lastAt: remote.lastAt || conv.lastAt,
       });
       saveLocalConv(rebuilt);
-      if (openState) { render(); }
-      else if (hasStaffReply) {
-        rebuilt.unreadForGuest = (rebuilt.unreadForGuest || 0) + newMsgs.filter((m) => m.from === "staff").length;
-        setBadge(rebuilt.unreadForGuest);
-        playChime();
-        if ("Notification" in window && Notification.permission === "granted") {
-          try { new Notification("J Park Hotel", { body: t("chat.notif.staffReply") || "New message from the front desk." }); } catch (_) {}
-        }
-      }
+      if (openState) render();
+    }
+    // The panel is open, so everything in it counts as read.
+    if (openState) markSeen(remote.lastAt || 0);
+  }
+
+  /* ─────────────── watching while the panel is closed ────────────────────
+     The old widget only ever polled while the chat panel was OPEN, so a guest
+     who asked a question and then carried on browsing — or simply closed the
+     bubble — was never told the front desk had answered. No badge, no sound,
+     nothing: the reply just sat there. That is exactly what the hotel saw
+     when they tested it (three replies sent, the guest's phone showed no sign
+     of any of them).
+     The watcher is deliberately cheap: GET /api/chat/updates returns three
+     numbers, not a transcript, and it stops entirely while the tab is hidden
+     (see the visibilitychange wiring below) — a background tab must not sit
+     there billing the database, which is what took the site down in July. */
+  const WATCH_MS = 12000;
+  async function watchTick() {
+    if (openState || document.hidden) return;
+    const API = window.JPark.api;
+    if (!API) return;
+    const conv = getLocalConv();
+    // Only a conversation a person has actually been pulled into is worth
+    // watching. Someone who asked the bot about the pool and closed the box is
+    // not waiting on anybody, and the staff console never lists a thread that
+    // hasn't been escalated — so polling for them would be pure cost.
+    if (!conv || !conv.escalated) return;
+    const since = Math.max(conv.alertedAt || 0, conv.seenAt || 0);
+    const res = await API.get(
+      "/api/chat/updates?guestId=" + encodeURIComponent(gid) + "&since=" + encodeURIComponent(since)
+    );
+    if (!res || res.error || !res.staffNew) return;
+    announceStaffReply(res.staffNew, res.lastAt);
+  }
+
+  /* Tell the guest, in every way the browser allows, that a person answered:
+     the bubble's unread badge, a chime, and — if they granted permission when
+     they opened the chat — a real notification even when the site isn't the
+     tab they're looking at. */
+  function announceStaffReply(n, serverTs) {
+    const conv = ensureLocalConv();
+    conv.unreadForGuest = (conv.unreadForGuest || 0) + n;
+    if (serverTs) conv.alertedAt = serverTs;
+    saveLocalConv(conv);
+    setBadge(conv.unreadForGuest);
+    playChime();
+    if ("Notification" in window && Notification.permission === "granted") {
+      try {
+        new Notification("J Park Hotel", {
+          body: t("chat.notif.staffReply") || "New message from the front desk.",
+          tag: "jpark-chat", // one replaced notice, never a stack of them
+        });
+      } catch (_) {}
     }
   }
 
@@ -664,7 +774,7 @@
         body.appendChild(div);
       });
     }
-    body.scrollTop = body.scrollHeight;
+    U.pinToBottom(body);
     renderQuick();
   }
 
@@ -685,13 +795,20 @@
 
   function setBadge(n) {
     if (!badge) return;
-    if (n > 0) { badge.textContent = n; badge.classList.add("show"); }
-    else badge.classList.remove("show");
+    if (n > 0) {
+      badge.textContent = n; badge.classList.add("show");
+      if (fab) fab.classList.add("has-reply");
+    } else {
+      badge.classList.remove("show");
+      if (fab) fab.classList.remove("has-reply");
+    }
   }
 
   function open() {
     openState = true;
+    stopWatch();
     panel.classList.add("open"); fab.style.display = "none";
+    fab.classList.remove("has-reply");
     requestGuestNotifyPermission();
     loadRates(); // refresh in case an admin changed rates since page load
     ensureLocalConv();
@@ -701,6 +818,10 @@
     render();
     renderIdentity();
     adoptPortalSession();
+    // Pull the thread NOW rather than waiting out the first poll interval:
+    // opening the bubble because it lit up, and then staring at a panel that
+    // still doesn't show the reply for another five seconds, reads as broken.
+    syncFromApi();
     startPoll();
     setTimeout(() => { const inp = panel.querySelector(".chat-input input"); if (inp) inp.focus(); }, 60);
   }
@@ -708,6 +829,7 @@
     openState = false;
     panel.classList.remove("open"); fab.style.display = "grid";
     stopPoll();
+    startWatch();
   }
 
   function startPoll() {
@@ -716,6 +838,15 @@
   }
   function stopPoll() {
     if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+  }
+  function startWatch() {
+    stopWatch();
+    if (document.hidden) return;
+    watchTick();
+    watchTimer = setInterval(watchTick, WATCH_MS);
+  }
+  function stopWatch() {
+    if (watchTimer) { clearInterval(watchTimer); watchTimer = null; }
   }
 
   /* ─────────────── DOM ────────────────────────────────────────────────────── */
@@ -778,9 +909,35 @@
     const conv = getLocalConv();
     if (conv && conv.unreadForGuest) setBadge(conv.unreadForGuest);
 
-    // Pre-load API conversation count so badge is accurate
+    // Pre-load the conversation so the badge is accurate, then keep watching
+    // for replies in the background. A resumed thread also gets its identity
+    // (and its history) back from the server here.
     apiGetConv().then((remote) => {
-      if (remote && remote.messages) lastMsgCount = remote.messages.length;
+      if (remote && remote.messages) {
+        lastMsgCount = remote.messages.length;
+        adoptServerIdentity(remote);
+        if (resumedThread && remote.messages.length) {
+          const c = ensureLocalConv();
+          c.messages = remote.messages.map((m) => ({
+            id: m.id, from: m.from, text: m.text,
+            staffName: m.fromName, lang: m.lang, ts: m.ts,
+          }));
+          c.escalated = remote.escalated;
+          c.lastMsg = remote.lastMsg || c.lastMsg;
+          c.lastAt = remote.lastAt || c.lastAt;
+          saveLocalConv(c);
+        }
+      }
+      startWatch();
+    });
+
+    // Watching costs a request every 12s, so it runs only while this tab is
+    // actually on screen. Coming back to the tab checks immediately — that's
+    // the moment a guest is most likely to be looking for an answer.
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) { stopWatch(); stopPoll(); }
+      else if (openState) { syncFromApi(); startPoll(); }
+      else startWatch();
     });
   });
 

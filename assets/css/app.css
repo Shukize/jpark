@@ -225,6 +225,18 @@ body.has-banner .site-header { } /* header stays fixed; banner scrolls above */
   display: none; align-items: center; justify-content: center;
 }
 .chat-fab .fab-badge.show { display: flex; }
+/* The front desk has answered and the panel is closed. The count alone is a
+   20px dot on a phone screen; the ring makes the bubble itself worth looking
+   at, which is the whole job here — a guest who misses the reply assumes
+   nobody answered. Stops as soon as the chat is opened. */
+.chat-fab.has-reply { animation: fabReply 1.9s var(--ease) infinite; }
+@keyframes fabReply {
+  0%, 100% { box-shadow: 0 14px 34px -10px rgba(7,61,59,.7), 0 0 0 0 rgba(193,102,68,.55); }
+  50%      { box-shadow: 0 14px 34px -10px rgba(7,61,59,.7), 0 0 0 12px rgba(193,102,68,0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .chat-fab.has-reply { animation: none; outline: 3px solid var(--terracotta); outline-offset: 3px; }
+}
 
 .chat-panel {
   position: fixed; right: 22px; bottom: 22px; z-index: 1001;

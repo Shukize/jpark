@@ -247,12 +247,20 @@ router.get('/all', requireAuth, async (_req, res) => {
         assigned_staff_name,
         guest_kind, guest_verified, booking_id, booking_ref, confirmed_by,
         created_at AS last_at,
+        -- Guest messages since the last time a HUMAN answered. Only 'staff'
+        -- counts as an answer: this used to include 'system', but every
+        -- escalation posts a system notice ("our front desk will reply here…")
+        -- immediately AFTER the question that triggered it — so a brand-new
+        -- guest chat arrived at the console reading zero unread, and the
+        -- badge, the chime and the notification all stayed silent on the one
+        -- event they exist for. 'bot' is excluded for the same reason: the
+        -- assistant failing to answer is precisely when a person is needed.
         (SELECT COUNT(*) FROM chat_messages cm2
           WHERE cm2.guest_id = cm.guest_id
             AND cm2.from_role = 'guest'
             AND cm2.created_at > COALESCE(
               (SELECT created_at FROM chat_messages
-                WHERE guest_id = cm.guest_id AND from_role IN ('staff','system')
+                WHERE guest_id = cm.guest_id AND from_role = 'staff'
                 ORDER BY created_at DESC LIMIT 1),
               '1970-01-01'
             )
@@ -285,6 +293,46 @@ router.get('/all', requireAuth, async (_req, res) => {
   }
 });
 
+/* GET /api/chat/updates?guestId=X&since=<epoch ms> — "has the front desk
+   answered?", in a few bytes.
+
+   The widget needs to keep watching while the guest has the chat panel CLOSED
+   (that is the whole point of the bubble's unread badge), and it cannot do
+   that by re-fetching the full conversation every few seconds: pulling every
+   message body of every open thread on a timer is precisely the egress
+   pattern that suspended the database in July. This returns three numbers and
+   never a message body, so a closed panel costs almost nothing to keep live.
+
+   staffNew counts only from_role='staff' — real replies from a human. Not
+   'system': the widget posts its own escalation notice, and counting that
+   would have the guest badged for their own message. */
+router.get('/updates', async (req, res) => {
+  const { guestId } = req.query;
+  if (!guestId) return res.status(400).json({ error: 'guestId required' });
+  const since = Number(req.query.since) || 0;
+  try {
+    const { rows } = await db.query(
+      `SELECT COUNT(*)::int AS count,
+              COALESCE(MAX(EXTRACT(EPOCH FROM created_at) * 1000), 0) AS last_at,
+              COUNT(*) FILTER (
+                WHERE from_role = 'staff' AND created_at > to_timestamp($2 / 1000.0)
+              )::int AS staff_new
+         FROM chat_messages
+        WHERE guest_id = $1`,
+      [guestId, since]
+    );
+    const r = rows[0] || {};
+    res.json({
+      count: Number(r.count) || 0,
+      lastAt: Number(r.last_at) || 0,
+      staffNew: Number(r.staff_new) || 0,
+    });
+  } catch (e) {
+    console.error('[chat] updates', e);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
 /* GET /api/chat?guestId=X — full conversation for one guest */
 router.get('/', async (req, res) => {
   const { guestId } = req.query;
@@ -294,7 +342,7 @@ router.get('/', async (req, res) => {
       `SELECT id, guest_name, room, from_role, from_name, body, lang, escalated,
               assigned_staff_id, assigned_staff_name, pinned, created_at,
               ${IDENTITY_COLS}
-         FROM chat_messages WHERE guest_id = $1 ORDER BY created_at ASC`,
+         FROM chat_messages WHERE guest_id = $1 ORDER BY created_at ASC, id ASC`,
       [guestId]
     );
     const messages = rows.map(row2msg);
