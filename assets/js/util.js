@@ -112,6 +112,27 @@
     [60, 250, 700, 1500].forEach(function (ms) { setTimeout(stick, ms); });
   }
 
+  // Late-checkout pricing tiers, shared by the guest portal's request form
+  // and the staff board's request card so both always agree on which tier a
+  // chosen time falls into — computed from the stored time rather than
+  // frozen into text at submission, so it always reads correctly in
+  // whichever language the viewer currently has selected. 12:00 is the
+  // standard checkout time site-wide (see chat.a.checkin in i18n-app.js);
+  // this only ever runs on a LATE checkout request, so a time at or before
+  // it isn't a real input, but resolves to the free tier rather than null.
+  function checkoutFeeTier(time) {
+    if (!time || typeof time !== "string") return null;
+    const m = time.match(/^(\d{1,2}):(\d{2})$/);
+    if (!m) return null;
+    const mins = Number(m[1]) * 60 + Number(m[2]);
+    if (mins >= 18 * 60) return "extraNight";
+    if (mins >= 15 * 60) return "fee500";
+    return "free";
+  }
+
   window.JPark = window.JPark || {};
-  window.JPark.util = { escapeHtml, toast, timeAgo, money, formatDate, messageTime, pinToBottom };
+  window.JPark.util = {
+    escapeHtml, toast, timeAgo, money, formatDate, messageTime, pinToBottom,
+    checkoutFeeTier,
+  };
 })();

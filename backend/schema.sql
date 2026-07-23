@@ -330,8 +330,25 @@ ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS booking_id     TEXT;
 ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS booking_ref    TEXT;
 ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS confirmed_by   VARCHAR(100); -- staff who vouched
 
+-- Optional tag: this message is about ONE specific guest request (added
+-- 2026-07-24). A guest arranging a taxi used to file a bare request with
+-- nowhere to say where they were going — the front desk saw "Taxi, pending"
+-- and had to physically track the guest down to ask. Rather than a second,
+-- separate inbox the guest would have to learn, the remark rides in their
+-- EXISTING live chat thread (same guest_id — see lib/buildings.js-style
+-- denormalisation elsewhere in this file), just tagged with which request
+-- it's about, so the Guest Requests board can show the relevant messages
+-- inline on that request's card without guessing which chat thread is
+-- theirs (see the old chatForGuest() fuzzy name/room match in staff.js,
+-- which this sidesteps entirely: request.guest_id === chat_messages.guest_id
+-- always, exactly, since both use the same browser-persisted id).
+ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS request_kind VARCHAR(10); -- service | order
+ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS request_id   INTEGER;
+
 CREATE INDEX IF NOT EXISTS idx_chat_guest
   ON chat_messages (guest_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_chat_request
+  ON chat_messages (request_kind, request_id);
 
 -- ── In-room dining orders ────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS orders (

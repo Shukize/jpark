@@ -316,10 +316,18 @@
 
   // One row of the Guest Requests board, from either source table. Reads both
   // the camelCase the API sends today and the raw snake_case an older server
-  // would return, so a half-rolled-out deploy still renders.
-  function _reqRow(r, idPrefix) {
+  // would return, so a half-rolled-out deploy still renders. `msgSummary`
+  // (kind:id -> {count, unreadForStaff}) comes from /api/chat/request-summary
+  // — see _pollRequests — so a card can show "💬 2" without every card
+  // fetching its own thread.
+  function _reqRow(r, idPrefix, msgSummary) {
+    const reqKind = idPrefix === "ord-" ? "order" : "service";
+    const summary = msgSummary ? msgSummary[reqKind + ":" + r.id] : null;
     return {
       id: (idPrefix || "") + String(r.id),
+      reqKind: reqKind, reqId: r.id,
+      msgCount: summary ? summary.count : 0,
+      msgUnread: summary ? summary.unreadForStaff : 0,
       kind: r.kind || "service",
       category: r.category || r.type || r.kind,
       titleKey: r.titleKey || r.title_key,
@@ -361,18 +369,23 @@
   async function _pollRequests() {
     const API = window.JPark && window.JPark.api;
     if (!API) return;
-    const [srData, ordData] = await Promise.all([
+    const [srData, ordData, summaryData] = await Promise.all([
       API.get("/api/service-requests"),
       API.get("/api/orders"),
+      API.get("/api/chat/request-summary"),
     ]);
     // A failed fetch must not be mistaken for "no requests" and wipe the board.
     if (!Array.isArray(srData)) {
       if (srData && !srData.offline) console.error("[staff] service requests poll failed:", srData.error);
       return;
     }
-    const reqs = srData.map(function (r) { return _reqRow(r, ""); });
+    const msgSummary = {};
+    if (Array.isArray(summaryData)) {
+      summaryData.forEach(function (s) { msgSummary[s.requestKind + ":" + s.requestId] = s; });
+    }
+    const reqs = srData.map(function (r) { return _reqRow(r, "", msgSummary); });
     if (Array.isArray(ordData)) {
-      ordData.forEach(function (o) { reqs.push(_reqRow(o, "ord-")); });
+      ordData.forEach(function (o) { reqs.push(_reqRow(o, "ord-", msgSummary)); });
     } else if (ordData && !ordData.offline) {
       console.error("[staff] orders poll failed:", ordData.error);
     }
@@ -1180,6 +1193,11 @@
       list.innerHTML = '<p class="track-empty">' + esc(t(emptyKey)) + "</p>";
       return;
     }
+    // The board re-renders on every 10s poll (onRequestsChange), which rebuilds
+    // every card — so a half-typed remark would vanish out from under whoever
+    // was writing it. Capture any in-progress remark drafts first and put them
+    // back after the rebuild, keyed by request id.
+    const reqDrafts = captureReqThreadDrafts();
     list.innerHTML = "";
     reqs.forEach((r) => {
       const card = document.createElement("div");
@@ -1199,9 +1217,40 @@
         if (r.deliverAt) detail += '<div class="sr-detail">' + esc(t("staff.requests.deliver")) + ": " +
           esc(r.deliverAt === "asap" ? t("rs.asap") : r.deliverAt) + "</div>";
       }
+      // The answer the guest already gave when filing — a taxi's destination
+      // (below, via the shared note line) and pickup time, a wake-up call's
+      // time, or a late checkout's time with which fee tier it falls into
+      // (see U.checkoutFeeTier — computed fresh here so it always reads in
+      // whichever language the viewer currently has active). Filed this way
+      // instead of "pending" with nothing else to go on.
+      if (r.titleKey === "req.taxi" && r.deliverAt) {
+        detail += '<div class="sr-detail sr-reqtime">🚕 ' + esc(t("req.taxi.time")) + ": " +
+          esc(r.deliverAt === "asap" ? t("rs.asap") : r.deliverAt) + "</div>";
+      } else if (r.titleKey === "req.wakeup" && r.deliverAt) {
+        detail += '<div class="sr-detail sr-reqtime">⏰ ' + esc(t("req.wakeup.time")) + ": " + esc(r.deliverAt) + "</div>";
+      } else if (r.titleKey === "req.checkout" && r.deliverAt) {
+        const tier = U.checkoutFeeTier(r.deliverAt);
+        detail += '<div class="sr-detail sr-reqtime' + (tier === "extraNight" ? " sr-fee-high" : tier === "fee500" ? " sr-fee-mid" : "") + '">🕛 ' +
+          esc(t("req.checkout.time")) + ": " + esc(r.deliverAt) +
+          (tier ? " · " + esc(t("req.checkout.tier." + tier)) : "") + "</div>";
+      } else if (r.titleKey === "req.breakfast") {
+        // Dietary choice is a stable i18n key on the item, so it reads in the
+        // STAFF member's language regardless of what the guest chose it in.
+        const dietItem = (r.items || [])[0];
+        const bits = [];
+        if (dietItem && dietItem.key) bits.push(t(dietItem.key));
+        if (r.deliverAt) bits.push(t("req.breakfast.time") + " " + r.deliverAt);
+        if (bits.length) detail += '<div class="sr-detail sr-reqtime">🍳 ' + esc(bits.join(" · ")) + "</div>";
+      }
       // The guest's own words and the desk's note are kept visibly apart —
-      // one is a request, the other is a record of what was done about it.
-      if (r.note) detail += '<div class="sr-detail">' + esc(t("staff.requests.note")) + ": " + esc(r.note) + "</div>";
+      // one is a request, the other is a record of what was done about it. A
+      // breakfast note is specifically the guest's allergies, so it's labelled
+      // as such rather than as a generic note.
+      if (r.note) {
+        const noteLabel = r.titleKey === "req.breakfast" ? t("req.breakfast.allergies") : t("staff.requests.note");
+        detail += '<div class="sr-detail' + (r.titleKey === "req.breakfast" ? " sr-allergy" : "") + '">' +
+          esc(noteLabel) + ": " + esc(r.note) + "</div>";
+      }
       if (r.staffNote) detail += '<div class="sr-detail sr-staffnote">📝 ' + esc(r.staffNote) + "</div>";
 
       // Who filed it. A request from someone whose name+room didn't match a
@@ -1242,6 +1291,14 @@
       else if (r.status === "done") actions = '<button class="act-reopen">' + esc(t("staff.requests.reopen")) + "</button>";
       else if (r.status === "cancelled") actions = '<button class="act-restore">' + esc(t("staff.requests.restore")) + "</button>";
 
+      // Remarks: a two-way thread about THIS request, riding in the guest's
+      // existing live chat (see request_kind/request_id in schema.sql) so it
+      // shows up right on the card instead of the desk having to remember to
+      // go check the general Chat panel for it.
+      const threadKey = reqThreadKey(r);
+      const threadExpanded = reqExpandedThreads.has(threadKey);
+      const threadUnread = r.msgUnread || 0;
+
       card.innerHTML =
         (reqMultiSelect
           ? '<input type="checkbox" class="sr-check"' + (selectedReqIds.has(String(r.id)) ? " checked" : "") +
@@ -1266,12 +1323,22 @@
         '<div class="sr-assign' + (mine ? " mine" : "") + '"><span>' + esc(assignLabel) + "</span>" + assignBtn + "</div>" +
         '<div class="sr-actions">' + actions +
           '<button type="button" class="sr-ghost act-note">' + esc(t("staff.requests.addNote")) + "</button>" +
-          '<button type="button" class="sr-ghost act-chat">💬 ' + esc(t("staff.requests.openChat")) + "</button>" +
+          '<button type="button" class="sr-ghost act-remarks' + (threadUnread ? " has-unread" : "") + '">💬 ' +
+            esc(t("staff.requests.remarks")) +
+            (threadUnread ? ' <span class="sr-msg-badge">' + threadUnread + "</span>" : "") + "</button>" +
+          '<button type="button" class="sr-ghost act-chat">' + esc(t("staff.requests.openChat")) + "</button>" +
           '<button type="button" class="sr-ghost act-test">🧪 ' +
             esc(t(r.isTest ? "staff.requests.unmarkTest" : "staff.requests.markTest")) + "</button>" +
           (r.status === "cancelled" ? ""
             : '<button type="button" class="sr-ghost act-dismiss">' + esc(t("staff.requests.dismiss")) + "</button>") +
           (isAdmin() ? '<button type="button" class="sr-ghost sr-danger act-delete">🗑</button>' : "") +
+        "</div>" +
+        '<div class="sr-thread"' + (threadExpanded ? "" : " hidden") + '>' +
+          '<div class="thread-body"></div>' +
+          '<form class="thread-form">' +
+            '<input type="text" class="thread-input" placeholder="' + esc(t("staff.chat.placeholder")) + '" autocomplete="off" />' +
+            '<button type="submit">' + esc(t("common.send")) + "</button>" +
+          "</form>" +
         "</div>";
 
       const on = (sel, fn) => {
@@ -1286,10 +1353,29 @@
       on(".act-take", () => assignRequest(r, session));
       on(".act-release", () => assignRequest(r, null));
       on(".act-note", () => editRequestNote(r));
+      on(".act-remarks", () => toggleReqThread(r, card));
       on(".act-chat", () => openRequestChat(r));
       on(".act-test", () => toggleRequestTest(r));
       on(".act-dismiss", () => dismissRequest(r));
       on(".act-delete", () => deleteRequest(r));
+
+      // Remarks thread: wire the reply form on every render (so a draft
+      // survives the poll), and reload the messages if this thread is open.
+      const rform = card.querySelector(".sr-thread .thread-form");
+      const rinput = card.querySelector(".sr-thread .thread-input");
+      if (rform && rinput) {
+        if (reqDrafts[threadKey]) rinput.value = reqDrafts[threadKey];
+        rform.addEventListener("submit", (e) => {
+          e.preventDefault();
+          const text = rinput.value.trim();
+          if (!text) return;
+          rinput.value = "";
+          sendReqRemark(r, text, card.querySelector(".sr-thread .thread-body"));
+        });
+      }
+      if (threadExpanded) {
+        loadReqThread(r, card.querySelector(".sr-thread .thread-body"));
+      }
 
       const check = card.querySelector(".sr-check");
       if (check) {
@@ -1301,6 +1387,119 @@
       }
       list.appendChild(card);
     });
+  }
+
+  /* ── Per-request remarks (staff side) ─────────────────────────────────────
+     The guest's messages about ONE request, shown inline on its card. They
+     live in the guest's existing live-chat thread, tagged with this request
+     (see request_kind/request_id in schema.sql and sendForRequest in
+     chat.js) — so replying here reaches the very same conversation the guest
+     is watching, without the desk having to hunt for their chat thread. */
+  const reqExpandedThreads = new Set();
+  function reqThreadKey(r) { return r.reqKind + ":" + r.reqId; }
+
+  function captureReqThreadDrafts() {
+    const drafts = {};
+    document.querySelectorAll("#reqList .staff-req").forEach((card) => {
+      const input = card.querySelector(".sr-thread .thread-input");
+      if (input && input.value) {
+        const id = card.dataset.reqId;
+        const row = S.list("requests").find((x) => String(x.id) === String(id));
+        if (row && row.reqKind != null) drafts[reqThreadKey(row)] = input.value;
+      }
+    });
+    return drafts;
+  }
+
+  function renderReqThreadMessages(bodyEl, messages, guestName) {
+    if (!bodyEl) return;
+    bodyEl.innerHTML = "";
+    const visible = (messages || []).filter((m) => m.from !== "system");
+    if (!visible.length) {
+      bodyEl.innerHTML = '<p class="thread-empty">' + esc(t("staff.requests.remarksEmpty")) + "</p>";
+      return;
+    }
+    const cur = I.getLang();
+    visible.forEach((m) => {
+      const div = document.createElement("div");
+      div.className = "msg " + (m.from === "staff" ? "staff" : "guest");
+      const label = m.from === "staff" ? (m.fromName || t("chat.staff")) : (guestName || t("staff.chat.tier.unknown"));
+      div.innerHTML = '<span class="msg-from">' + esc(label) + "</span>";
+      const span = document.createElement("span"); div.appendChild(span);
+      const noteHost = document.createElement("span"); noteHost.className = "msg-notes"; div.appendChild(noteHost);
+      if (m.lang && m.lang === cur) span.textContent = m.text;
+      else J.translate.fill(span, m.text, noteHost);
+      if (m.ts) {
+        const time = document.createElement("time");
+        time.className = "msg-time";
+        time.dateTime = new Date(m.ts).toISOString();
+        time.textContent = U.messageTime(m.ts);
+        div.appendChild(time);
+      }
+      bodyEl.appendChild(div);
+    });
+    U.pinToBottom(bodyEl);
+  }
+
+  async function loadReqThread(r, bodyEl) {
+    if (!bodyEl) return;
+    const API = window.JPark && window.JPark.api;
+    if (!API || !r.guestId) { renderReqThreadMessages(bodyEl, [], r.guestName); return; }
+    const res = await API.get(
+      "/api/chat?guestId=" + encodeURIComponent(r.guestId) +
+      "&kind=" + encodeURIComponent(r.reqKind) +
+      "&id=" + encodeURIComponent(r.reqId)
+    );
+    const msgs = (res && Array.isArray(res.messages)) ? res.messages : [];
+    renderReqThreadMessages(bodyEl, msgs, r.guestName);
+  }
+
+  function toggleReqThread(r, card) {
+    const key = reqThreadKey(r);
+    const section = card.querySelector(".sr-thread");
+    if (!section) return;
+    if (reqExpandedThreads.has(key)) {
+      reqExpandedThreads.delete(key);
+      section.hidden = true;
+      return;
+    }
+    reqExpandedThreads.add(key);
+    section.hidden = false;
+    // Opening a thread is the strongest "I've seen it" — clear the request's
+    // unread badge locally so it doesn't keep flagging what's on screen.
+    markReqRemarksRead(r);
+    loadReqThread(r, section.querySelector(".thread-body"));
+    const input = section.querySelector(".thread-input");
+    if (input) setTimeout(() => input.focus(), 30);
+  }
+
+  function markReqRemarksRead(r) {
+    const all = S.list("requests");
+    const i = all.findIndex((x) => String(x.id) === String(r.id));
+    if (i >= 0 && all[i].msgUnread) { all[i].msgUnread = 0; S.write("requests", all); }
+  }
+
+  async function sendReqRemark(r, text, bodyEl) {
+    if (!r.guestId) { U.toast(t("staff.requests.remarksNoGuest"), "error"); return; }
+    const API = window.JPark && window.JPark.api;
+    if (!API) return;
+    const res = await API.post("/api/chat", {
+      guestId: r.guestId,
+      from: "staff",
+      fromName: session ? session.name : undefined,
+      text: text,
+      lang: I.getLang(),
+      escalated: true,
+      requestKind: r.reqKind,
+      requestId: r.reqId,
+      assignedStaffId: session ? session.id : undefined,
+      assignedStaffName: session ? session.name : undefined,
+    });
+    if (res && res.error && !res.offline) {
+      U.toast(t("staff.requests.remarksFailed") + ": " + res.error, "error");
+      return;
+    }
+    loadReqThread(r, bodyEl);
   }
 
   /* Keep the waiting times honest without re-rendering the whole board every
@@ -3237,15 +3436,24 @@
   // Payment method + status for bookings taken through the site's own
   // Omise checkout — blank for OTA/manual bookings (paymentStatus "n/a"),
   // so staff can tell at a glance whether a "direct" booking was actually paid.
+  // A genuine online Omise charge and a front-desk-recorded in-person card
+  // payment both carry paymentMethod "card" — the "(online)" qualifier
+  // (gated on paymentProvider === "omise") is what disambiguates them, since
+  // otherwise they'd render as an identical "Card — Paid" label. PromptPay
+  // doesn't need this: "promptpay" (online) and "promptpay_instore"
+  // (front-desk) are already distinct values.
   function bkPaymentLabel(b) {
     if (!b.paymentStatus || b.paymentStatus === "n/a") return "";
     const methodKey = b.paymentMethod === "cash" ? "msg.bk.payment.cash"
       : b.paymentMethod === "card" ? "msg.bk.payment.card"
       : b.paymentMethod === "promptpay_instore" ? "msg.bk.payment.promptpay_instore"
       : b.paymentMethod === "pay_at_checkin" ? "msg.bk.payment.pay_at_checkin"
-      : b.paymentMethod === "promptpay" ? "msg.bk.payment.promptpay" // legacy rows
+      : b.paymentMethod === "promptpay" ? "msg.bk.payment.promptpay"
       : "";
-    const method = methodKey ? t(methodKey) : (b.paymentProvider || "");
+    let method = methodKey ? t(methodKey) : (b.paymentProvider || "");
+    if (b.paymentProvider === "omise" && b.paymentMethod === "card") {
+      method = method + " " + t("msg.bk.payment.onlineSuffix");
+    }
     const statusKey = "msg.bk.payment.status." + b.paymentStatus;
     const statusVal = t(statusKey);
     const status = statusVal === statusKey ? b.paymentStatus : statusVal;

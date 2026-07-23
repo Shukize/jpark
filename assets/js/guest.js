@@ -24,7 +24,7 @@
       { key: "req.lightbulb", ico: "💡" }
     ]},
     { cat: "dining", ico: "🍽️", items: [
-      { key: "req.breakfast", ico: "🍳" }, { key: "req.ice", ico: "🧊" }
+      { key: "req.breakfast", ico: "🍳" }
     ]},
     { cat: "frontdesk", ico: "🛎️", items: [
       { key: "req.checkout", ico: "🕛" }, { key: "req.luggage", ico: "🧳" },
@@ -173,6 +173,213 @@
   }
 
   /* ─────────────────────────────── SERVICE MATRIX ─────────────────────────── */
+  // Three matrix items used to fire on one tap with no way to say the one
+  // thing that actually mattered: "Arrange a taxi" with no destination or
+  // time, "Wake-up call" with no time, "Late checkout" with no time (and no
+  // word about the fee that applies past 15:00). The front desk saw a bare
+  // "pending" card and had to track the guest down to ask. These three open
+  // a short inline form instead of sending immediately; everything else on
+  // the matrix stays one tap — 5-star service means asking only when the
+  // answer actually changes what happens.
+  const DETAIL_FORMS = {
+    "req.taxi": {
+      askKey: "req.taxi.ask", destination: true,
+      timeLabelKey: "req.taxi.time", sendKey: "req.taxi.send", timeField: "select",
+    },
+    "req.wakeup": {
+      askKey: "req.wakeup.ask",
+      timeLabelKey: "req.wakeup.time", sendKey: "req.wakeup.send",
+      timeField: "time", timeDefault: "07:00",
+    },
+    "req.checkout": {
+      askKey: "req.checkout.ask", feeNote: true,
+      timeLabelKey: "req.checkout.time", sendKey: "req.checkout.send",
+      timeField: "time", timeDefault: "15:00",
+    },
+  };
+
+  // The fee tier is computed from the chosen time rather than frozen into
+  // text at submission, so it always reads correctly in whichever language
+  // the viewer — guest or staff, and they may differ — currently has active.
+  function feeTierLine(time) {
+    const tier = U.checkoutFeeTier(time);
+    return tier ? t("req.checkout.tier." + tier) : "";
+  }
+
+  function buildDetailForm(key, cfg) {
+    const form = document.createElement("form");
+    form.className = "detail-form";
+    form.hidden = true;
+
+    let html = '<p class="detail-ask">' + U.escapeHtml(t(cfg.askKey)) + "</p>";
+    if (cfg.feeNote) html += '<p class="detail-feenote">' + U.escapeHtml(t("req.checkout.feeNote")) + "</p>";
+    if (cfg.destination) {
+      html += '<div class="field"><label>' + U.escapeHtml(t("req.taxi.destination")) + "</label>" +
+        '<input type="text" class="detail-dest" placeholder="' + U.escapeHtml(t("req.taxi.destinationPh")) + '" /></div>';
+    }
+    html += '<div class="field"><label>' + U.escapeHtml(t(cfg.timeLabelKey)) + "</label>" +
+      (cfg.timeField === "select"
+        ? '<select class="detail-time">' + deliveryOptions() + "</select>"
+        : '<input type="time" class="detail-time" value="' + (cfg.timeDefault || "") + '" />') +
+      "</div>";
+    if (cfg.feeNote) html += '<p class="detail-tier"></p>';
+    html += '<p class="form-error detail-error"></p>' +
+      '<div class="detail-form-actions">' +
+        '<button type="button" class="btn-ghost detail-cancel">' + U.escapeHtml(t("common.cancel")) + "</button>" +
+        '<button type="submit" class="btn btn-solid gold">' + U.escapeHtml(t(cfg.sendKey)) + "</button>" +
+      "</div>";
+    form.innerHTML = html;
+
+    const timeInput = form.querySelector(".detail-time");
+    const tierEl = form.querySelector(".detail-tier");
+    if (tierEl) {
+      const updateTier = () => { tierEl.textContent = feeTierLine(timeInput.value); };
+      timeInput.addEventListener("input", updateTier);
+      updateTier();
+    }
+
+    const err = form.querySelector(".detail-error");
+    form.querySelector(".detail-cancel").addEventListener("click", () => {
+      form.hidden = true; form.reset(); err.textContent = "";
+      if (tierEl) tierEl.textContent = feeTierLine(timeInput.value);
+    });
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      let dest = "";
+      if (cfg.destination) {
+        dest = form.querySelector(".detail-dest").value.trim();
+        if (!dest) { err.textContent = t("req.taxi.validation"); return; }
+      }
+      const time = timeInput.value;
+      if (!time) { err.textContent = t("req.detail.timeRequired"); return; }
+      err.textContent = "";
+      const extra = { deliverAt: time };
+      if (cfg.destination) extra.note = dest;
+      const submitBtn = form.querySelector('button[type="submit"]');
+      submitBtn.disabled = true;
+      await submitService("frontdesk", key, extra);
+      submitBtn.disabled = false;
+      form.hidden = true; form.reset();
+      if (tierEl) tierEl.textContent = feeTierLine(timeInput.value);
+    });
+
+    return form;
+  }
+
+  /* ── In-room breakfast ──────────────────────────────────────────────────
+     Breakfast is a proper little order, not a one-tap request: the kitchen
+     serves it only 05:30–09:30 (orders in by 09:00), the dishes rotate daily
+     between Japanese, Thai and American, and the one thing they must know is
+     the guest's dietary need. So the button opens a short form — dietary
+     choice, delivery time within service hours, allergies, and the room —
+     rather than filing a bare "Breakfast, pending" the desk can't act on. */
+  const DIET_OPTIONS = [
+    { key: "general",    label: "req.breakfast.diet.general",    ico: "🍽️" },
+    { key: "halal",      label: "req.breakfast.diet.halal",      ico: "🕌" },
+    { key: "vegetarian", label: "req.breakfast.diet.vegetarian", ico: "🥗" },
+  ];
+  // Fixed service window, not the rolling "next 8 half-hours" the room-service
+  // menu uses: breakfast can only be delivered 05:30–09:30.
+  const BREAKFAST_SLOTS = ["05:30","06:00","06:30","07:00","07:30","08:00","08:30","09:00","09:30"];
+  const BREAKFAST_DEFAULT = "07:30";
+  function breakfastTimeOptions() {
+    return BREAKFAST_SLOTS
+      .map((s) => '<option value="' + s + '"' + (s === BREAKFAST_DEFAULT ? " selected" : "") + ">" + s + "</option>")
+      .join("");
+  }
+  // Orders close at 09:00. On-site guests are on ICT, the same clock as the
+  // kitchen, so the device's own hour is the right thing to check.
+  function breakfastPastCutoff() {
+    return new Date().getHours() >= 9;
+  }
+
+  function buildBreakfastForm() {
+    const form = document.createElement("form");
+    form.className = "detail-form breakfast-form";
+    form.hidden = true;
+    let selectedDiet = DIET_OPTIONS[0].key;
+
+    form.innerHTML =
+      '<p class="detail-ask">' + U.escapeHtml(t("req.breakfast.ask")) + "</p>" +
+      '<p class="detail-feenote">' + U.escapeHtml(t("req.breakfast.info")) + "</p>" +
+      (breakfastPastCutoff()
+        ? '<p class="detail-cutoff">' + U.escapeHtml(t("req.breakfast.cutoff")) + "</p>" : "") +
+      '<div class="field"><label>' + U.escapeHtml(t("req.breakfast.diet")) + "</label>" +
+        '<div class="bf-diet" role="radiogroup" aria-label="' + U.escapeHtml(t("req.breakfast.diet")) + '">' +
+          DIET_OPTIONS.map((d, i) =>
+            '<button type="button" class="bf-diet-chip' + (i === 0 ? " active" : "") + '" ' +
+              'data-diet="' + d.key + '" role="radio" aria-checked="' + (i === 0 ? "true" : "false") + '">' +
+              d.ico + " " + U.escapeHtml(t(d.label)) + "</button>").join("") +
+        "</div></div>" +
+      '<div class="field"><label>' + U.escapeHtml(t("req.breakfast.time")) + "</label>" +
+        '<select class="bf-time">' + breakfastTimeOptions() + "</select></div>" +
+      '<div class="field"><label>' + U.escapeHtml(t("req.breakfast.allergies")) + "</label>" +
+        '<input type="text" class="bf-allergies" placeholder="' + U.escapeHtml(t("req.breakfast.allergiesPh")) + '" /></div>' +
+      '<div class="field"><label>' + U.escapeHtml(t("req.breakfast.room")) + "</label>" +
+        '<input type="text" class="bf-room" inputmode="numeric" value="' + U.escapeHtml(guest.room || "") + '" /></div>' +
+      '<p class="form-error detail-error"></p>' +
+      '<div class="detail-form-actions">' +
+        '<button type="button" class="btn-ghost detail-cancel">' + U.escapeHtml(t("common.cancel")) + "</button>" +
+        '<button type="submit" class="btn btn-solid gold">' + U.escapeHtml(t("req.breakfast.send")) + "</button>" +
+      "</div>";
+
+    const chips = form.querySelectorAll(".bf-diet-chip");
+    chips.forEach((chip) => {
+      chip.addEventListener("click", () => {
+        selectedDiet = chip.dataset.diet;
+        chips.forEach((c) => {
+          const on = c === chip;
+          c.classList.toggle("active", on);
+          c.setAttribute("aria-checked", on ? "true" : "false");
+        });
+      });
+    });
+
+    const err = form.querySelector(".detail-error");
+    const resetChips = () => {
+      selectedDiet = DIET_OPTIONS[0].key;
+      chips.forEach((c, i) => {
+        c.classList.toggle("active", i === 0);
+        c.setAttribute("aria-checked", i === 0 ? "true" : "false");
+      });
+    };
+    form.querySelector(".detail-cancel").addEventListener("click", () => {
+      form.hidden = true; form.reset(); err.textContent = ""; resetChips();
+    });
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const room = form.querySelector(".bf-room").value.trim();
+      if (!room) { err.textContent = t("req.breakfast.roomRequired"); return; }
+      err.textContent = "";
+      const time = form.querySelector(".bf-time").value;
+      const allergies = form.querySelector(".bf-allergies").value.trim();
+      const extra = {
+        roomNumber: room,
+        deliverAt: time,
+        // The dietary choice is stored as a stable i18n KEY, not translated
+        // text, so the front desk reads it in THEIR language while the guest
+        // chose it in theirs. Allergies are free text and live in `note`.
+        items: [{ key: "req.breakfast.diet." + selectedDiet }],
+      };
+      if (allergies) extra.note = allergies;
+      const submitBtn = form.querySelector('button[type="submit"]');
+      submitBtn.disabled = true;
+      await submitService("dining", "req.breakfast", extra);
+      submitBtn.disabled = false;
+      form.hidden = true; form.reset(); resetChips();
+    });
+
+    return form;
+  }
+
+  // Which matrix items open a form instead of firing on one tap.
+  function itemHasForm(key) { return key === "req.breakfast" || !!DETAIL_FORMS[key]; }
+  function buildFormFor(key) {
+    return key === "req.breakfast" ? buildBreakfastForm() : buildDetailForm(key, DETAIL_FORMS[key]);
+  }
+
   function renderMatrix() {
     const wrap = document.getElementById("matrixGroups");
     if (!wrap) return;
@@ -185,6 +392,7 @@
         U.escapeHtml(t("matrix.cat." + group.cat)) + "</h4>";
       const btns = document.createElement("div");
       btns.className = "matrix-buttons";
+      const detailForms = {};
       group.items.forEach((it) => {
         const b = document.createElement("button");
         b.className = "req-btn";
@@ -192,6 +400,16 @@
         b.innerHTML = '<span class="rb-ico">' + it.ico + "</span><span>" +
           U.escapeHtml(t(it.key)) + "</span>";
         b.addEventListener("click", () => {
+          if (itemHasForm(it.key)) {
+            const form = detailForms[it.key];
+            if (!form) return;
+            form.hidden = !form.hidden;
+            if (!form.hidden) {
+              const first = form.querySelector(".detail-dest, .bf-time, .detail-time");
+              if (first) setTimeout(() => first.focus(), 30);
+            }
+            return;
+          }
           submitService(group.cat, it.key);
           b.classList.add("sent");
           setTimeout(() => b.classList.remove("sent"), 1200);
@@ -199,13 +417,19 @@
         btns.appendChild(b);
       });
       g.appendChild(btns);
+      group.items.forEach((it) => {
+        if (!itemHasForm(it.key)) return;
+        const form = buildFormFor(it.key);
+        detailForms[it.key] = form;
+        g.appendChild(form);
+      });
       wrap.appendChild(g);
     });
   }
 
-  async function submitService(category, titleKey) {
+  async function submitService(category, titleKey, extra) {
     const guestId = S.guestId();
-    const payload = {
+    const payload = Object.assign({
       guestId,
       guestName: guest.name,
       roomNumber: guest.room,
@@ -215,7 +439,7 @@
       title: t(titleKey),
       lang: I.getLang(),
       bookingRef: guest.ref || null, // server re-checks this to set the verified flag
-    };
+    }, extra || {});
 
     const API = window.JPark.api;
     if (API) {
@@ -396,8 +620,163 @@
     return r.titleKey ? t(r.titleKey) : (r.title || "");
   }
 
+  // The one answer that actually matters, shown right on the card instead of
+  // buried in a note: a taxi's destination and pickup time, a wake-up call's
+  // time, or a late checkout's time together with which fee tier it falls
+  // into (see U.checkoutFeeTier — computed fresh here, in whichever language
+  // is currently active, rather than frozen into text at submission).
+  function requestDetailLine(r) {
+    if (r.titleKey === "req.breakfast") {
+      const parts = [];
+      const diet = (r.items || [])[0];
+      if (diet && diet.key) parts.push(t(diet.key));
+      if (r.deliverAt) parts.push(t("req.breakfast.time") + " " + r.deliverAt);
+      return parts.join(" · ");
+    }
+    if (r.kind === "order") {
+      return r.deliverAt ? t("rs.deliveryTime") + " " + (r.deliverAt === "asap" ? t("rs.asap") : r.deliverAt) : "";
+    }
+    if (!r.deliverAt) return "";
+    if (r.titleKey === "req.taxi") return t("req.taxi.time") + " " + (r.deliverAt === "asap" ? t("rs.asap") : r.deliverAt);
+    if (r.titleKey === "req.wakeup") return t("req.wakeup.time") + " " + r.deliverAt;
+    if (r.titleKey === "req.checkout") {
+      const tier = U.checkoutFeeTier(r.deliverAt);
+      return t("req.checkout.time") + " " + r.deliverAt + (tier ? " · " + t("req.checkout.tier." + tier) : "");
+    }
+    return "";
+  }
+
   function normaliseStatus(s) {
     return s === "in_progress" ? "progress" : (s || "pending");
+  }
+
+  /* ────────────────────────── PER-REQUEST REMARKS ──────────────────────────
+     Two-way messages about ONE request. These ride in the guest's EXISTING
+     live chat thread, just tagged with which request they're about (see
+     window.JPark.chat.sendForRequest / getRequestThread in chat.js, and
+     request_kind/request_id in schema.sql) — not a second inbox the guest
+     would have to learn on top of the chat bubble they already know. */
+  function threadKey(r) { return r.reqKind + ":" + r.reqId; }
+
+  async function fetchThreadSummary(guestId) {
+    const API = window.JPark.api;
+    if (!API) return {};
+    const res = await API.get("/api/chat/request-summary?guestId=" + encodeURIComponent(guestId));
+    const map = {};
+    if (Array.isArray(res)) res.forEach((s) => { map[s.requestKind + ":" + s.requestId] = s; });
+    return map;
+  }
+
+  const threadCache = {};        // key -> last-loaded messages, so a re-render can redraw instantly
+  const expandedThreads = new Set();
+
+  async function loadThread(r) {
+    const chat = window.JPark.chat;
+    const messages = chat ? await chat.getRequestThread(r.reqKind, r.reqId) : [];
+    threadCache[threadKey(r)] = messages;
+    return messages;
+  }
+
+  function renderThreadMessages(bodyEl, messages) {
+    bodyEl.innerHTML = "";
+    const visible = messages.filter((m) => m.from !== "system");
+    if (!visible.length) {
+      bodyEl.innerHTML = '<p class="thread-empty">' + U.escapeHtml(t("req.remarks.empty")) + "</p>";
+      return;
+    }
+    const cur = I.getLang();
+    visible.forEach((m) => {
+      const div = document.createElement("div");
+      div.className = "msg " + (m.from === "staff" ? "staff" : "guest");
+      div.innerHTML = '<span class="msg-from">' +
+        U.escapeHtml(m.from === "staff" ? (m.fromName || t("chat.staff")) : t("chat.you")) + "</span>";
+      const span = document.createElement("span");
+      const noteHost = document.createElement("span");
+      noteHost.className = "msg-notes";
+      // A front-desk reply may be typed in Thai; the guest reads their own
+      // language — auto-translate it just like the live-chat bubbles do.
+      if (m.lang && m.lang === cur) span.textContent = m.text;
+      else if (window.JPark.translate) window.JPark.translate.fill(span, m.text, noteHost);
+      else span.textContent = m.text;
+      div.appendChild(span);
+      div.appendChild(noteHost);
+      const time = document.createElement("time");
+      time.className = "msg-time";
+      time.dateTime = new Date(m.ts).toISOString();
+      time.textContent = U.messageTime(m.ts);
+      div.appendChild(time);
+      bodyEl.appendChild(div);
+    });
+    U.pinToBottom(bodyEl);
+  }
+
+  async function toggleThread(r, card) {
+    const key = threadKey(r);
+    const section = card.querySelector(".ti-thread");
+    if (!section) return;
+    if (expandedThreads.has(key)) {
+      expandedThreads.delete(key);
+      section.hidden = true;
+      return;
+    }
+    expandedThreads.add(key);
+    section.hidden = false;
+    const bodyEl = section.querySelector(".thread-body");
+    const cached = threadCache[key];
+    if (cached) renderThreadMessages(bodyEl, cached);
+    const messages = await loadThread(r);
+    renderThreadMessages(bodyEl, messages);
+    const input = section.querySelector(".thread-input");
+    if (input) setTimeout(() => input.focus(), 30);
+  }
+
+  async function sendThreadMessage(r, text, section) {
+    const chat = window.JPark.chat;
+    if (!chat) { U.toast(t("req.remarks.failed"), "error"); return; }
+    try {
+      await chat.sendForRequest(r.reqKind, r.reqId, text);
+    } catch (_) {
+      U.toast(t("req.remarks.failed"), "error");
+      return;
+    }
+    const messages = await loadThread(r);
+    const bodyEl = section.querySelector(".thread-body");
+    if (bodyEl) renderThreadMessages(bodyEl, messages);
+  }
+
+  // The tracker list is fully rebuilt every 8s poll (see startTrackerPoll) —
+  // without this, a guest mid-reply on a taxi's destination would watch their
+  // own typing vanish out from under them the moment the next poll landed.
+  function captureThreadDrafts() {
+    const drafts = {};
+    document.querySelectorAll("#trackList .thread-input").forEach((inp) => {
+      if (inp.value) drafts[inp.dataset.key] = inp.value;
+    });
+    return drafts;
+  }
+
+  // Toasts once per NEW staff reply (not on every poll while it's still
+  // unread), and never for a thread the guest already has open — they're
+  // already looking right at it. The first pass only primes the counts, so a
+  // guest returning to a request that was already answered isn't toasted for
+  // a reply they've likely seen.
+  let lastSeenUnread = {};
+  let threadNotifyPrimed = false;
+  function notifyNewThreadReplies(items) {
+    if (!items) return;
+    let announced = false;
+    items.forEach((r) => {
+      if (!r.reqKind) return;
+      const key = threadKey(r);
+      const prev = lastSeenUnread[key] || 0;
+      const now = r.msgUnread || 0;
+      if (threadNotifyPrimed && now > prev && !expandedThreads.has(key) && !announced) {
+        U.toast(t("chat.notif.staffReply"), "success");
+        announced = true; // one toast per poll, however many threads changed
+      }
+      lastSeenUnread[key] = now;
+    });
+    threadNotifyPrimed = true;
   }
 
   /* Merge service-requests and orders from API into one flat list. */
@@ -406,40 +785,53 @@
     const API     = window.JPark.api;
     if (!API) return null;
 
-    const [srRes, ordRes] = await Promise.all([
+    const [srRes, ordRes, summaryMap] = await Promise.all([
       API.get("/api/service-requests?guestId=" + encodeURIComponent(guestId)),
       API.get("/api/orders?guestId="           + encodeURIComponent(guestId)),
+      fetchThreadSummary(guestId),
     ]);
 
     if (srRes.offline) return null; // fall back to localStorage
 
-    const srs  = (Array.isArray(srRes) ? srRes : []).map((r) => ({
-      id: r.id, kind: r.kind || "service",
-      titleKey: r.titleKey || r.title_key,
-      title: r.title, category: r.type,
-      room: r.roomNumber || r.room_number,
-      guestName: r.guestName || r.guest_name,
-      items: r.items || [],
-      deliverAt: r.deliverAt || r.deliver_at,
-      note: r.note || r.notes,
-      total: r.total,
-      status: normaliseStatus(r.status),
-      createdAt: r.createdAt || (r.created_at ? new Date(r.created_at).getTime() : 0),
-    }));
+    const srs  = (Array.isArray(srRes) ? srRes : []).map((r) => {
+      const summary = summaryMap["service:" + r.id];
+      return {
+        id: r.id, kind: r.kind || "service",
+        reqKind: "service", reqId: r.id,
+        titleKey: r.titleKey || r.title_key,
+        title: r.title, category: r.type,
+        room: r.roomNumber || r.room_number,
+        guestName: r.guestName || r.guest_name,
+        items: r.items || [],
+        deliverAt: r.deliverAt || r.deliver_at,
+        note: r.note || r.notes,
+        total: r.total,
+        status: normaliseStatus(r.status),
+        createdAt: r.createdAt || (r.created_at ? new Date(r.created_at).getTime() : 0),
+        msgCount: summary ? summary.count : 0,
+        msgUnread: summary ? summary.unreadForGuest : 0,
+      };
+    });
 
-    const ords = (Array.isArray(ordRes) ? ordRes : []).map((r) => ({
-      id: "ord-" + r.id, kind: "order",
-      titleKey: "staff.requests.order", title: t("staff.requests.order"),
-      category: "dining",
-      room: r.room || r.room_number,
-      guestName: r.guestName || r.guest_name,
-      items: r.items || [],
-      deliverAt: r.deliverAt || r.deliver_at,
-      note: r.note || r.notes,
-      total: r.total,
-      status: normaliseStatus(r.status),
-      createdAt: r.createdAt || (r.created_at ? new Date(r.created_at).getTime() : 0),
-    }));
+    const ords = (Array.isArray(ordRes) ? ordRes : []).map((r) => {
+      const summary = summaryMap["order:" + r.id];
+      return {
+        id: "ord-" + r.id, kind: "order",
+        reqKind: "order", reqId: r.id,
+        titleKey: "staff.requests.order", title: t("staff.requests.order"),
+        category: "dining",
+        room: r.room || r.room_number,
+        guestName: r.guestName || r.guest_name,
+        items: r.items || [],
+        deliverAt: r.deliverAt || r.deliver_at,
+        note: r.note || r.notes,
+        total: r.total,
+        status: normaliseStatus(r.status),
+        createdAt: r.createdAt || (r.created_at ? new Date(r.created_at).getTime() : 0),
+        msgCount: summary ? summary.count : 0,
+        msgUnread: summary ? summary.unreadForGuest : 0,
+      };
+    });
 
     return [...srs, ...ords];
   }
@@ -453,6 +845,7 @@
     if (!mine.length) {
       wrap.innerHTML = '<p class="track-empty">' + U.escapeHtml(t("track.empty")) + "</p>"; return;
     }
+    const drafts = captureThreadDrafts();
     wrap.innerHTML = "";
     mine.forEach((r) => {
       const normStatus = normaliseStatus(r.status);
@@ -460,17 +853,66 @@
       item.className = "track-item";
       const canCancel = normStatus === "pending";
       let meta = U.timeAgo(r.createdAt);
-      if ((r.kind === "order") && r.deliverAt)
-        meta += " · " + t("rs.deliveryTime") + " " + (r.deliverAt === "asap" ? t("rs.asap") : r.deliverAt);
+      const detailLine = requestDetailLine(r);
+      if (detailLine) meta += " · " + detailLine;
+
+      const hasThread = r.reqKind != null;
+      const key = hasThread ? threadKey(r) : null;
+      const expanded = hasThread && expandedThreads.has(key);
+      const unread = r.msgUnread || 0;
+
       item.innerHTML =
         '<div class="ti-head"><span class="ti-title">' + U.escapeHtml(reqTitle(r)) + "</span>" +
         '<span class="badge ' + normStatus + '">' + U.escapeHtml(t("track.status." + normStatus)) + "</span></div>" +
         statusRail(normStatus) +
         '<div class="ti-meta">' + U.escapeHtml(meta) + "</div>" +
-        (r.note ? '<div class="ti-note">"' + U.escapeHtml(r.note) + '"</div>' : "") +
-        (canCancel ? '<button class="link-cancel" type="button">' + U.escapeHtml(t("track.cancel")) + "</button>" : "");
+        // A breakfast note is the guest's allergy line — label it as such;
+        // any other request's note is their own free-text words, quoted.
+        (r.note
+          ? '<div class="ti-note">' + (r.titleKey === "req.breakfast"
+              ? U.escapeHtml(t("req.breakfast.allergies") + ": " + r.note)
+              : '"' + U.escapeHtml(r.note) + '"') + "</div>"
+          : "") +
+        '<div class="ti-actions">' +
+          (hasThread
+            ? '<button type="button" class="link-thread' + (unread ? " has-unread" : "") + '">💬 ' +
+                U.escapeHtml(t("req.remarks.toggle")) +
+                (unread ? ' <span class="thread-badge">' + unread + "</span>" : "") + "</button>"
+            : "") +
+          (canCancel ? '<button class="link-cancel" type="button">' + U.escapeHtml(t("track.cancel")) + "</button>" : "") +
+        "</div>" +
+        (hasThread
+          ? '<div class="ti-thread"' + (expanded ? "" : " hidden") + ">" +
+              '<div class="thread-body"></div>' +
+              '<form class="thread-form">' +
+                '<input type="text" class="thread-input" data-key="' + U.escapeHtml(key) + '" placeholder="' +
+                  U.escapeHtml(t("chat.placeholder")) + '" autocomplete="off" />' +
+                '<button type="submit">' + U.escapeHtml(t("common.send")) + "</button>" +
+              "</form>" +
+            "</div>"
+          : "");
+
       if (canCancel) {
         item.querySelector(".link-cancel").addEventListener("click", () => cancelItem(r));
+      }
+      if (hasThread) {
+        item.querySelector(".link-thread").addEventListener("click", () => toggleThread(r, item));
+        const form = item.querySelector(".thread-form");
+        const input = item.querySelector(".thread-input");
+        if (drafts[key]) input.value = drafts[key];
+        form.addEventListener("submit", (e) => {
+          e.preventDefault();
+          const text = input.value.trim();
+          if (!text) return;
+          input.value = "";
+          sendThreadMessage(r, text, item.querySelector(".ti-thread"));
+        });
+        if (expanded) {
+          const bodyEl = item.querySelector(".thread-body");
+          const cached = threadCache[key];
+          if (cached) renderThreadMessages(bodyEl, cached);
+          loadThread(r).then((messages) => renderThreadMessages(bodyEl, messages));
+        }
       }
       wrap.appendChild(item);
     });
@@ -498,6 +940,7 @@
 
   async function renderTracker() {
     const items = await fetchTrackerItems();
+    if (items) notifyNewThreadReplies(items);
     renderTrackerItems(items || undefined);
   }
 

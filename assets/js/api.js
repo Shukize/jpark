@@ -16,6 +16,22 @@
     return (window.JPark.config || { apiBase: "http://localhost:3000" });
   }
 
+  // Plain fetch() has no timeout — left alone, a stalled request (e.g. Neon's
+  // compute waking from autosuspend, see backend/db.js) hangs until the OS
+  // gives up, which can run to several minutes. Live chat felt this worst:
+  // messages are sent one-at-a-time in order (see postChain in chat.js), so
+  // one hung request stalled everything typed after it. 20s gives a real
+  // Neon cold-start (backend now caps its own connection attempt at 10s)
+  // room to finish and still come back as a normal response; past that this
+  // fails fast into the existing offline/retry path instead of hanging.
+  const REQUEST_TIMEOUT_MS = 20000;
+  function fetchWithTimeout(url, opts) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    return fetch(url, Object.assign({}, opts, { signal: controller.signal }))
+      .finally(() => clearTimeout(timer));
+  }
+
   function authHeaders() {
     const headers = { "Content-Type": "application/json" };
     // Staff bearer token
@@ -40,7 +56,7 @@
     if (!AT || !AT.get()) return Promise.resolve(false); // nothing to refresh
     if (refreshPromise) return refreshPromise;
     const base = cfg().apiBase;
-    refreshPromise = fetch(base + "/api/auth/refresh", {
+    refreshPromise = fetchWithTimeout(base + "/api/auth/refresh", {
       method: "POST",
       headers: authHeaders(),
     })
@@ -65,7 +81,7 @@
     try {
       const opts = { method, headers: authHeaders() };
       if (body !== undefined && body !== null) opts.body = JSON.stringify(body);
-      const res = await fetch(base + path, opts);
+      const res = await fetchWithTimeout(base + path, opts);
       let data;
       try { data = await res.json(); } catch (_) { data = {}; }
       if (!res.ok) {
@@ -78,7 +94,7 @@
           if (refreshed) {
             const opts2 = { method, headers: authHeaders() };
             if (body !== undefined && body !== null) opts2.body = JSON.stringify(body);
-            const res2 = await fetch(base + path, opts2);
+            const res2 = await fetchWithTimeout(base + path, opts2);
             let data2;
             try { data2 = await res2.json(); } catch (_) { data2 = {}; }
             if (!res2.ok) return { error: data2.error || ("HTTP " + res2.status), status: res2.status };

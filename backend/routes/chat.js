@@ -56,6 +56,8 @@ function row2msg(r) {
     lang: r.lang,
     escalated: r.escalated,
     pinned: !!r.pinned,
+    requestKind: r.request_kind || null,
+    requestId: r.request_id != null ? Number(r.request_id) : null,
     ts: new Date(r.created_at).getTime(),
   };
 }
@@ -333,17 +335,113 @@ router.get('/updates', async (req, res) => {
   }
 });
 
-/* GET /api/chat?guestId=X — full conversation for one guest */
-router.get('/', async (req, res) => {
+/* GET /api/chat/request-summary?guestId=X   — the guest's own request tags
+   GET /api/chat/request-summary              — every open request's tags (staff)
+
+   Cheap per-request counts so the Guest Requests board (and the guest's own
+   tracker) can show "💬 2" on a card without each card fetching its own full
+   thread. Mirrors GET /api/chat/all's unread subquery, just grouped by
+   request instead of by guest. Bounded to the last 7 days for the staff
+   (all-requests) path — same guardrail as the board itself (see
+   routes/serviceRequests.js) — an unbounded GROUP BY on a 10s poll is the
+   same egress mistake that suspended the database in July. */
+router.get('/request-summary', async (req, res) => {
   const { guestId } = req.query;
+
+  if (guestId) {
+    try {
+      const { rows } = await db.query(
+        `SELECT request_kind, request_id,
+                COUNT(*)::int AS count,
+                MAX(created_at) AS last_at,
+                COUNT(*) FILTER (
+                  WHERE from_role = 'staff' AND created_at > COALESCE(
+                    (SELECT created_at FROM chat_messages cm2
+                      WHERE cm2.request_kind = cm.request_kind AND cm2.request_id = cm.request_id
+                        AND cm2.guest_id = cm.guest_id AND cm2.from_role = 'guest'
+                      ORDER BY created_at DESC LIMIT 1),
+                    '1970-01-01'
+                  )
+                )::int AS unread_for_guest
+           FROM chat_messages cm
+          WHERE guest_id = $1 AND request_kind IS NOT NULL
+          GROUP BY request_kind, request_id`,
+        [guestId]
+      );
+      res.json(rows.map((r) => ({
+        requestKind: r.request_kind,
+        requestId: Number(r.request_id),
+        count: r.count,
+        lastAt: new Date(r.last_at).getTime(),
+        unreadForGuest: r.unread_for_guest,
+      })));
+    } catch (e) {
+      console.error('[chat] request-summary (guest)', e);
+      res.status(500).json({ error: 'Database error' });
+    }
+    return;
+  }
+
+  return requireAuth(req, res, async () => {
+    try {
+      const { rows } = await db.query(
+        `SELECT request_kind, request_id,
+                COUNT(*)::int AS count,
+                MAX(created_at) AS last_at,
+                COUNT(*) FILTER (
+                  WHERE from_role = 'guest' AND created_at > COALESCE(
+                    (SELECT created_at FROM chat_messages cm2
+                      WHERE cm2.request_kind = cm.request_kind AND cm2.request_id = cm.request_id
+                        AND cm2.guest_id = cm.guest_id AND cm2.from_role = 'staff'
+                      ORDER BY created_at DESC LIMIT 1),
+                    '1970-01-01'
+                  )
+                )::int AS unread_for_staff
+           FROM chat_messages cm
+          WHERE request_kind IS NOT NULL AND created_at > NOW() - INTERVAL '7 days'
+          GROUP BY request_kind, request_id`
+      );
+      res.json(rows.map((r) => ({
+        requestKind: r.request_kind,
+        requestId: Number(r.request_id),
+        count: r.count,
+        lastAt: new Date(r.last_at).getTime(),
+        unreadForStaff: r.unread_for_staff,
+      })));
+    } catch (e) {
+      console.error('[chat] request-summary (staff)', e);
+      res.status(500).json({ error: 'Database error' });
+    }
+  });
+});
+
+/* GET /api/chat?guestId=X                       — full conversation for one guest
+   GET /api/chat?guestId=X&kind=service&id=42     — only the messages tagged to
+                                                      that one request (still the
+                                                      SAME thread — see schema.sql
+                                                      on request_kind/request_id)
+   The board and the guest's request tracker use the filtered form so a
+   request card can show its own remarks inline without pulling (or the guest
+   reading) the whole account-wide conversation. */
+router.get('/', async (req, res) => {
+  const { guestId, kind, id } = req.query;
   if (!guestId) return res.status(400).json({ error: 'guestId required' });
+  const reqId = id != null ? parseInt(id, 10) : null;
+  const filterByRequest = (kind === 'service' || kind === 'order') && Number.isInteger(reqId);
   try {
     const { rows } = await db.query(
-      `SELECT id, guest_name, room, from_role, from_name, body, lang, escalated,
-              assigned_staff_id, assigned_staff_name, pinned, created_at,
-              ${IDENTITY_COLS}
-         FROM chat_messages WHERE guest_id = $1 ORDER BY created_at ASC, id ASC`,
-      [guestId]
+      filterByRequest
+        ? `SELECT id, guest_name, room, from_role, from_name, body, lang, escalated,
+                  assigned_staff_id, assigned_staff_name, pinned, created_at,
+                  request_kind, request_id, ${IDENTITY_COLS}
+             FROM chat_messages
+            WHERE guest_id = $1 AND request_kind = $2 AND request_id = $3
+            ORDER BY created_at ASC, id ASC`
+        : `SELECT id, guest_name, room, from_role, from_name, body, lang, escalated,
+                  assigned_staff_id, assigned_staff_name, pinned, created_at,
+                  request_kind, request_id, ${IDENTITY_COLS}
+             FROM chat_messages WHERE guest_id = $1 ORDER BY created_at ASC, id ASC`,
+      filterByRequest ? [guestId, kind, reqId] : [guestId]
     );
     const messages = rows.map(row2msg);
     const last = rows[rows.length - 1];
@@ -431,9 +529,17 @@ router.post('/', async (req, res) => {
   // can't quietly relabel itself as a guest in room 204.
   const {
     guestId, from, fromName, text, lang, escalated,
-    assignedStaffId, assignedStaffName,
+    assignedStaffId, assignedStaffName, requestKind, requestId,
   } = req.body || {};
   if (!guestId || !text) return res.status(400).json({ error: 'guestId and text required' });
+
+  // Tagging this message to one request is optional (plain chat sends
+  // neither field) and, when present, must name a real request kind — a
+  // malformed tag would silently vanish from that request's card forever.
+  const reqKind = (requestKind === 'service' || requestKind === 'order') ? requestKind : null;
+  const reqIdNum = reqKind && Number.isInteger(Number(requestId)) ? Number(requestId) : null;
+  if (requestKind && !reqKind) return res.status(400).json({ error: "requestKind must be 'service' or 'order'" });
+  if (reqKind && reqIdNum == null) return res.status(400).json({ error: 'requestId must be an integer' });
 
   // Only a VERIFIED staff token may post as 'staff' — impersonating a human
   // front-desk agent is the real phishing vector. 'bot' and 'system' are the
@@ -484,9 +590,11 @@ router.post('/', async (req, res) => {
       `INSERT INTO chat_messages
          (guest_id, guest_name, room, from_role, from_name, body, lang, escalated,
           assigned_staff_id, assigned_staff_name,
-          guest_kind, guest_verified, booking_id, booking_ref, confirmed_by)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
-       RETURNING id, from_role, from_name, body, lang, escalated, pinned, created_at`,
+          guest_kind, guest_verified, booking_id, booking_ref, confirmed_by,
+          request_kind, request_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
+       RETURNING id, from_role, from_name, body, lang, escalated, pinned, created_at,
+                 request_kind, request_id`,
       [
         guestId,
         id.guest_name || null,
@@ -503,6 +611,8 @@ router.post('/', async (req, res) => {
         id.booking_id || null,
         id.booking_ref || null,
         id.confirmed_by || null,
+        reqKind,
+        reqIdNum,
       ]
     );
     res.status(201).json(row2msg(rows[0]));

@@ -61,6 +61,12 @@
 
   const TOPICS = [
     { id: "checkin", a: "chat.a.checkin", kw: ["check-in","check in","checkout","check-out","check out","late check","เช็คอิน","เช็คเอาท์","เลื่อนเช็ค","チェックイン","チェックアウト","入住","退房"] },
+    // Both point the guest at the SAME self-service forms the front desk
+    // already asks for (Guest Services → Front Desk — see guest.js's
+    // DETAIL_FORMS), rather than a dead-end "let me connect you" — most of
+    // what used to need a human (where to, what time) is now a tap away.
+    { id: "taxi",    a: "chat.a.taxi",    kw: ["taxi","cab","แท็กซี่","รถแท็กซี่","เรียกแท็กซี่","รับส่ง","タクシー","空港送迎","送迎","出租车","計程車","打车","叫車"] },
+    { id: "wakeup",  a: "chat.a.wakeup",  kw: ["wake up call","wake-up call","wakeup call","wake up","morning call","alarm","ปลุก","โทรปลุก","บริการปลุก","モーニングコール","起こして","叫醒服务","叫醒电话","叫醒服務","喚醒"] },
     { id: "wifi",    a: "chat.a.wifi",    kw: ["wifi","wi-fi","internet","password","network","รหัสผ่าน","อินเทอร์เน็ต","ไวไฟ","パスワード","ネット","无线","网络","密码","無線","網路","密碼"] },
     { id: "pool",    a: "chat.a.pool",    kw: ["pool","swim","onsen","spa","สระ","ว่ายน้ำ","ออนเซ็น","プール","温泉","泳池","游泳","溫泉"] },
     // Halal is listed BEFORE dining so a query like "halal food" matches the
@@ -483,6 +489,11 @@
       // row so the staff console can route notifications to that account.
       assignedStaffId: opts && opts.assignedStaffId ? opts.assignedStaffId : undefined,
       assignedStaffName: opts && opts.assignedStaffName ? opts.assignedStaffName : undefined,
+      // Tags this row to one guest request (see schema.sql) so the Guest
+      // Requests board can show it inline on that request's card — still the
+      // SAME thread, just marked which request it's about.
+      requestKind: opts && opts.requestKind ? opts.requestKind : undefined,
+      requestId: opts && opts.requestId != null ? opts.requestId : undefined,
     })).catch(function () { /* offline — the local copy still shows */ });
     return postChain;
   }
@@ -941,11 +952,72 @@
     });
   });
 
+  /* ─────────────── per-request remarks (Guest Requests board) ─────────────
+     A guest filing "Arrange a taxi" or answering a follow-up question about
+     it types into a small thread right on that request card — not into the
+     floating bubble. It still has to land in the SAME conversation the front
+     desk already watches (see schema.sql on request_kind/request_id), rather
+     than a second inbox nobody checks, so this reuses pushMessage/escalate
+     exactly as a normal hand-off would, just triggered from the request card
+     instead of the chat panel. */
+
+  /* Like adoptPortalSession() (used when the bubble opens), but also
+     self-declares when the booking lookup finds nothing. The general chat
+     widget only silently adopts a CONFIRMED match and otherwise leaves the
+     "who are you?" chooser for the guest to answer explicitly; here that
+     chooser would render inside a bubble the guest never opened. A guest
+     typing on a request card has already cleared that bar once, at the
+     portal gate (see guest.js — including the portal's own unconfirmed
+     tier for OTA/walk-in guests), so it's answered the same way here. */
+  async function adoptPortalIdentityForRequest() {
+    if (identity) return;
+    const g = S.getSession("guest");
+    if (!g) return;
+    const res = await apiIdentify({
+      kind: "guest", ref: g.ref, lastName: g.name, room: g.room,
+      unconfirmed: true,
+      systemText: identityLine("guest", g.verified !== false),
+    });
+    if (!res || res.error) return;
+    saveIdentity({
+      kind: "guest", verified: !!res.verified,
+      name: res.name, room: res.room, ref: res.ref || null,
+    });
+    idView = null;
+    pushIdentityLine(res);
+    renderIdentity();
+  }
+
+  async function sendForRequest(requestKind, requestId, text) {
+    text = (text || "").trim();
+    if (!text) return;
+    if (!identity) await adoptPortalIdentityForRequest();
+    await pushMessage("guest", text, { requestKind, requestId, escalated: true });
+    render();
+    const conv = getLocalConv();
+    if (conv && !conv.escalated) await escalate();
+  }
+
+  /* Just the messages tagged to one request — not the whole account-wide
+     conversation, so a request card shows only what it's about. */
+  async function getRequestThread(requestKind, requestId) {
+    const API = window.JPark.api;
+    if (!API) return [];
+    const res = await API.get(
+      "/api/chat?guestId=" + encodeURIComponent(gid) +
+      "&kind=" + encodeURIComponent(requestKind) +
+      "&id=" + encodeURIComponent(requestId)
+    );
+    return (res && Array.isArray(res.messages)) ? res.messages : [];
+  }
+
   window.JPark.chat = {
     open,
     askAbout: function (title) {
       open();
       pushMessage("guest", title).then(() => { render(); escalate(); });
     },
+    sendForRequest,
+    getRequestThread,
   };
 })();

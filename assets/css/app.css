@@ -182,6 +182,116 @@ body.has-banner .site-header { } /* header stays fixed; banner scrolls above */
 .rs-cart .btn { width: 100%; margin-top: 6px; }
 
 /* ============================================================
+   REQUEST DETAIL FORMS  (taxi / wake-up / late checkout / breakfast)
+   A quick inline form that drops under the matrix button, so the guest
+   answers the one thing that matters (where to, what time, which diet)
+   before the request is sent — instead of the desk chasing them for it.
+   ============================================================ */
+.detail-form {
+  margin: 4px 2px 18px; padding: 16px 18px;
+  border: 1.5px solid var(--teal-soft); border-radius: 14px;
+  background: linear-gradient(180deg, rgba(19,125,120,0.055), rgba(19,125,120,0.02));
+  animation: detailIn .22s var(--ease);
+}
+@keyframes detailIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: none; } }
+.detail-form .detail-ask { margin: 0 0 6px; font-weight: 600; font-size: 1rem; color: var(--teal-deep); }
+.detail-form .detail-feenote { margin: 0 0 14px; font-size: 0.82rem; color: var(--ink-soft); line-height: 1.55; }
+.detail-form .detail-cutoff {
+  margin: 0 0 13px; font-size: 0.82rem; line-height: 1.5;
+  background: #fbe9d6; color: #9a5a17; border-radius: 10px; padding: 9px 12px;
+}
+.detail-form .field { margin-bottom: 12px; }
+.detail-form .detail-tier { margin: -3px 0 12px; font-size: 0.86rem; font-weight: 600; color: var(--teal); }
+.detail-form .form-error { min-height: 0; margin: 0 0 10px; }
+.detail-form .form-error:empty { margin: 0; }
+.detail-form-actions { display: flex; gap: 10px; }
+.detail-form-actions .btn { flex: 1; padding: 12px 18px; font-size: 0.82rem; margin: 0; }
+.detail-form-actions .detail-cancel {
+  background: #fff; border-color: var(--line); color: var(--ink-soft);
+}
+.detail-form-actions .detail-cancel:hover {
+  background: var(--paper); border-color: var(--ink-soft); color: var(--ink);
+  transform: none; box-shadow: none;
+}
+/* breakfast dietary chips */
+.bf-diet { display: flex; flex-wrap: wrap; gap: 8px; }
+.bf-diet-chip {
+  border: 1.5px solid var(--line); background: #fff; border-radius: 999px;
+  padding: 8px 16px; font-size: 0.85rem; font-weight: 600; cursor: pointer;
+  color: var(--ink-soft); font-family: var(--sans); transition: border-color .18s, background .18s, color .18s;
+}
+.bf-diet-chip:hover { border-color: var(--teal-soft); }
+.bf-diet-chip.active { background: var(--teal); color: var(--ivory); border-color: var(--teal); }
+
+/* ============================================================
+   PER-REQUEST REMARKS THREAD  (guest tracker + staff board)
+   The guest and front desk talk about one specific request, right on
+   its card. Rides the guest's live-chat thread (tagged by request), so
+   the bubbles reuse the .msg styling the chat widget already defines.
+   ============================================================ */
+.ti-actions { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.link-thread {
+  background: none; border: none; padding: 0; cursor: pointer;
+  color: var(--teal); font-size: 0.82rem; font-weight: 600; font-family: var(--sans);
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.link-thread:hover { text-decoration: underline; }
+.link-thread.has-unread { color: var(--terracotta-d); }
+.thread-badge, .sr-msg-badge {
+  background: var(--terracotta); color: #fff; border-radius: 999px;
+  font-size: 0.68rem; font-weight: 700; padding: 1px 7px; min-width: 18px;
+  text-align: center; line-height: 1.5;
+}
+.ti-thread {
+  margin-top: 2px; border-top: 1px dashed var(--line); padding-top: 12px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.thread-body { display: flex; flex-direction: column; gap: 8px; max-height: 260px; overflow-y: auto; }
+.thread-body:empty { display: none; }
+.thread-empty { font-size: 0.82rem; color: var(--ink-soft); font-style: italic; margin: 0; }
+.thread-form { display: flex; gap: 8px; }
+.thread-input {
+  flex: 1; min-width: 0; border: 1.5px solid var(--line); border-radius: 999px;
+  padding: 9px 15px; font-family: var(--sans); font-size: 0.88rem; background: #fff;
+}
+.thread-input:focus { outline: none; border-color: var(--teal-soft); }
+.thread-form button {
+  background: var(--teal); color: var(--ivory); border: none; border-radius: 999px;
+  padding: 0 18px; height: 38px; cursor: pointer; font-size: 0.82rem; font-weight: 600;
+  font-family: var(--sans); flex: none;
+}
+.thread-form button:hover { background: var(--teal-deep); }
+.ti-thread .msg, .sr-thread .msg { max-width: 88%; font-size: 0.88rem; }
+
+/* Staff board: the captured answer lines (taxi/wake-up/checkout/breakfast) */
+.staff-req .sr-reqtime { font-weight: 600; color: var(--ink); }
+.staff-req .sr-reqtime.sr-fee-mid { color: #9a5f13; }
+.staff-req .sr-reqtime.sr-fee-high { color: #a83318; font-weight: 700; }
+.staff-req .sr-allergy { color: #a83318; font-weight: 600; }
+.staff-req .act-remarks.has-unread { color: var(--terracotta-d); border-color: rgba(193,103,73,0.4); }
+.staff-req .act-remarks .sr-msg-badge { margin-left: 4px; }
+
+/* Staff board: the inline remarks thread under a request card */
+.staff-req .sr-thread {
+  margin-top: 2px; border-top: 1px dashed var(--line); padding-top: 12px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+/* On the STAFF side the desk's own replies sit on the right; the guest on the
+   left — the mirror of the guest's own view (and of the live-chat panel). */
+.sr-thread .msg.staff {
+  align-self: flex-end; background: var(--teal); color: var(--ivory);
+  border: none; border-bottom-right-radius: 5px;
+}
+.sr-thread .msg.staff .msg-from { color: var(--gold-light); }
+.sr-thread .msg.staff .msg-time { color: rgba(247,242,232,0.85); opacity: .9; }
+.sr-thread .msg.guest {
+  align-self: flex-start; background: #fff; color: var(--ink);
+  border: 1px solid var(--line); border-bottom-left-radius: 5px;
+}
+.sr-thread .msg.guest .msg-from { color: var(--terracotta); }
+.sr-thread .msg.guest .msg-time { color: var(--ink-soft); opacity: .7; }
+
+/* ============================================================
    CONCIERGE
    ============================================================ */
 .conc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }

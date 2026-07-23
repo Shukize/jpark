@@ -28,6 +28,7 @@ const express = require('express');
 const cors = require('cors');
 
 const migrate = require('./migrate');
+const db                    = require('./db');
 const sessionCache          = require('./lib/sessionCache');
 const authRouter            = require('./routes/auth');
 const sessionsRouter        = require('./routes/sessions');
@@ -76,6 +77,24 @@ const bodyPayments = express.json({ limit: '256kb' }); // structured JSON only, 
 const bodyDefault  = express.json({ limit: '512kb' }); // comfortably covers the 350KB avatar upload
 
 app.get('/health', (_req, res) => res.json({ status: 'ok' }));
+
+// Deliberately separate from /health: Render's own deploy health check hits
+// /health, and it must never fail on a transient DB hiccup mid-deploy. This
+// one actually touches Postgres — see .github/workflows/health-check.yml,
+// which pings it every few minutes so Neon's autosuspend compute never goes
+// idle long enough to sleep. Left to sleep, the next real query (very often
+// a guest's chat message — see chat.js's serialized postChain) pays the full
+// wake cost; see backend/db.js's connectionTimeoutMillis for the other half
+// of this fix, which bounds that cost instead of letting it hang forever.
+app.get('/health/db', async (_req, res) => {
+  try {
+    await db.query('SELECT 1');
+    res.json({ status: 'ok' });
+  } catch (err) {
+    console.error('[health/db]', err);
+    res.status(503).json({ status: 'error' });
+  }
+});
 
 // Banned-IP check is scoped to the staff console only (/api/auth,
 // /api/sessions) — never mounted globally — so a shared/NAT'd IP banned
