@@ -4939,6 +4939,7 @@
     renderAnnouncements();
     renderSectionToggles();
     renderRoomAvailability();
+    renderDayUseAvailability();
     renderHistory();
   }
 
@@ -5834,18 +5835,33 @@
      real-time-save UX rather than the "Undo all my edits" batch/draft
      model, since a delisted room must reliably stay delisted across
      devices, not just in this browser. */
-  let roomAvailData = null; // { unavailable: string[], rooms: string[] }
+  // { unavailable: string[], rooms: string[], unavailableDayUse: string[],
+  //   dayUseRooms: string[] } — one shared fetch feeds both the room- and
+  //   day-use-availability cards below. `roomAvailPromise` de-dupes the two
+  //   render calls (both fire from renderSite without awaiting each other).
+  let roomAvailData = null;
+  let roomAvailPromise = null;
+  async function loadAvailData() {
+    if (roomAvailData) return roomAvailData;
+    if (!roomAvailPromise) roomAvailPromise = J.api.get("/api/availability");
+    const res = await roomAvailPromise;
+    if (J.api.isOffline(res) || !res || res.error || !res.rooms) {
+      roomAvailPromise = null; // let a later render retry the fetch
+      return null;
+    }
+    roomAvailData = res;
+    return roomAvailData;
+  }
+
   async function renderRoomAvailability() {
     const wrap = document.getElementById("roomAvailToggles");
     if (!wrap) return;
     if (!roomAvailData) {
       wrap.innerHTML = '<p class="muted">' + esc(t("staff.site.roomAvailLoading")) + "</p>";
-      const res = await J.api.get("/api/availability");
-      if (J.api.isOffline(res) || !res || res.error || !res.rooms) {
+      if (!(await loadAvailData())) {
         wrap.innerHTML = '<p class="muted">' + esc(t("staff.site.roomAvailError")) + "</p>";
         return;
       }
-      roomAvailData = res;
     }
     wrap.innerHTML = "";
     roomAvailData.rooms.forEach((roomName) => {
@@ -5869,6 +5885,52 @@
           return;
         }
         roomAvailData.unavailable = res2.unavailable;
+        U.toast(t("staff.site.roomAvailSaved"), "success");
+      });
+      wrap.appendChild(lab);
+    });
+  }
+
+  /* Per-building day-use availability toggle — the day-use counterpart of
+     renderRoomAvailability() above. Same immediate server save, same
+     endpoint (PUT sends `unavailableDayUse`, which the route updates without
+     touching the room list). Building keys (B1…B5) show their friendly
+     "Building N" i18n label. */
+  async function renderDayUseAvailability() {
+    const wrap = document.getElementById("dayUseAvailToggles");
+    if (!wrap) return;
+    if (!roomAvailData) {
+      wrap.innerHTML = '<p class="muted">' + esc(t("staff.site.roomAvailLoading")) + "</p>";
+      if (!(await loadAvailData())) {
+        wrap.innerHTML = '<p class="muted">' + esc(t("staff.site.roomAvailError")) + "</p>";
+        return;
+      }
+    }
+    const dayUseRooms = roomAvailData.dayUseRooms || [];
+    const unavailable = roomAvailData.unavailableDayUse || [];
+    wrap.innerHTML = "";
+    dayUseRooms.forEach((key) => {
+      const id = "dayUseAvail_" + key.replace(/\s+/g, "_");
+      const label = t("dayuse." + key.toLowerCase());
+      const lab = document.createElement("label");
+      const available = unavailable.indexOf(key) === -1;
+      const input = document.createElement("input");
+      input.type = "checkbox"; input.id = id; input.checked = available;
+      lab.appendChild(input);
+      lab.appendChild(document.createTextNode(" " + label));
+      input.addEventListener("change", async (e) => {
+        const isAvailable = e.target.checked;
+        const next = (roomAvailData.unavailableDayUse || []).filter((k) => k !== key);
+        if (!isAvailable) next.push(key);
+        input.disabled = true;
+        const res2 = await J.api.put("/api/availability", { unavailableDayUse: next });
+        input.disabled = false;
+        if (J.api.isOffline(res2) || !res2 || res2.error) {
+          U.toast((res2 && res2.error) || t("staff.site.roomAvailError"), "error");
+          e.target.checked = !isAvailable;
+          return;
+        }
+        roomAvailData.unavailableDayUse = res2.unavailableDayUse || [];
         U.toast(t("staff.site.roomAvailSaved"), "success");
       });
       wrap.appendChild(lab);

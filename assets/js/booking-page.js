@@ -950,12 +950,32 @@
     }).join('');
   }
 
+  // Day-use buildings the Site Editor has switched off (backend/routes/
+  // availability.js `unavailableDayUse`). A disabled building is dropped from
+  // the day-use list entirely, mirroring how delisted room types are excluded
+  // from the room search (see filterUnavailableRooms below). Populated by
+  // loadRoomAvailability().
+  var unavailableDayUse = [];
+
   // --- Render the day-use (3-hour) rate list ---
   function renderDayUse() {
     var host = document.getElementById('bkDayUseGrid');
     if (!host) return;
+    // Only buildings that are switched on. Book buttons index into this
+    // filtered list (not DAYUSE) so a hidden building can never be booked.
+    var visible = DAYUSE.filter(function (d) { return unavailableDayUse.indexOf(d.room) === -1; });
+
+    // With every building off, hide the whole day-use section and its
+    // "short stays also available" banner rather than showing an empty grid.
+    var section = document.getElementById('dayuse');
+    var banner = document.querySelector('.bk-dayuse-banner');
+    var hideAll = visible.length === 0;
+    if (section) section.hidden = hideAll;
+    if (banner) banner.hidden = hideAll;
+    if (hideAll) { host.innerHTML = ''; return; }
+
     var dayuseIcon = '<span class="bk-item-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg></span>';
-    host.innerHTML = DAYUSE.map(function (d, i) {
+    host.innerHTML = visible.map(function (d, i) {
       return '<div class="bk-dayuse-item">' +
                dayuseIcon +
                '<span class="bk-dayuse-room">' + TR(d.nameKey) + '</span>' +
@@ -965,7 +985,7 @@
     }).join('');
     Array.prototype.forEach.call(host.querySelectorAll('.bk-dayuse-book-btn'), function (btn) {
       btn.addEventListener('click', function () {
-        var d = DAYUSE[parseInt(btn.dataset.dayuseIndex, 10)];
+        var d = visible[parseInt(btn.dataset.dayuseIndex, 10)];
         var flow = window.JPark && window.JPark.bookingFlow;
         if (!flow || !flow.openDayUse) return;
         flow.openDayUse({ room: d.room, roomDisplayName: TR(d.nameKey), price: d.price });
@@ -1206,11 +1226,19 @@
     var API = window.JPark && window.JPark.api;
     if (!API) return;
     API.get('/api/availability').then(function (res) {
-      if (!res || res.error || !res.unavailable || !res.unavailable.length) return;
-      var filtered = filterUnavailableRooms(DISPLAY_ROOMS, res.unavailable);
-      if (lastRooms === DISPLAY_ROOMS) lastRooms = filtered; // still showing the default listing
-      DISPLAY_ROOMS = filtered;
-      renderAll();
+      if (!res || res.error) return;
+      var changed = false;
+      if (Array.isArray(res.unavailableDayUse) && res.unavailableDayUse.length) {
+        unavailableDayUse = res.unavailableDayUse;
+        changed = true;
+      }
+      if (res.unavailable && res.unavailable.length) {
+        var filtered = filterUnavailableRooms(DISPLAY_ROOMS, res.unavailable);
+        if (lastRooms === DISPLAY_ROOMS) lastRooms = filtered; // still showing the default listing
+        DISPLAY_ROOMS = filtered;
+        changed = true;
+      }
+      if (changed) renderAll();
     }).catch(function () {});
   })();
 

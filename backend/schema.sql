@@ -518,6 +518,14 @@ ALTER TABLE site_content ADD COLUMN IF NOT EXISTS day_use_rates JSONB NOT NULL D
 -- backend/lib/roomRates.js's ROOMS. See backend/routes/availability.js.
 ALTER TABLE site_content ADD COLUMN IF NOT EXISTS unavailable_rooms TEXT[] NOT NULL DEFAULT '{"Deluxe"}';
 
+-- Admin-editable per-building day-use availability (Site Editor). Sparse list
+-- of day-use building keys currently disabled/unbookable — absence means
+-- available (every building ships on). Mirrors `unavailable_rooms` above but
+-- for the day-use (B1–B5) buildings; day-use is priced/hidden per building,
+-- not per room type. Only ever contains keys that exist in
+-- backend/lib/roomRates.js's DAYUSE map. See backend/routes/availability.js.
+ALTER TABLE site_content ADD COLUMN IF NOT EXISTS unavailable_dayuse TEXT[] NOT NULL DEFAULT '{}';
+
 -- ── Staff session tracking (sliding sessions, concurrency cap, audit log) ────
 -- One row per staff device/browser login. `jti` is embedded in that login's
 -- access token so middleware/auth.js can revoke a single session without
