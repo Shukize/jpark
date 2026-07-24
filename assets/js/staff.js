@@ -1765,16 +1765,22 @@
 
   // The room a guest is in, for the desk to read at a glance: the physical room
   // NUMBER the front desk assigned plus the room TYPE. The number is taken from
-  // the LIVE booking (so a room typed at check-in shows on this guest's requests
-  // and chats immediately), and falls back to the guest's self-declared room
-  // only when no booking is linked. Because the number comes from the booking's
-  // room_number and the type from its room-type, an as-yet-unassigned booking
-  // shows just its type — never the old, confusing "Room Deluxe" (a room TYPE
-  // mislabelled as a number). `booking.room` is the room TYPE, `room_number` the
-  // physical room (see the two-"room"-fields trap noted throughout the backend).
+  // the LIVE booking first (so a room typed at check-in shows on this guest's
+  // requests and chats immediately), and when that booking carries no assigned
+  // number yet we fall back to the number the guest was already on when they
+  // filed — `guest.room` is the physical number when one exists (guest.js
+  // setGuest), and it rides onto the request/chat, so a linked-but-unnumbered
+  // booking must not throw it away. The self-declared value is only trusted as a
+  // number when it actually looks like one (has a digit): `guest.room` degrades
+  // to the room TYPE when no physical room was assigned at login, and rendering
+  // "Room Studio Twin" — a room TYPE mislabelled as a number — is the exact
+  // "Room Deluxe" confusion we're avoiding. `booking.room` is the room TYPE,
+  // `room_number` the physical room (see the two-"room"-fields trap noted
+  // throughout the backend).
   function roomBits(booking, selfRoom, selfType) {
-    const number = booking ? (booking.roomNumber || null) : (selfRoom || null);
-    const type   = (booking && booking.room) || selfType || null;
+    let number = (booking && booking.roomNumber) || null;
+    if (!number && selfRoom && /\d/.test(String(selfRoom))) number = selfRoom;
+    const type = (booking && booking.room) || selfType || null;
     return { number: number, type: type };
   }
   // "Room 407 · Deluxe", or just the part we have when the other is missing.
