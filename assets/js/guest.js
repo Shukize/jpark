@@ -23,9 +23,6 @@
       { key: "req.tv", ico: "📺" }, { key: "req.plumbing", ico: "🚿" },
       { key: "req.lightbulb", ico: "💡" }
     ]},
-    { cat: "dining", ico: "🍽️", items: [
-      { key: "req.breakfast", ico: "🍳" }
-    ]},
     { cat: "frontdesk", ico: "🛎️", items: [
       { key: "req.checkout", ico: "🕛" }, { key: "req.luggage", ico: "🧳" },
       { key: "req.taxi", ico: "🚕" }, { key: "req.wakeup", ico: "⏰" }
@@ -267,117 +264,10 @@
     return form;
   }
 
-  /* ── In-room breakfast ──────────────────────────────────────────────────
-     Breakfast is a proper little order, not a one-tap request: the kitchen
-     serves it only 05:30–09:30 (orders in by 09:00), the dishes rotate daily
-     between Japanese, Thai and American, and the one thing they must know is
-     the guest's dietary need. So the button opens a short form — dietary
-     choice, delivery time within service hours, allergies, and the room —
-     rather than filing a bare "Breakfast, pending" the desk can't act on. */
-  const DIET_OPTIONS = [
-    { key: "general",    label: "req.breakfast.diet.general",    ico: "🍽️" },
-    { key: "halal",      label: "req.breakfast.diet.halal",      ico: "🕌" },
-    { key: "vegetarian", label: "req.breakfast.diet.vegetarian", ico: "🥗" },
-  ];
-  // Fixed service window, not the rolling "next 8 half-hours" the room-service
-  // menu uses: breakfast can only be delivered 05:30–09:30.
-  const BREAKFAST_SLOTS = ["05:30","06:00","06:30","07:00","07:30","08:00","08:30","09:00","09:30"];
-  const BREAKFAST_DEFAULT = "07:30";
-  function breakfastTimeOptions() {
-    return BREAKFAST_SLOTS
-      .map((s) => '<option value="' + s + '"' + (s === BREAKFAST_DEFAULT ? " selected" : "") + ">" + s + "</option>")
-      .join("");
-  }
-  // Orders close at 09:00. On-site guests are on ICT, the same clock as the
-  // kitchen, so the device's own hour is the right thing to check.
-  function breakfastPastCutoff() {
-    return new Date().getHours() >= 9;
-  }
-
-  function buildBreakfastForm() {
-    const form = document.createElement("form");
-    form.className = "detail-form breakfast-form";
-    form.hidden = true;
-    let selectedDiet = DIET_OPTIONS[0].key;
-
-    form.innerHTML =
-      '<p class="detail-ask">' + U.escapeHtml(t("req.breakfast.ask")) + "</p>" +
-      '<p class="detail-feenote">' + U.escapeHtml(t("req.breakfast.info")) + "</p>" +
-      (breakfastPastCutoff()
-        ? '<p class="detail-cutoff">' + U.escapeHtml(t("req.breakfast.cutoff")) + "</p>" : "") +
-      '<div class="field"><label>' + U.escapeHtml(t("req.breakfast.diet")) + "</label>" +
-        '<div class="bf-diet" role="radiogroup" aria-label="' + U.escapeHtml(t("req.breakfast.diet")) + '">' +
-          DIET_OPTIONS.map((d, i) =>
-            '<button type="button" class="bf-diet-chip' + (i === 0 ? " active" : "") + '" ' +
-              'data-diet="' + d.key + '" role="radio" aria-checked="' + (i === 0 ? "true" : "false") + '">' +
-              d.ico + " " + U.escapeHtml(t(d.label)) + "</button>").join("") +
-        "</div></div>" +
-      '<div class="field"><label>' + U.escapeHtml(t("req.breakfast.time")) + "</label>" +
-        '<select class="bf-time">' + breakfastTimeOptions() + "</select></div>" +
-      '<div class="field"><label>' + U.escapeHtml(t("req.breakfast.allergies")) + "</label>" +
-        '<input type="text" class="bf-allergies" placeholder="' + U.escapeHtml(t("req.breakfast.allergiesPh")) + '" /></div>' +
-      '<div class="field"><label>' + U.escapeHtml(t("req.breakfast.room")) + "</label>" +
-        '<input type="text" class="bf-room" inputmode="numeric" value="' + U.escapeHtml(guest.room || "") + '" /></div>' +
-      '<p class="form-error detail-error"></p>' +
-      '<div class="detail-form-actions">' +
-        '<button type="button" class="btn-ghost detail-cancel">' + U.escapeHtml(t("common.cancel")) + "</button>" +
-        '<button type="submit" class="btn btn-solid gold">' + U.escapeHtml(t("req.breakfast.send")) + "</button>" +
-      "</div>";
-
-    const chips = form.querySelectorAll(".bf-diet-chip");
-    chips.forEach((chip) => {
-      chip.addEventListener("click", () => {
-        selectedDiet = chip.dataset.diet;
-        chips.forEach((c) => {
-          const on = c === chip;
-          c.classList.toggle("active", on);
-          c.setAttribute("aria-checked", on ? "true" : "false");
-        });
-      });
-    });
-
-    const err = form.querySelector(".detail-error");
-    const resetChips = () => {
-      selectedDiet = DIET_OPTIONS[0].key;
-      chips.forEach((c, i) => {
-        c.classList.toggle("active", i === 0);
-        c.setAttribute("aria-checked", i === 0 ? "true" : "false");
-      });
-    };
-    form.querySelector(".detail-cancel").addEventListener("click", () => {
-      form.hidden = true; form.reset(); err.textContent = ""; resetChips();
-    });
-
-    form.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const room = form.querySelector(".bf-room").value.trim();
-      if (!room) { err.textContent = t("req.breakfast.roomRequired"); return; }
-      err.textContent = "";
-      const time = form.querySelector(".bf-time").value;
-      const allergies = form.querySelector(".bf-allergies").value.trim();
-      const extra = {
-        roomNumber: room,
-        deliverAt: time,
-        // The dietary choice is stored as a stable i18n KEY, not translated
-        // text, so the front desk reads it in THEIR language while the guest
-        // chose it in theirs. Allergies are free text and live in `note`.
-        items: [{ key: "req.breakfast.diet." + selectedDiet }],
-      };
-      if (allergies) extra.note = allergies;
-      const submitBtn = form.querySelector('button[type="submit"]');
-      submitBtn.disabled = true;
-      await submitService("dining", "req.breakfast", extra);
-      submitBtn.disabled = false;
-      form.hidden = true; form.reset(); resetChips();
-    });
-
-    return form;
-  }
-
   // Which matrix items open a form instead of firing on one tap.
-  function itemHasForm(key) { return key === "req.breakfast" || !!DETAIL_FORMS[key]; }
+  function itemHasForm(key) { return !!DETAIL_FORMS[key]; }
   function buildFormFor(key) {
-    return key === "req.breakfast" ? buildBreakfastForm() : buildDetailForm(key, DETAIL_FORMS[key]);
+    return buildDetailForm(key, DETAIL_FORMS[key]);
   }
 
   function renderMatrix() {
@@ -405,7 +295,7 @@
             if (!form) return;
             form.hidden = !form.hidden;
             if (!form.hidden) {
-              const first = form.querySelector(".detail-dest, .bf-time, .detail-time");
+              const first = form.querySelector(".detail-dest, .detail-time");
               if (first) setTimeout(() => first.focus(), 30);
             }
             return;
@@ -466,8 +356,8 @@
   }
 
   /* ─────────────────────────────── IN-ROOM DINING ─────────────────────────── */
-  const RS_CATS = ["breakfast", "main", "drink", "dessert"];
-  let activeCat = "breakfast";
+  const RS_CATS = ["main", "drink", "dessert"];
+  let activeCat = "main";
 
   function renderMenu() {
     const catWrap  = document.getElementById("rsCats");
@@ -626,13 +516,6 @@
   // into (see U.checkoutFeeTier — computed fresh here, in whichever language
   // is currently active, rather than frozen into text at submission).
   function requestDetailLine(r) {
-    if (r.titleKey === "req.breakfast") {
-      const parts = [];
-      const diet = (r.items || [])[0];
-      if (diet && diet.key) parts.push(t(diet.key));
-      if (r.deliverAt) parts.push(t("req.breakfast.time") + " " + r.deliverAt);
-      return parts.join(" · ");
-    }
     if (r.kind === "order") {
       return r.deliverAt ? t("rs.deliveryTime") + " " + (r.deliverAt === "asap" ? t("rs.asap") : r.deliverAt) : "";
     }
@@ -890,12 +773,9 @@
         '<span class="badge ' + normStatus + '">' + U.escapeHtml(t("track.status." + normStatus)) + "</span></div>" +
         statusRail(normStatus) +
         '<div class="ti-meta">' + U.escapeHtml(meta) + "</div>" +
-        // A breakfast note is the guest's allergy line — label it as such;
-        // any other request's note is their own free-text words, quoted.
+        // A request's note is the guest's own free-text words, quoted.
         (r.note
-          ? '<div class="ti-note">' + (r.titleKey === "req.breakfast"
-              ? U.escapeHtml(t("req.breakfast.allergies") + ": " + r.note)
-              : '"' + U.escapeHtml(r.note) + '"') + "</div>"
+          ? '<div class="ti-note">"' + U.escapeHtml(r.note) + '"</div>'
           : "") +
         '<div class="ti-actions">' +
           (hasThread

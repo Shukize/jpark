@@ -1287,23 +1287,12 @@
         detail += '<div class="sr-detail sr-reqtime' + (tier === "extraNight" ? " sr-fee-high" : tier === "fee500" ? " sr-fee-mid" : "") + '">🕛 ' +
           esc(t("req.checkout.time")) + ": " + esc(r.deliverAt) +
           (tier ? " · " + esc(t("req.checkout.tier." + tier)) : "") + "</div>";
-      } else if (r.titleKey === "req.breakfast") {
-        // Dietary choice is a stable i18n key on the item, so it reads in the
-        // STAFF member's language regardless of what the guest chose it in.
-        const dietItem = (r.items || [])[0];
-        const bits = [];
-        if (dietItem && dietItem.key) bits.push(t(dietItem.key));
-        if (r.deliverAt) bits.push(t("req.breakfast.time") + " " + r.deliverAt);
-        if (bits.length) detail += '<div class="sr-detail sr-reqtime">🍳 ' + esc(bits.join(" · ")) + "</div>";
       }
       // The guest's own words and the desk's note are kept visibly apart —
-      // one is a request, the other is a record of what was done about it. A
-      // breakfast note is specifically the guest's allergies, so it's labelled
-      // as such rather than as a generic note.
+      // one is a request, the other is a record of what was done about it.
       if (r.note) {
-        const noteLabel = r.titleKey === "req.breakfast" ? t("req.breakfast.allergies") : t("staff.requests.note");
-        detail += '<div class="sr-detail' + (r.titleKey === "req.breakfast" ? " sr-allergy" : "") + '">' +
-          esc(noteLabel) + ": " + esc(r.note) + "</div>";
+        detail += '<div class="sr-detail">' +
+          esc(t("staff.requests.note")) + ": " + esc(r.note) + "</div>";
       }
       if (r.staffNote) detail += '<div class="sr-detail sr-staffnote">📝 ' + esc(r.staffNote) + "</div>";
 

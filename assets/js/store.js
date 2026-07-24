@@ -126,9 +126,6 @@
   ];
 
   const SEED_MENU = [
-    { id: "m1", cat: "breakfast", key: "menu.item.congee",   price: 180 },
-    { id: "m2", cat: "breakfast", key: "menu.item.eggs",     price: 220 },
-    { id: "m3", cat: "breakfast", key: "menu.item.pancakes", price: 240 },
     { id: "m4", cat: "main",      key: "menu.item.padthai",  price: 260 },
     { id: "m5", cat: "main",      key: "menu.item.ramen",    price: 320 },
     { id: "m6", cat: "main",      key: "menu.item.burger",   price: 350 },

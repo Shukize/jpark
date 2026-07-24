@@ -196,10 +196,6 @@ body.has-banner .site-header { } /* header stays fixed; banner scrolls above */
 @keyframes detailIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: none; } }
 .detail-form .detail-ask { margin: 0 0 6px; font-weight: 600; font-size: 1rem; color: var(--teal-deep); }
 .detail-form .detail-feenote { margin: 0 0 14px; font-size: 0.82rem; color: var(--ink-soft); line-height: 1.55; }
-.detail-form .detail-cutoff {
-  margin: 0 0 13px; font-size: 0.82rem; line-height: 1.5;
-  background: #fbe9d6; color: #9a5a17; border-radius: 10px; padding: 9px 12px;
-}
 .detail-form .field { margin-bottom: 12px; }
 .detail-form .detail-tier { margin: -3px 0 12px; font-size: 0.86rem; font-weight: 600; color: var(--teal); }
 .detail-form .form-error { min-height: 0; margin: 0 0 10px; }
@@ -213,16 +209,6 @@ body.has-banner .site-header { } /* header stays fixed; banner scrolls above */
   background: var(--paper); border-color: var(--ink-soft); color: var(--ink);
   transform: none; box-shadow: none;
 }
-/* breakfast dietary chips */
-.bf-diet { display: flex; flex-wrap: wrap; gap: 8px; }
-.bf-diet-chip {
-  border: 1.5px solid var(--line); background: #fff; border-radius: 999px;
-  padding: 8px 16px; font-size: 0.85rem; font-weight: 600; cursor: pointer;
-  color: var(--ink-soft); font-family: var(--sans); transition: border-color .18s, background .18s, color .18s;
-}
-.bf-diet-chip:hover { border-color: var(--teal-soft); }
-.bf-diet-chip.active { background: var(--teal); color: var(--ivory); border-color: var(--teal); }
-
 /* ============================================================
    PER-REQUEST REMARKS THREAD  (guest tracker + staff board)
    The guest and front desk talk about one specific request, right on
@@ -267,7 +253,6 @@ body.has-banner .site-header { } /* header stays fixed; banner scrolls above */
 .staff-req .sr-reqtime { font-weight: 600; color: var(--ink); }
 .staff-req .sr-reqtime.sr-fee-mid { color: #9a5f13; }
 .staff-req .sr-reqtime.sr-fee-high { color: #a83318; font-weight: 700; }
-.staff-req .sr-allergy { color: #a83318; font-weight: 600; }
 .staff-req .act-remarks.has-unread { color: var(--terracotta-d); border-color: rgba(193,103,73,0.4); }
 .staff-req .act-remarks .sr-msg-badge { margin-left: 4px; }
 
