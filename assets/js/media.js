@@ -298,6 +298,10 @@
     { id: "banquet",     labelKey: "fac.gardenName",      section: "facilities", gallery: true, galleryKey: "gallery.cat.banquet", items: BANQUET_ITEMS },
     { id: "gym",         labelKey: "fac.gymName",         section: "facilities", gallery: true, galleryKey: "gallery.cat.gym", items: GYM_ITEMS },
     { id: "room:Studio Single",   labelKey: "rooms.studioSingleName",  section: "rooms", gallery: true, items: roomItems("Studio Single") },
+    // Studio Twin has no dedicated photos — it aliases the Studio Single folder.
+    // gallery:false so it isn't listed as a duplicate gallery category, but the
+    // homepage Studio Twin card can still open the (shared) photos in the lightbox.
+    { id: "room:Studio Twin",     labelKey: "rooms.studioTwinName",    section: "rooms", gallery: false, items: roomItems("Studio Single") },
     { id: "room:Prestige Single", labelKey: "rooms.prestigeSingleName", section: "rooms", gallery: true, items: PRESTIGE_SINGLE_ITEMS },
     { id: "room:Prestige Twin",   labelKey: "rooms.prestigeTwinName",  section: "rooms", gallery: true, items: PRESTIGE_TWIN_ITEMS },
     { id: "room:Studio B4",       labelKey: "rooms.studioB4Name",      section: "rooms", gallery: true, items: roomItems("Studio B4") },

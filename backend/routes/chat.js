@@ -260,11 +260,21 @@ router.get('/all', requireAuth, async (_req, res) => {
         (SELECT COUNT(*) FROM chat_messages cm2
           WHERE cm2.guest_id = cm.guest_id
             AND cm2.from_role = 'guest'
-            AND cm2.created_at > COALESCE(
-              (SELECT created_at FROM chat_messages
-                WHERE guest_id = cm.guest_id AND from_role = 'staff'
-                ORDER BY created_at DESC LIMIT 1),
-              '1970-01-01'
+            AND cm2.created_at > GREATEST(
+              COALESCE(
+                (SELECT created_at FROM chat_messages
+                  WHERE guest_id = cm.guest_id AND from_role = 'staff'
+                  ORDER BY created_at DESC LIMIT 1),
+                '1970-01-01'::timestamptz
+              ),
+              -- ...or the last time a staff member OPENED this thread (see
+              -- chat_reads). Without this, unread only ever cleared by REPLYING:
+              -- reading zeroed the badge locally and the next poll lit it back up.
+              COALESCE(
+                (SELECT last_read_at FROM chat_reads
+                  WHERE guest_id = cm.guest_id AND scope = 'chat' AND role = 'staff'),
+                '1970-01-01'::timestamptz
+              )
             )
         ) AS unread_for_staff
       FROM chat_messages cm
@@ -355,12 +365,21 @@ router.get('/request-summary', async (req, res) => {
                 COUNT(*)::int AS count,
                 MAX(created_at) AS last_at,
                 COUNT(*) FILTER (
-                  WHERE from_role = 'staff' AND created_at > COALESCE(
-                    (SELECT created_at FROM chat_messages cm2
-                      WHERE cm2.request_kind = cm.request_kind AND cm2.request_id = cm.request_id
-                        AND cm2.guest_id = cm.guest_id AND cm2.from_role = 'guest'
-                      ORDER BY created_at DESC LIMIT 1),
-                    '1970-01-01'
+                  WHERE from_role = 'staff' AND created_at > GREATEST(
+                    COALESCE(
+                      (SELECT created_at FROM chat_messages cm2
+                        WHERE cm2.request_kind = cm.request_kind AND cm2.request_id = cm.request_id
+                          AND cm2.guest_id = cm.guest_id AND cm2.from_role = 'guest'
+                        ORDER BY created_at DESC LIMIT 1),
+                      '1970-01-01'::timestamptz
+                    ),
+                    COALESCE(
+                      (SELECT last_read_at FROM chat_reads
+                        WHERE guest_id = cm.guest_id
+                          AND scope = 'req:' || cm.request_kind || ':' || cm.request_id
+                          AND role = 'guest'),
+                      '1970-01-01'::timestamptz
+                    )
                   )
                 )::int AS unread_for_guest
            FROM chat_messages cm
@@ -389,12 +408,21 @@ router.get('/request-summary', async (req, res) => {
                 COUNT(*)::int AS count,
                 MAX(created_at) AS last_at,
                 COUNT(*) FILTER (
-                  WHERE from_role = 'guest' AND created_at > COALESCE(
-                    (SELECT created_at FROM chat_messages cm2
-                      WHERE cm2.request_kind = cm.request_kind AND cm2.request_id = cm.request_id
-                        AND cm2.guest_id = cm.guest_id AND cm2.from_role = 'staff'
-                      ORDER BY created_at DESC LIMIT 1),
-                    '1970-01-01'
+                  WHERE from_role = 'guest' AND created_at > GREATEST(
+                    COALESCE(
+                      (SELECT created_at FROM chat_messages cm2
+                        WHERE cm2.request_kind = cm.request_kind AND cm2.request_id = cm.request_id
+                          AND cm2.guest_id = cm.guest_id AND cm2.from_role = 'staff'
+                        ORDER BY created_at DESC LIMIT 1),
+                      '1970-01-01'::timestamptz
+                    ),
+                    COALESCE(
+                      (SELECT last_read_at FROM chat_reads
+                        WHERE guest_id = cm.guest_id
+                          AND scope = 'req:' || cm.request_kind || ':' || cm.request_id
+                          AND role = 'staff'),
+                      '1970-01-01'::timestamptz
+                    )
                   )
                 )::int AS unread_for_staff
            FROM chat_messages cm
@@ -622,11 +650,80 @@ router.post('/', async (req, res) => {
   }
 });
 
-/* PATCH /api/chat/:guestId/read — guest marks staff replies as read */
+/* ── Durable read markers (chat_reads) ──────────────────────────────────────
+   Opening a thread records "read up to now" so the unread subqueries above
+   stop counting everything before it. Reading clears the badge for good; only
+   a genuinely newer message from the other side re-lights it. Scope 'chat' is
+   the main thread; 'req:<kind>:<id>' is one request's remark thread — the SAME
+   string the unread subqueries build with `'req:' || request_kind || ':' ||
+   request_id`, so they must stay in sync. */
+const READ_KINDS = new Set(['service', 'order']);
+function reqScope(kind, id) { return 'req:' + kind + ':' + id; }
+async function stampRead(guestId, scope, role) {
+  await db.query(
+    `INSERT INTO chat_reads (guest_id, scope, role, last_read_at)
+       VALUES ($1, $2, $3, NOW())
+     ON CONFLICT (guest_id, scope, role)
+       DO UPDATE SET last_read_at = NOW()`,
+    [String(guestId), scope, role]
+  );
+}
+
+/* PATCH /api/chat/:guestId/read — guest opened their own main thread. */
 router.patch('/:guestId/read', async (req, res) => {
-  // We track read state per-conversation in the client;
-  // this endpoint exists so the badge resets on the guest side.
-  res.json({ ok: true });
+  try {
+    await stampRead(req.params.guestId, 'chat', 'guest');
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('[chat] read (guest)', e);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+/* POST /api/chat/:guestId/read — staff opened this guest's main thread (auth).
+   Distinct HTTP method from the guest PATCH above so the two never collide. */
+router.post('/:guestId/read', requireAuth, async (req, res) => {
+  try {
+    await stampRead(req.params.guestId, 'chat', 'staff');
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('[chat] read (staff)', e);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+/* POST /api/chat/request-read — guest opened a request's remark thread.
+   Body: { guestId, kind, id }. No auth (guest-facing). */
+router.post('/request-read', async (req, res) => {
+  const { guestId, kind } = req.body || {};
+  const id = Number(req.body && req.body.id);
+  if (!guestId || !READ_KINDS.has(kind) || !Number.isInteger(id)) {
+    return res.status(400).json({ error: 'guestId, kind (service|order) and integer id required' });
+  }
+  try {
+    await stampRead(guestId, reqScope(kind, id), 'guest');
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('[chat] request-read (guest)', e);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+/* POST /api/chat/request-read-staff — staff opened a request's remark thread (auth).
+   Body: { guestId, kind, id }. */
+router.post('/request-read-staff', requireAuth, async (req, res) => {
+  const { guestId, kind } = req.body || {};
+  const id = Number(req.body && req.body.id);
+  if (!guestId || !READ_KINDS.has(kind) || !Number.isInteger(id)) {
+    return res.status(400).json({ error: 'guestId, kind (service|order) and integer id required' });
+  }
+  try {
+    await stampRead(guestId, reqScope(kind, id), 'staff');
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('[chat] request-read (staff)', e);
+    res.status(500).json({ error: 'Database error' });
+  }
 });
 
 /* PATCH /api/chat/:guestId/assign — staff takes over a chat from whoever

@@ -427,6 +427,7 @@ body.has-banner .site-header { } /* header stays fixed; banner scrolls above */
 }
 .chat-id .cid-field input:focus { outline: none; border-color: var(--teal); }
 .chat-id .cid-or { margin: 8px 0; text-align: center; font-size: 0.72rem; color: var(--ink-soft); }
+.chat-id .cid-hint { margin: 9px 0 0; font-size: 0.72rem; color: var(--ink-soft); line-height: 1.45; opacity: 0.9; }
 .chat-id .cid-actions { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
 .chat-id .cid-go { background: var(--teal); color: var(--ivory); border-color: var(--teal); }
 .chat-id .cid-go:hover:not(:disabled) { opacity: .9; }
@@ -1455,6 +1456,7 @@ body.mobile-view .fac-card.large {
 }
 .bk-frontdesk-input { width: 100px; }
 .bk-frontdesk-paid { color: #1a7f4b; font-weight: 600; font-size: 0.88rem; }
+.bk-frontdesk-hint { font-size: 0.76rem; color: #5a6478; line-height: 1.45; margin: -2px 0 2px; }
 .bk-confirm-label {
   font-size: 0.74rem; text-transform: uppercase; letter-spacing: .07em;
   color: #aaa; font-weight: 700; margin-bottom: 12px;

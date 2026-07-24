@@ -175,6 +175,14 @@ ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS payment_method    VARCHAR(20
 ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS payment_status    VARCHAR(20) NOT NULL DEFAULT 'n/a';
 ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS payment_charge_id VARCHAR(100);
 
+-- Set TRUE when a booking was taken while "require prepayment" was on (busy /
+-- holiday periods — see site_content.require_prepayment and routes/bookingPolicy.js).
+-- Such a booking is prepaid online and non-refundable on no-show. There is no
+-- automated refund anywhere in this system (omise.js has no refund call); this
+-- flag only drives the guest-facing / staff-facing "non-refundable" copy, so the
+-- desk knows not to refund. Always FALSE for OTA/manual and normal direct bookings.
+ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS non_refundable BOOLEAN NOT NULL DEFAULT FALSE;
+
 -- Physical room number assigned by front-desk staff at check-in (distinct
 -- from `room`, which is a room-TYPE string like "Deluxe"). NULL until staff
 -- assign it via the staff console. Not a FK to the separate, unrelated
@@ -350,6 +358,26 @@ CREATE INDEX IF NOT EXISTS idx_chat_guest
 CREATE INDEX IF NOT EXISTS idx_chat_request
   ON chat_messages (request_kind, request_id);
 
+-- ── Chat read-state (added 2026-07-24) ──────────────────────────────────────
+-- Durable "read up to when" markers, one row per (thread, side). Unread used to
+-- be derived purely from "messages since the OTHER side's last reply", so a
+-- thread only ever cleared by REPLYING: reading it cleared the badge locally,
+-- then the next poll recomputed unread from the server and lit it straight back
+-- up (the client's "I read it and it won't go away" report). Opening a thread
+-- now stamps a row here, and every unread subquery counts the other side's
+-- messages after GREATEST(my last message, my last_read_at) — so reading clears
+-- durably, while a genuinely new message still re-lights it.
+--   scope: 'chat' for the main guest thread, or 'req:<kind>:<id>' for one
+--          request's remark thread.
+--   role : 'staff' | 'guest'.
+CREATE TABLE IF NOT EXISTS chat_reads (
+  guest_id     VARCHAR(100) NOT NULL,
+  scope        VARCHAR(60)  NOT NULL,
+  role         VARCHAR(20)  NOT NULL,
+  last_read_at TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (guest_id, scope, role)
+);
+
 -- ── In-room dining orders ────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS orders (
   id          SERIAL       PRIMARY KEY,
@@ -444,6 +472,15 @@ INSERT INTO site_content (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
 -- Site-wide maintenance mode: when TRUE, guest pages (index.html, booking.html)
 -- redirect to maintenance.html. Toggled from the admin-only panel in staff.html.
 ALTER TABLE site_content ADD COLUMN IF NOT EXISTS maintenance_mode BOOLEAN NOT NULL DEFAULT FALSE;
+
+-- "Require prepayment" (busy / holiday periods): when TRUE, the booking flow
+-- drops the pay-at-check-in option — every new direct booking must pay online
+-- (card/PromptPay) and is stamped non_refundable. Toggled by admins from the
+-- same maintenance panel (routes/bookingPolicy.js). It only has teeth while
+-- online payment is actually live (OMISE_SECRET_KEY set): GET /payments/config
+-- reports prepayRequired = require_prepayment AND omise.isConfigured(), so if
+-- Omise isn't configured the switch is inert and no guest is ever blocked.
+ALTER TABLE site_content ADD COLUMN IF NOT EXISTS require_prepayment BOOLEAN NOT NULL DEFAULT FALSE;
 
 -- Admin-editable room-rate overrides (room-only/breakfast prices per room +
 -- variant), saved from the Site Editor's Rates tab. Shape:

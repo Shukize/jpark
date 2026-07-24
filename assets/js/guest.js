@@ -721,6 +721,11 @@
     }
     expandedThreads.add(key);
     section.hidden = false;
+    // Opening the thread is the guest saying "I've read it". This used to clear
+    // NOTHING — the 💬 badge only ever went away when the guest REPLIED. Clear
+    // it now (optimistic) and record a durable server marker so the next 8s poll
+    // doesn't bring it back.
+    markThreadReadGuest(r, card);
     const bodyEl = section.querySelector(".thread-body");
     const cached = threadCache[key];
     if (cached) renderThreadMessages(bodyEl, cached);
@@ -728,6 +733,25 @@
     renderThreadMessages(bodyEl, messages);
     const input = section.querySelector(".thread-input");
     if (input) setTimeout(() => input.focus(), 30);
+  }
+
+  // Clears a request's remark-thread unread: the local 💬 badge immediately, and
+  // the durable server marker (chat_reads) so a poll can't re-light it. Also
+  // primes lastSeenUnread so notifyNewThreadReplies won't toast for messages the
+  // guest just read.
+  function markThreadReadGuest(r, card) {
+    const key = threadKey(r);
+    lastSeenUnread[key] = 0;
+    if (card) {
+      const btn = card.querySelector(".link-thread");
+      if (btn) btn.classList.remove("has-unread");
+      const badge = card.querySelector(".thread-badge");
+      if (badge) badge.remove();
+    }
+    const API = window.JPark.api;
+    if (API && r.reqKind && r.reqId != null) {
+      API.post("/api/chat/request-read", { guestId: S.guestId(), kind: r.reqKind, id: r.reqId }).catch(function () {});
+    }
   }
 
   async function sendThreadMessage(r, text, section) {

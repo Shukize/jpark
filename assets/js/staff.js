@@ -438,6 +438,13 @@
           bookingId: remote.bookingId, bookingRef: remote.bookingRef,
           confirmedBy: remote.confirmedBy,
         });
+        // If the staff member is looking at this exact thread right now, a poll
+        // that lands mid-conversation must not re-light its badge — stamp it
+        // read and keep the local count at 0.
+        if (panel === "chat" && remote.id === selectedThread && remote.unreadForStaff) {
+          local[idx].unreadForStaff = 0;
+          stampChatRead(remote.id);
+        }
         dirty = true;
       }
     });
@@ -672,7 +679,7 @@
     else if (panel === "roster") renderRoster();
     else if (panel === "site") renderSite();
     else if (panel === "team") renderTeam();
-    else if (panel === "maintenance") renderMaintenance();
+    else if (panel === "maintenance") { renderMaintenance(); renderPrepay(); }
     else if (panel === "accountLogs") renderAccountLogs();
   }
 
@@ -708,6 +715,53 @@
         }
         paintStatus(res2.enabled);
         U.toast(t("staff.maint.saved"), "success");
+      });
+    }
+  }
+
+  /* ---- require prepayment for busy/holiday periods (admin) ----
+     Same shape as maintenance mode, against /api/booking-policy. Also surfaces
+     whether it can actually take effect: prepay only bites while online payment
+     (Omise) is live — until then the switch saves but has no guest-facing effect,
+     so we show a note rather than pretend it's working. */
+  let prepayToggleWired = false;
+  async function renderPrepay() {
+    if (!isAdmin()) return;
+    const statusEl = document.getElementById("prepayStatus");
+    const toggleEl = document.getElementById("prepayToggle");
+    const warnEl = document.getElementById("prepayOmiseWarn");
+    if (!statusEl || !toggleEl) return;
+
+    function paintStatus(enabled) {
+      statusEl.textContent = t(enabled ? "staff.prepay.status.on" : "staff.prepay.status.off");
+      toggleEl.checked = enabled;
+    }
+
+    const res = await J.api.get("/api/booking-policy");
+    paintStatus(!J.api.isOffline(res) && !!res.requirePrepayment);
+
+    if (warnEl) {
+      const cfg = await J.api.get("/api/v1/payments/config");
+      const paymentLive = !J.api.isOffline(cfg) && !!cfg.paymentEnabled;
+      warnEl.hidden = paymentLive;
+    }
+
+    if (!prepayToggleWired) {
+      prepayToggleWired = true;
+      toggleEl.addEventListener("change", async (e) => {
+        const enabled = e.target.checked;
+        const confirmMsg = t(enabled ? "staff.prepay.confirmOn" : "staff.prepay.confirmOff");
+        if (!confirm(confirmMsg)) { e.target.checked = !enabled; return; }
+        toggleEl.disabled = true;
+        const res2 = await J.api.put("/api/booking-policy", { requirePrepayment: enabled });
+        toggleEl.disabled = false;
+        if (J.api.isOffline(res2) || res2.error) {
+          U.toast(t("staff.prepay.error"), "error");
+          e.target.checked = !enabled;
+          return;
+        }
+        paintStatus(res2.requirePrepayment);
+        U.toast(t("staff.prepay.saved"), "success");
       });
     }
   }
@@ -1298,6 +1352,10 @@
       const threadKey = reqThreadKey(r);
       const threadExpanded = reqExpandedThreads.has(threadKey);
       const threadUnread = r.msgUnread || 0;
+      // Physical room number (from the live booking, assigned at check-in) AND
+      // room type, so the desk sees exactly where the guest is — e.g. "Room 407"
+      // + "Deluxe" — and never a room type mislabelled as "Room Deluxe".
+      const rb = roomBits(bookingForRequest(r), r.room, r.roomType);
 
       card.innerHTML =
         (reqMultiSelect
@@ -1305,12 +1363,14 @@
             ' aria-label="' + esc(t("staff.chat.select")) + '" />'
           : "") +
         '<div class="sr-head">' +
-          '<span class="sr-room">' + esc(t("staff.requests.room")) + " " + esc(r.room) + "</span>" +
-          // Which of the five buildings, and the room type — read off the
-          // guest's booking when it filed (lib/buildings.js). Housekeeping
-          // can't act on a room number alone across a five-building site.
+          // The physical room number (only when the front desk has actually
+          // assigned one), then which of the five buildings, then the room type
+          // — read off the guest's LIVE booking (lib/buildings.js). Housekeeping
+          // can't act on a room number alone across a five-building site, and a
+          // number the desk hasn't assigned yet would just be a guess.
+          (rb.number ? '<span class="sr-room">' + esc(t("staff.requests.room")) + " " + esc(rb.number) + "</span>" : "") +
           (r.building ? '<span class="sr-building">' + esc(t("building.n").replace("{n}", r.building)) + "</span>" : "") +
-          (r.roomType ? '<span class="sr-roomtype">' + esc(r.roomType) + "</span>" : "") +
+          (rb.type ? '<span class="sr-roomtype">' + esc(rb.type) + "</span>" : "") +
           '<span class="sr-title"><span class="sr-dept" aria-hidden="true">' + reqDeptIco(r) + "</span>" +
             esc(reqTitle(r)) + "</span>" +
           (unread ? '<span class="sr-bang" aria-hidden="true">!</span>' : "") +
@@ -1477,6 +1537,12 @@
     const all = S.list("requests");
     const i = all.findIndex((x) => String(x.id) === String(r.id));
     if (i >= 0 && all[i].msgUnread) { all[i].msgUnread = 0; S.write("requests", all); }
+    // Durable read marker so the next _pollRequests summary doesn't re-light the
+    // "💬 N" badge on a remark thread the desk already opened (chat_reads).
+    const API = window.JPark && window.JPark.api;
+    if (API && r.guestId && r.reqKind && r.reqId != null) {
+      API.post("/api/chat/request-read-staff", { guestId: r.guestId, kind: r.reqKind, id: r.reqId }).catch(function () {});
+    }
   }
 
   async function sendReqRemark(r, text, bodyEl) {
@@ -1697,6 +1763,29 @@
     return S.list("guestBookings").find((b) => b.ref === r.bookingRef) || null;
   }
 
+  // The room a guest is in, for the desk to read at a glance: the physical room
+  // NUMBER the front desk assigned plus the room TYPE. The number is taken from
+  // the LIVE booking (so a room typed at check-in shows on this guest's requests
+  // and chats immediately), and falls back to the guest's self-declared room
+  // only when no booking is linked. Because the number comes from the booking's
+  // room_number and the type from its room-type, an as-yet-unassigned booking
+  // shows just its type — never the old, confusing "Room Deluxe" (a room TYPE
+  // mislabelled as a number). `booking.room` is the room TYPE, `room_number` the
+  // physical room (see the two-"room"-fields trap noted throughout the backend).
+  function roomBits(booking, selfRoom, selfType) {
+    const number = booking ? (booking.roomNumber || null) : (selfRoom || null);
+    const type   = (booking && booking.room) || selfType || null;
+    return { number: number, type: type };
+  }
+  // "Room 407 · Deluxe", or just the part we have when the other is missing.
+  function roomLabel(booking, selfRoom, selfType) {
+    const b = roomBits(booking, selfRoom, selfType);
+    const parts = [];
+    if (b.number) parts.push(t("staff.requests.room") + " " + b.number);
+    if (b.type)   parts.push(b.type);
+    return parts.join(" · ");
+  }
+
   /* Resolve the panel's subject freshly from the store on every render, so a
      poll landing while it's open updates it in place instead of showing a
      snapshot from when it was opened. */
@@ -1708,7 +1797,7 @@
       const booking = bookingForRequest(r);
       return {
         kind: "request", request: r, chat: chatForGuest(r), booking: booking,
-        name: r.guestName, room: r.room,
+        name: r.guestName, room: roomBits(booking, r.room, r.roomType).number,
         building: r.building || (booking ? booking.building : null),
         roomType: r.roomType || (booking ? booking.room : null),
         lang: r.lang, tier: r.guestVerified ? "verified" : "unconfirmed",
@@ -1720,7 +1809,7 @@
     const booking = chatBooking(c);
     return {
       kind: "chat", chat: c, request: null, booking: booking,
-      name: c.guestName, room: c.room || (booking ? booking.roomNumber : null),
+      name: c.guestName, room: roomBits(booking, c.room, null).number,
       building: booking ? booking.building : null,
       roomType: booking ? booking.room : null,
       lang: c.lang, tier: chatTier(c),
@@ -1808,6 +1897,7 @@
       fields += bookingField("msg.bk.breakfast", t(b.breakfast ? "msg.bk.breakfast.yes" : "msg.bk.breakfast.no"));
       fields += bookingField("msg.bk.smokingPref", t("msg.bk.smokingPref." + (b.smokingPreference || "non_smoking")));
       if (b.extraBed) fields += bookingField("msg.bk.extraBed", t("msg.bk.breakfast.yes"));
+      if (b.nonRefundable) fields += bookingField("msg.bk.nonRefundable", t("msg.bk.breakfast.yes"));
       fields += bookingField("msg.bk.phone", b.guestPhone);
       fields += bookingField("msg.bk.email", b.guestEmail);
       if (b.total != null) fields += bookingField("msg.bk.total", (b.currency || "THB") + " " + Number(b.total).toLocaleString());
@@ -2067,7 +2157,11 @@
   function chatDisplayName(c) {
     if (chatTier(c) === "visitor") return t("staff.chat.tier.visitor");
     if (c.guestName) {
-      return c.guestName + (c.room ? " · " + t("staff.requests.room") + " " + c.room : "");
+      // Prefer the physical room number the desk assigned (live booking) over
+      // the self-declared one frozen at sign-in; the room type rides in the
+      // identity strip below the header.
+      const rb = roomBits(chatBooking(c), c.room, null);
+      return c.guestName + (rb.number ? " · " + t("staff.requests.room") + " " + rb.number : "");
     }
     return t("staff.chat.tier.unknown");
   }
@@ -2103,6 +2197,10 @@
         // shows, so a chat about a broken air-conditioner can be walked to
         // without looking the guest up somewhere else.
         if (b.building) bits.push(esc(t("building.n").replace("{n}", b.building)));
+        // Physical room number (once the front desk has assigned it at check-in)
+        // AND the room type — so a chat about a broken air-conditioner shows both
+        // "Room 407" and "Deluxe", not just the type. `b.room` is the TYPE.
+        if (b.roomNumber) bits.push(esc(t("staff.requests.room")) + " " + esc(b.roomNumber));
         if (b.room) bits.push(esc(b.room));
         if (b.checkIn && b.checkOut) {
           // The API hands dates back as full timestamps; formatDate wants a
@@ -2424,10 +2522,20 @@
     if (nameBtn) nameBtn.addEventListener("click", () => openGuestPanel({ chat: conv }));
   }
 
+  // Tell the server we've read this thread up to now (chat_reads). Without a
+  // durable marker, unread was recomputed from "messages since our last reply"
+  // on every poll, so reading zeroed the badge locally and the next poll lit it
+  // right back up — the "I read it and it won't go away" report. Fire-and-forget.
+  function stampChatRead(id) {
+    const API = window.JPark && window.JPark.api;
+    if (API && id) API.post("/api/chat/" + encodeURIComponent(id) + "/read", {}).catch(function () {});
+  }
+
   function markThreadRead(id) {
     const all = S.list("chats");
     const i = all.findIndex((c) => c.id === id);
     if (i >= 0 && all[i].unreadForStaff) { all[i].unreadForStaff = 0; S.write("chats", all); }
+    stampChatRead(id);
   }
 
   // Replies are sent one at a time. Fired concurrently, two messages typed a
@@ -3481,7 +3589,11 @@
         '<input type="text" class="bk-frontdesk-input" id="bkdRoomNumberInput" maxlength="10" ' +
           'placeholder="' + esc(t("msg.bk.roomNumberPlaceholder")) + '" value="' + esc(b.roomNumber || "") + '">' +
         '<button class="mda-action-btn" id="bkdSaveRoomBtn">' + esc(t("msg.bk.assignRoom")) + "</button>" +
-      "</div>";
+      "</div>" +
+      // Why it matters: an assigned room number is what lets an in-house guest
+      // reach Guest Services by name + room, and what makes their requests and
+      // chats show the physical room. Without it the desk only ever has the type.
+      '<div class="bk-frontdesk-hint">' + esc(t("msg.bk.roomNumberHint")) + "</div>";
     const paymentRow = paid
       ? '<div class="bk-frontdesk-row bk-frontdesk-paid">✓ ' + esc(t("msg.bk.paymentReceivedConfirm")) + ": " + esc(bkPaymentLabel(b)) + "</div>"
       : '<div class="bk-frontdesk-row">' +
@@ -4165,6 +4277,7 @@
     fields += bookingField("msg.bk.smokingPref", t("msg.bk.smokingPref." + (b.smokingPreference || "non_smoking")));
     fields += bookingField("msg.bk.breakfast", t(b.breakfast ? "msg.bk.breakfast.yes" : "msg.bk.breakfast.no"));
     if (b.extraBed) fields += bookingField("msg.bk.extraBed", t("msg.bk.breakfast.yes"));
+    if (b.nonRefundable) fields += bookingField("msg.bk.nonRefundable", t("msg.bk.breakfast.yes"));
     fields += bookingField("msg.bk.total", totalStr);
     fields += bookingField("msg.bk.payment", bkPaymentLabel(b));
     fields += bookingField("msg.bk.statusLabel", bkStatusLabel(b.status));

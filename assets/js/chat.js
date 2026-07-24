@@ -368,7 +368,13 @@
         '<input type="text" name="room" inputmode="numeric" autocomplete="off" /></label>' +
       '<p class="cid-or">' + U.escapeHtml(t("chat.id.or")) + "</p>" +
       '<label class="cid-field"><span>' + U.escapeHtml(t("chat.id.ref")) + "</span>" +
-        '<input type="text" name="ref" placeholder="' + U.escapeHtml(t("chat.id.refPh")) + '" autocomplete="off" /></label>';
+        '<input type="text" name="ref" placeholder="' + U.escapeHtml(t("chat.id.refPh")) + '" autocomplete="off" /></label>' +
+      // Sets expectations so a not-yet-checked-in guest reaches for their booking
+      // reference instead of guessing a room number and hitting the "not found"
+      // path — the confusion behind the "I typed a room number and nothing showed
+      // up" report. The room number becomes matchable once the front desk assigns
+      // it at check-in.
+      '<p class="cid-hint">' + U.escapeHtml(t("chat.id.verifyHint")) + "</p>";
 
     if (idError) {
       const err = document.createElement("p");
