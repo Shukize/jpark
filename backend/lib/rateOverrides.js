@@ -6,10 +6,18 @@
    Site Editor's Rates tab, written through backend/routes/rates.js) and is
    what backend/routes/payments.js actually charges guests from.
 
+   It also owns the same base+override merge for the per-room-type ROOM COUNT
+   (site_content.room_inventory, edited from the Site Editor's "How many rooms"
+   card and written by backend/routes/availability.js) — see
+   getEffectiveInventoryMap() near the bottom. That number isn't a price, but it
+   is the same shape of problem (static fallback in roomRates.js + a validated
+   admin override that real guest-facing guards must read), so it lives here
+   rather than in a second near-identical module.
+
    Security posture: an override can only ever adjust the `room`/`bf`
    numbers of a room+variant that already exists in the static ROOMS object
-   — it can never add a new room/variant, and never touches maxGuests or
-   inventory. Every number is re-validated here independently of the write-time
+   — it can never add a new room/variant, and never touches maxGuests. Every
+   number is re-validated here independently of the write-time
    validation in routes/rates.js (defense in depth): an invalid stored value is
    skipped (logged) and falls back to the static default for that one field
    only, never for the whole room. A DB read failure fails closed to the
@@ -261,6 +269,56 @@ async function getAllEffectiveRooms() {
   return out;
 }
 
+/* ---- per-room-type room count (overbooking guard's ceiling) ----
+   Same base+override pattern as the rates above, with two differences that
+   matter: the value is a COUNT (a whole number, and 0 is legitimate — it just
+   means "sell none of this type"), and it gates availability rather than
+   price. A stored value that isn't a valid count is ignored in favour of the
+   static ROOM_INVENTORY number for that one room, and a DB read failure falls
+   back to the static counts for every room — the same fail-to-the-real-numbers
+   posture the rate path takes, so a database hiccup can never silently widen
+   the overbooking ceiling. */
+const MIN_INVENTORY = 0;
+const MAX_INVENTORY = 500;
+
+function isValidInventory(n) {
+  return typeof n === 'number' && Number.isInteger(n) && n >= MIN_INVENTORY && n <= MAX_INVENTORY;
+}
+
+async function loadRawInventory() {
+  try {
+    const { rows } = await db.query('SELECT room_inventory FROM site_content WHERE id = 1');
+    const inv = rows.length ? rows[0].room_inventory : null;
+    return inv && typeof inv === 'object' ? inv : {};
+  } catch (e) {
+    console.error('[rateOverrides] DB read failed, falling back to static room counts', e);
+    return {};
+  }
+}
+
+// Full { [roomName]: count } map for every room key in the catalog.
+async function getEffectiveInventoryMap() {
+  const raw = await loadRawInventory();
+  const merged = { ...roomRates.ROOM_INVENTORY };
+  Object.keys(merged).forEach((room) => {
+    if (isValidInventory(raw[room])) {
+      merged[room] = raw[room];
+    } else if (raw[room] != null) {
+      console.warn(`[rateOverrides] invalid room count for "${room}", ignoring`, raw[room]);
+    }
+  });
+  return merged;
+}
+
+// Single room's effective count. Callers that need several rooms (a booking
+// guard looping over a cart, the Hotel Ads feed) should call
+// getEffectiveInventoryMap() once instead of this per room.
+async function getEffectiveInventory(name) {
+  if (!Object.prototype.hasOwnProperty.call(roomRates.ROOM_INVENTORY, name)) return 0;
+  const map = await getEffectiveInventoryMap();
+  return map[name];
+}
+
 module.exports = {
   isValidRate,
   mergeRoom,
@@ -276,6 +334,12 @@ module.exports = {
   loadRawDayUseRates,
   getEffectiveDayUseRates,
   getEffectiveDayUsePrice,
+  isValidInventory,
+  loadRawInventory,
+  getEffectiveInventoryMap,
+  getEffectiveInventory,
   MIN_RATE,
   MAX_RATE,
+  MIN_INVENTORY,
+  MAX_INVENTORY,
 };

@@ -526,6 +526,20 @@ ALTER TABLE site_content ADD COLUMN IF NOT EXISTS unavailable_rooms TEXT[] NOT N
 -- backend/lib/roomRates.js's DAYUSE map. See backend/routes/availability.js.
 ALTER TABLE site_content ADD COLUMN IF NOT EXISTS unavailable_dayuse TEXT[] NOT NULL DEFAULT '{}';
 
+-- Admin-editable per-room-type room COUNT (Site Editor "How many rooms"), i.e.
+-- how many physical rooms of each type the overbooking guard may sell for any
+-- one night. Shape: { [roomName]: integer }. Sparse — a room with no override
+-- falls back to backend/lib/roomRates.js's ROOM_INVENTORY. Only ever contains
+-- keys that exist in that file's ROOMS.
+--
+-- Room keys sharing one physical pool (Studio/Prestige/Premium Single+Twin —
+-- a bed-configuration choice, not a different room) are always written as a
+-- matched set by routes/availability.js, so a pool can never end up with two
+-- different counts depending on which label a guest happens to book. See
+-- backend/lib/rateOverrides.js's getEffectiveInventoryMap() for the read-time
+-- merge + re-validation.
+ALTER TABLE site_content ADD COLUMN IF NOT EXISTS room_inventory JSONB NOT NULL DEFAULT '{}';
+
 -- ── Staff session tracking (sliding sessions, concurrency cap, audit log) ────
 -- One row per staff device/browser login. `jti` is embedded in that login's
 -- access token so middleware/auth.js can revoke a single session without

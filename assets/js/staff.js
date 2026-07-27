@@ -4987,6 +4987,7 @@
     renderAnnouncements();
     renderSectionToggles();
     renderRoomAvailability();
+    renderRoomCounts();
     renderDayUseAvailability();
     renderHistory();
   }
@@ -5937,6 +5938,129 @@
       });
       wrap.appendChild(lab);
     });
+  }
+
+  /* Per-room-type room COUNT — "How many rooms" (backend/routes/availability.js).
+     One input per PHYSICAL POOL, not per room key: Studio/Prestige/Premium
+     Single and Twin are the same rooms with a different bed set-up, so the
+     server writes any edit across the whole pool and this card shows them on
+     one row — two independently editable numbers could disagree, and the
+     booking guard reads whichever label the guest picked. Saves on change
+     (blur/Enter), matching the availability toggles above. */
+  const ROOM_COUNT_MIN = 0;
+  const ROOM_COUNT_MAX = 500; // mirrors rateOverrides.MIN/MAX_INVENTORY
+
+  // Local calendar date, NOT toISOString() — that is UTC, and at +07 it reads
+  // as yesterday for most of the hotel's evening.
+  function ymdLocal(d) {
+    const p = (n) => String(n).padStart(2, "0");
+    return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate());
+  }
+
+  /* How many of each type are still free TONIGHT. The number in the input is
+     the total the hotel owns; this is that total minus tonight's bookings,
+     which the server works out per date from the bookings themselves — staff
+     never adjust a count when a guest books or leaves. Showing it here is what
+     makes that obvious: edit the total, watch the free figure follow.
+     Best-effort — if the lookup fails the card still works, just without it. */
+  async function renderTonightFree() {
+    const wrap = document.getElementById("roomCountRows");
+    if (!wrap || !wrap.querySelector(".room-count-row")) return;
+    const today = new Date();
+    const tomorrow = new Date(today.getTime() + 86400000);
+    const res = await J.api.get(
+      "/api/v1/booking-availability?checkIn=" + ymdLocal(today) + "&checkOut=" + ymdLocal(tomorrow)
+    );
+    if (J.api.isOffline(res) || !res || res.error) return;
+    wrap.querySelectorAll(".room-count-row").forEach((row) => {
+      const key = row.dataset.room;
+      const slot = row.querySelector(".rc-live");
+      if (!slot || !key || res[key] == null) return;
+      const free = Number(res[key]);
+      slot.textContent = free <= 0
+        ? t("staff.site.roomCountFullTonight")
+        : t("staff.site.roomCountFreeTonight").replace("{n}", free);
+      slot.classList.toggle("is-full", free <= 0);
+    });
+  }
+
+  async function renderRoomCounts() {
+    const wrap = document.getElementById("roomCountRows");
+    if (!wrap) return;
+    if (!roomAvailData) {
+      wrap.innerHTML = '<p class="muted">' + esc(t("staff.site.roomAvailLoading")) + "</p>";
+      if (!(await loadAvailData())) {
+        wrap.innerHTML = '<p class="muted">' + esc(t("staff.site.roomAvailError")) + "</p>";
+        return;
+      }
+    }
+    const pools = roomAvailData.pools || [];
+    const inventory = roomAvailData.inventory || {};
+    wrap.innerHTML = "";
+    pools.forEach((pool) => {
+      const key = pool[0]; // any key in the pool addresses the whole pool
+      const row = document.createElement("div");
+      row.className = "room-count-row";
+      row.dataset.room = key; // renderTonightFree() matches rows back by this
+
+      const name = document.createElement("span");
+      name.className = "rc-name";
+      name.textContent = pool.join(" / ");
+
+      const input = document.createElement("input");
+      input.type = "number";
+      input.min = String(ROOM_COUNT_MIN);
+      input.max = String(ROOM_COUNT_MAX);
+      input.step = "1";
+      input.id = "roomCount_" + key.replace(/\s+/g, "_");
+      input.value = String(inventory[key] != null ? inventory[key] : 0);
+
+      const unit = document.createElement("span");
+      unit.className = "rc-unit";
+      unit.textContent = t("staff.site.roomCountUnit");
+
+      // Filled in by renderTonightFree() once the live figure arrives.
+      const live = document.createElement("span");
+      live.className = "rc-live";
+
+      row.appendChild(name);
+      row.appendChild(input);
+      row.appendChild(unit);
+      row.appendChild(live);
+
+      // The last number the server actually accepted — a rejected or failed
+      // save restores it, so the field never shows a count that isn't live.
+      let lastSaved = input.value;
+      input.addEventListener("change", async () => {
+        const raw = input.value.trim();
+        if (raw === "") { input.value = lastSaved; return; } // cleared field: nothing to save
+        const n = Number(raw);
+        if (!Number.isInteger(n) || n < ROOM_COUNT_MIN || n > ROOM_COUNT_MAX) {
+          U.toast(t("staff.site.roomCountInvalid"), "error");
+          input.value = lastSaved;
+          return;
+        }
+        if (String(n) === lastSaved) { input.value = lastSaved; return; }
+        input.disabled = true;
+        const payload = {};
+        payload[key] = n;
+        const res2 = await J.api.put("/api/availability", { inventory: payload });
+        input.disabled = false;
+        if (J.api.isOffline(res2) || !res2 || res2.error) {
+          U.toast((res2 && res2.error) || t("staff.site.roomCountError"), "error");
+          input.value = lastSaved;
+          return;
+        }
+        if (res2.inventory) roomAvailData.inventory = res2.inventory;
+        lastSaved = String(n);
+        input.value = lastSaved;
+        U.toast(t("staff.site.roomCountSaved"), "success");
+        renderTonightFree(); // a new total changes how many are free tonight
+      });
+
+      wrap.appendChild(row);
+    });
+    renderTonightFree();
   }
 
   /* Per-building day-use availability toggle — the day-use counterpart of
