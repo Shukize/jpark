@@ -58,26 +58,91 @@ const ROOMS = {
   'Grand Suite':                 { maxGuests: 4, extraBedAvailable: false, variants: [{ label: '1 Bedroom', room: 2700, bf: 2820 }, { label: '2 Bedrooms', room: 3000, bf: 3310 }] },
 };
 
-// Physical room count per type. The owner has said overbooking isn't a
-// real-world concern for this property, so these are deliberately set high
-// (not the true physical count) so the overbooking guard never realistically
-// triggers. If that changes, replace with the real per-type room counts.
+// Real per-type physical room counts, as given by the owner (2026-07-24) now
+// that online payment makes it worth actually enforcing availability rather
+// than relying on the old 999-placeholder ceiling.
+//
+// These are the FALLBACK/BASE counts — the live-authoritative number is
+// backend/lib/rateOverrides.js's getEffectiveInventoryMap(), which merges this
+// set with any admin edits saved from the Site Editor's "How many rooms" card
+// (stored in site_content.room_inventory, written by routes/availability.js).
+// Same rule as ROOMS above: an override can only ever change the NUMBER for a
+// room key that already exists here, never add a new room type. Only
+// rateOverrides.js and routes/availability.js should read ROOM_INVENTORY
+// directly; every availability guard goes through rateOverrides.
+//
+// Two wrinkles from that same conversation:
+//
+// 1. 'Single' vs 'Twin' (Studio/Prestige/Premium) is a bed-configuration
+//    choice at booking time, not a different physical room — the owner said
+//    these share ONE pool of rooms. The two labels are still separate keys
+//    below (matching each one's own rate), but SHARED_INVENTORY_POOLS below
+//    ties them together so availability-checking code counts both against
+//    one shared limit — see getInventoryPoolRooms().
+// 2. Executive Suite (1BR/2BR) and Grand Suite (1BR/2BR) each got DIFFERENT
+//    counts per bed layout (e.g. Executive Suite: 2, Executive Suite 2BR:
+//    1), but both layouts share ONE room key here with two variants — the
+//    availability guard can only track a whole key, not a single variant of
+//    it. Per owner decision, these are combined into one pool sized at the
+//    sum (Executive Suite 1 Bedroom: 2+1=3, Grand Suite: 2+1=3) — this
+//    guarantees the combined total is never exceeded, but can't reserve the
+//    2-bedroom layout's 1 room specifically; splitting these into fully
+//    separate room types would be a larger structural change.
 const ROOM_INVENTORY = {
-  'Studio Single': 999,
-  'Studio Twin': 999,
-  'Prestige Single': 999,
-  'Prestige Twin': 999,
-  'Studio B4': 999,
-  'Deluxe': 999,
-  'Premium Single': 999,
-  'Premium Twin': 999,
-  'Grand Premium': 999,
-  'Corner Suite': 999,
-  'Grand Deluxe': 999,
-  'Executive Suite 1 Bedroom': 999,
-  'Premium Suite': 999,
-  'Grand Suite': 999,
+  'Studio Single': 10,
+  'Studio Twin': 10,
+  'Prestige Single': 7,
+  'Prestige Twin': 7,
+  'Studio B4': 10,
+  'Deluxe': 4,
+  'Premium Single': 10,
+  'Premium Twin': 10,
+  'Grand Premium': 2,
+  'Corner Suite': 2,
+  'Grand Deluxe': 4,
+  'Executive Suite 1 Bedroom': 3,
+  'Premium Suite': 2,
+  'Grand Suite': 3,
 };
+
+// Room-key groups that share ONE physical pool of rooms (see point 1 above).
+// Every key not listed here is its own standalone pool of one.
+const SHARED_INVENTORY_POOLS = [
+  ['Studio Single', 'Studio Twin'],
+  ['Prestige Single', 'Prestige Twin'],
+  ['Premium Single', 'Premium Twin'],
+];
+
+// Every room key sharing a physical pool with `name` (including itself) —
+// what availability-checking code must count together against ONE limit.
+function getInventoryPoolRooms(name) {
+  const pool = SHARED_INVENTORY_POOLS.find((p) => p.includes(name));
+  return pool || [name];
+}
+
+// A single canonical key identifying `name`'s whole pool, for locking
+// purposes (so booking 'Studio Single' and 'Studio Twin' for the same dates
+// take the SAME advisory lock instead of two independent ones).
+function getInventoryPoolKey(name) {
+  return getInventoryPoolRooms(name)[0];
+}
+
+// Every distinct physical pool, in ROOMS order, each as its full key list
+// (['Studio Single','Studio Twin'], ['Deluxe'], …). The Site Editor renders
+// ONE room-count input per pool rather than one per room key, so two labels
+// that draw from the same physical rooms can never be given different counts
+// — see routes/availability.js.
+function inventoryPools() {
+  const seen = new Set();
+  const pools = [];
+  Object.keys(ROOMS).forEach((name) => {
+    if (seen.has(name)) return;
+    const pool = getInventoryPoolRooms(name);
+    pool.forEach((key) => seen.add(key));
+    pools.push(pool);
+  });
+  return pools;
+}
 
 // Day-use rates (2026) — short 3-hour stays, flat THB price per BUILDING
 // (not per room type — every room in a given building shares one day-use
@@ -115,4 +180,8 @@ function roomKeys() {
   return Object.keys(ROOMS);
 }
 
-module.exports = { ROOMS, ROOM_INVENTORY, DEFAULT_SURCHARGES, DAYUSE, getRoom, getVariant, getInventory, roomKeys, getDayUsePrice };
+module.exports = {
+  ROOMS, ROOM_INVENTORY, DEFAULT_SURCHARGES, DAYUSE,
+  getRoom, getVariant, getInventory, roomKeys, getDayUsePrice,
+  getInventoryPoolRooms, getInventoryPoolKey, inventoryPools,
+};

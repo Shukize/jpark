@@ -15,8 +15,9 @@ const db = require('../db');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const { sendEmail } = require('../mailer');
 const { makeLimiter } = require('../lib/rateLimit');
-const { countOverlapping } = require('../lib/availability');
+const { countOverlappingPool } = require('../lib/availability');
 const roomRates = require('../lib/roomRates');
+const rateOverrides = require('../lib/rateOverrides');
 const { resolveBuilding } = require('../lib/buildings');
 
 const router = express.Router();
@@ -58,14 +59,28 @@ function hotelRecipients() {
 // Build a hotel-facing "new booking" notice from a booking row. Sent to the front
 // desk inbox so staff see every OTA / direct reservation as it arrives, mirroring
 // the Guest Booking entry in the staff console.
+// Accounting-friendly line for the front-desk/hotel notice. A genuine Omise
+// online charge (card or PromptPay) is called out distinctly — with the
+// charge id, so staff can reconcile against Omise's own dashboard/settlement
+// reports without opening the staff console — rather than blending in with
+// the plain "Method — Status" wording every other payment state still uses.
 function paymentLabel(bk) {
   if (!bk.payment_status || bk.payment_status === 'n/a') return null;
   const method = bk.payment_method === 'cash' ? 'Cash'
     : bk.payment_method === 'card' ? 'Card'
     : bk.payment_method === 'promptpay_instore' ? 'PromptPay (in person)'
     : bk.payment_method === 'pay_at_checkin' ? 'Pay at check-in (cash / card / PromptPay)'
-    : bk.payment_method === 'promptpay' ? 'PromptPay' // legacy rows from the retired online-Omise flow
+    : bk.payment_method === 'promptpay' ? 'PromptPay'
     : bk.payment_provider || 'Online';
+  const online = bk.payment_provider === 'omise';
+  const money = bk.total != null ? `${bk.total} ${bk.currency || 'THB'}` : '—';
+  const chargeSuffix = bk.payment_charge_id ? ` (Omise charge: ${bk.payment_charge_id})` : '';
+  if (online && bk.payment_status === 'paid') {
+    return `✓ PAID ONLINE — ${method} — ${money}${chargeSuffix}`;
+  }
+  if (online && bk.payment_status === 'pending') {
+    return `AWAITING ${method.toUpperCase()} CONFIRMATION — ${money}${chargeSuffix}`;
+  }
   const statusWord = bk.payment_status === 'paid' ? 'Paid'
     : bk.payment_status === 'pending' ? 'Awaiting payment'
     : bk.payment_status === 'failed' ? 'Failed'
@@ -142,8 +157,12 @@ const EMAIL_I18N = {
     childAgesSuffix: (ages) => (ages && ages.length ? ` (ages: ${ages.join(', ')})` : ''),
     nonSmoking: 'Non-Smoking', smoking: 'Smoking', yes: 'Yes', no: 'No',
     balanceDue: (money) => `Balance due: ${money}. Payable in person at check-in by cash, credit/debit card, or PromptPay QR at our front desk.`,
-    depositNote: 'Please note: a 200 THB deposit for your room key card is collected in cash at check-in (cash only) and refunded in full at check-out.',
-    depositNoteMulti: (n) => `Please note: a ${200 * n} THB deposit for your room key cards (200 THB × ${n} rooms) is collected in cash at check-in (cash only) and refunded in full at check-out.`,
+    paidOnline: (money) => `✓ Payment received — thank you! You paid ${money} online for this stay.`,
+    awaitingOnlinePayment: (money) => `Your PromptPay payment of ${money} is being confirmed. Your reservation is already confirmed either way — we'll email you as soon as payment is confirmed, or you're welcome to pay at check-in instead.`,
+    paymentConfirmedHeading: 'Payment confirmed',
+    nonRefundableNote: 'This is a prepaid, non-refundable reservation — the amount paid online is not refunded in the event of a no-show or cancellation. (The key-card deposit noted above is separate and still fully refundable at check-out.)',
+    depositNote: 'Please note: a 200 THB deposit for your room key card is collected in cash at check-in and refunded in full at check-out. Thai guests may leave a national ID card or driving license instead of the cash deposit.',
+    depositNoteMulti: (n) => `Please note: a ${200 * n} THB deposit for your room key cards (200 THB × ${n} rooms) is collected in cash at check-in and refunded in full at check-out. Thai guests may leave a national ID card or driving license instead of the cash deposit.`,
     roomLabel: (i) => `Room ${i}`,
     roomsSummary: (n) => `${n} rooms`,
     subtotal: 'Room total',
@@ -166,8 +185,12 @@ const EMAIL_I18N = {
     childAgesSuffix: (ages) => (ages && ages.length ? ` (อายุ: ${ages.join(', ')})` : ''),
     nonSmoking: 'ห้องปลอดบุหรี่', smoking: 'ห้องสูบบุหรี่', yes: 'มี', no: 'ไม่มี',
     balanceDue: (money) => `ยอดคงเหลือที่ต้องชำระ: ${money} ชำระได้ที่หน้าเคาน์เตอร์ในวันเช็คอิน ด้วยเงินสด บัตรเครดิต/เดบิต หรือ PromptPay QR`,
-    depositNote: 'โปรดทราบ: มีการเรียกเก็บเงินมัดจำบัตรคีย์การ์ด 200 บาท เป็นเงินสดเท่านั้น ณ วันเช็คอิน และคืนเต็มจำนวนเมื่อเช็คเอาท์',
-    depositNoteMulti: (n) => `โปรดทราบ: มีการเรียกเก็บเงินมัดจำบัตรคีย์การ์ด ${200 * n} บาท (200 บาท × ${n} ห้อง) เป็นเงินสดเท่านั้น ณ วันเช็คอิน และคืนเต็มจำนวนเมื่อเช็คเอาท์`,
+    paidOnline: (money) => `✓ ได้รับการชำระเงินแล้ว ขอบคุณที่ชำระเงินจำนวน ${money} ออนไลน์สำหรับการเข้าพักครั้งนี้`,
+    awaitingOnlinePayment: (money) => `กำลังตรวจสอบการชำระเงินผ่าน PromptPay จำนวน ${money} การจองของท่านได้รับการยืนยันแล้วไม่ว่าผลการชำระเงินจะเป็นอย่างไร เราจะแจ้งให้ท่านทราบทางอีเมลทันทีที่ได้รับการยืนยันการชำระเงิน หรือท่านสามารถชำระเงินที่หน้าเคาน์เตอร์แทนได้`,
+    paymentConfirmedHeading: 'ยืนยันการชำระเงินแล้ว',
+    nonRefundableNote: 'การจองนี้เป็นแบบชำระเงินล่วงหน้าและไม่สามารถขอคืนเงินได้ — ยอดที่ชำระออนไลน์จะไม่คืนหากท่านไม่เข้าพัก (No-show) หรือยกเลิกการจอง (ทั้งนี้เงินมัดจำบัตรกุญแจห้องที่ระบุด้านบนเป็นคนละส่วน และยังคืนเต็มจำนวนตอนเช็คเอาท์)',
+    depositNote: 'โปรดทราบ: มีการเรียกเก็บเงินมัดจำบัตรคีย์การ์ด 200 บาท ณ วันเช็คอิน โดยชำระเป็นเงินสด หรือฝากบัตรประจำตัวประชาชน/ใบขับขี่แทนเงินมัดจำก็ได้ และจะคืนให้เต็มจำนวนเมื่อเช็คเอาท์',
+    depositNoteMulti: (n) => `โปรดทราบ: มีการเรียกเก็บเงินมัดจำบัตรคีย์การ์ด ${200 * n} บาท (200 บาท × ${n} ห้อง) ณ วันเช็คอิน โดยชำระเป็นเงินสด หรือฝากบัตรประจำตัวประชาชน/ใบขับขี่แทนเงินมัดจำก็ได้ และจะคืนให้เต็มจำนวนเมื่อเช็คเอาท์`,
     roomLabel: (i) => `ห้องที่ ${i}`,
     roomsSummary: (n) => `${n} ห้อง`,
     subtotal: 'ยอดรวมห้องพัก',
@@ -190,8 +213,12 @@ const EMAIL_I18N = {
     childAgesSuffix: (ages) => (ages && ages.length ? ` (年齢: ${ages.join('、')})` : ''),
     nonSmoking: '禁煙', smoking: '喫煙可', yes: 'あり', no: 'なし',
     balanceDue: (money) => `お支払い残額：${money}。チェックイン時にフロントにて現金、クレジット/デビットカード、またはプロンプトペイQRでお支払いください。`,
-    depositNote: 'ご注意：ルームキーカードのデポジット200THBを、チェックイン時に現金のみで頂戴いたします。チェックアウト時に全額返金いたします。',
-    depositNoteMulti: (n) => `ご注意：ルームキーカードのデポジット${200 * n} THB（200 THB × ${n}室）を、チェックイン時に現金のみで頂戴いたします。チェックアウト時に全額返金いたします。`,
+    paidOnline: (money) => `✓ お支払いを確認いたしました。ご滞在分のお支払い ${money} をオンラインで承りました。誠にありがとうございます。`,
+    awaitingOnlinePayment: (money) => `プロンプトペイでのお支払い（${money}）を確認中です。ご予約はいずれにしても確定しております。お支払いの確認が取れ次第メールにてご案内いたしますので、チェックイン時にお支払いいただくことも可能です。`,
+    paymentConfirmedHeading: 'お支払い確認のお知らせ',
+    nonRefundableNote: '本予約は前払い・返金不可です。ご到着がない場合（ノーショー）やキャンセルの場合、オンラインでお支払いいただいた金額は返金されません。（上記のルームキーカードのデポジットはこれとは別で、チェックアウト時に全額返金されます。）',
+    depositNote: 'ご注意：ルームキーカードのデポジット200THBを、チェックイン時に現金でお預かりいたします（タイ国籍のお客様は、現金の代わりに国民IDカードまたは運転免許証をお預けいただくことも可能です）。チェックアウト時に全額返金（またはご返却）いたします。',
+    depositNoteMulti: (n) => `ご注意：ルームキーカードのデポジット${200 * n} THB（200 THB × ${n}室）を、チェックイン時に現金でお預かりいたします（タイ国籍のお客様は、現金の代わりに国民IDカードまたは運転免許証をお預けいただくことも可能です）。チェックアウト時に全額返金（またはご返却）いたします。`,
     roomLabel: (i) => `お部屋 ${i}`,
     roomsSummary: (n) => `${n}室`,
     subtotal: '客室料金',
@@ -214,8 +241,12 @@ const EMAIL_I18N = {
     childAgesSuffix: (ages) => (ages && ages.length ? ` (年龄：${ages.join('、')})` : ''),
     nonSmoking: '无烟房', smoking: '吸烟房', yes: '含', no: '不含',
     balanceDue: (money) => `尚需支付金额：${money}。可于入住时在前台以现金、信用卡/借记卡或PromptPay二维码支付。`,
-    depositNote: '请注意：房卡押金200泰铢，仅收现金，于入住时收取，退房时全额退还。',
-    depositNoteMulti: (n) => `请注意：房卡押金${200 * n}泰铢（200泰铢 × ${n}间），仅收现金，于入住时收取，退房时全额退还。`,
+    paidOnline: (money) => `✓ 已收到付款，感谢您！您已在线支付本次入住费用 ${money}。`,
+    awaitingOnlinePayment: (money) => `您的PromptPay付款（${money}）正在确认中。无论付款结果如何，您的预订均已确认。付款确认后我们将通过邮件通知您，您也可以选择于入住时付款。`,
+    paymentConfirmedHeading: '付款已确认',
+    nonRefundableNote: '本预订为预付、不可退款：如未入住（No-show）或取消，线上已付金额恕不退还。（上述房卡押金为另计，退房时仍全额退还。）',
+    depositNote: '请注意：房卡押金200泰铢，于入住时以现金收取（泰国籍客人也可以国民身份证或驾驶证代替现金作为押金），退房时全额退还（或归还证件）。',
+    depositNoteMulti: (n) => `请注意：房卡押金${200 * n}泰铢（200泰铢 × ${n}间），于入住时以现金收取（泰国籍客人也可以国民身份证或驾驶证代替现金作为押金），退房时全额退还（或归还证件）。`,
     roomLabel: (i) => `房间 ${i}`,
     roomsSummary: (n) => `${n} 间房`,
     subtotal: '房费',
@@ -238,8 +269,12 @@ const EMAIL_I18N = {
     childAgesSuffix: (ages) => (ages && ages.length ? ` (年齡：${ages.join('、')})` : ''),
     nonSmoking: '無菸房', smoking: '吸菸房', yes: '含', no: '不含',
     balanceDue: (money) => `尚需支付金額：${money}。可於入住時在前台以現金、信用卡/簽帳卡或PromptPay二維碼支付。`,
-    depositNote: '請注意：房卡押金200泰銖，僅收現金，於入住時收取，退房時全額退還。',
-    depositNoteMulti: (n) => `請注意：房卡押金${200 * n}泰銖（200泰銖 × ${n}間），僅收現金，於入住時收取，退房時全額退還。`,
+    paidOnline: (money) => `✓ 已收到付款，感謝您！您已在線支付本次入住費用 ${money}。`,
+    awaitingOnlinePayment: (money) => `您的PromptPay付款（${money}）正在確認中。無論付款結果如何，您的預訂均已確認。付款確認後我們將透過郵件通知您，您也可以選擇於入住時付款。`,
+    paymentConfirmedHeading: '付款已確認',
+    nonRefundableNote: '本訂房為預付、不可退款：如未入住（No-show）或取消，線上已付金額恕不退還。（上述房卡押金為另計，退房時仍全額退還。）',
+    depositNote: '請注意：房卡押金200泰銖，於入住時以現金收取（泰國籍貴賓亦可以國民身分證或駕駛執照代替現金作為押金），退房時全額退還（或歸還證件）。',
+    depositNoteMulti: (n) => `請注意：房卡押金${200 * n}泰銖（200泰銖 × ${n}間），於入住時以現金收取（泰國籍貴賓亦可以國民身分證或駕駛執照代替現金作為押金），退房時全額退還（或歸還證件）。`,
     roomLabel: (i) => `房間 ${i}`,
     roomsSummary: (n) => `${n} 間房`,
     subtotal: '房費',
@@ -356,6 +391,8 @@ function confirmationEmail(bk) {
   const L = EMAIL_I18N[bk.lang] || EMAIL_I18N.en;
   const money = bk.total != null ? `${bk.total} ${bk.currency || 'THB'}` : '—';
   const payment = guestPaymentLabel(bk, L);
+  const paidOnline = bk.payment_provider === 'omise' && bk.payment_status === 'paid';
+  const awaitingOnline = bk.payment_provider === 'omise' && bk.payment_status === 'pending';
   const balanceDueMoney = (bk.payment_method === 'pay_at_checkin' && bk.payment_status === 'pending' && bk.total != null)
     ? `${bk.total} ${bk.currency || 'THB'}` : null;
   const smokingText = bk.smoking_preference === 'smoking' ? L.smoking : L.nonSmoking;
@@ -377,7 +414,14 @@ function confirmationEmail(bk) {
     ...(bk.special_requests ? [`${L.specialRequests}: ${bk.special_requests}`] : []),
     `${L.total}: ${money}`,
     ...(payment ? [`${L.payment}: ${payment}`] : []),
+    // Whichever payment-outcome note applies sits directly next to the
+    // deposit note below it — a guest who just paid online in full is
+    // exactly the person most likely to skim past a policy line that isn't
+    // right next to the "you're paid up" message.
+    ...(paidOnline ? ['', L.paidOnline(money)] : []),
+    ...(awaitingOnline ? ['', L.awaitingOnlinePayment(money)] : []),
     ...(balanceDueMoney ? ['', L.balanceDue(balanceDueMoney)] : []),
+    ...(bk.non_refundable ? ['', L.nonRefundableNote] : []),
     '',
     L.depositNote,
     '',
@@ -408,7 +452,10 @@ function confirmationEmail(bk) {
     `<tr><td style="padding:4px 12px 4px 0;color:#555">${L.total}</td><td style="padding:4px 0">${money}</td></tr>` +
     (payment ? `<tr><td style="padding:4px 12px 4px 0;color:#555">${L.payment}</td><td style="padding:4px 0">${payment}</td></tr>` : '') +
     `</table>` +
+    (paidOnline ? `<p style="background:#e6f4ea;border:1px solid #a6d8b1;border-radius:8px;padding:10px 14px;color:#1a7f37"><strong>${L.paidOnline(money)}</strong></p>` : '') +
+    (awaitingOnline ? `<p style="background:#eef2ff;border:1px solid #b7c4f0;border-radius:8px;padding:10px 14px;color:#33408a">${L.awaitingOnlinePayment(money)}</p>` : '') +
     (balanceDueMoney ? `<p style="background:#eef6f4;border:1px solid #a9d6cb;border-radius:8px;padding:10px 14px;color:#0f4a3e">${L.balanceDue(balanceDueMoney)}</p>` : '') +
+    (bk.non_refundable ? `<p style="background:#fdecea;border:1px solid #f0b7b1;border-radius:8px;padding:10px 14px;color:#8a2a1a"><strong>${L.nonRefundableNote}</strong></p>` : '') +
     `<p style="background:#fbf3df;border:1px solid #e0c178;border-radius:8px;padding:10px 14px;color:#5a4a1a">${L.depositNote}</p>` +
     `<p>${L.closing}</p>` +
     `<p style="color:#888;font-size:0.85rem">${L.spamNote}</p>` +
@@ -434,6 +481,8 @@ function groupConfirmationEmail(rows) {
   const grandMoney = `${grand} ${currency}`;
   const balanceDueMoney = (first.payment_method === 'pay_at_checkin' && first.payment_status === 'pending')
     ? grandMoney : null;
+  const paidOnline = first.payment_provider === 'omise' && first.payment_status === 'paid';
+  const awaitingOnline = first.payment_provider === 'omise' && first.payment_status === 'pending';
   const payment = guestPaymentLabel(first, L);
   const roomMoney = (r) => (r.total != null ? `${r.total} ${currency}` : '—');
 
@@ -464,7 +513,10 @@ function groupConfirmationEmail(rows) {
     `${L.grandTotal}: ${grandMoney}`,
     ...(payment ? [`${L.payment}: ${payment}`] : []),
     ...(first.special_requests ? [`${L.specialRequests}: ${first.special_requests}`] : []),
+    ...(paidOnline ? ['', L.paidOnline(grandMoney)] : []),
+    ...(awaitingOnline ? ['', L.awaitingOnlinePayment(grandMoney)] : []),
     ...(balanceDueMoney ? ['', L.balanceDue(balanceDueMoney)] : []),
+    ...(first.non_refundable ? ['', L.nonRefundableNote] : []),
     '',
     L.depositNoteMulti(n),
     '',
@@ -504,7 +556,10 @@ function groupConfirmationEmail(rows) {
     (payment ? `<tr><td style="padding:4px 12px 4px 0;color:#555">${L.payment}</td><td style="padding:4px 0">${payment}</td></tr>` : '') +
     (first.special_requests ? `<tr><td style="padding:4px 12px 4px 0;color:#555">${L.specialRequests}</td><td style="padding:4px 0">${escapeHtml(first.special_requests)}</td></tr>` : '') +
     `</table>` +
+    (paidOnline ? `<p style="background:#e6f4ea;border:1px solid #a6d8b1;border-radius:8px;padding:10px 14px;color:#1a7f37"><strong>${L.paidOnline(grandMoney)}</strong></p>` : '') +
+    (awaitingOnline ? `<p style="background:#eef2ff;border:1px solid #b7c4f0;border-radius:8px;padding:10px 14px;color:#33408a">${L.awaitingOnlinePayment(grandMoney)}</p>` : '') +
     (balanceDueMoney ? `<p style="background:#eef6f4;border:1px solid #a9d6cb;border-radius:8px;padding:10px 14px;color:#0f4a3e">${L.balanceDue(balanceDueMoney)}</p>` : '') +
+    (first.non_refundable ? `<p style="background:#fdecea;border:1px solid #f0b7b1;border-radius:8px;padding:10px 14px;color:#8a2a1a"><strong>${L.nonRefundableNote}</strong></p>` : '') +
     `<p style="background:#fbf3df;border:1px solid #e0c178;border-radius:8px;padding:10px 14px;color:#5a4a1a">${L.depositNoteMulti(n)}</p>` +
     `<p>${L.closing}</p>` +
     `<p style="color:#888;font-size:0.85rem">${L.spamNote}</p>` +
@@ -589,6 +644,14 @@ function cancellationEmail(bk) {
   const intro = grouped
     ? 'This is to confirm that one room of your booking at J Park Hotel, Chonburi has been cancelled. Any other rooms in the same booking remain confirmed.'
     : 'This is to confirm that your reservation at J Park Hotel, Chonburi has been cancelled.';
+  // A room actually charged online (card or PromptPay) really did take real
+  // money — unlike every other booking, which never collected anything
+  // online — so the refund line must not claim there's nothing to refund.
+  const wasPaidOnline = bk.payment_provider === 'omise' && bk.payment_status === 'paid';
+  const money = bk.total != null ? `${bk.total} ${bk.currency || 'THB'}` : 'the amount';
+  const refundLine = wasPaidOnline
+    ? `You were charged ${money} online for this booking. Please contact us to arrange a refund.`
+    : 'No payment was taken online for this booking, so there is nothing to refund.';
   const lines = [
     `Dear ${bk.guest_name || 'Guest'},`,
     '',
@@ -599,7 +662,7 @@ function cancellationEmail(bk) {
     `Check-in: ${bk.check_in}`,
     `Check-out: ${bk.check_out}`,
     '',
-    'No payment was taken online for this booking, so there is nothing to refund.',
+    refundLine,
     '',
     'If this cancellation was made in error, or you would like to make a new reservation, please reply to this email or call us.',
     '',
@@ -618,7 +681,7 @@ function cancellationEmail(bk) {
     `<tr><td style="padding:4px 12px 4px 0;color:#555">Check-in</td><td style="padding:4px 0">${bk.check_in}</td></tr>` +
     `<tr><td style="padding:4px 12px 4px 0;color:#555">Check-out</td><td style="padding:4px 0">${bk.check_out}</td></tr>` +
     `</table>` +
-    `<p>No payment was taken online for this booking, so there is nothing to refund.</p>` +
+    `<p>${refundLine}</p>` +
     `<p>If this cancellation was made in error, or you would like to make a new reservation, please reply to this email or call us.</p>` +
     `<p style="color:#0f766e;font-weight:bold;margin-top:24px">J Park Hotel, Chonburi</p>` +
     letterhead.html +
@@ -633,6 +696,14 @@ function cancellationEmail(bk) {
 function groupCancellationEmail(rows) {
   const first = rows[0];
   const roomLines = rows.map((r, i) => `  Room ${r.group_index || i + 1}: ${r.room || '—'}`);
+  // Every room in a group shares one Omise charge, so checking the first row
+  // is representative of the whole group's payment outcome.
+  const wasPaidOnline = first.payment_provider === 'omise' && first.payment_status === 'paid';
+  const grand = rows.reduce((s, r) => s + Number(r.total || 0), 0);
+  const grandMoney = `${grand} ${first.currency || 'THB'}`;
+  const refundLine = wasPaidOnline
+    ? `You were charged ${grandMoney} online for this booking. Please contact us to arrange a refund.`
+    : 'No payment was taken online for this booking, so there is nothing to refund.';
   const lines = [
     `Dear ${first.guest_name || 'Guest'},`,
     '',
@@ -644,7 +715,7 @@ function groupCancellationEmail(rows) {
     'Rooms cancelled:',
     ...roomLines,
     '',
-    'No payment was taken online for this booking, so there is nothing to refund.',
+    refundLine,
     '',
     'If this cancellation was made in error, or you would like to make a new reservation, please reply to this email or call us.',
     '',
@@ -672,6 +743,207 @@ function groupCancellationEmail(rows) {
     letterhead.html +
     `</div>`;
   return { text, html };
+}
+
+// ── Payment-confirmed follow-ups (PromptPay, post-webhook) ──────────────────
+// A card charge resolves synchronously, so the very first confirmation email
+// already says "paid" — no follow-up needed. PromptPay does not: the guest
+// may well have closed the browser before scanning, so payments.js's webhook
+// handler calls sendPaymentConfirmedEmail()/sendGroupPaymentConfirmedEmail()
+// once Omise confirms the charge, to close the loop for BOTH the guest (who
+// might otherwise never learn their payment went through) and the front desk
+// (who saw the original booking notice arrive as "awaiting confirmation" and
+// would otherwise have no signal that it later resolved).
+
+function paymentConfirmedEmail(bk) {
+  const L = EMAIL_I18N[bk.lang] || EMAIL_I18N.en;
+  const money = bk.total != null ? `${bk.total} ${bk.currency || 'THB'}` : '—';
+  const lines = [
+    L.greeting(bk.guest_name),
+    '',
+    L.paidOnline(money),
+    '',
+    `${L.confirmation}: ${bk.ref}`,
+    '',
+    L.depositNote,
+    '',
+    L.closing,
+    '',
+    L.spamNote,
+    '',
+    'J Park Hotel, Chonburi',
+  ];
+  const letterhead = emailLetterhead();
+  const text = lines.join('\n') + letterhead.text;
+  const html =
+    `<div style="font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;line-height:1.5">` +
+    `<h2 style="color:#0f766e;margin:0 0 12px">${L.paymentConfirmedHeading}</h2>` +
+    `<p>${L.greeting(bk.guest_name)}</p>` +
+    `<p style="background:#e6f4ea;border:1px solid #a6d8b1;border-radius:8px;padding:10px 14px;color:#1a7f37"><strong>${L.paidOnline(money)}</strong></p>` +
+    `<table style="border-collapse:collapse;margin:16px 0">` +
+    `<tr><td style="padding:4px 12px 4px 0;color:#555">${L.confirmation}</td><td style="padding:4px 0"><strong>${bk.ref}</strong></td></tr>` +
+    `</table>` +
+    `<p style="background:#fbf3df;border:1px solid #e0c178;border-radius:8px;padding:10px 14px;color:#5a4a1a">${L.depositNote}</p>` +
+    `<p>${L.closing}</p>` +
+    `<p style="color:#888;font-size:0.85rem">${L.spamNote}</p>` +
+    `<p style="color:#0f766e;font-weight:bold;margin-top:24px">J Park Hotel, Chonburi</p>` +
+    letterhead.html +
+    `</div>`;
+  return { text, html };
+}
+
+function groupPaymentConfirmedEmail(rows) {
+  const first = rows[0];
+  const L = EMAIL_I18N[first.lang] || EMAIL_I18N.en;
+  const n = rows.length;
+  const grandMoney = `${rows.reduce((s, r) => s + Number(r.total || 0), 0)} ${first.currency || 'THB'}`;
+  const lines = [
+    L.greeting(first.guest_name),
+    '',
+    L.paidOnline(grandMoney),
+    '',
+    `${L.confirmation}: ${first.group_ref} (${L.roomsSummary(n)})`,
+    '',
+    L.depositNoteMulti(n),
+    '',
+    L.closing,
+    '',
+    L.spamNote,
+    '',
+    'J Park Hotel, Chonburi',
+  ];
+  const letterhead = emailLetterhead();
+  const text = lines.join('\n') + letterhead.text;
+  const html =
+    `<div style="font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;line-height:1.5">` +
+    `<h2 style="color:#0f766e;margin:0 0 12px">${L.paymentConfirmedHeading}</h2>` +
+    `<p>${L.greeting(first.guest_name)}</p>` +
+    `<p style="background:#e6f4ea;border:1px solid #a6d8b1;border-radius:8px;padding:10px 14px;color:#1a7f37"><strong>${L.paidOnline(grandMoney)}</strong></p>` +
+    `<table style="border-collapse:collapse;margin:16px 0">` +
+    `<tr><td style="padding:4px 12px 4px 0;color:#555">${L.confirmation}</td><td style="padding:4px 0"><strong>${first.group_ref}</strong> (${L.roomsSummary(n)})</td></tr>` +
+    `</table>` +
+    `<p style="background:#fbf3df;border:1px solid #e0c178;border-radius:8px;padding:10px 14px;color:#5a4a1a">${L.depositNoteMulti(n)}</p>` +
+    `<p>${L.closing}</p>` +
+    `<p style="color:#888;font-size:0.85rem">${L.spamNote}</p>` +
+    `<p style="color:#0f766e;font-weight:bold;margin-top:24px">J Park Hotel, Chonburi</p>` +
+    letterhead.html +
+    `</div>`;
+  return { text, html };
+}
+
+// Front-desk follow-up (English, like hotelNotice()) — the accounting
+// paper-trail piece: the original booking notice showed this as "awaiting
+// PromptPay confirmation," so staff need a second, distinctly-subjected
+// email once it actually resolves, rather than having to notice a status
+// change themselves.
+function paymentConfirmedHotelNotice(bk) {
+  const money = bk.total != null ? `${bk.total} ${bk.currency || 'THB'}` : '—';
+  const method = bk.payment_method === 'card' ? 'Card' : bk.payment_method === 'promptpay' ? 'PromptPay' : (bk.payment_provider || 'Online');
+  const lines = [
+    `Payment confirmed for booking ${bk.ref}.`,
+    '',
+    `Guest: ${bk.guest_name || '—'}`,
+    `Amount: ${money}`,
+    `Method: ${method} (online via Omise)`,
+    `Omise charge: ${bk.payment_charge_id || '—'}`,
+    '',
+    'This booking now shows as paid in the Guest Booking inbox of the staff console.',
+  ];
+  const letterhead = emailLetterhead();
+  const text = lines.join('\n') + letterhead.text;
+  const html =
+    `<div style="font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;line-height:1.5">` +
+    `<h2 style="color:#1a7f37;margin:0 0 12px">✓ Payment confirmed — ${escapeHtml(bk.ref)}</h2>` +
+    `<table style="border-collapse:collapse;margin:16px 0">` +
+    `<tr><td style="padding:4px 12px 4px 0;color:#555">Guest</td><td style="padding:4px 0">${escapeHtml(bk.guest_name || '—')}</td></tr>` +
+    `<tr><td style="padding:4px 12px 4px 0;color:#555">Amount</td><td style="padding:4px 0"><strong>${money}</strong></td></tr>` +
+    `<tr><td style="padding:4px 12px 4px 0;color:#555">Method</td><td style="padding:4px 0">${method} (online via Omise)</td></tr>` +
+    `<tr><td style="padding:4px 12px 4px 0;color:#555">Omise charge</td><td style="padding:4px 0">${escapeHtml(bk.payment_charge_id || '—')}</td></tr>` +
+    `</table>` +
+    `<p style="color:#555">This booking now shows as paid in the <strong>Guest Booking</strong> inbox of the staff console.</p>` +
+    letterhead.html +
+    `</div>`;
+  return { text, html };
+}
+
+function groupPaymentConfirmedHotelNotice(rows) {
+  const first = rows[0];
+  const n = rows.length;
+  const grand = rows.reduce((s, r) => s + Number(r.total || 0), 0);
+  const method = first.payment_method === 'card' ? 'Card' : first.payment_method === 'promptpay' ? 'PromptPay' : (first.payment_provider || 'Online');
+  const lines = [
+    `Payment confirmed for group booking ${first.group_ref} (${n} rooms).`,
+    '',
+    `Guest: ${first.guest_name || '—'}`,
+    `Amount: ${grand} ${first.currency || 'THB'}`,
+    `Method: ${method} (online via Omise)`,
+    `Omise charge: ${first.payment_charge_id || '—'}`,
+    '',
+    'This booking now shows as paid in the Guest Booking inbox of the staff console.',
+  ];
+  const letterhead = emailLetterhead();
+  const text = lines.join('\n') + letterhead.text;
+  const html =
+    `<div style="font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;line-height:1.5">` +
+    `<h2 style="color:#1a7f37;margin:0 0 12px">✓ Payment confirmed — ${escapeHtml(first.group_ref)} (${n} rooms)</h2>` +
+    `<table style="border-collapse:collapse;margin:16px 0">` +
+    `<tr><td style="padding:4px 12px 4px 0;color:#555">Guest</td><td style="padding:4px 0">${escapeHtml(first.guest_name || '—')}</td></tr>` +
+    `<tr><td style="padding:4px 12px 4px 0;color:#555">Amount</td><td style="padding:4px 0"><strong>${grand} ${first.currency || 'THB'}</strong></td></tr>` +
+    `<tr><td style="padding:4px 12px 4px 0;color:#555">Method</td><td style="padding:4px 0">${method} (online via Omise)</td></tr>` +
+    `<tr><td style="padding:4px 12px 4px 0;color:#555">Omise charge</td><td style="padding:4px 0">${escapeHtml(first.payment_charge_id || '—')}</td></tr>` +
+    `</table>` +
+    `<p style="color:#555">This booking now shows as paid in the <strong>Guest Booking</strong> inbox of the staff console.</p>` +
+    letterhead.html +
+    `</div>`;
+  return { text, html };
+}
+
+async function sendPaymentConfirmedEmail(bk) {
+  if (bk.guest_email) {
+    const { text, html } = paymentConfirmedEmail(bk);
+    sendEmail({
+      to: bk.guest_email,
+      subject: `J Park Hotel — payment confirmed (${bk.ref})`,
+      text,
+      html,
+    }, { bookingId: bk.id, bookingRef: bk.ref, kind: 'payment_confirmed' })
+      .then((r) => { if (r.ok) console.log(`[guest-bookings] payment-confirmed emailed to ${bk.guest_email} (${bk.ref})`); })
+      .catch((err) => console.error('[guest-bookings] payment-confirmed guest email error', err));
+  }
+  const to = hotelRecipients();
+  if (to.length) {
+    const { text, html } = paymentConfirmedHotelNotice(bk);
+    sendEmail({
+      to,
+      subject: `✓ Payment confirmed — ${bk.ref}`,
+      text,
+      html,
+    }).catch((err) => console.error('[guest-bookings] payment-confirmed hotel notice error', err));
+  }
+}
+
+async function sendGroupPaymentConfirmedEmail(rows) {
+  const first = rows[0];
+  if (first.guest_email) {
+    const { text, html } = groupPaymentConfirmedEmail(rows);
+    sendEmail({
+      to: first.guest_email,
+      subject: `J Park Hotel — payment confirmed (${first.group_ref})`,
+      text,
+      html,
+    }, { bookingId: first.id, bookingRef: first.group_ref, kind: 'payment_confirmed' })
+      .catch((err) => console.error('[guest-bookings] group payment-confirmed guest email error', err));
+  }
+  const to = hotelRecipients();
+  if (to.length) {
+    const { text, html } = groupPaymentConfirmedHotelNotice(rows);
+    sendEmail({
+      to,
+      subject: `✓ Payment confirmed — ${first.group_ref} (${rows.length} rooms)`,
+      text,
+      html,
+    }).catch((err) => console.error('[guest-bookings] group payment-confirmed hotel notice error', err));
+  }
 }
 
 // Drops a system-authored broadcast into the internal Messages inbox so a
@@ -770,6 +1042,7 @@ function row2js(r) {
     smokingPreference: r.smoking_preference || 'non_smoking',
     breakfast: !!r.breakfast,
     extraBed: !!r.extra_bed,
+    nonRefundable: !!r.non_refundable,
     specialRequests: r.special_requests || null,
     total: r.total ? Number(r.total) : null,
     currency: r.currency,
@@ -809,6 +1082,7 @@ const LIST_COLUMNS = [
   'room', 'room_number', 'building', 'group_ref', 'group_index', 'group_size',
   'check_in', 'check_out', 'nights',
   'adults', 'children', 'child_ages', 'smoking_preference', 'breakfast', 'extra_bed',
+  'non_refundable',
   'special_requests',
   'total', 'currency', 'status', 'lang',
   'payment_provider', 'payment_method', 'payment_status', 'payment_charge_id',
@@ -1545,9 +1819,13 @@ router.post('/:id/reopen', requireAuth, async (req, res) => {
 
     const isOvernightDirect = bk.channel === 'direct' && bk.room && String(bk.check_in) !== String(bk.check_out);
     if (isOvernightDirect) {
-      await client.query('SELECT pg_advisory_xact_lock(hashtext($1)::bigint)', [bk.room]);
-      const cnt = await countOverlapping(client, bk.room, bk.check_in, bk.check_out);
-      if (cnt >= roomRates.getInventory(bk.room)) {
+      // Lock/count by the shared POOL (Single/Twin siblings draw from one
+      // physical pool of rooms — see roomRates.js) not just this exact key.
+      await client.query('SELECT pg_advisory_xact_lock(hashtext($1)::bigint)', [roomRates.getInventoryPoolKey(bk.room)]);
+      const cnt = await countOverlappingPool(client, roomRates.getInventoryPoolRooms(bk.room), bk.check_in, bk.check_out);
+      // The admin-editable count from the Site Editor, not the static
+      // fallback — reopening must respect a ceiling staff have since lowered.
+      if (cnt >= await rateOverrides.getEffectiveInventory(bk.room)) {
         await client.query('ROLLBACK');
         return res.status(409).json({ error: 'Sorry, this room type is no longer available for those dates.' });
       }
@@ -1626,3 +1904,5 @@ module.exports.emailLetterhead = emailLetterhead;
 module.exports.SPAM_NOTE_TEXT = SPAM_NOTE_TEXT;
 module.exports.SPAM_NOTE_HTML = SPAM_NOTE_HTML;
 module.exports.escapeHtml = escapeHtml;
+module.exports.sendPaymentConfirmedEmail = sendPaymentConfirmedEmail;
+module.exports.sendGroupPaymentConfirmedEmail = sendGroupPaymentConfirmedEmail;

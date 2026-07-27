@@ -397,6 +397,13 @@
           <div class="section-toggles" id="roomAvailToggles"></div>
         </div>
         <div class="editor-card">
+          <h3 data-i18n="staff.site.roomCount">How many rooms</h3>
+          <p class="ed-hint" data-i18n="staff.site.roomCountHint">How many rooms of each type can be booked for the same night. Once that many are booked, the type shows as fully booked for those dates. Saves immediately.</p>
+          <p class="ed-hint" data-i18n="staff.site.roomCountPoolHint">Single and Twin are the same rooms with a different bed set-up, so they share one number.</p>
+          <p class="ed-hint" data-i18n="staff.site.roomCountAutoHint">You only set the total. The website counts each date by itself: a booking takes a room off those nights, and it comes back the moment the stay ends or the booking is cancelled — nobody has to adjust anything.</p>
+          <div class="room-counts" id="roomCountRows"></div>
+        </div>
+        <div class="editor-card">
           <h3 data-i18n="staff.site.dayUseAvail">Day-use availability</h3>
           <p class="ed-hint" data-i18n="staff.site.dayUseAvailHint">Turn a day-use building off to remove it from the booking page's day-use rates until you turn it back on. Saves immediately.</p>
           <div class="section-toggles" id="dayUseAvailToggles"></div>
@@ -475,6 +482,17 @@
           <input type="checkbox" id="maintToggle" />
           <span data-i18n="staff.maint.toggle">Enable maintenance mode</span>
         </label>
+      </div>
+
+      <div class="team-card">
+        <h3 style="margin:0 0 4px" data-i18n="staff.prepay.title">Require prepayment (busy periods)</h3>
+        <p class="panel-lede" data-i18n="staff.prepay.lede">When enabled, guests can't choose "pay at check-in" — every new booking must pay online now and is non-refundable on no-show or cancellation. Turn it on for holidays and peak periods, off when the hotel is quiet.</p>
+        <p id="prepayStatus" class="ed-hint"></p>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+          <input type="checkbox" id="prepayToggle" />
+          <span data-i18n="staff.prepay.toggle">Require prepayment for new bookings</span>
+        </label>
+        <p id="prepayOmiseWarn" class="ed-hint" hidden data-i18n="staff.prepay.omiseWarn">Note: online payment isn't live yet, so this has no effect until the hotel's card / PromptPay payments are switched on.</p>
       </div>
     </section>
 

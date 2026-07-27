@@ -19,11 +19,10 @@ const rateOverrides = require('./rateOverrides');
 const availability = require('./availability');
 const ids = require('./hotelAdsIds');
 
-// Cap the advertised "available" count so Google never sees the internal
-// placeholder ceiling (roomRates.ROOM_INVENTORY is deliberately set to 999
-// per room type — see that file's comment — because the owner has said
-// overbooking isn't a real-world concern here). Google only needs "plenty
-// available" vs. "sold out", not the literal number.
+// Cap the advertised "available" count — ROOM_INVENTORY now holds the real
+// per-type physical room counts (see roomRates.js), which are already small,
+// but Google only needs "plenty available" vs. "sold out", not the literal
+// number, so this cap is kept as a ceiling regardless.
 const MAX_ADVERTISED_COUNT = 99;
 
 function addDays(dateStr, days) {
@@ -64,15 +63,22 @@ async function getAriData({ startDate, endDateExclusive } = {}) {
   const end = endDateExclusive || addDays(start, 60);
 
   const rooms = await rateOverrides.getAllEffectiveRooms();
+  // Admin-editable room counts (Site Editor "How many rooms"), read once for
+  // the whole feed — advertising a stale ceiling would offer rooms the
+  // booking guard then refuses.
+  const inventoryMap = await rateOverrides.getEffectiveInventoryMap();
   const plans = [];
 
   for (const name of roomRates.roomKeys()) {
     const room = rooms[name];
     if (!room) continue;
-    const inventory = roomRates.getInventory(name);
+    const inventory = inventoryMap[name] || 0;
     let bookedByNight;
     try {
-      bookedByNight = await availability.countOverlappingByNight(db, name, start, end);
+      // Single/Twin siblings share one physical pool (see roomRates.js) —
+      // count every key in the pool, not just this one, so the feed never
+      // advertises the same physical rooms as available twice over.
+      bookedByNight = await availability.countOverlappingByNightPool(db, roomRates.getInventoryPoolRooms(name), start, end);
     } catch (e) {
       console.error('[hotelAdsFeed] availability query failed, defaulting to 0 booked', e);
       bookedByNight = {};

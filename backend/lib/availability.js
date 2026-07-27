@@ -56,4 +56,52 @@ async function countOverlappingByNight(queryable, room, startDate, endDateExclus
   return out;
 }
 
-module.exports = { countOverlapping, countOverlappingByNight, PENDING_HOLD_MINUTES };
+// Same as countOverlapping(), but sums across every room key in a shared
+// physical pool (e.g. 'Studio Single' + 'Studio Twin') instead of one exact
+// key — see roomRates.js's getInventoryPoolRooms(). `roomKeys` is normally
+// a single-element array for a room with no sibling.
+async function countOverlappingPool(queryable, roomKeys, checkIn, checkOut) {
+  const { rows } = await queryable.query(
+    `SELECT COUNT(*)::int AS cnt
+       FROM guest_bookings
+      WHERE room = ANY($1::text[])
+        AND check_in < $3 AND check_out > $2
+        AND (
+          status = 'confirmed'
+          OR (status = 'pending' AND created_at > NOW() - INTERVAL '${PENDING_HOLD_MINUTES} minutes')
+        )`,
+    [roomKeys, checkIn, checkOut]
+  );
+  return rows[0].cnt;
+}
+
+// Pool-aware counterpart to countOverlappingByNight(), for the same reason
+// as countOverlappingPool() above.
+async function countOverlappingByNightPool(queryable, roomKeys, startDate, endDateExclusive) {
+  const { rows } = await queryable.query(
+    `SELECT d::date AS night, COUNT(gb.*)::int AS cnt
+       FROM generate_series($2::date, $3::date - interval '1 day', interval '1 day') AS d
+       LEFT JOIN guest_bookings gb
+         ON gb.room = ANY($1::text[])
+        AND gb.check_in <= d AND gb.check_out > d
+        AND (
+          gb.status = 'confirmed'
+          OR (gb.status = 'pending' AND gb.created_at > NOW() - INTERVAL '${PENDING_HOLD_MINUTES} minutes')
+        )
+      GROUP BY d
+      ORDER BY d`,
+    [roomKeys, startDate, endDateExclusive]
+  );
+  const out = {};
+  rows.forEach((r) => {
+    const key = r.night instanceof Date ? r.night.toISOString().slice(0, 10) : String(r.night);
+    out[key] = r.cnt;
+  });
+  return out;
+}
+
+module.exports = {
+  countOverlapping, countOverlappingByNight,
+  countOverlappingPool, countOverlappingByNightPool,
+  PENDING_HOLD_MINUTES,
+};

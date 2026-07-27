@@ -1064,6 +1064,34 @@ body.bk-pay-open { position: fixed; left: 0; right: 0; overflow: hidden; }
 #bkpViewSuccess h3 { font-family: var(--serif); color: var(--teal-deep); margin: 0; font-size: 1.3rem; }
 .bkp-success-note { font-size: 0.85rem; color: var(--ink-soft); }
 
+/* Online payment: method choice + card fields (assets/js/booking-payment.js's
+   paymentMethodFieldHTML()) — only rendered once GET /api/v1/payments/config
+   reports Omise is actually live, so this stays invisible/unused until then. */
+.bkp-payment-method { margin-top: 4px; }
+.bkp-card-fields {
+  display: flex; flex-direction: column; gap: 10px;
+  margin-top: 10px; padding: 12px; border-radius: 10px;
+  background: rgba(12, 91, 88, 0.04); border: 1px solid var(--line);
+}
+.bkp-card-fields[hidden] { display: none; }
+
+/* Payment outcome (post-submit) — sits right next to the confirmation
+   number and directly above the deposit note (renderPaymentOutcome()), so a
+   guest who just paid online sees the deposit note in the same glance as
+   "you're paid up," not several screens-worth of text later. */
+.bkp-payment-outcome { border-radius: 10px; padding: 12px 14px; font-size: 0.85rem; line-height: 1.5; text-align: left; }
+.bkp-payment-outcome[hidden] { display: none; }
+.bkp-payment-outcome.bkp-payment-paid {
+  background: #e6f4ea; border: 1px solid #a6d8b1; color: #1a7f37;
+}
+.bkp-payment-outcome.bkp-payment-pending {
+  background: #eef2ff; border: 1px solid #b7c4f0; color: #33408a;
+}
+.bkp-payment-outcome h4 { margin: 0 0 8px; font-family: var(--serif); font-size: 1rem; }
+.bkp-qr-img { display: block; max-width: 220px; width: 100%; margin: 8px auto; border-radius: 8px; background: #fff; }
+.bkp-qr-instructions, .bkp-qr-waiting, .bkp-qr-close-note { margin: 6px 0 0; }
+.bkp-qr-waiting { font-weight: 600; }
+
 @media (max-width: 560px) {
   .bkp-grid-2, .bkp-grid-3 { grid-template-columns: 1fr; }
   .bk-pay-box { border-radius: 16px; }

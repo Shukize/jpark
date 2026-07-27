@@ -60,14 +60,17 @@ db.query = async (sql, params) => {
   if (/FROM site_content/.test(sql)) return { rows: [] }; // no admin overrides
   if (/generate_series/.test(sql)) {
     // Sold out on the first night only, for one room, to exercise the
-    // available:false / Status="Close" path.
-    const [room, start, end] = params;
+    // available:false / Status="Close" path. `roomKeys` is now an ARRAY
+    // (the shared inventory pool — see roomRates.js's getInventoryPoolRooms())
+    // rather than a single room string, since hotelAdsFeed.js queries the
+    // whole pool a room belongs to, not just its own exact key.
+    const [roomKeys, start, end] = params;
     const rows = [];
     let d = new Date(start + 'T00:00:00Z');
     const endD = new Date(end + 'T00:00:00Z');
     let i = 0;
     while (d < endD) {
-      rows.push({ night: d.toISOString().slice(0, 10), cnt: (room === 'Studio Single' && i === 0) ? 999 : 0 });
+      rows.push({ night: d.toISOString().slice(0, 10), cnt: (roomKeys.includes('Studio Single') && i === 0) ? 999 : 0 });
       d.setUTCDate(d.getUTCDate() + 1);
       i++;
     }

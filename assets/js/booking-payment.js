@@ -4,12 +4,16 @@
    window.JPark.bookingFlow.open(ctx) from each room card's "Book Now"
    button).
 
-   Permanent policy: no online payment is ever collected here. Submitting
-   this form creates an immediately CONFIRMED reservation (it holds the
-   room-type inventory the same way a paid booking would — see
-   backend/routes/payments.js's POST /reservations) and emails the guest a
-   confirmation showing the balance due; the guest pays in person at
-   check-in by cash, credit/debit card, or PromptPay QR at the front desk.
+   Submitting this form always creates an immediately CONFIRMED reservation
+   (it holds the room-type inventory the same way any booking would — see
+   backend/routes/payments.js's POST /reservations). Payment is the guest's
+   choice, hybrid per booking: pay in person at check-in (cash / card /
+   PromptPay QR at the front desk — the default, and the only option while
+   the hotel's Omise account isn't live yet), or pay online now by card or
+   PromptPay via Omise/Opn Payments. See paymentConfig below — the online
+   choice only ever appears once GET /api/v1/payments/config reports it's
+   available, so this degrades to exactly today's pay-at-checkin-only flow
+   with zero visible change until then.
    ============================================================ */
 (function () {
   'use strict';
@@ -40,11 +44,27 @@
       'bk.pay.email': 'Email', 'bk.pay.phone': 'Phone',
       'bk.pay.note': 'Special requests (optional)', 'bk.pay.notePlaceholder': 'Late arrival, high floor, allergies…',
       'bk.pay.depositTitle': 'Please note',
-      'bk.pay.depositNote': 'A 200 THB deposit for your room key card is collected in cash only at check-in, and refunded in full at check-out.',
+      'bk.pay.depositNote': 'A 200 THB deposit for your room key card is collected at check-in — in cash, or (Thai guests only) a national ID card or driving license may be left instead — and is refunded/returned in full at check-out.',
       'bk.pay.cancelTitle': 'Changes and cancellation',
       'bk.pay.cancelNote': 'Nothing is charged now — you pay in person at check-in. To change or cancel your reservation, contact the hotel by phone or email with your confirmation number and the front desk will take care of it.',
-      'bk.pay.depositAck': 'I understand a refundable key-card deposit is collected in cash at check-in.',
+      'bk.pay.depositAck': 'I understand a refundable key-card deposit is collected at check-in.',
       'bk.pay.err.depositAck': 'Please tick the box to confirm you understand the deposit.',
+      'bk.pay.howToPay': 'How would you like to pay?',
+      'bk.pay.payAtCheckin': 'Pay at check-in',
+      'bk.pay.payOnlineCard': 'Pay online by card',
+      'bk.pay.payOnlinePromptpay': 'Pay online by PromptPay',
+      'bk.pay.cardName': 'Name on card', 'bk.pay.cardNumber': 'Card number',
+      'bk.pay.cardExpiry': 'Expiry (MM/YY)', 'bk.pay.cardCvc': 'CVC',
+      'bk.pay.payAmount': 'Pay {amount}',
+      'bk.pay.qrTitle': 'Scan to pay with PromptPay',
+      'bk.pay.qrInstructions': 'Open your banking app and scan this QR code to complete payment.',
+      'bk.pay.qrWaiting': 'Waiting for payment confirmation…',
+      'bk.pay.qrCloseNote': "Your reservation is confirmed either way. You can close this and finish paying later via the QR, or pay at check-in instead — we'll email you as soon as your PromptPay payment is confirmed.",
+      'bk.pay.paidOnlineNote': 'You paid {amount} online. Thank you!',
+      'bk.pay.onlinePayNote': "You're paying online now. We'll email your confirmation as soon as payment is processed.",
+      'bk.pay.err.cardDeclined': 'Your card was declined. Please try a different card or pay at check-in.',
+      'bk.pay.err.cardIncomplete': 'Please fill in all card details.',
+      'bk.pay.err.paymentUnavailable': 'Online payment is not currently available. Please choose pay at check-in.',
       'bk.pay.total': 'Total',
       'bk.pay.extraBedLine': 'Extra bed (3rd guest)', 'bk.pay.extraBreakfastLine': 'Extra breakfast guest',
       'bk.pay.extraBedLabel': 'Extra bed', 'bk.pay.extraBedAdd': 'Add an extra bed',
@@ -57,6 +77,7 @@
       'bk.pay.done': 'Done',
       'bk.pay.reserveTitle': 'Reserve now — pay at check-in',
       'bk.pay.checkinNote': "You're not paying online. We'll email your confirmation now, and you'll settle the balance in person at check-in — by cash, credit/debit card, or PromptPay QR at our front desk.",
+      'bk.pay.prepayRequiredNote': "During this busy period, full prepayment is required — pay-at-check-in isn't available for these dates, and this booking is non-refundable if you don't arrive (no-show) or cancel.",
       'bk.pay.confirmReservation': 'Confirm reservation',
       'bk.pay.err.required': 'Please fill in your first name, email, and phone number.',
       'bk.pay.err.generic': 'Something went wrong. Please try again.',
@@ -86,11 +107,27 @@
       'bk.pay.email': 'อีเมล', 'bk.pay.phone': 'เบอร์โทร',
       'bk.pay.note': 'คำขอพิเศษ (ไม่บังคับ)', 'bk.pay.notePlaceholder': 'มาถึงดึก ต้องการชั้นสูง แพ้อาหาร…',
       'bk.pay.depositTitle': 'โปรดทราบ',
-      'bk.pay.depositNote': 'มีการเรียกเก็บเงินมัดจำบัตรคีย์การ์ด 200 บาท เป็นเงินสดเท่านั้น ณ วันเช็คอิน และคืนเต็มจำนวนเมื่อเช็คเอาท์',
+      'bk.pay.depositNote': 'มีการเรียกเก็บเงินมัดจำบัตรคีย์การ์ด 200 บาท ณ วันเช็คอิน โดยชำระเป็นเงินสด หรือฝากบัตรประจำตัวประชาชน/ใบขับขี่แทนเงินมัดจำก็ได้ (เฉพาะผู้เข้าพักสัญชาติไทย) และจะคืนให้เต็มจำนวนเมื่อเช็คเอาท์',
       'bk.pay.cancelTitle': 'การเปลี่ยนแปลงและการยกเลิก',
       'bk.pay.cancelNote': 'ยังไม่มีการเรียกเก็บเงินในขณะนี้ ท่านชำระเงินด้วยตนเอง ณ วันเช็คอิน หากต้องการเปลี่ยนแปลงหรือยกเลิกการจอง กรุณาติดต่อโรงแรมทางโทรศัพท์หรืออีเมลพร้อมแจ้งหมายเลขการจอง แล้วแผนกต้อนรับจะดำเนินการให้',
-      'bk.pay.depositAck': 'ข้าพเจ้าเข้าใจว่าต้องวางเงินมัดจำบัตรคีย์การ์ด (คืนเต็มจำนวน) เป็นเงินสด ณ วันเช็คอิน',
+      'bk.pay.depositAck': 'ข้าพเจ้าเข้าใจว่าต้องวางเงินมัดจำบัตรคีย์การ์ด (คืนเต็มจำนวน) ณ วันเช็คอิน',
       'bk.pay.err.depositAck': 'กรุณาทำเครื่องหมายในช่องเพื่อยืนยันว่าคุณเข้าใจเงื่อนไขการมัดจำ',
+      'bk.pay.howToPay': 'ท่านต้องการชำระเงินด้วยวิธีใด?',
+      'bk.pay.payAtCheckin': 'ชำระที่โรงแรมเมื่อเช็คอิน',
+      'bk.pay.payOnlineCard': 'ชำระออนไลน์ด้วยบัตรเครดิต/เดบิต',
+      'bk.pay.payOnlinePromptpay': 'ชำระออนไลน์ด้วย PromptPay',
+      'bk.pay.cardName': 'ชื่อบนบัตร', 'bk.pay.cardNumber': 'หมายเลขบัตร',
+      'bk.pay.cardExpiry': 'วันหมดอายุ (ด/ป)', 'bk.pay.cardCvc': 'รหัส CVC',
+      'bk.pay.payAmount': 'ชำระเงิน {amount}',
+      'bk.pay.qrTitle': 'สแกนเพื่อชำระเงินผ่าน PromptPay',
+      'bk.pay.qrInstructions': 'เปิดแอปธนาคารของท่านแล้วสแกน QR โค้ดนี้เพื่อชำระเงินให้เสร็จสมบูรณ์',
+      'bk.pay.qrWaiting': 'กำลังรอการยืนยันการชำระเงิน…',
+      'bk.pay.qrCloseNote': 'การจองของท่านได้รับการยืนยันแล้วไม่ว่าผลการชำระเงินจะเป็นอย่างไร ท่านสามารถปิดหน้าต่างนี้แล้วชำระเงินภายหลังผ่าน QR หรือชำระที่หน้าเคาน์เตอร์แทนก็ได้ — เราจะแจ้งให้ท่านทราบทางอีเมลทันทีที่ได้รับการยืนยันการชำระเงินผ่าน PromptPay',
+      'bk.pay.paidOnlineNote': 'ท่านได้ชำระเงิน {amount} ออนไลน์เรียบร้อยแล้ว ขอบคุณที่ใช้บริการ',
+      'bk.pay.onlinePayNote': 'ท่านกำลังชำระเงินออนไลน์ เราจะส่งอีเมลยืนยันให้ทันทีที่การชำระเงินเสร็จสมบูรณ์',
+      'bk.pay.err.cardDeclined': 'บัตรของท่านถูกปฏิเสธ กรุณาลองใช้บัตรอื่น หรือเลือกชำระเงินที่หน้าเคาน์เตอร์แทน',
+      'bk.pay.err.cardIncomplete': 'กรุณากรอกข้อมูลบัตรให้ครบถ้วน',
+      'bk.pay.err.paymentUnavailable': 'ขณะนี้ไม่สามารถชำระเงินออนไลน์ได้ กรุณาเลือกชำระเงินที่หน้าเคาน์เตอร์แทน',
       'bk.pay.total': 'ยอดรวม',
       'bk.pay.extraBedLine': 'เตียงเสริม (ผู้เข้าพักคนที่ 3)', 'bk.pay.extraBreakfastLine': 'อาหารเช้าเพิ่มเติม',
       'bk.pay.extraBedLabel': 'เตียงเสริม', 'bk.pay.extraBedAdd': 'เพิ่มเตียงเสริม',
@@ -103,6 +140,7 @@
       'bk.pay.done': 'เสร็จสิ้น',
       'bk.pay.reserveTitle': 'จองเลย ชำระเงินที่โรงแรม',
       'bk.pay.checkinNote': 'ท่านไม่ต้องชำระเงินออนไลน์ เราจะส่งอีเมลยืนยันการจองให้ทันที และท่านสามารถชำระยอดคงเหลือได้ที่หน้าเคาน์เตอร์เมื่อเช็คอิน — ด้วยเงินสด บัตรเครดิต/เดบิต หรือ QR พร้อมเพย์',
+      'bk.pay.prepayRequiredNote': 'ในช่วงที่มีผู้เข้าพักจำนวนมาก จำเป็นต้องชำระเงินล่วงหน้าเต็มจำนวน — ไม่สามารถเลือกชำระที่โรงแรมสำหรับวันดังกล่าวได้ และการจองนี้จะไม่คืนเงินหากท่านไม่เข้าพัก (No-show) หรือยกเลิก',
       'bk.pay.confirmReservation': 'ยืนยันการจอง',
       'bk.pay.err.required': 'กรุณากรอกชื่อ อีเมล และเบอร์โทรศัพท์ของท่าน',
       'bk.pay.err.generic': 'เกิดข้อผิดพลาด กรุณาลองใหม่',
@@ -132,11 +170,27 @@
       'bk.pay.email': 'メールアドレス', 'bk.pay.phone': '電話番号',
       'bk.pay.note': 'ご要望（任意）', 'bk.pay.notePlaceholder': '到着が遅れる、高層階希望、アレルギーなど…',
       'bk.pay.depositTitle': 'ご注意',
-      'bk.pay.depositNote': 'ルームキーカードのデポジット200THBを、チェックイン時に現金のみで頂戴いたします。チェックアウト時に全額返金いたします。',
+      'bk.pay.depositNote': 'ルームキーカードのデポジット200THBを、チェックイン時に現金でお預かりいたします（タイ国籍のお客様は、現金の代わりに国民IDカードまたは運転免許証をお預けいただくことも可能です）。チェックアウト時に全額返金（またはご返却）いたします。',
       'bk.pay.cancelTitle': '変更・キャンセルについて',
       'bk.pay.cancelNote': '現時点でのご請求はございません。お支払いはチェックイン時に現地にて承ります。ご予約の変更・キャンセルをご希望の場合は、予約番号をお控えのうえ、お電話またはメールにてホテルへご連絡ください。フロントにて対応いたします。',
-      'bk.pay.depositAck': 'ルームキーカードのデポジット（返金あり）をチェックイン時に現金でお支払いいただくことを理解しました。',
+      'bk.pay.depositAck': 'ルームキーカードのデポジット（返金あり）をチェックイン時にお支払いいただくことを理解しました。',
       'bk.pay.err.depositAck': 'デポジットについて理解したことを確認するため、チェックボックスにチェックを入れてください。',
+      'bk.pay.howToPay': 'お支払い方法をお選びください',
+      'bk.pay.payAtCheckin': 'チェックイン時に現地でお支払い',
+      'bk.pay.payOnlineCard': 'オンラインでカード決済',
+      'bk.pay.payOnlinePromptpay': 'オンラインでプロンプトペイ決済',
+      'bk.pay.cardName': 'カード名義人', 'bk.pay.cardNumber': 'カード番号',
+      'bk.pay.cardExpiry': '有効期限（MM/YY）', 'bk.pay.cardCvc': 'セキュリティコード',
+      'bk.pay.payAmount': '{amount} を支払う',
+      'bk.pay.qrTitle': 'プロンプトペイでお支払い（QRコードをスキャン）',
+      'bk.pay.qrInstructions': '銀行アプリを開き、このQRコードをスキャンしてお支払いを完了してください。',
+      'bk.pay.qrWaiting': 'お支払いの確認をお待ちしています…',
+      'bk.pay.qrCloseNote': 'ご予約はいずれにしても確定しております。この画面を閉じて後ほどQRコードからお支払いいただくことも、チェックイン時にお支払いいただくことも可能です。プロンプトペイのお支払いが確認され次第メールにてご案内いたします。',
+      'bk.pay.paidOnlineNote': '{amount} をオンラインでお支払いいただきました。誠にありがとうございます。',
+      'bk.pay.onlinePayNote': 'ただいまオンラインでお支払い手続き中です。お支払い完了後、確認メールをお送りいたします。',
+      'bk.pay.err.cardDeclined': 'カードが決済できませんでした。別のカードをお試しいただくか、チェックイン時のお支払いをお選びください。',
+      'bk.pay.err.cardIncomplete': 'カード情報をすべてご入力ください。',
+      'bk.pay.err.paymentUnavailable': 'ただいまオンライン決済をご利用いただけません。チェックイン時のお支払いをお選びください。',
       'bk.pay.total': '合計',
       'bk.pay.extraBedLine': 'エキストラベッド（3人目）', 'bk.pay.extraBreakfastLine': '追加の朝食',
       'bk.pay.extraBedLabel': 'エキストラベッド', 'bk.pay.extraBedAdd': 'エキストラベッドを追加',
@@ -149,6 +203,7 @@
       'bk.pay.done': '完了',
       'bk.pay.reserveTitle': '今すぐご予約 — お支払いはチェックイン時に',
       'bk.pay.checkinNote': 'オンラインでのお支払いは不要です。ご予約確認メールをすぐにお送りいたします。残額はチェックイン時にフロントにて、現金・クレジット/デビットカード、またはプロンプトペイQRでお支払いいただけます。',
+      'bk.pay.prepayRequiredNote': '混雑期のため、全額前払いが必要です。この期間はチェックイン時のお支払いはお選びいただけず、ご到着がない場合（ノーショー）やキャンセルの場合は返金されません。',
       'bk.pay.confirmReservation': '予約を確定する',
       'bk.pay.err.required': 'お名前、メールアドレス、電話番号をご入力ください。',
       'bk.pay.err.generic': '問題が発生しました。再度お試しください。',
@@ -178,11 +233,27 @@
       'bk.pay.email': '电子邮箱', 'bk.pay.phone': '电话',
       'bk.pay.note': '特殊要求（可选）', 'bk.pay.notePlaceholder': '晚到、高楼层、过敏信息等…',
       'bk.pay.depositTitle': '请注意',
-      'bk.pay.depositNote': '房卡押金200泰铢，仅收现金，于入住时收取，退房时全额退还。',
+      'bk.pay.depositNote': '房卡押金200泰铢，于入住时以现金收取（泰国籍客人也可以国民身份证或驾驶证代替现金作为押金），退房时全额退还（或归还证件）。',
       'bk.pay.cancelTitle': '变更与取消',
       'bk.pay.cancelNote': '现在不收取任何费用，您在入住时当面付款。如需变更或取消预订，请携预订编号致电或发送邮件与酒店联系，前台将为您处理。',
-      'bk.pay.depositAck': '我了解房卡押金需于入住时以现金支付，退房时全额退还。',
+      'bk.pay.depositAck': '我了解房卡押金（可全额退还）将于入住时收取。',
       'bk.pay.err.depositAck': '请勾选此框以确认您已了解押金说明。',
+      'bk.pay.howToPay': '您希望如何付款？',
+      'bk.pay.payAtCheckin': '入住时到店付款',
+      'bk.pay.payOnlineCard': '在线信用卡/借记卡支付',
+      'bk.pay.payOnlinePromptpay': '在线PromptPay支付',
+      'bk.pay.cardName': '持卡人姓名', 'bk.pay.cardNumber': '卡号',
+      'bk.pay.cardExpiry': '有效期（MM/YY）', 'bk.pay.cardCvc': '安全码',
+      'bk.pay.payAmount': '支付 {amount}',
+      'bk.pay.qrTitle': '扫码使用PromptPay付款',
+      'bk.pay.qrInstructions': '请打开您的银行应用程序扫描此二维码以完成付款。',
+      'bk.pay.qrWaiting': '正在等待付款确认…',
+      'bk.pay.qrCloseNote': '无论付款结果如何，您的预订均已确认。您可以关闭此窗口稍后通过二维码完成付款，或改为入住时付款——PromptPay付款确认后我们将通过邮件通知您。',
+      'bk.pay.paidOnlineNote': '您已在线支付 {amount}，感谢您！',
+      'bk.pay.onlinePayNote': '您正在进行在线支付。付款完成后我们将立即发送确认邮件。',
+      'bk.pay.err.cardDeclined': '您的卡被拒绝。请尝试其他银行卡，或选择入住时付款。',
+      'bk.pay.err.cardIncomplete': '请填写完整的银行卡信息。',
+      'bk.pay.err.paymentUnavailable': '目前无法使用在线支付，请选择入住时付款。',
       'bk.pay.total': '总计',
       'bk.pay.extraBedLine': '加床（第3位客人）', 'bk.pay.extraBreakfastLine': '额外早餐',
       'bk.pay.extraBedLabel': '加床', 'bk.pay.extraBedAdd': '加一张床',
@@ -195,6 +266,7 @@
       'bk.pay.done': '完成',
       'bk.pay.reserveTitle': '立即预订 — 入住时付款',
       'bk.pay.checkinNote': '您无需在线支付。我们会立即发送预订确认邮件，您可在入住时于前台以现金、信用卡/借记卡或PromptPay二维码支付余款。',
+      'bk.pay.prepayRequiredNote': '旺季期间需全额预付——所选日期不提供到店支付，且如未入住（No-show）或取消恕不退款。',
       'bk.pay.confirmReservation': '确认预订',
       'bk.pay.err.required': '请填写您的名字、电子邮箱和电话号码。',
       'bk.pay.err.generic': '出现了一些问题，请重试。',
@@ -224,11 +296,27 @@
       'bk.pay.email': '電子郵箱', 'bk.pay.phone': '電話',
       'bk.pay.note': '特殊要求（可選）', 'bk.pay.notePlaceholder': '晚到、高樓層、過敏資訊等…',
       'bk.pay.depositTitle': '請注意',
-      'bk.pay.depositNote': '房卡押金200泰銖，僅收現金，於入住時收取，退房時全額退還。',
+      'bk.pay.depositNote': '房卡押金200泰銖，於入住時以現金收取（泰國籍貴賓亦可以國民身分證或駕駛執照代替現金作為押金），退房時全額退還（或歸還證件）。',
       'bk.pay.cancelTitle': '變更與取消',
       'bk.pay.cancelNote': '現在不收取任何費用，您於入住時當面付款。如需變更或取消訂房，請攜訂房編號致電或發送電子郵件與飯店聯絡，櫃檯將為您處理。',
-      'bk.pay.depositAck': '我了解房卡押金需於入住時以現金支付，退房時全額退還。',
+      'bk.pay.depositAck': '我了解房卡押金（可全額退還）將於入住時收取。',
       'bk.pay.err.depositAck': '請勾選此框以確認您已了解押金說明。',
+      'bk.pay.howToPay': '您希望如何付款？',
+      'bk.pay.payAtCheckin': '入住時到店付款',
+      'bk.pay.payOnlineCard': '線上信用卡/簽帳卡付款',
+      'bk.pay.payOnlinePromptpay': '線上PromptPay付款',
+      'bk.pay.cardName': '持卡人姓名', 'bk.pay.cardNumber': '卡號',
+      'bk.pay.cardExpiry': '有效期限（MM/YY）', 'bk.pay.cardCvc': '安全碼',
+      'bk.pay.payAmount': '支付 {amount}',
+      'bk.pay.qrTitle': '掃碼使用PromptPay付款',
+      'bk.pay.qrInstructions': '請開啟您的銀行應用程式掃描此二維碼以完成付款。',
+      'bk.pay.qrWaiting': '正在等待付款確認…',
+      'bk.pay.qrCloseNote': '無論付款結果如何，您的預訂均已確認。您可以關閉此視窗稍後透過二維碼完成付款，或改為入住時付款——PromptPay付款確認後我們將透過郵件通知您。',
+      'bk.pay.paidOnlineNote': '您已線上支付 {amount}，感謝您！',
+      'bk.pay.onlinePayNote': '您正在進行線上支付。付款完成後我們將立即傳送確認郵件。',
+      'bk.pay.err.cardDeclined': '您的卡被拒絕。請嘗試其他銀行卡，或選擇入住時付款。',
+      'bk.pay.err.cardIncomplete': '請填寫完整的銀行卡資訊。',
+      'bk.pay.err.paymentUnavailable': '目前無法使用線上支付，請選擇入住時付款。',
       'bk.pay.total': '總計',
       'bk.pay.extraBedLine': '加床（第3位客人）', 'bk.pay.extraBreakfastLine': '額外早餐',
       'bk.pay.extraBedLabel': '加床', 'bk.pay.extraBedAdd': '加一張床',
@@ -241,6 +329,7 @@
       'bk.pay.done': '完成',
       'bk.pay.reserveTitle': '立即預訂 — 入住時付款',
       'bk.pay.checkinNote': '您無需線上支付。我們會立即發送預訂確認郵件，您可在入住時於前台以現金、信用卡/簽帳卡或PromptPay二維碼支付餘款。',
+      'bk.pay.prepayRequiredNote': '旺季期間需全額預付——所選日期不提供到店支付，且如未入住（No-show）或取消恕不退款。',
       'bk.pay.confirmReservation': '確認預訂',
       'bk.pay.err.required': '請填寫您的名字、電子郵箱和電話號碼。',
       'bk.pay.err.generic': '出現了一些問題，請重試。',
@@ -265,6 +354,74 @@
     },
   };
   if (I) I.registerI18n(STR);
+
+  // ============================================================
+  //  Online payment config — GET /api/v1/payments/config, fetched once at
+  //  load. Until the hotel's Omise account is live (OMISE_SECRET_KEY unset
+  //  server-side), paymentEnabled stays false and the payment-method choice
+  //  below never renders — the guest sees exactly today's pay-at-checkin-
+  //  only flow. Fetched eagerly (not lazily on modal open) so it's already
+  //  resolved by the time a guest reaches the guest-details step.
+  // ============================================================
+  var paymentConfig = { publicKey: null, paymentEnabled: false };
+  if (window.JPark.api) {
+    window.JPark.api.get('/api/v1/payments/config').then(function (r) {
+      if (r && !r.error) paymentConfig = r;
+    }).catch(function () {});
+  }
+
+  // Lazy-loads Omise.js (card tokenization) only the first time a guest
+  // actually picks "pay by card" — never unconditionally, since most guests
+  // will never touch it. Resolves once, cached for subsequent opens.
+  var omiseScriptPromise = null;
+  function loadOmiseScript() {
+    if (window.Omise) return Promise.resolve();
+    if (omiseScriptPromise) return omiseScriptPromise;
+    omiseScriptPromise = new Promise(function (resolve, reject) {
+      var s = document.createElement('script');
+      s.src = 'https://cdn.omise.co/omise.js';
+      s.onload = resolve;
+      s.onerror = function () { omiseScriptPromise = null; reject(new Error('omise.js failed to load')); };
+      document.head.appendChild(s);
+    });
+    return omiseScriptPromise;
+  }
+
+  // Tokenizes the card fields currently in the DOM via Omise.js, so the raw
+  // card number never reaches our own server — only the resulting token id
+  // does. Resolves { token } or { error }.
+  function tokenizeCard() {
+    var name = val('bkpCardName');
+    var number = val('bkpCardNumber');
+    var expiry = val('bkpCardExpiry');
+    var cvc = val('bkpCardCvc');
+    var m = /^(\d{1,2})\s*\/\s*(\d{2}|\d{4})$/.exec(expiry || '');
+    if (!name || !number || !m || !cvc) {
+      return Promise.resolve({ error: TR('bk.pay.err.cardIncomplete') });
+    }
+    var expMonth = parseInt(m[1], 10);
+    var expYear = m[2].length === 2 ? (2000 + parseInt(m[2], 10)) : parseInt(m[2], 10);
+    return loadOmiseScript().then(function () {
+      return new Promise(function (resolve) {
+        Omise.setPublicKey(paymentConfig.publicKey);
+        Omise.createToken('card', {
+          name: name,
+          number: number.replace(/\s+/g, ''),
+          expiration_month: expMonth,
+          expiration_year: expYear,
+          security_code: cvc,
+        }, function (statusCode, response) {
+          if (response && response.object === 'error') {
+            resolve({ error: response.message || TR('bk.pay.err.cardDeclined') });
+          } else {
+            resolve({ token: response.id });
+          }
+        });
+      });
+    }).catch(function () {
+      return { error: TR('bk.pay.err.generic') };
+    });
+  }
 
   // ============================================================
   //  Modal DOM (built once, reused across opens)
@@ -425,6 +582,7 @@
     overlay.hidden = true;
     unlockBodyScroll();
     state = null;
+    stopQrPoll();
   }
 
   // ---- Views -------------------------------------------------
@@ -549,6 +707,88 @@
     '</div>';
   }
 
+  // Pay-at-check-in normally, but when the hotel is forcing prepayment
+  // (busy/holiday — paymentConfig.prepayRequired, which the server only reports
+  // true while Omise is actually live) that option is gone, so start the guest
+  // on a valid online method instead.
+  function defaultPaymentMethod() {
+    return paymentConfig.prepayRequired ? 'promptpay' : 'pay_at_checkin';
+  }
+  function currentPaymentMethod() {
+    var m = (state && state.paymentMethod) || defaultPaymentMethod();
+    // Guard: if prepay is required, never resolve to pay-at-check-in (e.g. a
+    // stale state set before the config finished loading).
+    if (paymentConfig.prepayRequired && m === 'pay_at_checkin') return 'promptpay';
+    return m;
+  }
+
+  // Shared payment-method choice — rendered in both the solo checkout
+  // (renderReservationForm) and the cart review (renderCartReview), only
+  // when the backend actually has Omise configured (paymentConfig.
+  // paymentEnabled). Defaults to pay-at-checkin either way, so nothing here
+  // changes the deposit note/ack below it, which stays required regardless
+  // of payment method — a guest paying online in full still owes the
+  // separate, in-person key-card deposit.
+  function paymentMethodFieldHTML() {
+    if (!paymentConfig.paymentEnabled) return '';
+    var m = currentPaymentMethod();
+    var prepay = !!paymentConfig.prepayRequired;
+    // Busy/holiday policy: no pay-at-check-in option, plus an upfront
+    // non-refundable notice so the guest agrees to the terms before paying.
+    var payAtCheckinRadio = prepay ? '' :
+      '<label class="bkp-radio"><input type="radio" name="bkpPaymentMethod" value="pay_at_checkin"' + (m === 'pay_at_checkin' ? ' checked' : '') + '> ' + TR('bk.pay.payAtCheckin') + '</label>';
+    var prepayNotice = prepay ?
+      '<p class="bkp-prepay-note" style="background:#fdecea;border:1px solid #f0b7b1;border-radius:8px;padding:9px 12px;margin:0 0 8px;color:#8a2a1a;font-size:0.82rem;line-height:1.45">' +
+        esc(TR('bk.pay.prepayRequiredNote')) + '</p>' : '';
+    return '<div class="bkp-field bkp-payment-method">' +
+      '<label class="bkp-label">' + TR('bk.pay.howToPay') + '</label>' +
+      prepayNotice +
+      '<div class="bkp-radio-row" id="bkpPaymentMethodRow">' +
+        payAtCheckinRadio +
+        '<label class="bkp-radio"><input type="radio" name="bkpPaymentMethod" value="card"' + (m === 'card' ? ' checked' : '') + '> ' + TR('bk.pay.payOnlineCard') + '</label>' +
+        '<label class="bkp-radio"><input type="radio" name="bkpPaymentMethod" value="promptpay"' + (m === 'promptpay' ? ' checked' : '') + '> ' + TR('bk.pay.payOnlinePromptpay') + '</label>' +
+      '</div>' +
+      '<div class="bkp-card-fields" id="bkpCardFields"' + (m === 'card' ? '' : ' hidden') + '>' +
+        '<div class="bkp-field"><label>' + TR('bk.pay.cardName') + '</label><input id="bkpCardName" autocomplete="cc-name"></div>' +
+        '<div class="bkp-field"><label>' + TR('bk.pay.cardNumber') + '</label><input id="bkpCardNumber" inputmode="numeric" autocomplete="cc-number" placeholder="4242 4242 4242 4242"></div>' +
+        '<div class="bkp-grid-2">' +
+          '<div class="bkp-field"><label>' + TR('bk.pay.cardExpiry') + '</label><input id="bkpCardExpiry" autocomplete="cc-exp" placeholder="MM/YY"></div>' +
+          '<div class="bkp-field"><label>' + TR('bk.pay.cardCvc') + '</label><input id="bkpCardCvc" inputmode="numeric" autocomplete="cc-csc" placeholder="123"></div>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  }
+
+  // Wires the payment-method radio: toggles the card-fields sub-panel and
+  // hands control back to the caller (which swaps the pay-note paragraph
+  // and the submit button's label — different between the solo and cart
+  // views, so left to each).
+  function wirePaymentMethodField(onChange) {
+    var row = qs('#bkpPaymentMethodRow');
+    if (!row) return;
+    row.addEventListener('change', function (e) {
+      if (e.target.name !== 'bkpPaymentMethod') return;
+      state.paymentMethod = e.target.value;
+      var cardFields = qs('#bkpCardFields');
+      if (cardFields) cardFields.hidden = (state.paymentMethod !== 'card');
+      if (onChange) onChange();
+    });
+  }
+
+  // The pay-at-checkin note ("nothing charged now…") only applies to that
+  // choice; paying online swaps in a distinct note rather than showing
+  // stale/contradictory copy.
+  function paymentNoteText() {
+    return currentPaymentMethod() === 'pay_at_checkin' ? TR('bk.pay.checkinNote') : TR('bk.pay.onlinePayNote');
+  }
+
+  // Submit button label: the normal action label for pay-at-checkin, or
+  // "Pay {amount}" once an online method is chosen — so a guest about to be
+  // charged always sees the amount on the button they're about to press.
+  function submitButtonLabel(defaultLabel, amount) {
+    return currentPaymentMethod() === 'pay_at_checkin' ? defaultLabel : TR('bk.pay.payAmount').replace('{amount}', money(amount));
+  }
+
   // Required deposit acknowledgement — the guest must actively tick this to
   // confirm they've understood the (refundable, cash-at-check-in) key-card
   // deposit spelled out in the note directly above before we take the booking.
@@ -654,20 +894,22 @@
             '<div class="bkp-field"><label>' + TR('bk.pay.phone') + '</label><input type="tel" id="bkpPhone" autocomplete="tel"></div>' +
             '<div class="bkp-field"><label>' + TR('bk.pay.note') + '</label><textarea id="bkpNote" rows="2" placeholder="' + esc(TR('bk.pay.notePlaceholder')) + '"></textarea></div>' +
           '</div>' +
+          paymentMethodFieldHTML() +
           '<div class="bkp-deposit-note"><strong>' + TR('bk.pay.depositTitle') + ':</strong> ' + TR('bk.pay.depositNote') + '</div>' +
           // A guest must know how to change or cancel BEFORE they commit, not
-          // only afterwards in the email. Nothing is charged online, so this
-          // states exactly that and how to reach us.
+          // only afterwards in the email. This states exactly how to reach us
+          // — the deposit note above it stays true regardless of whether the
+          // stay total itself was paid online or will be paid at check-in.
           '<div class="bkp-deposit-note bkp-cancel-note"><strong>' + TR('bk.pay.cancelTitle') + ':</strong> ' + TR('bk.pay.cancelNote') + '</div>' +
           depositAckHTML() +
-          '<p class="bkp-pp-note">' + TR('bk.pay.checkinNote') + '</p>'
+          '<p class="bkp-pp-note" id="bkpPayNote">' + paymentNoteText() + '</p>'
         ) +
 
         '<p class="bkp-form-error" id="bkpFormError" hidden></p>' +
 
         (inCart
           ? '<button type="button" class="btn btn-solid bkp-submit-btn" id="bkpAddRoomBtn">' + TR('bk.pay.addToBooking') + '</button>'
-          : '<button type="button" class="btn btn-solid bkp-submit-btn" id="bkpSubmitBtn">' + TR('bk.pay.confirmReservation') + '</button>') +
+          : '<button type="button" class="btn btn-solid bkp-submit-btn" id="bkpSubmitBtn">' + submitButtonLabel(TR('bk.pay.confirmReservation'), currentTotal()) + '</button>') +
       '</div>' +
       resultViewsHTML() +
       '</div>';
@@ -687,6 +929,11 @@
       if (labels[0]) labels[0].lastChild.textContent = ' ' + TR('bk.roomOnly') + ' — ' + money(v.room);
       if (labels[1]) labels[1].lastChild.textContent = ' ' + TR('bk.withBreakfast') + ' — ' + money(breakfastRate(v));
     }
+    // Keep the "Pay {amount}" submit label in step with the total whenever
+    // an online payment method is selected (breakfast/extra-bed/variant
+    // changes all affect what's about to be charged). No-ops harmlessly in
+    // cart-adding mode, where there is no #bkpSubmitBtn.
+    setReservationSubmitting(false);
   }
 
   function wireReservationForm() {
@@ -737,13 +984,18 @@
     var submitBtn = qs('#bkpSubmitBtn');
     if (submitBtn) submitBtn.addEventListener('click', onReservationSubmit);
     wireDepositAck();
+    wirePaymentMethodField(function () {
+      var noteEl = qs('#bkpPayNote');
+      if (noteEl) noteEl.textContent = paymentNoteText();
+      setReservationSubmitting(false);
+    });
   }
 
   function setReservationSubmitting(isSubmitting) {
     var btn = qs('#bkpSubmitBtn');
     if (btn) {
       btn.disabled = isSubmitting;
-      btn.textContent = isSubmitting ? TR('bk.pay.processingText') : TR('bk.pay.confirmReservation');
+      btn.textContent = isSubmitting ? TR('bk.pay.processingText') : submitButtonLabel(TR('bk.pay.confirmReservation'), currentTotal());
     }
   }
 
@@ -796,6 +1048,7 @@
     }
     if (!validateDepositAck()) return;
     var v = currentVariant();
+    var method = currentPaymentMethod();
     var body = {
       room: state.room,
       variantLabel: v.label,
@@ -809,9 +1062,23 @@
       extraBed: !!state.extraBed,
       guest: guestPayload(),
       lang: I ? I.getLang() : 'en',
+      paymentMethod: method,
     };
     setReservationSubmitting(true);
-    window.JPark.api.post('/api/v1/reservations', body).then(function (r) {
+
+    // Card must be tokenized client-side BEFORE the request — the server
+    // never sees a raw card number, only the resulting token id.
+    var ready = method === 'card' ? tokenizeCard() : Promise.resolve({});
+    ready.then(function (tok) {
+      if (tok.error) {
+        setReservationSubmitting(false);
+        showFormError(tok.error);
+        return null;
+      }
+      if (tok.token) body.cardToken = tok.token;
+      return window.JPark.api.post('/api/v1/reservations', body);
+    }).then(function (r) {
+      if (!r) return; // tokenize failed, already handled above
       if (!r || r.error) {
         setReservationSubmitting(false);
         // Backend unreachable (network/CORS) or down (5xx): never dead-end the
@@ -820,12 +1087,15 @@
           showFormError(TR('bk.pay.err.offline'));
         } else if (r.status === 409) {
           showFormError(TR('bk.pay.err.soldOut'));
+        } else if (r.status === 402) {
+          showFormError(r.error || TR('bk.pay.err.cardDeclined'));
         } else {
           showFormError(r.error || TR('bk.pay.err.generic'));
         }
         return;
       }
-      showSuccess(r.booking.ref);
+      var payment = r.payment ? Object.assign({}, r.payment, { bookingId: r.booking.id }) : null;
+      showSuccess(r.booking.ref, { payment: payment }, r.booking.total);
     }).catch(function () {
       setReservationSubmitting(false);
       showFormError(TR('bk.pay.err.offline'));
@@ -833,13 +1103,18 @@
   }
 
   // Shared by the reservation form and the day-use form — showSuccess()'s
-  // outcome renders into this view.
+  // outcome renders into this view. #bkpPaymentOutcome sits right next to
+  // the confirmation number and directly ABOVE the deposit note — a guest
+  // who just paid online is exactly the person most likely to skim past a
+  // policy line that isn't right next to the "you're paid up" message (see
+  // renderPaymentOutcome()).
   function resultViewsHTML() {
     return (
       '<div class="bkp-view" id="bkpViewSuccess" hidden>' +
         '<div class="bkp-success-icon" aria-hidden="true">&#10003;</div>' +
         '<h3>' + TR('bk.pay.successTitle') + '</h3>' +
         '<p>' + TR('bk.pay.confirmationLabel') + ': <strong id="bkpRefText"></strong></p>' +
+        '<div class="bkp-payment-outcome" id="bkpPaymentOutcome" hidden></div>' +
         '<div class="bkp-deposit-note"><strong>' + TR('bk.pay.depositTitle') + ':</strong> ' + TR('bk.pay.depositNote') + '</div>' +
         '<div class="bkp-deposit-note bkp-cancel-note"><strong>' + TR('bk.pay.cancelTitle') + ':</strong> ' + TR('bk.pay.cancelNote') + '</div>' +
         '<p class="bkp-success-note bkp-checkin-time-note">' + TR('bk.pay.checkinTimeNote') + '</p>' +
@@ -848,6 +1123,63 @@
         '<button type="button" class="btn btn-solid" id="bkpDoneBtn">' + TR('bk.pay.done') + '</button>' +
       '</div>'
     );
+  }
+
+  // ── PromptPay polling (shared by the solo and group success views) ──────
+  var qrPollTimer = null;
+  function stopQrPoll() {
+    if (qrPollTimer) { clearTimeout(qrPollTimer); qrPollTimer = null; }
+  }
+  // The booking itself is already confirmed regardless of payment outcome
+  // (see this file's header comment), so a poll that never resolves isn't a
+  // failure state — it just stops quietly once the modal closes or after a
+  // generous cap, without ever telling the guest their RESERVATION failed.
+  function pollPaymentStatus(bookingId, onPaid) {
+    stopQrPoll();
+    var attempts = 0;
+    var MAX_ATTEMPTS = 100; // ~8 minutes at 5s intervals
+    function tick() {
+      if (!overlay || overlay.hidden) return; // guest closed the modal
+      attempts++;
+      window.JPark.api.get('/api/v1/payments/status/' + bookingId).then(function (r) {
+        if (r && !r.error && r.paymentStatus === 'paid') { onPaid(); return; }
+        if (attempts < MAX_ATTEMPTS) qrPollTimer = setTimeout(tick, 5000);
+      }).catch(function () {
+        if (attempts < MAX_ATTEMPTS) qrPollTimer = setTimeout(tick, 5000);
+      });
+    }
+    qrPollTimer = setTimeout(tick, 5000);
+  }
+
+  // Populates #bkpPaymentOutcome for whichever payment outcome the booking
+  // actually has: nothing for pay-at-checkin (payment is null/undefined),
+  // a paid-online banner for a synchronously-approved card charge, or a
+  // PromptPay QR + live poll that flips to the same paid banner once the
+  // guest scans — without ever implying the RESERVATION itself is at risk
+  // while payment is still pending.
+  function renderPaymentOutcome(el, payment, amount) {
+    stopQrPoll();
+    if (!el) return;
+    if (!payment) { el.hidden = true; el.innerHTML = ''; return; }
+    el.hidden = false;
+    if (payment.paid) {
+      el.className = 'bkp-payment-outcome bkp-payment-paid';
+      el.innerHTML = '<strong>' + TR('bk.pay.paidOnlineNote').replace('{amount}', money(amount)) + '</strong>';
+      return;
+    }
+    el.className = 'bkp-payment-outcome bkp-payment-pending';
+    el.innerHTML =
+      '<h4>' + TR('bk.pay.qrTitle') + '</h4>' +
+      (payment.qrImage ? '<img class="bkp-qr-img" src="' + esc(payment.qrImage) + '" alt="' + esc(TR('bk.pay.qrTitle')) + '">' : '') +
+      '<p class="bkp-qr-instructions">' + TR('bk.pay.qrInstructions') + '</p>' +
+      '<p class="bkp-qr-waiting">' + TR('bk.pay.qrWaiting') + '</p>' +
+      '<p class="bkp-qr-close-note">' + TR('bk.pay.qrCloseNote') + '</p>';
+    if (payment.bookingId) {
+      pollPaymentStatus(payment.bookingId, function () {
+        el.className = 'bkp-payment-outcome bkp-payment-paid';
+        el.innerHTML = '<strong>' + TR('bk.pay.paidOnlineNote').replace('{amount}', money(amount)) + '</strong>';
+      });
+    }
   }
 
   function showFormError(msg) {
@@ -892,8 +1224,10 @@
   // — used only by the day-use flow (renderDayUseForm/onDayUseSubmit), which
   // still stays pending until front desk confirms the exact time slot. The
   // overnight reservation flow above is confirmed immediately, so it always
-  // uses the default "Booking confirmed!" copy.
-  function showSuccess(ref, opts) {
+  // uses the default "Booking confirmed!" copy. `opts.payment` (overnight
+  // flow only) is the `payment` object POST /reservations returns —
+  // {method, paid, qrImage, bookingId} — or null/undefined for pay-at-checkin.
+  function showSuccess(ref, opts, amount) {
     showView('bkpViewSuccess');
     var refEl = qs('#bkpRefText');
     if (refEl) refEl.textContent = ref;
@@ -908,6 +1242,7 @@
       if (titleEl) titleEl.textContent = TR(opts.titleKey);
       if (noteEl) noteEl.textContent = TR(opts.noteKey);
     }
+    renderPaymentOutcome(qs('#bkpPaymentOutcome'), opts && opts.payment, amount);
     var doneBtn = qs('#bkpDoneBtn');
     if (doneBtn) doneBtn.addEventListener('click', close);
   }
@@ -920,7 +1255,7 @@
   function openCartReview() {
     if (!cart.length) return;
     build();
-    state = { review: true };
+    state = { review: true, paymentMethod: defaultPaymentMethod() };
     overlay.hidden = false;
     lockBodyScroll();
     renderCartReview();
@@ -976,6 +1311,8 @@
           '<div class="bkp-field"><label>' + TR('bk.pay.note') + '</label><textarea id="bkpNote" rows="2" placeholder="' + esc(TR('bk.pay.notePlaceholder')) + '"></textarea></div>' +
         '</div>' +
 
+        paymentMethodFieldHTML() +
+
         '<div class="bkp-deposit-note"><strong>' + TR('bk.pay.depositTitle') + ':</strong> ' +
           (cart.length === 1
             ? TR('bk.pay.depositNote')
@@ -983,11 +1320,11 @@
 
         depositAckHTML() +
 
-        '<p class="bkp-pp-note">' + TR('bk.pay.checkinNote') + '</p>' +
+        '<p class="bkp-pp-note" id="bkpPayNote">' + paymentNoteText() + '</p>' +
 
         '<p class="bkp-form-error" id="bkpFormError" hidden></p>' +
 
-        '<button type="button" class="btn btn-solid bkp-submit-btn" id="bkpSubmitBtn">' + TR('bk.pay.confirmBooking') + ' · ' + roomsWord(cart.length) + '</button>' +
+        '<button type="button" class="btn btn-solid bkp-submit-btn" id="bkpSubmitBtn">' + submitButtonLabel(TR('bk.pay.confirmBooking') + ' · ' + roomsWord(cart.length), cartGrandTotal()) + '</button>' +
       '</div>' +
       groupResultViewHTML() +
       '</div>';
@@ -1012,6 +1349,11 @@
     });
     qs('#bkpSubmitBtn').addEventListener('click', onGroupSubmit);
     wireDepositAck();
+    wirePaymentMethodField(function () {
+      var noteEl = qs('#bkpPayNote');
+      if (noteEl) noteEl.textContent = paymentNoteText();
+      setGroupSubmitting(false);
+    });
   }
 
   function groupResultViewHTML() {
@@ -1020,6 +1362,7 @@
         '<div class="bkp-success-icon" aria-hidden="true">&#10003;</div>' +
         '<h3>' + TR('bk.pay.successTitle') + '</h3>' +
         '<p>' + TR('bk.pay.confirmationLabel') + ': <strong id="bkpRefText"></strong></p>' +
+        '<div class="bkp-payment-outcome" id="bkpPaymentOutcome" hidden></div>' +
         '<p class="bkp-section-label">' + TR('bk.pay.roomsInBooking') + '</p>' +
         '<div class="bkp-cart-list" id="bkpSuccessRooms"></div>' +
         '<div class="bkp-total-row bkp-grand-total"><span>' + TR('bk.pay.grandTotal') + '</span><strong id="bkpSuccessTotal"></strong></div>' +
@@ -1036,7 +1379,7 @@
     var btn = qs('#bkpSubmitBtn');
     if (btn) {
       btn.disabled = isSubmitting;
-      btn.textContent = isSubmitting ? TR('bk.pay.processingText') : (TR('bk.pay.confirmBooking') + ' · ' + roomsWord(cart.length));
+      btn.textContent = isSubmitting ? TR('bk.pay.processingText') : submitButtonLabel(TR('bk.pay.confirmBooking') + ' · ' + roomsWord(cart.length), cartGrandTotal());
     }
   }
 
@@ -1045,66 +1388,86 @@
     if (!cart.length) { showFormError(TR('bk.pay.cartEmpty')); return; }
     if (!validateGuestFields()) return;
     if (!validateDepositAck()) return;
+    var method = currentPaymentMethod();
 
     var handle = function (r, single) {
       if (!r || r.error) {
         setGroupSubmitting(false);
         if (!r || r.offline || (r.status && r.status >= 500)) showFormError(TR('bk.pay.err.offline'));
         else if (r.status === 409) showFormError(r.error || TR('bk.pay.err.soldOut'));
+        else if (r.status === 402) showFormError(r.error || TR('bk.pay.err.cardDeclined'));
         else showFormError(r.error || TR('bk.pay.err.generic'));
         return;
       }
       // Normalise the single-room response into the group success shape so
       // one success view handles both.
+      var payment = single
+        ? (r.payment ? Object.assign({}, r.payment, { bookingId: r.booking.id }) : null)
+        : (r.payment ? Object.assign({}, r.payment, { bookingId: r.bookings[0].id }) : null);
       showGroupSuccess(single
         ? { groupRef: r.booking.ref, grandTotal: r.booking.total, rooms: [{ room: r.booking.room, total: r.booking.total }] }
-        : r);
+        : r, payment);
     };
 
     setGroupSubmitting(true);
-    // A one-room "booking" is just a normal single reservation — the group
-    // endpoint requires 2+ rooms, so route it through /reservations instead.
-    if (cart.length === 1) {
-      var it = cart[0];
-      var singleBody = {
-        room: it.room, variantLabel: it.variantLabel,
-        breakfast: it.breakfast, smoking: it.smoking,
-        checkIn: it.checkIn, checkOut: it.checkOut,
-        adults: it.adults, children: it.children,
-        childAges: it.children ? it.childAges : [],
-        extraBed: !!it.extraBed,
-        guest: guestPayload(), lang: I ? I.getLang() : 'en',
-      };
-      window.JPark.api.post('/api/v1/reservations', singleBody)
-        .then(function (r) { handle(r, true); })
-        .catch(function () { setGroupSubmitting(false); showFormError(TR('bk.pay.err.offline')); });
-      return;
-    }
 
-    var body = {
-      rooms: cart.map(function (it) {
-        return {
-          room: it.room,
-          variantLabel: it.variantLabel,
-          breakfast: it.breakfast,
-          smoking: it.smoking,
-          adults: it.adults,
-          children: it.children,
+    var ready = method === 'card' ? tokenizeCard() : Promise.resolve({});
+    ready.then(function (tok) {
+      if (tok.error) {
+        setGroupSubmitting(false);
+        showFormError(tok.error);
+        return null;
+      }
+      var cardToken = tok.token;
+
+      // A one-room "booking" is just a normal single reservation — the group
+      // endpoint requires 2+ rooms, so route it through /reservations instead.
+      if (cart.length === 1) {
+        var it = cart[0];
+        var singleBody = {
+          room: it.room, variantLabel: it.variantLabel,
+          breakfast: it.breakfast, smoking: it.smoking,
+          checkIn: it.checkIn, checkOut: it.checkOut,
+          adults: it.adults, children: it.children,
           childAges: it.children ? it.childAges : [],
           extraBed: !!it.extraBed,
+          guest: guestPayload(), lang: I ? I.getLang() : 'en',
+          paymentMethod: method,
         };
-      }),
-      checkIn: cart[0].checkIn,
-      checkOut: cart[0].checkOut,
-      guest: guestPayload(),
-      lang: I ? I.getLang() : 'en',
-    };
-    window.JPark.api.post('/api/v1/reservations/group', body)
-      .then(function (r) { handle(r, false); })
-      .catch(function () { setGroupSubmitting(false); showFormError(TR('bk.pay.err.offline')); });
+        if (cardToken) singleBody.cardToken = cardToken;
+        return window.JPark.api.post('/api/v1/reservations', singleBody)
+          .then(function (r) { handle(r, true); });
+      }
+
+      var body = {
+        rooms: cart.map(function (it) {
+          return {
+            room: it.room,
+            variantLabel: it.variantLabel,
+            breakfast: it.breakfast,
+            smoking: it.smoking,
+            adults: it.adults,
+            children: it.children,
+            childAges: it.children ? it.childAges : [],
+            extraBed: !!it.extraBed,
+          };
+        }),
+        checkIn: cart[0].checkIn,
+        checkOut: cart[0].checkOut,
+        guest: guestPayload(),
+        lang: I ? I.getLang() : 'en',
+        paymentMethod: method,
+      };
+      if (cardToken) body.cardToken = cardToken;
+      return window.JPark.api.post('/api/v1/reservations/group', body)
+        .then(function (r) { handle(r, false); });
+    }).catch(function () {
+      setGroupSubmitting(false);
+      showFormError(TR('bk.pay.err.offline'));
+    });
   }
 
-  function showGroupSuccess(resp) {
+  function showGroupSuccess(resp, payment) {
     var n = (resp.rooms && resp.rooms.length) || cart.length;
     showView('bkpViewSuccess');
     var refEl = qs('#bkpRefText');
@@ -1117,8 +1480,9 @@
           '<div class="bkp-cart-item-side"><span class="bkp-cart-item-price">' + money(rm.total) + '</span></div></div>';
       }).join('');
     }
+    var grandTotal = resp.grandTotal != null ? resp.grandTotal : cartGrandTotal();
     var totalEl = qs('#bkpSuccessTotal');
-    if (totalEl) totalEl.textContent = money(resp.grandTotal != null ? resp.grandTotal : cartGrandTotal());
+    if (totalEl) totalEl.textContent = money(grandTotal);
     var depEl = qs('#bkpSuccessDeposit');
     if (depEl) {
       depEl.innerHTML = '<strong>' + TR('bk.pay.depositTitle') + ':</strong> ' +
@@ -1126,6 +1490,7 @@
           ? TR('bk.pay.depositNote')
           : TR('bk.pay.depositNoteMulti').replace('{amount}', String(200 * n)).replace('{n}', String(n)));
     }
+    renderPaymentOutcome(qs('#bkpPaymentOutcome'), payment, grandTotal);
     // Booking succeeded — empty the cart now so a refresh can't resubmit it
     // (the success view already renders from the server response, not the cart).
     cart = [];
@@ -1186,6 +1551,7 @@
       breakfast: false,
       smoking: 'non_smoking',
       extraBed: false,
+      paymentMethod: defaultPaymentMethod(),
     };
     overlay.hidden = false;
     lockBodyScroll();
