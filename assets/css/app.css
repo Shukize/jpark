@@ -1277,6 +1277,11 @@ body.mobile-view .fac-card.large {
 .mr-subject { font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 0; max-width: 240px; }
 .mr-sep { font-size: 0.82rem; color: #bbb; padding: 0 5px; flex-shrink: 0; }
 .mr-preview { font-size: 0.82rem; color: #888; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }
+/* Booking rows carry status pills (room assigned, payment, day-use
+   confirmation) in a column of their own, so they can never be clipped by the
+   fixed-width sender cell. */
+.msg-row.booking { grid-template-columns: 46px 180px 1fr auto 70px; }
+.mr-flags { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 4px 0; white-space: nowrap; }
 .mr-time { font-size: 0.74rem; color: #999; text-align: right; white-space: nowrap; }
 .msg-row.unread .mr-time { color: var(--teal); font-weight: 600; }
 
@@ -1697,6 +1702,11 @@ body.mobile-view .fac-card.large {
 .bk-row-pill.fd-status { margin-left: 6px; margin-right: 0; padding: 1px 7px; cursor: default; }
 .bk-row-pill.fd-status.ok { background: #e8f5f3; color: #0f766e; }
 .bk-row-pill.fd-status.pending { background: #f2f2f2; color: #888; }
+/* Outstanding AND now due — the guest is arriving, or an online payment
+   stalled. Distinct from the grey "not done yet" of a booking weeks out. */
+.bk-row-pill.fd-status.due { background: #fdeceb; color: #b42318; font-weight: 600; }
+/* One-line explanation of what a list actually contains, under its header. */
+.msg-list-lede { padding: 0 16px 10px; margin-top: -4px; font-size: .82rem; color: #777; }
 
 /* "Amended" pill: a confirmation email was resent (edited or verbatim) for
    this booking (b.lastAmendedAt) — gold to match the resend editor's own
@@ -1905,7 +1915,10 @@ body.mobile-view .fac-card.large {
   .msg-nav-item { border-radius: 8px; padding: 8px 12px; flex: 1; justify-content: center; font-size: 0.8rem; }
   .msg-nav-item .mni-label { display: none; }
   .msg-row { grid-template-columns: 36px 1fr 60px; }
+  .msg-row.booking { grid-template-columns: 36px 1fr 60px; }
   .mr-sender { display: none; }
+  /* Pills drop under the guest name rather than fighting it for width. */
+  .mr-flags { grid-column: 2 / 3; justify-content: flex-start; gap: 4px; }
   .mr-time { gap: 3px; }
   .bk-row-star { font-size: 0.86rem; }
   .mr-time-text { font-size: 0.68rem; }

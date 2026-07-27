@@ -14,8 +14,10 @@
    assets/js/api.js) to mint a fresh one for the SAME session — this is
    what replaced the old 12-hour token + broken client-side "recovery"
    that used to silently freeze the whole staff console once expired.
-   Concurrency is capped at 6 active sessions per employee (oldest evicted
-   on the 7th login); see lib/sessionCache.js for revocation/ban state.
+   Concurrency is capped at MAX_SESSIONS_PER_EMPLOYEE (20) active sessions
+   per employee (oldest evicted on the next login); see lib/sessionCache.js
+   for revocation/ban state. The property may hold up to MAX_STAFF_ACCOUNTS
+   (100) staff accounts.
    ============================================================ */
 const express = require('express');
 const crypto = require('crypto');
@@ -25,7 +27,7 @@ const sessionCache = require('../lib/sessionCache');
 const { normalizeIp } = require('../lib/ip');
 const { lookupGeo } = require('../lib/geoIp');
 const { parseUserAgent } = require('../lib/deviceInfo');
-const { makeLimiter } = require('../lib/rateLimit');
+const { makeLimiter, makeFailureLimiter } = require('../lib/rateLimit');
 const { findBooking } = require('../lib/guestLookup');
 const { buildingForBooking } = require('../lib/buildings');
 
@@ -36,9 +38,38 @@ const router = express.Router();
 const SECRET = process.env.AUTH_TOKEN_SECRET || 'jpark-demo-shared-secret';
 const TTL = 15 * 60; // 15-minute access token — silently refreshed, see POST /refresh
 const ABSOLUTE_SESSION_DAYS = 7;
-const MAX_SESSIONS_PER_EMPLOYEE = 6;
+// How many devices may stay signed in on ONE staff account at once. Shared
+// department accounts (front desk, housekeeping) are signed in on every phone
+// and terminal on the floor, so this is a working-crew size, not a personal
+// device count: the 21st sign-in evicts the oldest session, FIFO.
+const MAX_SESSIONS_PER_EMPLOYEE = Number(process.env.MAX_SESSIONS_PER_EMPLOYEE) || 20;
+// Ceiling on how many staff accounts the property can hold. Enforced on
+// POST /register so hitting it is a clear message to the admin rather than a
+// slow, silent degradation; mirrored in assets/js/staff.js for the counter
+// shown above the "Add staff member" form.
+const MAX_STAFF_ACCOUNTS = Number(process.env.MAX_STAFF_ACCOUNTS) || 100;
+
 const refreshRateLimited = makeLimiter(30, 60 * 1000);     // 30/min per IP
-const loginRateLimited = makeLimiter(10, 10 * 60 * 1000);  // 10 staff-login attempts / 10min per IP
+
+// Staff sign-in throttling. This used to be a flat 10 attempts / 10 min per IP,
+// which cannot survive the way this hotel actually works: the whole property
+// leaves through ONE public IP (the same NAT fact that already broke per-IP
+// limits on POST /api/chat/identify and the guest portal — see the note below),
+// and a shared account is signed into from twenty devices. Eleven honest
+// sign-ins on a shift change and the front desk was locked out of its own
+// console for ten minutes.
+//
+// So the budget is spent by FAILURES, not by logins: getting your password
+// right costs nothing, no matter how many colleagues do it from the same IP.
+// Failures are counted per (IP + username) so a remote attacker grinding on
+// 'hadmin' burns only their own bucket — they cannot lock the real admin out
+// from the hotel — plus a wider per-IP ceiling that catches one source
+// sweeping many usernames. The per-IP request ceiling stays as a blunt guard
+// against flooding the endpoint, but is now set far above a whole property
+// signing in at once.
+const loginFloodLimited = makeLimiter(300, 10 * 60 * 1000);
+const loginFailures = makeFailureLimiter(10, 15 * 60 * 1000);   // per IP+username
+const loginFailuresByIp = makeFailureLimiter(50, 15 * 60 * 1000); // per IP, all usernames
 // Guest-portal sign-in. A tight per-IP budget is wrong here for the same
 // reason it was wrong on POST /api/chat/identify (see the note there): every
 // guest on the hotel's own Wi-Fi shares ONE public IP, so a 20/10min ceiling
@@ -99,10 +130,10 @@ function mintToken(emp, session) {
 }
 
 /* Creates a new staff_sessions row for a just-authenticated employee:
-   enforces the 6-concurrent-sessions-per-employee cap (evicting the
-   single oldest active session first, FIFO, if already at the cap),
-   captures IP/device/geo (geo never blocks login — see lib/geoIp.js),
-   and returns the { jti, absExp } claims mintToken() embeds. */
+   enforces the concurrent-sessions-per-employee cap (evicting the oldest
+   active sessions first, FIFO, until the new one fits), captures IP/device/geo
+   (geo never blocks login — see lib/geoIp.js), and returns the
+   { jti, absExp } claims mintToken() embeds. */
 async function createSession(req, employeeId) {
   const ip = normalizeIp(req.ip);
   const ua = req.get('user-agent') || '';
@@ -113,14 +144,20 @@ async function createSession(req, employeeId) {
       ORDER BY created_at ASC`,
     [employeeId]
   );
-  if (active.length >= MAX_SESSIONS_PER_EMPLOYEE) {
-    const oldestJti = active[0].jti;
+  // Evict however many oldest sessions it takes to leave room for this one.
+  // (Evicting exactly one was enough while the cap could only ever be exceeded
+  // by a single login; it is not once the cap is configurable, since lowering
+  // MAX_SESSIONS_PER_EMPLOYEE would otherwise leave every account permanently
+  // over its new limit, shedding one stale session per login.)
+  const excess = active.length - MAX_SESSIONS_PER_EMPLOYEE + 1;
+  if (excess > 0) {
+    const evict = active.slice(0, excess).map((s) => s.jti);
     await db.query(
       `UPDATE staff_sessions SET revoked_at = NOW(), revoked_reason = 'concurrency_cap'
-        WHERE jti = $1`,
-      [oldestJti]
+        WHERE jti = ANY($1::varchar[])`,
+      [evict]
     );
-    sessionCache.markRevoked(oldestJti);
+    evict.forEach((jti) => sessionCache.markRevoked(jti));
   }
 
   const geo = await lookupGeo(ip); // never throws, 2s worst case
@@ -141,31 +178,51 @@ async function createSession(req, employeeId) {
 
 /* ---- POST /api/auth/login ---- */
 router.post('/login', async (req, res) => {
-  if (loginRateLimited(normalizeIp(req.ip))) {
+  const ip = normalizeIp(req.ip);
+  if (loginFloodLimited(ip)) {
     return res.status(429).json({ error: 'Too many login attempts. Please try again later.' });
   }
   const { username, password } = req.body || {};
   if (!username || !password)
     return res.status(400).json({ error: 'username and password required' });
 
+  const user = String(username).trim().toLowerCase();
+  const failKey = ip + '|' + user;
+  if (loginFailures.blocked(failKey) || loginFailuresByIp.blocked(ip)) {
+    return res.status(429).json({ error: 'Too many failed sign-in attempts. Please try again later.' });
+  }
+  const noteFailure = () => { loginFailures.recordFailure(failKey); loginFailuresByIp.recordFailure(ip); };
+
   try {
     const { rows } = await db.query(
       `SELECT id, name, email, username, role, password_hash, active, must_change_password
          FROM employees WHERE username = $1`,
-      [username.trim().toLowerCase()]
+      [user]
     );
     const emp = rows[0];
 
-    if (!emp || !emp.active)
+    if (!emp || !emp.active) {
+      noteFailure();
       return res.status(401).json({ error: 'Invalid credentials' });
+    }
 
     // migrate.js's seedAuth() always ensures a real bcrypt hash exists before
     // the server starts accepting traffic — a null hash here means the
     // account hasn't been provisioned yet, not "use the default password".
-    if (!emp.password_hash) return res.status(401).json({ error: 'Invalid credentials' });
+    if (!emp.password_hash) {
+      noteFailure();
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
     if (!bcrypt) return res.status(500).json({ error: 'bcrypt not available' });
     const ok = await bcrypt.compare(password, emp.password_hash);
-    if (!ok) return res.status(401).json({ error: 'Invalid credentials' });
+    if (!ok) {
+      noteFailure();
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+    // A correct password clears the bucket, so a colleague who mistyped twice
+    // before getting it right never leaves a trap for the next person on the
+    // same account and network.
+    loginFailures.clear(failKey);
 
     const session = await createSession(req, emp.id);
     const token = mintToken(emp, session);
@@ -393,6 +450,19 @@ router.post('/register', requireAdmin, async (req, res) => {
   const validRole = ['admin', 'frontdesk'].includes(role) ? role : 'frontdesk';
 
   try {
+    // Capacity check. Suspended accounts still occupy a seat — they are still
+    // accounts, and reactivating one must never push the property over its
+    // ceiling — so this counts rows, not active rows. Freeing a seat means
+    // DELETE (staff management → Remove), which is already a hard delete.
+    const { rows: countRows } = await db.query('SELECT COUNT(*)::int AS n FROM employees');
+    if (countRows[0].n >= MAX_STAFF_ACCOUNTS) {
+      return res.status(409).json({
+        code: 'account_limit',
+        limit: MAX_STAFF_ACCOUNTS,
+        error: `Staff account limit reached (${MAX_STAFF_ACCOUNTS}). Remove an unused account before adding another.`,
+      });
+    }
+
     const { rows } = await db.query(
       `INSERT INTO employees (id, username, password_hash, name, email, role, phone, shift, active, must_change_password)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,TRUE,TRUE)

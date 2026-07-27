@@ -22,9 +22,58 @@
     }
   }
 
+  /* Writes survive a full localStorage quota instead of throwing.
+     ------------------------------------------------------------
+     Cached staff photos are the only thing here that scales with the size of
+     the team, and they are by far the largest rows (up to ~350KB of base64
+     each). One photo per employee across a 100-account property is tens of
+     megabytes against a ~5MB browser quota — and setItem() throwing is not a
+     missing photo, it is an exception thrown straight through whichever caller
+     happened to trip it (`write("staff", …)`, `write("chats", …)` — the poll
+     that was mid-flight), silently freezing that part of the console.
+     So: on a quota failure, shed the avatar cache (never the caller's data,
+     and never the signed-in user's own photo) and try once more. If it still
+     will not fit, the write is reported as failed rather than thrown — a photo
+     falls back to initials, which is cosmetic; a lost booking or chat row is
+     not. Returns true when the value reached storage. */
   function write(table, value) {
-    localStorage.setItem(keyFor(table), JSON.stringify(value));
+    const json = JSON.stringify(value);
+    let stored = false;
+    try {
+      localStorage.setItem(keyFor(table), json);
+      stored = true;
+    } catch (e) {
+      if (evictAvatarCache(table)) {
+        try { localStorage.setItem(keyFor(table), json); stored = true; } catch (_) {}
+      }
+      if (!stored) console.warn("[store] could not persist", table, "— storage full");
+    }
+    // The in-memory listeners fire either way: the UI should still render what
+    // the caller just produced even if this browser could not cache it.
     emit(table, value);
+    return stored;
+  }
+
+  /* Drops cached peer avatars to reclaim space. Keeps the avatar being written
+     (if that is what overflowed) and the current user's own, since those are
+     the two that are visible on screen right now. Returns true if anything was
+     actually freed, so the caller knows a retry is worth attempting. */
+  function evictAvatarCache(exceptTable) {
+    const keepIds = [];
+    try {
+      // The signed-in staff member, from assets/js/staff.js's SESSION_KEY.
+      const sess = localStorage.getItem("jpark.staff");
+      if (sess) { const id = JSON.parse(sess).id; if (id) keepIds.push(id); }
+    } catch (_) {}
+    const keepKeys = keepIds.map((id) => NS + "avatar_" + id);
+    let freed = false;
+    Object.keys(localStorage).forEach((k) => {
+      if (k.indexOf(NS + "avatar_") !== 0) return;
+      if (k.indexOf(NS + "avatar_v_") === 0) return; // version markers are tiny
+      if (k === keyFor(exceptTable) || keepKeys.indexOf(k) >= 0) return;
+      try { localStorage.removeItem(k); freed = true; } catch (_) {}
+    });
+    return freed;
   }
 
   function emit(table, value) {
@@ -162,8 +211,7 @@
     { id: "m8", cat: "drink",     key: "menu.item.coffee",   price: 120 },
     { id: "m9", cat: "drink",     key: "menu.item.juice",    price: 140 },
     { id: "m10", cat: "drink",    key: "menu.item.wine",     price: 420 },
-    { id: "m11", cat: "dessert",  key: "menu.item.mango",    price: 200 },
-    { id: "m12", cat: "dessert",  key: "menu.item.cake",     price: 220 }
+    { id: "m11", cat: "dessert",  key: "menu.item.mango",    price: 200 }
   ];
 
   /* Guest bookings arriving from external OTA channels (Agoda, Booking.com,
@@ -237,7 +285,14 @@
   function seed() {
     if (read("seeded")) {
       // keep newly added seed tables in sync for older saves
-      if (!read("menu")) write("menu", SEED_MENU);
+      // The room-service menu is not editable from the staff console (the CMS
+      // only edits each item's TEXT, never the item list), so it is kept in
+      // lockstep with SEED_MENU rather than merely created when missing. A
+      // "if (!read(...))" guard here only ever ADDED the table, so an item
+      // withdrawn from the menu stayed on sale forever in any browser that had
+      // already seeded — which is exactly how a removed dessert kept appearing
+      // on the guest's tablet after it was taken off.
+      if (JSON.stringify(read("menu")) !== JSON.stringify(SEED_MENU)) write("menu", SEED_MENU);
       if (!read("concierge")) write("concierge", SEED_CONCIERGE);
       if (!read("messages")) write("messages", []);
       if (!read("resetRequests")) write("resetRequests", []);

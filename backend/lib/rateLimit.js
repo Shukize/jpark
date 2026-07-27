@@ -22,4 +22,32 @@ function makeLimiter(max, windowMs) {
   };
 }
 
-module.exports = { makeLimiter };
+/* Like makeLimiter, but the caller decides what counts. `blocked(key)` only
+   READS the budget; `recordFailure(key)` spends one unit of it. That split is
+   what lets a login limiter punish wrong passwords without punishing correct
+   ones — a limiter that counts every request cannot tell twenty colleagues
+   signing into the same shared account apart from one script guessing at it,
+   so protecting against the second necessarily locks out the first. */
+function makeFailureLimiter(max, windowMs) {
+  const failuresByKey = new Map();
+
+  function live(key) {
+    const now = Date.now();
+    const kept = (failuresByKey.get(key) || []).filter((t) => now - t < windowMs);
+    if (kept.length) failuresByKey.set(key, kept); else failuresByKey.delete(key);
+    return kept;
+  }
+
+  return {
+    blocked: (key) => live(key || 'unknown').length >= max,
+    recordFailure: (key) => {
+      const k = key || 'unknown';
+      const kept = live(k);
+      kept.push(Date.now());
+      failuresByKey.set(k, kept);
+    },
+    clear: (key) => failuresByKey.delete(key || 'unknown'),
+  };
+}
+
+module.exports = { makeLimiter, makeFailureLimiter };

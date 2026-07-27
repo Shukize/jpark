@@ -41,10 +41,18 @@
   // member cleared off the board can still be found and put back. (Permanent
   // deletion is admin-only and leaves nothing behind, by design.)
   const REQ_FILTERS = ["all", "pending", "progress", "done", "dismissed"];
-  // "resent" is not a booking status (b.status stays confirmed/pending/
-  // cancelled) — it's a synthetic filter over b.lastAmendedAt, handled as a
-  // special case in filterBookings() below rather than a status match.
-  const BK_FILTERS = ["all", "confirmed", "pending", "cancelled", "resent"];
+  // Two of these are synthetic filters rather than values of b.status, and are
+  // special-cased in filterBookings(): "resent" reads b.lastAmendedAt, and
+  // "attention" asks bookingActionReasons() what still needs doing.
+  //
+  // "attention" replaced a raw "pending" status tab. b.status is only ever
+  // 'pending' on a day-use request — every room booking taken on the website
+  // is written straight to 'confirmed' — so that tab sat empty essentially
+  // forever while the actual front-desk work (a booking with no room number
+  // on it, an online payment the guest never completed, an arrival whose money
+  // was never recorded) had nowhere to be seen. Grouping by "what is still
+  // outstanding" is what a desk actually works from.
+  const BK_FILTERS = ["all", "attention", "confirmed", "cancelled", "resent"];
 
   /* ---- Site Editor configuration ----
      Groups every public-site translation key (by prefix) into friendly,
@@ -562,21 +570,45 @@
 
   /* Lazy-load peer avatars. We only fetch when the local cached version
      doesn't match the directory's `avatar_updated_at`, so the staff list
-     stays small and bandwidth is bounded. */
+     stays small and bandwidth is bounded.
+
+     Fetches are also capped per pass. The loop is sequential, so on a
+     100-account property the first sign-in of a new browser would otherwise
+     issue up to a hundred back-to-back photo requests before the console
+     settled — each one a separate round trip carrying a few hundred KB.
+     Ten per pass catches up over the following polls instead, and the
+     current user goes first so your own photo is never the one still
+     waiting behind ninety-nine colleagues. */
+  const AVATAR_FETCHES_PER_PASS = 10;
+
   async function _syncAvatars(staff) {
     const API = window.JPark && window.JPark.api;
     if (!API) return;
-    for (let i = 0; i < staff.length; i++) {
-      const u = staff[i];
+    // Drop cached photos for people who have left the directory, so the cache
+    // tracks the team's size rather than growing with everyone who ever worked here.
+    _pruneAvatarCache(staff);
+
+    const stale = staff.filter((u) => {
       const remoteV = u.avatar_updated_at || null;
-      const localV = S.read("avatar_v_" + u.id, null);
-      if (!remoteV) continue;            // no server-side photo set
-      if (localV === remoteV) continue;  // already in sync
+      if (!remoteV) return false;                              // no server-side photo set
+      return S.read("avatar_v_" + u.id, null) !== remoteV;     // not already in sync
+    });
+    const selfId = session ? session.id : null;
+    stale.sort((a, b) => (a.id === selfId ? -1 : 0) - (b.id === selfId ? -1 : 0));
+
+    let fetched = 0;
+    for (let i = 0; i < stale.length && fetched < AVATAR_FETCHES_PER_PASS; i++) {
+      const u = stale[i];
+      const remoteV = u.avatar_updated_at || null;
       try {
         const res = await API.get("/api/auth/avatar/" + encodeURIComponent(u.id));
+        fetched++;
         if (res && !res.error) {
           if (res.avatar) S.write("avatar_" + u.id, res.avatar);
           else { try { localStorage.removeItem("jpark.db.avatar_" + u.id); } catch (_) {} }
+          // Stamped even if the photo itself could not be cached (storage
+          // full — see S.write): the version is what stops us re-requesting
+          // the same unchanged photo on every single poll.
           S.write("avatar_v_" + u.id, remoteV);
         }
       } catch (_) { /* network blip — retry next tick */ }
@@ -584,6 +616,17 @@
     // Re-render UI surfaces that show avatars.
     if (session) renderAvatarInSidebar();
     if (panel === "messages") renderMessages();
+  }
+
+  function _pruneAvatarCache(staff) {
+    const live = new Set(staff.map((u) => u.id));
+    if (session) live.add(session.id);
+    try {
+      Object.keys(localStorage).forEach(function (k) {
+        const m = /^jpark\.db\.avatar_(?:v_)?(.+)$/.exec(k);
+        if (m && !live.has(m[1])) localStorage.removeItem(k);
+      });
+    } catch (_) {}
   }
 
   /* Load full message list for a chat thread from the API. */
@@ -3723,6 +3766,17 @@
   // other booking keeps needsReview items visible via their existing ⚠
   // row pill / "Needs review" banner instead of via forced position.
   function sortBookings(bookings) {
+    // "Needs action" is a worklist, not an inbox: soonest arrival first, so the
+    // guest standing at the desk today outranks one arriving next month. Every
+    // other tab stays newest-first.
+    if (bkFilter === "attention") {
+      return bookings.slice().sort((a, b) => {
+        const ad = a.checkIn || "9999-12-31";
+        const bd = b.checkIn || "9999-12-31";
+        if (ad !== bd) return ad < bd ? -1 : 1;
+        return b.createdAt - a.createdAt;
+      });
+    }
     return bookings.slice().sort((a, b) => {
       if (bkFilter === "all") {
         const ac = a.status === "cancelled" ? 1 : 0;
@@ -3733,9 +3787,53 @@
     });
   }
 
+  /* What is still outstanding on a booking, as a list of reason keys (empty
+     means nothing needs doing). Each reason is something a person at the desk
+     can actually act on, which is why the ordinary pay-at-check-in balance is
+     NOT one of them: this property takes payment at check-in by default, so
+     "not paid yet" describes almost every future booking and would drown the
+     tab in rows nobody needs to touch. It only becomes work once the guest is
+     due — or once they chose to pay online and the payment never completed. */
+  const BK_ROOM_LEAD_DAYS = 1; // pre-assign a room the day before arrival
+
+  function bookingActionReasons(b) {
+    if (!b || b.status === "cancelled") return [];
+    const reasons = [];
+    // A day-use request is the one booking type that waits on a human to say yes.
+    if (b.status === "pending") reasons.push("confirm");
+    if (b.needsReview) reasons.push("review");
+
+    // Slice to the date part first — checkIn arrives as a full ISO timestamp,
+    // and "2026-07-27T00:00:00.000Z" + "T00:00:00" parses to NaN. Same trap
+    // bookingAgeBucket() documents; an unnoticed NaN here silently answers
+    // "not due yet" for every booking, emptying this whole tab.
+    const today = startOfToday();
+    const parsed = b.checkIn ? new Date(String(b.checkIn).slice(0, 10) + "T00:00:00").getTime() : NaN;
+    const checkIn = isNaN(parsed) ? null : parsed;
+    // An unreadable or absent date is treated as due: better to put one row in
+    // front of the desk than to hide a booking nobody can see is unfinished.
+    const dueWithin = (days) => checkIn == null || checkIn <= today + days * 86400000;
+
+    if (!b.roomNumber && dueWithin(BK_ROOM_LEAD_DAYS)) reasons.push("room");
+
+    const paid = b.paymentStatus === "paid";
+    const onlineIncomplete = b.paymentProvider === "omise" && b.paymentStatus === "pending";
+    if (onlineIncomplete) reasons.push("payment");
+    else if (!paid && dueWithin(0)) reasons.push("payment");
+
+    return reasons;
+  }
+
+  function startOfToday() {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d.getTime();
+  }
+
   function filterBookings(bookings) {
     let out = bookings;
     if (bkFilter === "resent") out = out.filter((b) => !!b.lastAmendedAt);
+    else if (bkFilter === "attention") out = out.filter((b) => bookingActionReasons(b).length > 0);
     else if (bkFilter !== "all") out = out.filter((b) => b.status === bkFilter);
     const q = bkSearchQuery.trim().toLowerCase();
     if (q) {
@@ -3747,13 +3845,31 @@
     return out;
   }
 
+  // How many bookings each tab holds, from the same visible set the list is
+  // built from. Shown on the tabs so an empty tab reads as "there are none"
+  // rather than "this is broken" — the Guest Requests board already labels its
+  // filters this way.
+  function bookingFilterCounts() {
+    const counts = { all: 0, attention: 0, confirmed: 0, cancelled: 0, resent: 0 };
+    getBookingMsgs().forEach((b) => {
+      counts.all++;
+      if (b.status === "confirmed") counts.confirmed++;
+      if (b.status === "cancelled") counts.cancelled++;
+      if (b.lastAmendedAt) counts.resent++;
+      if (bookingActionReasons(b).length) counts.attention++;
+    });
+    return counts;
+  }
+
   function renderBookingFilters(container) {
     const bar = document.createElement("div");
     bar.className = "req-filters bk-filters";
+    const counts = bookingFilterCounts();
     BK_FILTERS.forEach((f) => {
       const b = document.createElement("button");
       b.className = (f === bkFilter ? "active" : "");
-      b.textContent = f === "all" ? t("staff.requests.filterAll") : t("msg.bk.filter." + f);
+      b.textContent = (f === "all" ? t("staff.requests.filterAll") : t("msg.bk.filter." + f)) +
+        " (" + (counts[f] || 0) + ")";
       // Switching status tabs clears any leftover search text — otherwise a
       // search typed while on one tab keeps silently filtering every other
       // tab (e.g. "All" looking like it's missing bookings) with no visible
@@ -3818,11 +3934,22 @@
     if (b.channel === "direct" && !cancelled) {
       const roomOk = !!b.roomNumber;
       const paidOk = b.paymentStatus === "paid";
-      frontDeskPills =
-        '<span class="bk-row-pill fd-status ' + (roomOk ? "ok" : "pending") + '" title="' +
+      // An outstanding item that has become the desk's problem — the guest is
+      // arriving, or an online payment stalled — is drawn as overdue rather
+      // than merely "not done yet", so scanning the list shows what is actually
+      // late instead of every future booking looking equally unfinished.
+      const reasons = bookingActionReasons(b);
+      const roomCls = roomOk ? "ok" : (reasons.indexOf("room") >= 0 ? "due" : "pending");
+      const paidCls = paidOk ? "ok" : (reasons.indexOf("payment") >= 0 ? "due" : "pending");
+      const confirmPill = reasons.indexOf("confirm") >= 0
+        ? '<span class="bk-row-pill fd-status due" title="' + esc(t("msg.bk.why.confirm")) + '">⏳ ' +
+            esc(t("msg.bk.why.confirmShort")) + "</span>"
+        : "";
+      frontDeskPills = confirmPill +
+        '<span class="bk-row-pill fd-status ' + roomCls + '" title="' +
           esc(t(roomOk ? "msg.bk.roomAssigned" : "msg.bk.roomPending")) + '">' +
           (roomOk ? "✓" : "—") + " " + esc(t("msg.bk.roomShort")) + "</span>" +
-        '<span class="bk-row-pill fd-status ' + (paidOk ? "ok" : "pending") + '" title="' +
+        '<span class="bk-row-pill fd-status ' + paidCls + '" title="' +
           esc(t(paidOk ? "msg.bk.paymentRecorded" : "msg.bk.paymentPending")) + '">' +
           (paidOk ? "✓" : "—") + " " + esc(t("msg.bk.paidShort")) + "</span>";
     }
@@ -3831,14 +3958,20 @@
       ? '<div class="mr-check"><input type="checkbox" class="mr-checkbox" tabindex="-1"' + (isSelected ? " checked" : "") + "></div>"
       : '<div class="mr-avatar bk-avatar"><span>' + esc(initial) + "</span></div>";
 
+    // The pills live in their own column rather than trailing the channel name
+    // in the fixed 180px sender cell, where everything past "Direct (Website)"
+    // was silently cut off by that cell's overflow:hidden — the room/payment
+    // state was in the DOM but invisible on every row, which is no use to
+    // someone scanning the list for what still needs doing.
     row.innerHTML =
       firstCol +
-      '<div class="mr-sender">' + reviewBadge + esc(b.channelName) + statusPill + labelTag + amendedTag + groupTag + frontDeskPills + "</div>" +
+      '<div class="mr-sender">' + reviewBadge + esc(b.channelName) + "</div>" +
       '<div class="mr-subject-preview">' +
         '<span class="mr-subject">' + esc(b.guestName) + "</span>" +
         '<span class="mr-sep">—</span>' +
         '<span class="mr-preview">' + esc(preview) + "</span>" +
       "</div>" +
+      '<div class="mr-flags">' + statusPill + labelTag + amendedTag + groupTag + frontDeskPills + "</div>" +
       '<div class="mr-time">' +
         '<button type="button" class="bk-row-star' + (b.starred ? " starred" : "") + '" title="' +
           esc(t(b.starred ? "msg.bk.unstar" : "msg.bk.star")) + '">' + (b.starred ? "★" : "☆") + "</button>" +
@@ -3957,7 +4090,11 @@
         ? '<button class="mlh-select-btn active" id="bkSelectToggle">✕ ' + esc(t("msg.deselect.all")) + "</button>"
         : '<button class="mlh-select-btn" id="bkSelectToggle">' + esc(t("msg.select")) + "</button>")
       : "";
-    listArea.innerHTML = '<div class="msg-list-header">' + esc(t("msg.bookings")) + countLabel + selectBtnHtml + "</div>";
+    listArea.innerHTML = '<div class="msg-list-header">' + esc(t("msg.bookings")) + countLabel + selectBtnHtml + "</div>" +
+      // Says what this inbox holds. Staff kept reading an empty list as a
+      // failure to pull in Agoda/Booking.com reservations, which this view
+      // deliberately does not show (see SHOW_OTA_BOOKINGS).
+      '<div class="msg-list-lede">' + esc(t("msg.bk.lede")) + "</div>";
     renderBookingFilters(listArea);
 
     if (bkMultiSelect && bookings.length) {
@@ -3979,10 +4116,18 @@
     if (!bookings.length) {
       const empty = document.createElement("div");
       empty.className = "msg-empty";
+      // Say why THIS tab is empty. The old text explained the inbox as a whole
+      // ("bookings from Agoda, Booking.com, Airbnb…") on every tab, which read
+      // as a fault on any of the status tabs — an empty Pending tab appeared to
+      // be failing to load OTA bookings, when in truth nothing was awaiting
+      // confirmation and OTA rows are deliberately not shown here at all.
+      const emptySubKey = bkSearchQuery.trim()
+        ? "msg.bk.empty.noMatch"
+        : "msg.bk.empty." + bkFilter;
       empty.innerHTML =
         '<div class="me-ico">🛎️</div>' +
         '<div class="me-title">' + esc(t("msg.empty.title")) + "</div>" +
-        '<div class="me-sub">' + esc(t("msg.empty.bookings")) + "</div>";
+        '<div class="me-sub">' + esc(t(emptySubKey)) + "</div>";
       listArea.appendChild(empty);
       wireBookingListControls(listArea, bookings);
       return;
@@ -6127,6 +6272,21 @@
   /* ====================  STAFF MANAGEMENT (admin)  ==================== */
   // Username convention: first letter of first name + last name, lowercased.
   // Matches the email alias format (initiallastname@jpark.hotel) used everywhere.
+  // How many staff accounts the property can hold. Mirrors MAX_STAFF_ACCOUNTS
+  // in backend/routes/auth.js, which is the real enforcer — this copy only
+  // drives the "x of 100 accounts" counter and lets the form say no before
+  // making a round trip.
+  const MAX_STAFF_ACCOUNTS = 100;
+
+  function renderTeamCapacity() {
+    const el = document.getElementById("teamCapacity");
+    if (!el) return;
+    const used = S.list("staff").length;
+    el.textContent = t("staff.team.accountsUsed")
+      .replace("{used}", used).replace("{max}", MAX_STAFF_ACCOUNTS);
+    el.classList.toggle("at-limit", used >= MAX_STAFF_ACCOUNTS);
+  }
+
   function autoUsername(name) {
     const parts = (name || "").toLowerCase().trim().split(/\s+/).filter(Boolean);
     if (!parts.length) return "";
@@ -6221,6 +6381,7 @@
       });
       wrap.appendChild(row);
     });
+    renderTeamCapacity();
     updateTeamActionsBar();
   }
 
@@ -6298,6 +6459,10 @@
     if (!name) { err.textContent = t("staff.team.needName"); return; }
     const user = autoUsername(name);
     if (!user) { err.textContent = t("staff.team.needName"); return; }
+    if (S.list("staff").length >= MAX_STAFF_ACCOUNTS) {
+      err.textContent = t("staff.team.accountLimit").replace("{max}", MAX_STAFF_ACCOUNTS);
+      return;
+    }
 
     const API = window.JPark && window.JPark.api;
     if (API) {
@@ -6305,7 +6470,12 @@
         username: user, password: DEFAULT_STAFF_PASSWORD, name: name, role: role,
       });
       if (res.error && !res.offline) {
-        err.textContent = res.status === 409 ? t("staff.team.userTaken") : res.error;
+        // Both of these come back as 409 — `code` is what tells them apart.
+        if (res.code === "account_limit") {
+          err.textContent = t("staff.team.accountLimit").replace("{max}", MAX_STAFF_ACCOUNTS);
+        } else {
+          err.textContent = res.status === 409 ? t("staff.team.userTaken") : res.error;
+        }
         return;
       }
       if (!res.offline) {

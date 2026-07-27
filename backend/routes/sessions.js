@@ -48,7 +48,18 @@ function rowToJson(r, currentJti) {
   };
 }
 
-/* ---- GET /api/sessions ---- */
+/* ---- GET /api/sessions ----
+   Bounded on purpose. This endpoint is re-polled every 10 seconds for as long
+   as an admin leaves the Account Logs panel open, and it used to return every
+   session row the hotel had ever created. That was affordable at 2 accounts ×
+   6 devices; at 100 accounts × 20 devices it is thousands of rows every ten
+   seconds, which is precisely the shape of the query that exhausted Neon's
+   free-tier transfer allowance and took the whole API down on 2026-07-13.
+   Live sessions are ordered ahead of retired ones so an admin always sees
+   everything currently signed in — the rows the sign-out and ban actions act
+   on — before any history is included in the remainder of the budget. */
+const SESSION_PAGE = 400;
+
 router.get('/', requireAdmin, async (req, res) => {
   try {
     const { rows } = await db.query(
@@ -60,7 +71,8 @@ router.get('/', requireAdmin, async (req, res) => {
          FROM staff_sessions s
          JOIN employees e ON e.id = s.employee_id
          LEFT JOIN employees rb ON rb.id = s.revoked_by_id
-        ORDER BY s.last_seen_at DESC`
+        ORDER BY (s.revoked_at IS NULL) DESC, s.last_seen_at DESC
+        LIMIT ${SESSION_PAGE}`
     );
     res.json(rows.map((r) => rowToJson(r, req.user.jti)));
   } catch (e) {

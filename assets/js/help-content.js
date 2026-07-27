@@ -62,7 +62,7 @@ window.JPARK_HELP = (function () {
           { t: "Sign out when you finish", d: "Click Sign out at the bottom-left. On a shared front-desk computer, always sign out at the end of your shift." }
         ],
         tips: [
-          "You can stay signed in on up to 6 devices. A 7th sign-in automatically ends the oldest one.",
+          "You can stay signed in on up to 20 devices at once — enough for a shared department account on every phone and terminal. A 21st sign-in automatically ends the oldest one.",
           "Never share your password — everything you do is recorded under your name."
         ],
         warn: "The temporary password jparkhotel works for the first sign-in only. After that, only your own password works."
@@ -149,6 +149,7 @@ window.JPARK_HELP = (function () {
         id: "bookings", ico: "🧾", title: "Guest bookings",
         intro: "Messages → 🛎️ Guest Booking. Every reservation made on the website, newest first.",
         steps: [
+          { t: "Start with Needs action", d: "The tabs across the top show how many bookings are in each. Needs action is your worklist: a room still to be assigned for someone arriving today or tomorrow, a payment not recorded once the guest is due, an online payment the guest never finished, or a day-use request waiting to be confirmed. Soonest arrival is listed first." },
           { t: "Open a booking", d: "Click a row to see the guest's name and contact details, dates, room, price and how they are paying." },
           { t: "Assign the room number at check-in", d: "Type the real room number (e.g. 204) and save. Do this every time — it's how the guest reaches Guest Services, and how their requests show which room to walk to." },
           { t: "Record the payment", d: "Guests who chose pay at check-in show “Awaiting payment”. When they pay at the desk, click Mark payment received." },
@@ -258,7 +259,7 @@ window.JPARK_HELP = (function () {
           { t: "Suspend or remove", d: "Suspend blocks sign-in but keeps the account; Remove deletes it. Neither happens until you click Save changes — Undo cancels them." },
           { t: "Password reset requests", d: "Messages → 🔑 Password Reset Requests. Click Reset password, then read the new temporary password out to the employee — it is shown once only." }
         ],
-        tips: ["You can't lock yourself out — your own account is marked “You” and cannot be removed."]
+        tips: ["The hotel can hold up to 100 staff accounts; the count above the form shows how many are in use. Remove an account you no longer need to free a place.", "You can't lock yourself out — your own account is marked “You” and cannot be removed."]
       },
       {
         id: "maintenance", ico: "🚧", admin: true, title: "Maintenance & payment policy",
@@ -278,7 +279,7 @@ window.JPARK_HELP = (function () {
           { t: "Sign out everything from one place", d: "Sign out all (n) ends every session from that address at once." },
           { t: "Ban an address", d: "Ban IP blocks an address and signs out its sessions immediately. Unban removes the block." }
         ],
-        tips: ["Everyone can be signed in on up to 6 devices; a 7th sign-in ends the oldest one automatically."],
+        tips: ["Everyone can be signed in on up to 20 devices at once; a 21st sign-in ends the oldest one automatically."],
         warn: "The hotel's Wi-Fi shares a single address, so banning it can lock out real guests and your own staff. Only ban an address you are sure about."
       }
     ]
@@ -322,7 +323,7 @@ window.JPARK_HELP = (function () {
           { t: "ออกจากระบบเมื่อเลิกงาน", d: "กด “ออกจากระบบ” มุมล่างซ้าย ถ้าเป็นเครื่องส่วนกลางที่เคาน์เตอร์ ต้องออกจากระบบทุกครั้งเมื่อหมดกะ" }
         ],
         tips: [
-          "เข้าระบบค้างไว้ได้พร้อมกันไม่เกิน 6 เครื่อง ถ้าเข้าเครื่องที่ 7 ระบบจะตัดเครื่องที่เก่าที่สุดออกอัตโนมัติ",
+          "เข้าระบบค้างไว้ได้พร้อมกันไม่เกิน 20 เครื่อง เพียงพอสำหรับบัญชีส่วนกลางของแผนกที่ใช้ทุกเครื่อง ถ้าเข้าเครื่องที่ 21 ระบบจะตัดเครื่องที่เก่าที่สุดออกอัตโนมัติ",
           "อย่าบอกรหัสผ่านให้ใคร ทุกอย่างที่ทำในระบบถูกบันทึกไว้ในชื่อของคุณ"
         ],
         warn: "รหัสผ่านชั่วคราว jparkhotel ใช้ได้แค่ตอนเข้าครั้งแรกครั้งเดียว หลังจากนั้นต้องใช้รหัสผ่านของคุณเองเท่านั้น"
@@ -409,6 +410,7 @@ window.JPARK_HELP = (function () {
         id: "bookings", ico: "🧾", title: "การจองของผู้เข้าพัก",
         intro: "ไปที่ ข้อความ → 🛎️ การจองของผู้เข้าพัก ที่นี่รวมทุกการจองจากเว็บไซต์ เรียงจากใหม่สุด",
         steps: [
+          { t: "เริ่มที่แท็บ “ต้องจัดการ”", d: "แท็บด้านบนจะบอกจำนวนการจองในแต่ละกลุ่ม แท็บ “ต้องจัดการ” คือรายการงานของคุณ ได้แก่ ยังไม่ได้จัดห้องให้แขกที่เข้าพักวันนี้หรือพรุ่งนี้ ยังไม่ได้บันทึกการชำระเงินเมื่อถึงกำหนดเข้าพัก การจ่ายเงินออนไลน์ที่แขกทำไม่สำเร็จ หรือคำขอใช้ห้องแบบรายวันที่รอการยืนยัน โดยเรียงผู้ที่จะมาถึงเร็วที่สุดไว้บนสุด" },
           { t: "เปิดดูการจอง", d: "กดที่รายการ จะเห็นชื่อและช่องทางติดต่อผู้เข้าพัก วันที่เข้าพัก ห้อง ราคา และวิธีชำระเงิน" },
           { t: "กำหนดห้องพักตอนเช็กอิน", d: "พิมพ์เลขห้องจริง เช่น 204 แล้วบันทึก ต้องทำทุกครั้ง เพราะเป็นสิ่งที่ทำให้ผู้เข้าพักใช้บริการผ่านมือถือได้ และทำให้คำขอของเขาแสดงว่าต้องไปห้องไหน" },
           { t: "บันทึกการชำระเงิน", d: "ผู้เข้าพักที่เลือก “จ่ายตอนเช็กอิน” จะขึ้นว่า “รอชำระเงิน” เมื่อเขาจ่ายที่เคาน์เตอร์แล้ว ให้กด “บันทึกว่าชำระเงินแล้ว”" },
@@ -518,7 +520,7 @@ window.JPARK_HELP = (function () {
           { t: "ระงับหรือลบบัญชี", d: "“ระงับ” คือห้ามเข้าระบบแต่ยังเก็บบัญชีไว้ “ลบ” คือลบทิ้ง ทั้งสองอย่างจะยังไม่มีผลจนกว่าจะกด “บันทึกการเปลี่ยนแปลง” กด “ย้อนกลับ” เพื่อยกเลิก" },
           { t: "คำขอรีเซ็ตรหัสผ่าน", d: "ข้อความ → 🔑 คำขอรีเซ็ตรหัสผ่าน กด “รีเซ็ตรหัสผ่าน” แล้วแจ้งรหัสผ่านชั่วคราวใหม่ให้พนักงาน ระบบแสดงรหัสนี้เพียงครั้งเดียว" }
         ],
-        tips: ["คุณล็อกตัวเองออกจากระบบไม่ได้ บัญชีของคุณจะขึ้นคำว่า “คุณ” และลบไม่ได้"]
+        tips: ["โรงแรมมีบัญชีพนักงานได้สูงสุด 100 บัญชี ตัวเลขเหนือแบบฟอร์มจะบอกว่าใช้ไปแล้วกี่บัญชี หากต้องการเพิ่ม ให้ลบบัญชีที่ไม่ได้ใช้ออกก่อน", "คุณล็อกตัวเองออกจากระบบไม่ได้ บัญชีของคุณจะขึ้นคำว่า “คุณ” และลบไม่ได้"]
       },
       {
         id: "maintenance", ico: "🚧", admin: true, title: "โหมดปิดปรับปรุงและนโยบายการชำระเงิน",
@@ -538,7 +540,7 @@ window.JPARK_HELP = (function () {
           { t: "ตัดทุกเครื่องจากที่เดียวกัน", d: "กด “ออกจากระบบทั้งหมด (n)” เพื่อตัดทุกการเข้าใช้งานจากที่อยู่นั้นพร้อมกัน" },
           { t: "แบนที่อยู่ IP", d: "“แบน IP” จะบล็อกที่อยู่นั้นและตัดการเข้าใช้งานทั้งหมดทันที กด “ยกเลิกแบน” เพื่อปลดบล็อก" }
         ],
-        tips: ["ทุกคนเข้าระบบค้างไว้ได้ไม่เกิน 6 เครื่อง ถ้าเข้าเครื่องที่ 7 ระบบจะตัดเครื่องเก่าสุดออกเอง"],
+        tips: ["ทุกคนเข้าระบบค้างไว้ได้ไม่เกิน 20 เครื่อง ถ้าเข้าเครื่องที่ 21 ระบบจะตัดเครื่องเก่าสุดออกเอง"],
         warn: "Wi-Fi ของโรงแรมใช้ที่อยู่ IP เดียวกันทั้งตึก ถ้าแบนไปอาจตัดทั้งผู้เข้าพักจริงและพนักงานของเราเอง แบนเฉพาะที่อยู่ที่แน่ใจจริง ๆ เท่านั้น"
       }
     ]
@@ -582,7 +584,7 @@ window.JPARK_HELP = (function () {
           { t: "終わったらサインアウト", d: "左下の「サインアウト」を押します。フロントの共用パソコンでは、勤務終了時に必ずサインアウトしてください。" }
         ],
         tips: [
-          "同時にサインインできるのは6台までです。7台目でサインインすると、いちばん古い端末が自動的にサインアウトされます。",
+          "同時にサインインできるのは20台までです。部署共用アカウントをフロアの全端末で使っても十分な数です。21台目でサインインすると、いちばん古い端末が自動的にサインアウトされます。",
           "パスワードは誰にも教えないでください。操作はすべてあなたの名前で記録されます。"
         ],
         warn: "仮パスワード jparkhotel が使えるのは初回サインインの一度だけです。その後は自分で決めたパスワードのみ有効です。"
@@ -669,6 +671,7 @@ window.JPARK_HELP = (function () {
         id: "bookings", ico: "🧾", title: "お客様の予約",
         intro: "メッセージ →🛎️ ゲスト予約。ウェブサイトからの予約が新しい順に並びます。",
         steps: [
+          { t: "「要対応」から始める", d: "上部のタブには各グループの件数が表示されます。「要対応」はあなたの作業リストです。本日または明日到着で客室が未割当、到着日を迎えても支払いが未記録、オンライン決済が完了していない、デイユースの確認待ち、といった予約が入ります。到着が近い順に並びます。" },
           { t: "予約を開く", d: "行を押すと、お客様の氏名・連絡先・日程・部屋・料金・支払い方法が表示されます。" },
           { t: "チェックイン時に部屋番号を登録", d: "実際の部屋番号（例：204）を入力して保存します。毎回必ず行ってください。これがないとお客様はゲストサービスを利用できず、リクエストにも訪問先の部屋が表示されません。" },
           { t: "支払いを記録する", d: "「チェックイン時に支払う」を選んだお客様は「支払い待ち」と表示されます。フロントでお支払いを受けたら「支払い済みにする」を押します。" },
@@ -778,7 +781,7 @@ window.JPARK_HELP = (function () {
           { t: "停止と削除", d: "「停止」はログインを止めますがアカウントは残ります。「削除」は消去します。どちらも「変更を保存」を押すまで実行されません。「元に戻す」で取り消せます。" },
           { t: "パスワード再発行の申請", d: "メッセージ →🔑 パスワードリセット申請。「パスワードをリセット」を押し、表示された仮パスワードを本人に伝えます。表示は一度きりです。" }
         ],
-        tips: ["自分を締め出すことはできません。自分のアカウントには「あなた」と表示され、削除できません。"]
+        tips: ["スタッフアカウントは最大100件まで作成できます。フォームの上に使用中の件数が表示されます。空きを作るには不要なアカウントを削除してください。", "自分を締め出すことはできません。自分のアカウントには「あなた」と表示され、削除できません。"]
       },
       {
         id: "maintenance", ico: "🚧", admin: true, title: "メンテナンスと支払いポリシー",
@@ -798,7 +801,7 @@ window.JPARK_HELP = (function () {
           { t: "同じ場所からの接続をすべて解除", d: "「すべてサインアウト（n）」で、そのアドレスからの接続を一括で解除します。" },
           { t: "アドレスを禁止する", d: "「IPを禁止」でそのアドレスを遮断し、接続を即座に解除します。「禁止解除」で戻せます。" }
         ],
-        tips: ["1人につき同時サインインは6台までで、7台目のサインインで最も古い接続が自動解除されます。"],
+        tips: ["1人につき同時サインインは20台までで、21台目のサインインで最も古い接続が自動解除されます。"],
         warn: "ホテルのWi-Fiは館内全体で1つのアドレスを共有しています。禁止すると実際のお客様や自社スタッフまで締め出される恐れがあるため、確実な場合のみ実行してください。"
       }
     ]
@@ -842,7 +845,7 @@ window.JPARK_HELP = (function () {
           { t: "下班记得退出", d: "点左下角“登出”。前台是公用电脑，每次下班务必退出。" }
         ],
         tips: [
-          "同一个账号最多可在 6 台设备上保持登录；第 7 次登录会自动把最早的一台挤下线。",
+          "同一个账号最多可在 20 台设备上保持登录，足够让部门共用账号在楼层的每部手机和终端上使用；第 21 次登录会自动把最早的一台挤下线。",
           "不要把密码告诉别人。你在系统里的每一步操作都会记在你名下。"
         ],
         warn: "临时密码 jparkhotel 只在第一次登录时有效，之后只能用你自己设置的密码。"
@@ -929,6 +932,7 @@ window.JPARK_HELP = (function () {
         id: "bookings", ico: "🧾", title: "宾客预订",
         intro: "消息 →🛎️ 宾客预订。网站上的所有预订，最新的排在最前面。",
         steps: [
+          { t: "先看“需处理”", d: "顶部各标签会显示数量。“需处理”就是你的工作清单：今天或明天入住但还没分房、客人已到期却未记录付款、客人未完成的在线支付，以及等待确认的钟点房申请。最早入住的排在最前面。" },
           { t: "打开一条预订", d: "点一行，就能看到客人姓名和联系方式、日期、房型、金额和付款方式。" },
           { t: "入住时分配房间", d: "填写真实房号（例如 204）并保存。每次都要做——客人靠它才能使用客房服务，他的请求也才会显示该去哪个房间。" },
           { t: "记录收款", d: "选择“入住时付款”的客人会显示“待付款”。在前台收到钱后，点“标记为已收款”。" },
@@ -1038,7 +1042,7 @@ window.JPARK_HELP = (function () {
           { t: "停用或删除", d: "“停用”是禁止登录但保留账号，“删除”是彻底移除。两者都要点“保存更改”才生效，点“撤销”可取消。" },
           { t: "密码重置请求", d: "消息 →🔑 密码重置请求。点“重置密码”，然后把新的临时密码念给本人——只显示这一次。" }
         ],
-        tips: ["你不会把自己锁在外面：你自己的账号会标着“你”，无法被删除。"]
+        tips: ["酒店最多可开设 100 个员工账号，表单上方会显示已使用的数量。需要新增时，请先删除不再使用的账号。", "你不会把自己锁在外面：你自己的账号会标着“你”，无法被删除。"]
       },
       {
         id: "maintenance", ico: "🚧", admin: true, title: "维护模式与付款政策",
@@ -1058,7 +1062,7 @@ window.JPARK_HELP = (function () {
           { t: "一次清掉同一地址的全部登录", d: "点“全部登出（n）”，把该地址下的所有登录一次结束。" },
           { t: "封禁地址", d: "“封禁IP”会拦截该地址并立即结束它的所有登录，“解除封禁”可撤销。" }
         ],
-        tips: ["每人最多同时登录 6 台设备，第 7 次登录会自动结束最早的一台。"],
+        tips: ["每人最多同时登录 20 台设备，第 21 次登录会自动结束最早的一台。"],
         warn: "酒店 Wi-Fi 全楼共用同一个地址，封了可能把真正的客人和自己的员工一起挡在外面。只封你完全确定的地址。"
       }
     ]
@@ -1102,7 +1106,7 @@ window.JPARK_HELP = (function () {
           { t: "下班記得登出", d: "點左下角「登出」。櫃檯是共用電腦，每次下班務必登出。" }
         ],
         tips: [
-          "同一個帳戶最多可在 6 台裝置保持登入；第 7 次登入會自動把最早的一台擠下線。",
+          "同一個帳戶最多可在 20 台裝置保持登入，足夠讓部門共用帳戶在樓層的每部手機和終端上使用；第 21 次登入會自動把最早的一台擠下線。",
           "不要把密碼告訴別人。你在系統裡的每一步操作都會記在你名下。"
         ],
         warn: "臨時密碼 jparkhotel 只在第一次登入時有效，之後只能用你自己設定的密碼。"
@@ -1189,6 +1193,7 @@ window.JPARK_HELP = (function () {
         id: "bookings", ico: "🧾", title: "賓客預訂",
         intro: "訊息 →🛎️ 賓客預訂。網站上的所有訂房，最新的排在最前面。",
         steps: [
+          { t: "先看「需處理」", d: "頂部各標籤會顯示數量。「需處理」就是你的工作清單：今天或明天入住但還沒分房、客人已到期卻未記錄付款、客人未完成的線上支付，以及等待確認的鐘點房申請。最早入住的排在最前面。" },
           { t: "打開一筆訂房", d: "點一列，就能看到賓客姓名與聯絡方式、日期、房型、金額和付款方式。" },
           { t: "入住時分配房間", d: "填寫真實房號（例如 204）並儲存。每次都要做——賓客要靠它才能使用賓客服務，他的請求也才會顯示該去哪一間房。" },
           { t: "記錄收款", d: "選擇「入住時付款」的賓客會顯示「等待付款」。在櫃檯收到錢後，點「標記為已收款」。" },
@@ -1298,7 +1303,7 @@ window.JPARK_HELP = (function () {
           { t: "停用或刪除", d: "「停用」是禁止登入但保留帳戶，「刪除」是徹底移除。兩者都要點「儲存變更」才生效，點「復原」可取消。" },
           { t: "密碼重設請求", d: "訊息 →🔑 密碼重設請求。點「重設密碼」，然後把新的臨時密碼唸給本人——只會顯示這一次。" }
         ],
-        tips: ["你不會把自己鎖在外面：你自己的帳戶會標著「您」，無法刪除。"]
+        tips: ["飯店最多可開設 100 個員工帳戶，表單上方會顯示已使用的數量。需要新增時，請先刪除不再使用的帳戶。", "你不會把自己鎖在外面：你自己的帳戶會標著「您」，無法刪除。"]
       },
       {
         id: "maintenance", ico: "🚧", admin: true, title: "維護模式與付款政策",
@@ -1318,7 +1323,7 @@ window.JPARK_HELP = (function () {
           { t: "一次清掉同一位址的全部登入", d: "點「全部登出（n）」，把該位址下的所有登入一次結束。" },
           { t: "封鎖位址", d: "「封鎖IP」會擋掉該位址並立即結束它的所有登入，「解除封鎖」可撤銷。" }
         ],
-        tips: ["每人最多同時登入 6 台裝置，第 7 次登入會自動結束最早的一台。"],
+        tips: ["每人最多同時登入 20 台裝置，第 21 次登入會自動結束最早的一台。"],
         warn: "飯店 Wi-Fi 全棟共用同一個位址，封了可能把真正的賓客和自己的員工一起擋在外面。只封你完全確定的位址。"
       }
     ]

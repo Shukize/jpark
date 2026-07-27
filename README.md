@@ -116,10 +116,23 @@ error shown anywhere, traced back to exactly this.
   *rejected* (revoked, banned, or past the cap), the client now drops straight back to
   the login screen instead of failing silently forever — see `assets/js/api.js`'s
   `refreshToken()` and the `jpark:force-logout` event it fires on denial.
-- **6 concurrent sessions per staff account.** A 7th simultaneous login (same
+- **20 concurrent sessions per staff account.** A 21st simultaneous login (same
   employee, any device) automatically signs the *oldest* still-active session out
   (FIFO), tracked in a new `staff_sessions` table (one row per login: IP, parsed
   device/browser, geolocated city/country, timestamps, and revocation state).
+  Sized for shared department accounts signed in on every phone and terminal on
+  the floor; override with `MAX_SESSIONS_PER_EMPLOYEE`.
+- **Up to 100 staff accounts** (`MAX_STAFF_ACCOUNTS`, enforced on
+  `POST /api/auth/register`). Suspended accounts still occupy a place — only
+  **Remove** frees one — and the Staff panel shows "*n* of 100 in use" above the
+  add form, so hitting the ceiling is a clear message rather than a silent
+  failure.
+- **Sign-in throttling counts failures, not sign-ins.** The whole property leaves
+  through one public IP, so the previous flat "10 login attempts per IP per 10
+  minutes" locked the front desk out of its own console partway through a shift
+  change. A correct password now costs nothing; wrong ones are budgeted per
+  IP+username (10 / 15 min) with a wider per-IP sweep ceiling, so grinding at one
+  account from outside can never lock out the staff who actually use it.
 - **Account Logs** (staff console → **Account Logs**, admin only) is the audit trail
   for all of the above: every login ever made, a live **blinking green dot** for any
   session that's polled within the last 20 seconds, and dimmed rows for revoked/expired
@@ -453,6 +466,20 @@ the room total was paid online.
   **Guest Booking** inbox as OTA reservations, with a `channel: "direct"`
   and a payment status badge (e.g. "Pay at check-in — Awaiting payment", or
   "✓ PAID ONLINE — Card — 4,500 THB" for an online charge).
+- **The inbox is a worklist, not just a log.** The filter tabs carry live counts
+  (`All (7) · Needs action (4) · Confirmed (5) · Cancelled (1) · Resent (0)`), and
+  **Needs action** collects what a shift actually has to finish: a room still to
+  assign for someone arriving today or tomorrow, a payment not recorded once the
+  guest is due, an online payment the guest never completed, a day-use request
+  awaiting confirmation, or a booking flagged *Needs review*. Soonest arrival
+  sorts first. The ordinary pay-at-check-in balance is deliberately **not** a
+  reason — this property takes payment at check-in by default, so counting it
+  would put nearly every future booking in the tab and make it worthless.
+  It replaced a raw *Pending* status tab which, because every website room
+  booking is written straight to `confirmed`, only ever held day-use requests and
+  so read as permanently broken. Each row shows the same state as pills (`✓ ROOM`,
+  `— PAID`, `⏳ CONFIRM`), red once the item is actually due.
+  See `bookingActionReasons()` in `assets/js/staff.js`.
 - **Front-desk check-in, in the staff console:** opening a direct booking in
   the Guest Booking inbox shows a room-number field (staff type in the
   physical room assigned). For a pay-at-checkin booking, a payment-method
@@ -632,7 +659,8 @@ a broken OTA parser can no longer reach production.
 **Session security overhaul (follow-on release):** replaced the flat 12-hour staff
 login token with a real session model — short-lived (15-minute) access tokens that
 silently refresh via `POST /api/auth/refresh`, a hard 7-day absolute cap per session, a
-6-concurrent-sessions-per-account limit (oldest evicted first), server-side IP
+concurrent-sessions-per-account limit (oldest evicted first; 20 as of the
+capacity release below), server-side IP
 geolocation + device parsing at login, an in-memory revocation/ban cache
 (`backend/lib/sessionCache.js`), and the new admin-only **Account Logs** panel/API
 (`backend/routes/sessions.js`) for session sign-out and IP ban/unban. Full writeup in

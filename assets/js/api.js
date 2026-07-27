@@ -97,11 +97,14 @@
             const res2 = await fetchWithTimeout(base + path, opts2);
             let data2;
             try { data2 = await res2.json(); } catch (_) { data2 = {}; }
-            if (!res2.ok) return { error: data2.error || ("HTTP " + res2.status), status: res2.status };
+            if (!res2.ok) return { error: data2.error || ("HTTP " + res2.status), status: res2.status, code: data2.code };
             return data2;
           }
         }
-        return { error: data.error || ("HTTP " + res.status), status: res.status };
+        // `code` rides along so a caller can tell two failures with the same
+        // HTTP status apart (a 409 from a duplicate username vs. one from the
+        // staff-account ceiling) and show the right translated message.
+        return { error: data.error || ("HTTP " + res.status), status: res.status, code: data.code };
       }
       return data;
     } catch (e) {
