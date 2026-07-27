@@ -1,0 +1,196 @@
+/* ============================================================
+   J Park Hotel — Help & Guide panel
+   Paired with assets/js/help.js. Reuses the console's own tokens
+   (var(--teal), var(--gold)…) so the guide looks like the rest of
+   the dashboard rather than a bolted-on manual.
+   ============================================================ */
+
+/* ---- sidebar nav item ---- */
+.nav-item[data-panel="help"] { margin-top: 6px; }
+.nav-item[data-panel="help"].is-new::after {
+  content: "";
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--gold); margin-left: auto; flex: none;
+  box-shadow: 0 0 0 0 rgba(201, 162, 75, 0.65);
+  animation: helpNewPulse 2.2s ease-out infinite;
+}
+@keyframes helpNewPulse {
+  0%   { box-shadow: 0 0 0 0 rgba(201, 162, 75, 0.6); }
+  70%  { box-shadow: 0 0 0 7px rgba(201, 162, 75, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(201, 162, 75, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .nav-item[data-panel="help"].is-new::after { animation: none; }
+}
+
+/* ---- the little "?" beside each panel title ---- */
+.help-hint {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 24px; height: 24px; margin-left: 10px; vertical-align: middle;
+  border: 1.5px solid var(--teal); border-radius: 50%;
+  background: none; color: var(--teal);
+  font-family: var(--sans); font-size: 0.82rem; font-weight: 700;
+  cursor: pointer; transition: background .18s, color .18s;
+}
+.help-hint:hover { background: var(--teal); color: var(--ivory); }
+.help-hint-row { margin: 0 0 14px; }
+.help-hint.help-hint-pill {
+  width: auto; height: auto; margin-left: 0; border-radius: 999px;
+  padding: 6px 16px; gap: 6px; font-size: 0.8rem; font-weight: 600;
+}
+
+/* ---- header ---- */
+.help-head h2 { display: flex; align-items: center; gap: 10px; }
+.help-mins { color: var(--ink-soft); white-space: nowrap; }
+.help-tools {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 22px;
+}
+.help-search {
+  display: flex; align-items: center; gap: 8px; flex: 1 1 260px; max-width: 420px;
+  background: #fff; border: 1px solid var(--line); border-radius: 999px; padding: 8px 16px;
+}
+.help-search input {
+  flex: 1; border: none; outline: none; background: none;
+  font-family: var(--sans); font-size: 0.92rem; color: var(--ink); min-width: 0;
+}
+.help-btn {
+  border: 1.5px solid var(--teal); background: none; color: var(--teal);
+  border-radius: 999px; padding: 8px 18px; cursor: pointer; white-space: nowrap;
+  font-family: var(--sans); font-size: 0.82rem; font-weight: 600;
+  transition: background .18s, color .18s;
+}
+.help-btn:hover { background: var(--teal); color: var(--ivory); }
+
+/* ---- two-column shell ---- */
+.help-shell {
+  display: grid; grid-template-columns: minmax(210px, 250px) minmax(0, 1fr);
+  gap: 26px; align-items: start;
+}
+
+/* ---- contents ---- */
+.help-toc {
+  position: sticky; top: 0; background: #fff;
+  border: 1px solid var(--line); border-radius: 16px; padding: 18px 16px;
+  max-height: calc(100vh - 60px); overflow-y: auto;
+}
+.help-toc h3 {
+  font-family: var(--serif); font-size: 1.1rem; color: var(--teal-deep);
+  margin: 0 0 10px; padding-bottom: 8px; border-bottom: 1px solid var(--line);
+}
+.help-toc ol { list-style: none; counter-reset: htoc; margin: 0; padding: 0; }
+.help-toc li { counter-increment: htoc; }
+.help-toc a {
+  /* wrap, so the "Administrators only" badge drops onto its own line
+     instead of squeezing the title into a two-word column */
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px;
+  padding: 7px 8px; border-radius: 9px; text-decoration: none;
+  color: var(--ink-soft); font-size: 0.88rem; line-height: 1.45;
+  transition: background .15s, color .15s;
+}
+.help-toc a:hover { background: var(--paper); color: var(--teal-deep); }
+.help-toc a::before {
+  content: counter(htoc) "."; color: var(--gold); font-weight: 700;
+  font-size: 0.78rem; min-width: 18px; flex: none;
+}
+.help-toc .ht-ico { flex: none; }
+.help-toc .ht-label { flex: 1; }
+.help-toc .ht-admin {
+  display: block; width: 100%; margin-left: 26px;
+  font-size: 0.68rem; color: var(--terracotta); letter-spacing: .02em;
+}
+
+/* ---- sections ---- */
+.help-content { max-width: 760px; }
+.help-sec {
+  background: #fff; border: 1px solid var(--line); border-radius: 16px;
+  padding: 24px; margin-bottom: 18px; scroll-margin-top: 12px;
+}
+.help-sec.is-admin { border-left: 4px solid var(--terracotta); }
+.help-sec.help-flash { box-shadow: 0 0 0 3px var(--gold-light); }
+.help-sec-head {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 8px;
+}
+.help-sec-head h3 {
+  flex: 1; display: flex; align-items: center; gap: 10px; min-width: 200px;
+  font-family: var(--serif); font-size: 1.35rem; color: var(--teal-deep); margin: 0;
+}
+.hs-ico { font-size: 1.2rem; }
+.hs-admin {
+  background: rgba(184, 85, 46, 0.1); color: var(--terracotta-d);
+  border-radius: 999px; padding: 3px 12px; font-size: 0.7rem; font-weight: 700;
+}
+.help-speak {
+  border: 1.5px solid var(--line); background: none; color: var(--ink-soft);
+  border-radius: 999px; padding: 5px 14px; cursor: pointer; white-space: nowrap;
+  font-family: var(--sans); font-size: 0.76rem; font-weight: 600;
+  transition: background .18s, color .18s, border-color .18s;
+}
+.help-speak:hover { border-color: var(--teal); color: var(--teal); }
+.help-speak.is-speaking { background: var(--teal); border-color: var(--teal); color: var(--ivory); }
+
+.help-intro { color: var(--ink-soft); font-size: 0.93rem; line-height: 1.65; margin: 0 0 16px; }
+
+.help-steps { list-style: none; counter-reset: hstep; margin: 0 0 4px; padding: 0; }
+.help-steps li {
+  counter-increment: hstep; position: relative;
+  padding: 0 0 14px 42px; min-height: 30px;
+}
+.help-steps li::before {
+  content: counter(hstep); position: absolute; left: 0; top: 0;
+  width: 28px; height: 28px; border-radius: 50%;
+  background: var(--teal); color: var(--ivory);
+  font-weight: 700; font-size: 0.85rem;
+  display: flex; align-items: center; justify-content: center;
+}
+.help-steps li b { display: block; color: var(--teal-deep); font-size: 0.97rem; margin-bottom: 3px; }
+.help-steps li span { display: block; color: var(--ink-soft); font-size: 0.9rem; line-height: 1.6; }
+
+.help-tip {
+  background: var(--paper); border-left: 3px solid var(--gold);
+  border-radius: 0 12px 12px 0; padding: 13px 18px; margin: 12px 0 0;
+}
+.help-tip b { display: block; color: var(--teal-deep); margin-bottom: 5px; font-size: 0.9rem; }
+.help-tip ul { margin: 0; padding-left: 18px; color: var(--ink-soft); font-size: 0.87rem; line-height: 1.65; }
+
+.help-warn {
+  background: rgba(184, 85, 46, 0.07); border-left: 3px solid var(--terracotta);
+  border-radius: 0 12px 12px 0; padding: 13px 18px; margin: 12px 0 0;
+}
+.help-warn b { display: block; color: var(--terracotta-d); margin-bottom: 4px; font-size: 0.9rem; }
+.help-warn p { margin: 0; color: var(--ink-soft); font-size: 0.88rem; line-height: 1.6; }
+
+.help-top {
+  display: inline-block; margin-top: 14px;
+  color: var(--teal); font-size: 0.8rem; text-decoration: none;
+}
+.help-top:hover { text-decoration: underline; }
+.help-nomatch { color: var(--ink-soft); padding: 26px 4px; }
+
+/* ---- narrow screens: contents collapses to a list on top ---- */
+@media (max-width: 900px) {
+  .help-shell { grid-template-columns: 1fr; }
+  .help-toc { position: static; max-height: none; }
+  .help-toc ol { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 2px; }
+}
+
+/* ---- printing: the guide only, everything expanded ----
+   "Print / Save as PDF" is how this guide gets laminated and taped
+   next to the front-desk monitor, so it has to survive leaving the
+   screen: no sidebar, no buttons, nothing cut in half mid-section. */
+@page { margin: 14mm; }
+@media print {
+  body { background: #fff; }
+  .dash-side, .toast-wrap, .help-tools, .help-speak, .help-hint, .help-top,
+  .guest-panel, .guest-panel-overlay, .profile-modal-overlay, .msg-compose-modal { display: none !important; }
+  .dash { display: block !important; }
+  .dash-main { padding: 0 !important; max-height: none !important; overflow: visible !important; }
+  .dash-panel { display: none !important; }
+  #panel-help { display: block !important; }
+  .help-shell { display: block !important; }
+  .help-head h2 { margin-bottom: 4px; }
+  .help-toc { border: none; padding: 0 0 12px; page-break-after: always; }
+  .help-toc ol { display: block; }
+  .help-content { max-width: none; }
+  .help-sec { border: none; border-bottom: 1px solid #ccc; border-radius: 0; padding: 12px 0; page-break-inside: avoid; }
+  .help-sec.is-admin { border-left: none; }
+}

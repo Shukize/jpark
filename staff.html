@@ -13,6 +13,7 @@
 <link rel="stylesheet" href="assets/css/style.css?v=2026-07-23" />
 <link rel="stylesheet" href="assets/css/app.css?v=2026-07-23" />
 <link rel="stylesheet" href="assets/css/employee-card.css?v=2026-07-23" />
+<link rel="stylesheet" href="assets/css/help.css?v=2026-07-27" />
 </head>
 <body class="staff-body">
 
@@ -167,6 +168,12 @@
       <button class="nav-item admin-only" data-panel="accountLogs">
         <span class="ni-ico" aria-hidden="true">🛡️</span>
         <span class="ni-label" data-i18n="staff.nav.accountLogs">Account Logs</span>
+      </button>
+      <!-- Everyone's, and deliberately last: the guide shows the admin
+           sections only to an admin (see assets/js/help.js). -->
+      <button class="nav-item" data-panel="help">
+        <span class="ni-ico" aria-hidden="true">📘</span>
+        <span class="ni-label">Help &amp; Guide</span>
       </button>
     </nav>
 
@@ -475,6 +482,11 @@
       <h3 data-i18n="staff.acctLogs.bannedTitle">Banned IPs</h3>
       <div class="staff-list" id="acctBannedList"></div>
     </section>
+
+    <!-- help & guide — built by assets/js/help.js from help-content.js -->
+    <section class="dash-panel" id="panel-help">
+      <div id="helpMount"></div>
+    </section>
   </main>
 </div>
 
@@ -583,5 +595,7 @@
 <script src="assets/js/bookings.js?v=2026-07-23"></script>
 <script src="assets/js/employee-card.js?v=2026-07-23"></script>
 <script src="assets/js/staff.js?v=2026-07-27"></script>
+<script src="assets/js/help-content.js?v=2026-07-27"></script>
+<script src="assets/js/help.js?v=2026-07-27"></script>
 </body>
 </html>
