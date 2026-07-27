@@ -632,8 +632,18 @@
     document.getElementById("dashView").classList.add("show");
 
     document.querySelectorAll(".admin-only").forEach((el) => { el.style.display = isAdmin() ? "" : "none"; });
-    // Front-Desk-only surfaces (currently: Live Chat) — admins never see them.
+    // Front-Desk-only surfaces (currently: the Team Status nav item) — admins
+    // never see them.
     document.querySelectorAll(".staff-only").forEach((el) => { el.style.display = isAdmin() ? "none" : ""; });
+    // An administrator reads the shift board and edits the accounts behind it
+    // in the same breath, so for them the board moves out of its own panel and
+    // into the top of Staff. One mount element, relocated — mounting a second
+    // board would give the page two of everything, each polling the roster.
+    if (isAdmin()) {
+      const board = document.getElementById("empBoardMount");
+      const slot = document.getElementById("teamRosterSlot");
+      if (board && slot && board.parentElement !== slot) slot.appendChild(board);
+    }
     document.getElementById("dsUserName").textContent = session.name;
     document.getElementById("dsUserRole").textContent = t(isAdmin() ? "staff.role.admin" : "staff.role.staff");
     document.getElementById("dsRoleLabel").textContent = t(isAdmin() ? "staff.role.admin" : "staff.role.staff");
@@ -655,6 +665,8 @@
   /* ====================  PANELS  ==================== */
   function selectPanel(name) {
     if ((name === "site" || name === "team" || name === "maintenance" || name === "accountLogs") && !isAdmin()) name = "requests";
+    // Admins have no Team Status panel of their own — the board lives in Staff.
+    if (name === "roster" && isAdmin()) name = "team";
     if (name === "company") name = "messages"; // redirect legacy hash
     // The guest panel belongs to whichever board opened it; leaving that board
     // (including via its own "open this guest's chat" button) closes it.
@@ -678,7 +690,9 @@
     else if (panel === "messages") renderMessages();
     else if (panel === "roster") renderRoster();
     else if (panel === "site") renderSite();
-    else if (panel === "team") renderTeam();
+    // For an admin the shift board sits at the top of this panel, so it has to
+    // be (re)mounted with it — nothing else opens it for them.
+    else if (panel === "team") { if (isAdmin()) renderRoster(); renderTeam(); }
     else if (panel === "maintenance") { renderMaintenance(); renderPrepay(); }
     else if (panel === "accountLogs") renderAccountLogs();
   }

@@ -870,6 +870,15 @@ body.staff-body { background: #eef1ef; }
 .company-compose textarea { flex: 1; }
 
 /* site editor + team */
+/* The Team Status board is relocated into the Staff panel for admins (see
+   showDash() in staff.js). It carries no bottom margin of its own — it used
+   to be the only thing on its page — so it would sit flush against the "Add
+   staff member" card beneath it. */
+#teamRosterSlot:not(:empty) { margin-bottom: 26px; }
+/* and narrowed from its full-page 1040px to the same column as the cards
+   below, so the board and the accounts it describes share one left and
+   right edge instead of the board overhanging them. */
+#teamRosterSlot .emp-board { max-width: 720px; }
 .editor-card, .team-card { background: #fff; border: 1px solid var(--line); border-radius: 16px; padding: 24px; margin-bottom: 20px; max-width: 720px; }
 .editor-card h3, .team-card h3 { font-family: var(--serif); font-size: 1.3rem; color: var(--teal-deep); margin-bottom: 14px; }
 .ann-edit-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }

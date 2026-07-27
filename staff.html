@@ -149,7 +149,10 @@
         <span class="ni-label" data-i18n="staff.nav.company">Messages</span>
         <span class="ni-count" id="countMessages"></span>
       </button>
-      <button class="nav-item" data-panel="roster">
+      <!-- Front desk only: an administrator gets the same board inside the
+           Staff panel instead, where the accounts it describes are managed
+           (the board itself is moved there by showDash() in staff.js). -->
+      <button class="nav-item staff-only" data-panel="roster">
         <span class="ni-ico" aria-hidden="true">🪪</span>
         <span class="ni-label" data-i18n="staff.nav.roster">Team Status</span>
       </button>
@@ -423,6 +426,10 @@
     <section class="dash-panel" id="panel-team">
       <h2 data-i18n="staff.team.title">Staff management</h2>
       <p class="panel-lede" data-i18n="staff.team.lede">Add team members and control access.</p>
+
+      <!-- Where the Team Status board lands for an administrator: who is on
+           shift right now, directly above the accounts that control it. -->
+      <div id="teamRosterSlot"></div>
 
       <div class="team-card">
         <h3 data-i18n="staff.team.add">Add staff member</h3>

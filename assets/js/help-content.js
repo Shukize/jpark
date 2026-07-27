@@ -164,7 +164,7 @@ window.JPARK_HELP = (function () {
       },
       {
         id: "roster", ico: "🪪", title: "Team status",
-        intro: "Who is on shift right now.",
+        intro: "Who is on shift right now. Front desk: it’s 🪪 Team Status in the menu. Administrators: it’s at the top of the 👥 Staff page, above the accounts.",
         steps: [
           { t: "Read the board", d: "One card per team member with their name, role, shift times and whether they are On shift, On break or Off shift." },
           { t: "It follows the clock", d: "On shift and Off shift update themselves from the shift times. On break is set by hand." },
@@ -248,7 +248,7 @@ window.JPARK_HELP = (function () {
       },
       {
         id: "team", ico: "👥", admin: true, title: "Staff accounts",
-        intro: "Add people, decide what they can do, and get them back in when they're locked out.",
+        intro: "Add people, decide what they can do, and get them back in when they’re locked out. The Team Status board sits at the top of this page, so you can see who is on shift and change their account without leaving it.",
         steps: [
           { t: "Add someone", d: "Type their full name — the username is created for you (first initial + surname). Choose Staff or Administrator, then click Add staff member." },
           { t: "Tell them how to start", d: "They open the login page, click New Staff Account, use their username with the password jparkhotel, and choose their own password." },
@@ -422,7 +422,7 @@ window.JPARK_HELP = (function () {
       },
       {
         id: "roster", ico: "🪪", title: "สถานะทีมงาน",
-        intro: "ดูว่าตอนนี้ใครอยู่เวรบ้าง",
+        intro: "ดูว่าตอนนี้ใครอยู่เวรบ้าง พนักงานดูได้ที่เมนู 🪪 สถานะทีม ส่วนผู้ดูแลระบบดูได้ที่ด้านบนของหน้า 👥 พนักงาน เหนือรายชื่อบัญชี",
         steps: [
           { t: "อ่านกระดาน", d: "การ์ดละหนึ่งคน บอกชื่อ ตำแหน่ง เวลากะ และสถานะว่า เข้ากะ พักงาน หรือ นอกกะ" },
           { t: "ระบบดูเวลาให้เอง", d: "สถานะ “เข้ากะ” และ “นอกกะ” เปลี่ยนตามเวลากะอัตโนมัติ ส่วน “พักงาน” ต้องตั้งเอง" },
@@ -506,7 +506,7 @@ window.JPARK_HELP = (function () {
       },
       {
         id: "team", ico: "👥", admin: true, title: "บัญชีพนักงาน",
-        intro: "เพิ่มคน กำหนดสิทธิ์ และช่วยพนักงานที่เข้าระบบไม่ได้",
+        intro: "เพิ่มคน กำหนดสิทธิ์ และช่วยพนักงานที่เข้าระบบไม่ได้ ด้านบนของหน้านี้คือกระดานสถานะทีมงาน จะได้เห็นว่าใครอยู่เวรและแก้ไขบัญชีได้ในหน้าเดียว",
         steps: [
           { t: "เพิ่มพนักงาน", d: "พิมพ์ชื่อ-นามสกุล ระบบจะสร้างชื่อผู้ใช้ให้เอง (อักษรแรกของชื่อ + นามสกุล) เลือกว่าเป็น “พนักงาน” หรือ “ผู้ดูแลระบบ” แล้วกด “เพิ่มพนักงาน”" },
           { t: "บอกวิธีเริ่มใช้งานให้เขา", d: "ให้เขาเข้าหน้าเข้าสู่ระบบ กด “บัญชีพนักงานใหม่” ใช้ชื่อผู้ใช้ของตัวเองกับรหัสผ่าน jparkhotel แล้วตั้งรหัสผ่านใหม่ของตัวเอง" },
@@ -680,7 +680,7 @@ window.JPARK_HELP = (function () {
       },
       {
         id: "roster", ico: "🪪", title: "チーム状況",
-        intro: "いま誰が勤務中かが分かります。",
+        intro: "いま誰が勤務中かが分かります。フロントはメニューの🪪「チーム状況」から、管理者は👥「スタッフ」ページ上部（アカウント一覧の上）にあります。",
         steps: [
           { t: "ボードを見る", d: "メンバーごとに、氏名・役割・シフト時間と、勤務中／休憩中／勤務外の状態が表示されます。" },
           { t: "時刻に応じて自動更新", d: "勤務中と勤務外はシフト時間から自動で切り替わります。休憩中は手動で設定します。" },
@@ -764,7 +764,7 @@ window.JPARK_HELP = (function () {
       },
       {
         id: "team", ico: "👥", admin: true, title: "スタッフアカウント",
-        intro: "メンバーの追加、権限の設定、ログインできなくなった人の対応を行います。",
+        intro: "メンバーの追加、権限の設定、ログインできなくなった人の対応を行います。ページ上部にはチーム状況のボードがあり、誰が勤務中かを見ながら、そのままアカウントを変更できます。",
         steps: [
           { t: "メンバーを追加する", d: "氏名を入力すると、ユーザー名（名前の頭文字＋姓）が自動で作られます。「スタッフ」か「管理者」を選び、「スタッフを追加」を押します。" },
           { t: "始め方を伝える", d: "ログイン画面で「新しいスタッフアカウント」を押し、自分のユーザー名とパスワード jparkhotel を入力して、自分のパスワードを決めてもらいます。" },
@@ -938,7 +938,7 @@ window.JPARK_HELP = (function () {
       },
       {
         id: "roster", ico: "🪪", title: "团队状态",
-        intro: "看现在谁在班上。",
+        intro: "看现在谁在班上。前台从菜单的 🪪 团队状态进入；管理员在 👥 员工页面的最上方，就在账号列表上面。",
         steps: [
           { t: "看这块板", d: "每人一张卡片，显示姓名、职务、班次时间，以及当班 / 休息中 / 下班。" },
           { t: "跟着时间自动变", d: "“当班”和“下班”会按班次时间自动切换，“休息中”需要手动设置。" },
@@ -1022,7 +1022,7 @@ window.JPARK_HELP = (function () {
       },
       {
         id: "team", ico: "👥", admin: true, title: "员工账号",
-        intro: "添加人员、设置权限，以及帮登录不上的同事恢复。",
+        intro: "添加人员、设置权限，以及帮登录不上的同事恢复。本页最上方就是团队状态看板，可以一边看谁在当班，一边改他的账号，不用来回切换。",
         steps: [
           { t: "添加人员", d: "填写姓名，系统会自动生成用户名（名字首字母 + 姓）。选择“员工”或“管理员”，点“添加员工”。" },
           { t: "告诉他怎么开始", d: "让他打开登录页，点“新员工账户”，用自己的用户名加密码 jparkhotel 登录，然后设置自己的密码。" },
@@ -1196,7 +1196,7 @@ window.JPARK_HELP = (function () {
       },
       {
         id: "roster", ico: "🪪", title: "團隊狀態",
-        intro: "看現在誰在班上。",
+        intro: "看現在誰在班上。櫃檯從選單的 🪪 團隊狀態進入；管理員在 👥 員工頁面的最上方，就在帳戶清單上面。",
         steps: [
           { t: "看這塊板", d: "每人一張卡片，顯示姓名、職務、班次時間，以及當班 / 休息中 / 下班。" },
           { t: "跟著時間自動變", d: "「當班」和「下班」會依班次時間自動切換，「休息中」需要手動設定。" },
@@ -1280,7 +1280,7 @@ window.JPARK_HELP = (function () {
       },
       {
         id: "team", ico: "👥", admin: true, title: "員工帳戶",
-        intro: "新增人員、設定權限，以及協助登入不了的同事。",
+        intro: "新增人員、設定權限，以及協助登入不了的同事。本頁最上方就是團隊狀態看板，可以一邊看誰在當班，一邊改他的帳戶，不用來回切換。",
         steps: [
           { t: "新增人員", d: "填寫姓名，系統會自動產生使用者名稱（名字首字母 + 姓）。選擇「員工」或「管理員」，點「新增員工」。" },
           { t: "告訴他怎麼開始", d: "請他打開登入頁，點「新員工帳戶」，用自己的使用者名稱加上密碼 jparkhotel 登入，然後設定自己的密碼。" },
