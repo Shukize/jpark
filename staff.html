@@ -304,6 +304,7 @@
             <li><b data-i18n="staff.guide.s5t">Colours &amp; sections</b><span data-i18n="staff.guide.s5b">Recolour the whole site on the Colours tab, and show/hide sections or post an announcement banner on the Sections tab.</span></li>
             <li><b data-i18n="staff.guide.s6t">See the history</b><span data-i18n="staff.guide.s6b">The Previous edits tab lists every change with who made it and when, so the team can track what has been updated.</span></li>
             <li><b data-i18n="staff.guide.s7t">Rates are live, not cosmetic</b><span data-i18n="staff.guide.s7b">Unlike every other tab, changes on the Rates tab affect real guest charges the moment you click Save — there is no draft step and no "Undo all my edits" safety net for rates.</span></li>
+            <li><b data-i18n="staff.guide.s8t">Live Chat answers</b><span data-i18n="staff.guide.s8b">On the Live Chat tab, reword what the chat assistant tells guests, change the times and details inside each answer, pick which words trigger it, or add a new answer of your own. Type once in your language and it is translated into the other four. Click Save Live Chat to publish — it reaches every guest device.</span></li>
           </ol>
           <div class="guide-tip">
             <b data-i18n="staff.guide.tipTitle">Good to know</b>
@@ -324,6 +325,7 @@
         <button type="button" class="ed-tab" data-edtab="photos" data-i18n="staff.site.tabPhotos">Photos &amp; videos</button>
         <button type="button" class="ed-tab" data-edtab="theme" data-i18n="staff.site.tabTheme">Colours</button>
         <button type="button" class="ed-tab" data-edtab="rates" data-i18n="staff.site.tabRates">Rates</button>
+        <button type="button" class="ed-tab" data-edtab="chat" data-i18n="staff.site.tabChat">Live Chat</button>
         <button type="button" class="ed-tab" data-edtab="layout" data-i18n="staff.site.tabLayout">Sections</button>
         <button type="button" class="ed-tab" data-edtab="history" data-i18n="staff.site.tabHistory">Previous edits</button>
       </div>
@@ -374,6 +376,25 @@
           <p class="ed-hint" data-i18n="staff.site.ratesHint">Room-only and room-with-breakfast prices per room type and bed configuration, in Thai Baht per night. Unlike every other tab, changes here affect real guest charges immediately once saved — there is no draft or preview step.</p>
           <div id="edRates"></div>
           <button type="button" class="btn btn-solid" id="edRatesSave" data-i18n="staff.site.ratesSave">Save rates</button>
+        </div>
+      </div>
+
+      <!-- LIVE CHAT TAB -->
+      <div class="ed-tabpane" data-edpane="chat">
+        <div class="editor-card">
+          <h3 data-i18n="staff.chat.title">Live chat assistant</h3>
+          <p class="ed-hint" data-i18n="staff.chat.hint">Change what the chat assistant says to guests, retune which words trigger each answer, switch answers on or off, and add brand-new answers. Type in the language you choose below and it is translated into the other four for you. Saved changes reach every guest device right away.</p>
+          <div class="ed-toolbar">
+            <div class="field ed-lang-field">
+              <label for="edChatLangSel" data-i18n="staff.site.editLangLabel">Editing language</label>
+              <select id="edChatLangSel"></select>
+            </div>
+          </div>
+          <div id="edChat"></div>
+          <div class="ed-chat-actions">
+            <button type="button" class="btn btn-ghost dark" id="edChatAdd" data-i18n="staff.chat.add">+ Add an answer</button>
+            <button type="button" class="btn btn-solid" id="edChatSave" data-i18n="staff.chat.save">Save Live Chat</button>
+          </div>
         </div>
       </div>
 

@@ -5129,6 +5129,7 @@
     renderMediaSets();
     renderColors();
     renderRates();
+    renderChatConfig();
     renderAnnouncements();
     renderSectionToggles();
     renderRoomAvailability();
@@ -5981,6 +5982,330 @@
       buildRatesRows(wrap);
       U.toast(t("staff.site.ratesSaved"), "success");
     });
+  }
+
+  /* ====================  LIVE CHAT EDITOR (admin)  ====================
+     Edits the guest chat assistant's wording, trigger words and answer list,
+     in all five languages, and saves it server-side (backend/routes/
+     chatConfig.js) so it reaches every guest device — unlike the plain-text
+     CMS, which is browser-local. Answers/labels are typed once in the chosen
+     editing language and translated into the other four here in the browser
+     (same keyless service as the text editor's autoTranslateField). The shape
+     written here is exactly what assets/js/chat.js reads and merges over its
+     shipped defaults. Everything is kept sparse: only what an admin actually
+     changed is stored, so future default wording still flows through. */
+
+  // Default answers the bot ships with. ids/keywords/quick MUST match
+  // assets/js/chat.js's TOPICS/QUICK (the answer TEXT itself lives in i18n
+  // under chat.a.<id>, read here via I.base). Keywords here only prefill the
+  // editor field; the admin can change them.
+  const CHAT_BUILTIN = [
+    { id: "checkin", quick: true,  kw: ["check-in","check in","checkout","check-out","check out","late check","เช็คอิน","เช็คเอาท์","เลื่อนเช็ค","チェックイン","チェックアウト","入住","退房"] },
+    { id: "taxi",    quick: false, kw: ["taxi","cab","แท็กซี่","รถแท็กซี่","เรียกแท็กซี่","รับส่ง","タクシー","空港送迎","送迎","出租车","計程車","打车","叫車"] },
+    { id: "wakeup",  quick: false, kw: ["wake up call","wake-up call","wakeup call","wake up","morning call","alarm","ปลุก","โทรปลุก","บริการปลุก","モーニングコール","起こして","叫醒服务","叫醒电话","叫醒服務","喚醒"] },
+    { id: "wifi",    quick: true,  kw: ["wifi","wi-fi","internet","password","network","รหัสผ่าน","อินเทอร์เน็ต","ไวไฟ","パスワード","ネット","无线","网络","密码","無線","網路","密碼"] },
+    { id: "pool",    quick: true,  kw: ["pool","swim","onsen","spa","สระ","ว่ายน้ำ","ออนเซ็น","プール","温泉","泳池","游泳","溫泉"] },
+    { id: "halal",   quick: false, kw: ["halal","non-pork","no pork","pork-free","pork free","pork","muslim","islam","ฮาลาล","ไม่ใส่หมู","ไม่มีหมู","ไม่กินหมู","มุสลิม","อิสลาม","ハラル","ハラール","豚肉","イスラム","ムスリム","清真","穆斯林","猪肉","豬肉"] },
+    { id: "dining",  quick: true,  kw: ["dining","restaurant","eat","food","breakfast","dinner","tsubaki","อาหาร","ร้าน","ทาน","อาหารเช้า","レストラン","食事","朝食","餐","吃","用餐","餐廳","餐厅"] },
+    { id: "coffee",  quick: true,  kw: ["coffee","cocktail","bar","midnight","drink","กาแฟ","ค็อกเทล","บาร์","コーヒー","カクテル","咖啡","鸡尾酒","雞尾酒","酒吧"] },
+    { id: "parking", quick: true,  kw: ["park","parking","car","ที่จอด","รถ","駐車","停车","停車"] },
+    { id: "rates",   quick: true,  kw: ["rate","rates","price","prices","cost","how much","nightly","per night","ราคา","เท่าไหร่","ค่าห้อง","料金","値段","价格","价钱","價格","價錢"] }
+  ];
+  // System messages the bot uses around the scripted answers. def is the
+  // shipped i18n key the editor prefills from and falls back to.
+  const CHAT_SYS = [
+    { key: "greeting",      def: "chat.greeting" },
+    { key: "subtitle",      def: "chat.subtitle" },
+    { key: "connecting",    def: "chat.connectedTo" },
+    { key: "waitTime",      def: "chat.noStaffOnShift" },
+    { key: "notUnderstood", def: "chat.a.default" },
+    { key: "hello",         def: "chat.a.hello" },
+    { key: "thanks",        def: "chat.a.thanks" }
+  ];
+
+  let edChatCfg = null;       // working copy { system:{}, topics:[] }
+  let edChatLoading = false;
+
+  function chatTopicEntry(id, builtin) {
+    let e = edChatCfg.topics.find((tp) => tp.id === id);
+    if (!e) { e = { id: id, builtin: !!builtin }; edChatCfg.topics.push(e); }
+    return e;
+  }
+  function chatRemoveTopic(id) {
+    edChatCfg.topics = edChatCfg.topics.filter((tp) => tp.id !== id);
+  }
+  function chatEffText(map, lang) {
+    return (map && typeof map[lang] === "string" && map[lang].trim()) ? map[lang] : "";
+  }
+  // Store one language of a { lang: text } bag (answer/label). Empty, or equal
+  // to the shipped default, stores nothing — so unedited languages keep
+  // following the default and the saved config stays small.
+  function setLangField(obj, field, lang, val, baseText) {
+    const m = obj[field] || {};
+    if (val == null || !val.trim() || val === baseText) delete m[lang];
+    else m[lang] = val;
+    if (Object.keys(m).length) obj[field] = m; else delete obj[field];
+  }
+  function setSysField(key, lang, val, defKey) {
+    edChatCfg.system = edChatCfg.system || {};
+    const m = edChatCfg.system[key] || {};
+    const base = I.base(defKey, lang);
+    if (val == null || !val.trim() || val === base) delete m[lang];
+    else m[lang] = val;
+    if (Object.keys(m).length) edChatCfg.system[key] = m; else delete edChatCfg.system[key];
+  }
+  // Translate a freshly typed string into the other four languages and hand
+  // each to applyFn. Best-effort: a failed translation keeps the source text.
+  function chatTranslate(srcLang, val, statusEl, applyFn) {
+    const targets = I.SUPPORTED.filter((l) => l !== srcLang);
+    if (!val || !val.trim()) { targets.forEach((l) => applyFn(l, "")); return; }
+    if (statusEl) { statusEl.textContent = t("staff.chat.translating"); statusEl.className = "ect-status translating"; }
+    Promise.all(targets.map((l) =>
+      J.translate.text(val, l).then((r) => { applyFn(l, (r && r.text) ? r.text : val); return true; }).catch(() => false)
+    )).then(() => {
+      if (statusEl) {
+        statusEl.textContent = t("staff.chat.translated"); statusEl.className = "ect-status saved";
+        setTimeout(() => { statusEl.textContent = ""; statusEl.className = "ect-status"; }, 2000);
+      }
+    });
+  }
+
+  function renderChatLang() {
+    const sel = document.getElementById("edChatLangSel");
+    if (!sel) return;
+    if (!edLang) edLang = I.getLang();
+    sel.innerHTML = "";
+    I.SUPPORTED.forEach((l) => {
+      const o = document.createElement("option");
+      o.value = l; o.textContent = I.LANG_NAMES[l] || l;
+      if (l === edLang) o.selected = true;
+      sel.appendChild(o);
+    });
+  }
+
+  async function renderChatConfig() {
+    const wrap = document.getElementById("edChat");
+    if (!wrap) return;
+    renderChatLang();
+    if (!edChatCfg) {
+      if (edChatLoading) return;
+      edChatLoading = true;
+      wrap.innerHTML = '<p class="muted">' + esc(t("staff.chat.loading")) + "</p>";
+      const res = await J.api.get("/api/chat-config");
+      edChatLoading = false;
+      if (J.api.isOffline(res) || !res || res.error) {
+        wrap.innerHTML = '<p class="muted">' + esc(t("staff.chat.error")) + "</p>";
+        return;
+      }
+      const cfg = (res && res.config && typeof res.config === "object") ? res.config : {};
+      edChatCfg = {
+        system: (cfg.system && typeof cfg.system === "object") ? cfg.system : {},
+        topics: Array.isArray(cfg.topics) ? cfg.topics : []
+      };
+    }
+    buildChatEditor(wrap);
+  }
+
+  function buildChatEditor(wrap) {
+    if (!wrap || !edChatCfg) return;
+    wrap.innerHTML = "";
+    const lang = edLang || I.getLang();
+
+    // ---- system messages ----
+    const sysCard = document.createElement("div");
+    sysCard.className = "ed-chat-group";
+    const sysH = document.createElement("h4");
+    sysH.textContent = t("staff.chat.systemTitle");
+    sysCard.appendChild(sysH);
+    const sysHint = document.createElement("p");
+    sysHint.className = "ed-hint"; sysHint.textContent = t("staff.chat.systemHint");
+    sysCard.appendChild(sysHint);
+    CHAT_SYS.forEach((m) => {
+      const cur = chatEffText(edChatCfg.system[m.key], lang) || I.base(m.def, lang);
+      const field = document.createElement("label"); field.className = "ect-field";
+      const cap = document.createElement("span"); cap.className = "ect-cap"; cap.textContent = t("staff.chat.sys." + m.key);
+      const ta = document.createElement("textarea"); ta.className = "ect-sys"; ta.rows = 2; ta.value = cur;
+      const status = document.createElement("span"); status.className = "ect-status";
+      ta.addEventListener("change", () => {
+        const val = ta.value;
+        setSysField(m.key, lang, val, m.def);
+        chatTranslate(lang, val, status, (l, txt) => setSysField(m.key, l, txt, m.def));
+      });
+      field.appendChild(cap); field.appendChild(ta); field.appendChild(status);
+      sysCard.appendChild(field);
+    });
+    wrap.appendChild(sysCard);
+
+    // ---- answers ----
+    const ansH = document.createElement("h4");
+    ansH.className = "ed-chat-h"; ansH.textContent = t("staff.chat.answersTitle");
+    wrap.appendChild(ansH);
+    const ansHint = document.createElement("p");
+    ansHint.className = "ed-hint"; ansHint.textContent = t("staff.chat.answersHint");
+    wrap.appendChild(ansHint);
+
+    CHAT_BUILTIN.forEach((b) => wrap.appendChild(buildTopicCard(b, lang)));
+    edChatCfg.topics.forEach((e) => {
+      if (e.builtin || CHAT_BUILTIN.some((b) => b.id === e.id)) return;
+      wrap.appendChild(buildTopicCard({ id: e.id, custom: true }, lang));
+    });
+  }
+
+  function buildTopicCard(spec, lang) {
+    const id = spec.id;
+    const custom = !!spec.custom;
+    const entry = edChatCfg.topics.find((tp) => tp.id === id) || null;
+
+    const defKw = custom ? [] : (spec.kw || []);
+    const defQuick = custom ? false : !!spec.quick;
+    const defAnswerKey = custom ? null : ("chat.a." + id);
+    const defLabelKey = custom ? null : ("chat.quick." + id);
+    const defAnswer = defAnswerKey ? I.base(defAnswerKey, lang) : "";
+    const defLabelRaw = defLabelKey ? I.base(defLabelKey, lang) : "";
+    // I.base returns the key itself when there's no dictionary entry (e.g.
+    // taxi/wakeup/halal have no quick-button label) — treat that as "no label".
+    const defLabel = (defLabelRaw && defLabelRaw !== defLabelKey) ? defLabelRaw : "";
+
+    const enabled = entry ? entry.enabled !== false : true;
+    const quick = entry && typeof entry.quick === "boolean" ? entry.quick : defQuick;
+    const kw = entry && Array.isArray(entry.keywords) ? entry.keywords : defKw;
+    const answer = (entry && chatEffText(entry.answer, lang)) || defAnswer;
+    const label = (entry && chatEffText(entry.label, lang)) || defLabel;
+
+    const card = document.createElement("div");
+    card.className = "ed-chat-topic" + (enabled ? "" : " disabled");
+    card.dataset.id = id;
+
+    const head = document.createElement("div"); head.className = "ect-head";
+    const enWrap = document.createElement("label"); enWrap.className = "ect-enable";
+    const enCb = document.createElement("input"); enCb.type = "checkbox"; enCb.checked = enabled;
+    const title = document.createElement("b");
+    title.textContent = custom ? (label || t("staff.chat.newAnswer")) : (defLabel || humanizeKey(id));
+    enWrap.appendChild(enCb); enWrap.appendChild(title);
+    head.appendChild(enWrap);
+    const idTag = document.createElement("span"); idTag.className = "ect-id"; idTag.textContent = id;
+    head.appendChild(idTag);
+    if (custom) {
+      const del = document.createElement("button");
+      del.type = "button"; del.className = "ect-del"; del.textContent = t("common.delete");
+      del.addEventListener("click", () => { chatRemoveTopic(id); renderChatConfig(); });
+      head.appendChild(del);
+    }
+    card.appendChild(head);
+    enCb.addEventListener("change", () => {
+      const e = chatTopicEntry(id, !custom);
+      e.enabled = enCb.checked;
+      card.classList.toggle("disabled", !enCb.checked);
+    });
+
+    // keywords
+    const kwField = document.createElement("label"); kwField.className = "ect-field";
+    const kwCap = document.createElement("span"); kwCap.className = "ect-cap"; kwCap.textContent = t("staff.chat.keywords");
+    const kwTa = document.createElement("textarea"); kwTa.className = "ect-kw"; kwTa.rows = 2; kwTa.value = kw.join(", ");
+    const kwHint = document.createElement("span"); kwHint.className = "ect-sub"; kwHint.textContent = t("staff.chat.keywordsHint");
+    kwField.appendChild(kwCap); kwField.appendChild(kwTa); kwField.appendChild(kwHint);
+    card.appendChild(kwField);
+    kwTa.addEventListener("change", () => {
+      const arr = kwTa.value.split(",").map((s) => s.trim()).filter(Boolean);
+      const e = chatTopicEntry(id, !custom);
+      if (!custom && JSON.stringify(arr) === JSON.stringify(defKw)) delete e.keywords;
+      else e.keywords = arr;
+    });
+
+    // answer
+    const ansField = document.createElement("label"); ansField.className = "ect-field";
+    const ansCap = document.createElement("span"); ansCap.className = "ect-cap"; ansCap.textContent = t("staff.chat.answer");
+    const ansTa = document.createElement("textarea"); ansTa.className = "ect-answer"; ansTa.rows = 3; ansTa.value = answer;
+    const ansStatus = document.createElement("span"); ansStatus.className = "ect-status";
+    ansField.appendChild(ansCap); ansField.appendChild(ansTa); ansField.appendChild(ansStatus);
+    if (id === "rates") {
+      const tok = document.createElement("span"); tok.className = "ect-sub"; tok.textContent = t("staff.chat.ratesToken");
+      ansField.appendChild(tok);
+    }
+    card.appendChild(ansField);
+    ansTa.addEventListener("change", () => {
+      const val = ansTa.value;
+      const e = chatTopicEntry(id, !custom);
+      const base = defAnswerKey ? I.base(defAnswerKey, lang) : "";
+      setLangField(e, "answer", lang, val, base);
+      chatTranslate(lang, val, ansStatus, (l, txt) =>
+        setLangField(e, "answer", l, txt, defAnswerKey ? I.base(defAnswerKey, l) : ""));
+    });
+
+    // quick button + its label
+    const quickWrap = document.createElement("label"); quickWrap.className = "ect-quick";
+    const quickCb = document.createElement("input"); quickCb.type = "checkbox"; quickCb.checked = quick;
+    const quickTxt = document.createElement("span"); quickTxt.textContent = t("staff.chat.quick");
+    quickWrap.appendChild(quickCb); quickWrap.appendChild(quickTxt);
+    card.appendChild(quickWrap);
+
+    const labelField = document.createElement("label"); labelField.className = "ect-field ect-labelfield";
+    if (!quick) labelField.style.display = "none";
+    const labelCap = document.createElement("span"); labelCap.className = "ect-cap"; labelCap.textContent = t("staff.chat.buttonLabel");
+    const labelInput = document.createElement("input"); labelInput.type = "text"; labelInput.className = "ect-label"; labelInput.value = label;
+    const labelStatus = document.createElement("span"); labelStatus.className = "ect-status";
+    labelField.appendChild(labelCap); labelField.appendChild(labelInput); labelField.appendChild(labelStatus);
+    card.appendChild(labelField);
+
+    quickCb.addEventListener("change", () => {
+      const e = chatTopicEntry(id, !custom);
+      if (!custom && quickCb.checked === defQuick) delete e.quick;
+      else e.quick = quickCb.checked;
+      labelField.style.display = quickCb.checked ? "" : "none";
+    });
+    labelInput.addEventListener("change", () => {
+      const val = labelInput.value;
+      const e = chatTopicEntry(id, !custom);
+      const braw = defLabelKey ? I.base(defLabelKey, lang) : "";
+      setLangField(e, "label", lang, val, braw === defLabelKey ? "" : braw);
+      chatTranslate(lang, val, labelStatus, (l, txt) => {
+        const b = defLabelKey ? I.base(defLabelKey, l) : "";
+        setLangField(e, "label", l, txt, b === defLabelKey ? "" : b);
+      });
+    });
+
+    return card;
+  }
+
+  // Drop entries that don't actually change anything, so the saved config only
+  // carries real edits (built-ins that changed, customs with real content).
+  function pruneChatCfg() {
+    edChatCfg.topics = edChatCfg.topics.filter((e) => {
+      const hasText = (e.answer && Object.keys(e.answer).length) || (e.label && Object.keys(e.label).length);
+      const isBuiltin = e.builtin || CHAT_BUILTIN.some((b) => b.id === e.id);
+      if (isBuiltin) {
+        return hasText || Array.isArray(e.keywords) || e.enabled === false || typeof e.quick === "boolean";
+      }
+      return hasText || (Array.isArray(e.keywords) && e.keywords.length);
+    });
+    if (edChatCfg.system && !Object.keys(edChatCfg.system).length) delete edChatCfg.system;
+  }
+
+  function addChatAnswer() {
+    if (!edChatCfg) return;
+    const id = "c_" + S.genId();
+    edChatCfg.topics.push({ id: id, builtin: false, enabled: true, quick: false });
+    renderChatConfig().then(() => {
+      const el = document.querySelector('.ed-chat-topic[data-id="' + id + '"]');
+      if (el) { el.scrollIntoView({ behavior: "smooth", block: "center" }); const kw = el.querySelector(".ect-kw"); if (kw) kw.focus(); }
+    });
+  }
+
+  async function saveChatConfig() {
+    if (!edChatCfg) return;
+    pruneChatCfg();
+    const btn = document.getElementById("edChatSave");
+    if (btn) btn.disabled = true;
+    const res = await J.api.put("/api/chat-config", { config: edChatCfg });
+    if (btn) btn.disabled = false;
+    if (J.api.isOffline(res) || !res || res.error) {
+      U.toast((res && res.error) || t("staff.chat.error"), "error");
+      return;
+    }
+    const cfg = (res && res.config && typeof res.config === "object") ? res.config : {};
+    edChatCfg = { system: cfg.system || {}, topics: Array.isArray(cfg.topics) ? cfg.topics : [] };
+    buildChatEditor(document.getElementById("edChat"));
+    U.toast(t("staff.chat.saved"), "success");
   }
 
   /* ---- announcements ---- */
@@ -7027,8 +7352,21 @@
         edTab = b.dataset.edtab;
         renderEditTabs();
         if (edTab === "history") renderHistory();
+        if (edTab === "chat") renderChatConfig();
       });
     });
+    (function wireChatEditor() {
+      const langSel = document.getElementById("edChatLangSel");
+      if (langSel) langSel.addEventListener("change", (e) => {
+        edLang = e.target.value;
+        renderEditLang();       // keep the Text tab's language picker in step
+        renderChatConfig();
+      });
+      const saveBtn = document.getElementById("edChatSave");
+      if (saveBtn) saveBtn.addEventListener("click", saveChatConfig);
+      const addBtn = document.getElementById("edChatAdd");
+      if (addBtn) addBtn.addEventListener("click", addChatAnswer);
+    })();
     document.getElementById("guideToggle").addEventListener("click", toggleGuide);
     document.getElementById("edLangSel").addEventListener("change", (e) => {
       edLang = e.target.value;

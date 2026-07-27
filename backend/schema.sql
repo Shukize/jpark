@@ -540,6 +540,24 @@ ALTER TABLE site_content ADD COLUMN IF NOT EXISTS unavailable_dayuse TEXT[] NOT 
 -- merge + re-validation.
 ALTER TABLE site_content ADD COLUMN IF NOT EXISTS room_inventory JSONB NOT NULL DEFAULT '{}';
 
+-- Admin-editable Live Chat settings (Site Editor "Live Chat" tab), saved from
+-- backend/routes/chatConfig.js. Holds the hotel's own wording for the chat
+-- assistant, so the front desk can change what the bot says without a code
+-- change, and it reaches every guest device (unlike the text-override CMS,
+-- which is browser-local). Shape (all fields sparse — a missing value falls
+-- back to the shipped default in assets/js/chat.js):
+--   { "system": { <msgKey>: { <lang>: string } },
+--     "topics": [ { id, builtin, enabled, quick,
+--                   keywords: [string],
+--                   label:  { <lang>: string },     -- quick-reply button text
+--                   answer: { <lang>: string } } ] }
+-- <lang> is one of th/en/ja/zh-Hans/zh-Hant. Answers/labels are pre-translated
+-- into all five languages by the admin's browser (keyless Google endpoint, see
+-- assets/js/translate.js) at save time, so the guest widget never translates on
+-- the fly. Only ever read by the public GET and written by the admin PUT — it
+-- can never inject markup (rendered as textContent) or affect pricing/auth.
+ALTER TABLE site_content ADD COLUMN IF NOT EXISTS chat_config JSONB NOT NULL DEFAULT '{}';
+
 -- ── Staff session tracking (sliding sessions, concurrency cap, audit log) ────
 -- One row per staff device/browser login. `jti` is embedded in that login's
 -- access token so middleware/auth.js can revoke a single session without

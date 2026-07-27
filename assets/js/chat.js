@@ -79,6 +79,88 @@
   ];
   const QUICK = ["checkin", "wifi", "pool", "dining", "coffee", "rates", "parking"];
 
+  /* ─────────────── admin-tuned chat settings (Site Editor → Live Chat) ─────
+     The hotel can rewrite what the assistant says, retune which words trigger
+     which answer, turn answers on/off, and add brand-new answers — in all five
+     languages — from the staff console. Those edits live server-side (see
+     backend/routes/chatConfig.js) and are fetched here. Everything is sparse:
+     any field the admin hasn't set falls back to the shipped default below, so
+     an empty or unreachable config behaves exactly like the built-in bot.
+     TOPICS/QUICK above are those defaults. */
+  let chatCfg = { system: {}, topics: [] };
+  async function loadChatConfig() {
+    const API = window.JPark.api;
+    if (!API) return;
+    try {
+      const res = await API.get("/api/chat-config");
+      if (res && !res.error && res.config && typeof res.config === "object") {
+        chatCfg = {
+          system: (res.config.system && typeof res.config.system === "object") ? res.config.system : {},
+          topics: Array.isArray(res.config.topics) ? res.config.topics : [],
+        };
+      }
+    } catch (_) { /* keep defaults */ }
+  }
+  function cfgTopic(id) {
+    return chatCfg.topics.find((c) => c && c.id === id) || null;
+  }
+  // A localized admin string for the CURRENT language, or "" when unset — so
+  // the caller falls back to the shipped default. Never trusts a blank/space.
+  function cfgText(map) {
+    if (!map || typeof map !== "object") return "";
+    const v = map[I.getLang()];
+    return (typeof v === "string" && v.trim()) ? v : "";
+  }
+  // A system message: admin wording for this language, else the shipped key.
+  function sysText(key, fallbackKey) {
+    return cfgText(chatCfg.system && chatCfg.system[key]) || t(fallbackKey);
+  }
+  // The effective, ordered topic list the bot matches against and the quick
+  // buttons are built from: each built-in default overlaid with its admin
+  // config (keywords / enabled / quick / answer / label), then any custom
+  // answers the admin added. A safety guard never lets a custom entry shadow
+  // a built-in id.
+  function effectiveTopics() {
+    const out = [];
+    TOPICS.forEach((base) => {
+      const c = cfgTopic(base.id);
+      if (c && c.enabled === false) return; // admin switched this answer off
+      out.push({
+        id: base.id,
+        keywords: (c && Array.isArray(c.keywords) && c.keywords.length) ? c.keywords : base.kw,
+        quick: (c && typeof c.quick === "boolean") ? c.quick : (QUICK.indexOf(base.id) >= 0),
+        answerKey: base.a,
+        answerMap: c && c.answer,
+        labelMap: c && c.label,
+        isRates: base.id === "rates",
+      });
+    });
+    chatCfg.topics.forEach((c) => {
+      if (!c || c.builtin || TOPICS.some((b) => b.id === c.id)) return;
+      if (c.enabled === false) return;
+      out.push({
+        id: c.id,
+        keywords: Array.isArray(c.keywords) ? c.keywords : [],
+        quick: !!c.quick,
+        answerKey: null,
+        answerMap: c.answer,
+        labelMap: c.label,
+        isRates: false,
+      });
+    });
+    return out;
+  }
+  // The quick-reply button caption for a topic: admin label for this language,
+  // else the shipped chat.quick.<id>, else the raw id (a custom answer with no
+  // label set yet).
+  function quickLabel(tp) {
+    const custom = cfgText(tp.labelMap);
+    if (custom) return custom;
+    const key = "chat.quick." + tp.id;
+    const def = t(key);
+    return def !== key ? def : tp.id;
+  }
+
   // Room rates are edited live in the Site Editor (staff.js "Rates" tab) and
   // stored server-side, so the bot fetches the current range instead of
   // keeping its own copy that would drift out of date.
@@ -107,15 +189,27 @@
   // tab. loadRates() only overwrites ratesCache on a successful response,
   // so a momentary network failure here still falls back to the last-good
   // cached range instead of showing nothing.
-  async function ratesAnswer() {
+  async function ratesAnswer(topic) {
     await loadRates();
     if (!ratesCache) return t("chat.a.ratesFallback");
-    return t("chat.a.rates")
+    // Admin wording (if they edited the rates answer) keeps the {min}/{max}
+    // tokens; otherwise the shipped template. Either way the live range is
+    // filled in here.
+    const tmpl = (topic && cfgText(topic.answerMap)) || t("chat.a.rates");
+    return tmpl
       .replace("{min}", ratesCache.min.toLocaleString())
       .replace("{max}", ratesCache.max.toLocaleString());
   }
+  // The bot's reply text for a matched topic — admin wording for this language
+  // if set, else the shipped default. "" means "no usable answer" (a custom
+  // answer the admin hasn't filled in yet), which callers treat as no match.
+  function topicAnswerText(topic) {
+    const custom = cfgText(topic.answerMap);
+    if (custom) return custom;
+    return topic.answerKey ? t(topic.answerKey) : "";
+  }
   async function topicAnswer(topic) {
-    return topic.id === "rates" ? await ratesAnswer() : t(topic.a);
+    return topic.isRates ? await ratesAnswer(topic) : topicAnswerText(topic);
   }
 
   let panel, fab, body, badge, idBox, openState = false;
@@ -457,7 +551,7 @@
       id: gid, guestName: g ? g.name : "Guest", room: g ? g.room : "",
       lang: I.getLang(), escalated: false,
       unreadForStaff: 0, unreadForGuest: 0, lastMsg: "", lastAt: Date.now(),
-      messages: [{ id: S.genId(), from: "bot", text: t("chat.greeting"), lang: I.getLang(), ts: Date.now() }]
+      messages: [{ id: S.genId(), from: "bot", text: sysText("greeting", "chat.greeting"), lang: I.getLang(), ts: Date.now() }]
     };
     saveLocalConv(conv);
     return conv;
@@ -624,8 +718,11 @@
   // replying with a dead-end "I didn't understand".
   async function botAnswer(text) {
     const lc = text.toLowerCase();
-    for (const topic of TOPICS) {
-      if (topic.kw.some((k) => lc.indexOf(k) >= 0)) return await topicAnswer(topic);
+    for (const topic of effectiveTopics()) {
+      if (topic.keywords.some((k) => k && lc.indexOf(k.toLowerCase()) >= 0)) {
+        const ans = await topicAnswer(topic);
+        if (ans) return ans; // a matched-but-blank custom answer isn't a match
+      }
     }
     return null;
   }
@@ -648,8 +745,8 @@
       "ขอบคุณ","ขอบคุณครับ","ขอบคุณค่ะ","ขอบใจ",
       "ありがとう","ありがとうございます","どうも",
       "谢谢","謝謝","多谢","多謝","感谢","感謝","谢谢你","謝謝你"];
-    if (GREET.indexOf(norm) >= 0) return t("chat.a.hello");
-    if (THANKS.indexOf(norm) >= 0) return t("chat.a.thanks");
+    if (GREET.indexOf(norm) >= 0) return sysText("hello", "chat.a.hello");
+    if (THANKS.indexOf(norm) >= 0) return sysText("thanks", "chat.a.thanks");
     return null;
   }
 
@@ -673,7 +770,7 @@
       // to {name}" / "reply as soon as available" system message and routes all
       // further guest messages to staff).
       setTimeout(async () => {
-        await pushMessage("bot", t("chat.a.default"));
+        await pushMessage("bot", sysText("notUnderstood", "chat.a.default"));
         render();
         await escalate();
       }, 650);
@@ -686,10 +783,12 @@
   }
 
   async function quickTopic(id) {
-    const topic = TOPICS.find((x) => x.id === id);
-    await pushMessage("guest", t("chat.quick." + id));
+    const topic = effectiveTopics().find((x) => x.id === id);
+    if (!topic) return;
+    await pushMessage("guest", quickLabel(topic));
     render();
     const reply = await topicAnswer(topic);
+    if (!reply) return; // an unfilled custom answer — nothing to say
     setTimeout(async () => { await pushMessage("bot", reply); render(); }, 500);
   }
 
@@ -729,9 +828,9 @@
         conv.assignedStaff = pick.name;
         pickedId = pick.id;
         pickedName = pick.name;
-        msgText = t("chat.connectedTo").replace("{name}", pick.name.trim().split(/\s+/)[0]);
+        msgText = sysText("connecting", "chat.connectedTo").replace("{name}", pick.name.trim().split(/\s+/)[0]);
       } else {
-        msgText = t("chat.noStaffOnShift");
+        msgText = sysText("waitTime", "chat.noStaffOnShift");
       }
 
       const msg = { id: S.genId(), from: "system", text: msgText, lang: I.getLang(), ts: Date.now() };
@@ -801,10 +900,10 @@
   function renderQuick() {
     let q = panel.querySelector(".chat-quick");
     q.innerHTML = "";
-    QUICK.forEach((id) => {
+    effectiveTopics().filter((tp) => tp.quick).forEach((tp) => {
       const b = document.createElement("button");
-      b.type = "button"; b.textContent = t("chat.quick." + id);
-      b.addEventListener("click", () => quickTopic(id));
+      b.type = "button"; b.textContent = quickLabel(tp);
+      b.addEventListener("click", () => quickTopic(tp.id));
       q.appendChild(b);
     });
     const fd = document.createElement("button");
@@ -831,6 +930,9 @@
     fab.classList.remove("has-reply");
     requestGuestNotifyPermission();
     loadRates(); // refresh in case an admin changed rates since page load
+    // Pick up any Live Chat wording/answer changes an admin made since load,
+    // then repaint the quick buttons in case the set changed.
+    loadChatConfig().then(() => { if (openState) renderQuick(); });
     ensureLocalConv();
     const conv = getLocalConv();
     if (conv && conv.unreadForGuest) { conv.unreadForGuest = 0; saveLocalConv(conv); }
@@ -916,6 +1018,7 @@
   document.addEventListener("DOMContentLoaded", () => {
     build();
     loadRates();
+    loadChatConfig();
     loadIdentity();
 
     S.on("chats", () => {
