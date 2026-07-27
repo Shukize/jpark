@@ -71,6 +71,25 @@
   // `room` is the room TYPE ("deluxe"). Prefer the number — it's what the guest
   // and the staff console both mean by "room" — and keep `ref` so the live-chat
   // widget can identify this guest without asking them all over again.
+  // How long a guest stays signed in: for the whole length of their stay.
+  // A verified booking carries its check-out date, so keep the session alive
+  // through the entire check-out day (guests leave around noon; a day-end
+  // ceiling avoids logging anyone out mid-stay, and the generous +36h buffer
+  // past local midnight means a device in any timezone is never cut off
+  // early). An OTA / walk-in guest we couldn't match has no known check-out,
+  // so fall back to a sensible default stay length. The portal is a
+  // convenience surface (it orders towels, it doesn't spend money or expose
+  // other guests' data), so erring generous here is the right trade-off.
+  function guestSessionExpiry(info) {
+    var co = info && info.checkOut;
+    if (co) {
+      // check_out may arrive as "YYYY-MM-DD" or a full ISO timestamp.
+      var t = Date.parse(String(co).slice(0, 10) + "T00:00:00");
+      if (!isNaN(t)) return t + 36 * 60 * 60 * 1000;
+    }
+    return Date.now() + 3 * 24 * 60 * 60 * 1000; // 3-day default for unmatched guests
+  }
+
   function setGuest(info) {
     guest = {
       bookingId: info.bookingId,
@@ -86,7 +105,9 @@
       roomType: info.roomType || null,
       building: info.building || null,
     };
-    S.setSession("guest", guest);
+    // Persisted (localStorage) so the guest stays signed in across tab closes
+    // and browser restarts until their stay ends — see store.js's setSession.
+    S.setSession("guest", guest, guestSessionExpiry(info));
   }
 
   function showPortal() {

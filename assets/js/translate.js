@@ -65,6 +65,41 @@
       });
   }
 
+  /* Decide whether a message still needs translating for a viewer reading in
+     `targetLang`. `declaredLang` is the language the SENDER's UI was in when
+     they sent it — normally reliable, but not always: a guest can leave the
+     site in one language and type in another (the reason a Japanese question
+     from someone browsing the Thai site showed up untranslated on the Thai
+     front desk). So when the declared language matches the viewer's, we still
+     translate if the text is visibly in a different SCRIPT (Thai vs CJK), which
+     is the case the declared language gets wrong. Latin / digits / punctuation
+     are neutral ("wifi", "OK", a room number) and never force a translation, so
+     a staff member's short Thai-UI "ok" is never re-translated. */
+  function scriptFamily(lang) {
+    lang = String(lang || "").toLowerCase();
+    if (lang === "th") return "thai";
+    if (lang === "ja" || lang === "ko" || lang.indexOf("zh") === 0) return "cjk";
+    return "latin"; // en + anything Latin-scripted
+  }
+  function hasForeignScript(text, targetLang) {
+    let thai = 0, cjk = 0;
+    for (let i = 0; i < text.length; i++) {
+      const c = text.charCodeAt(i);
+      if (c >= 0x0e00 && c <= 0x0e7f) thai++;
+      else if ((c >= 0x3040 && c <= 0x30ff) || (c >= 0x3400 && c <= 0x9fff) ||
+               (c >= 0xac00 && c <= 0xd7af) || (c >= 0xf900 && c <= 0xfaff)) cjk++;
+    }
+    if (!thai && !cjk) return false; // neutral (Latin/digits) — trust the declared lang
+    const dominant = thai >= cjk ? "thai" : "cjk";
+    return dominant !== scriptFamily(targetLang);
+  }
+  function needsTranslation(text, declaredLang, targetLang) {
+    text = (text || "").trim();
+    if (!text) return false;
+    if (declaredLang && declaredLang === targetLang) return hasForeignScript(text, targetLang);
+    return true; // declared language differs from the viewer's — translate
+  }
+
   /* Human-readable name of a language code, in the current UI language. */
   function langName(code) {
     if (!code) return "";
@@ -96,5 +131,5 @@
     });
   }
 
-  J.translate = { text: translate, langName: langName, fill: fill };
+  J.translate = { text: translate, langName: langName, fill: fill, needsTranslation: needsTranslation };
 })();

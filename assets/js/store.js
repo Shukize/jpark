@@ -81,17 +81,46 @@
   }
 
   /* ---------- per-tab/device session ---------- */
+  // Most session values live in sessionStorage: one tab, gone when it closes.
+  // The guest portal login is the exception — a guest should stay signed in
+  // across tab closes and browser restarts for the length of their stay — so
+  // it is persisted in localStorage with an expiry timestamp. getSession drops
+  // it automatically once that time passes (see setSession's `expiresAt` and
+  // assets/js/guest.js's guestSessionExpiry()). Everything else is untouched.
   const SESS = "jpark.session.";
-  function setSession(name, val) {
+  const PERSIST_SESSIONS = { guest: true }; // session names kept in localStorage w/ expiry
+  function setSession(name, val, expiresAt) {
+    if (PERSIST_SESSIONS[name]) {
+      try {
+        localStorage.setItem(SESS + name, JSON.stringify({ v: val, exp: expiresAt || 0 }));
+      } catch (_) {}
+      return;
+    }
     try { sessionStorage.setItem(SESS + name, JSON.stringify(val)); } catch (_) {}
   }
   function getSession(name) {
+    if (PERSIST_SESSIONS[name]) {
+      try {
+        const raw = localStorage.getItem(SESS + name);
+        if (!raw) return null;
+        const obj = JSON.parse(raw);
+        if (obj && obj.exp && Date.now() > obj.exp) { // stay ended — sign out
+          localStorage.removeItem(SESS + name);
+          return null;
+        }
+        return obj ? obj.v : null;
+      } catch (_) { return null; }
+    }
     try {
       const r = sessionStorage.getItem(SESS + name);
       return r ? JSON.parse(r) : null;
     } catch (_) { return null; }
   }
   function clearSession(name) {
+    if (PERSIST_SESSIONS[name]) {
+      try { localStorage.removeItem(SESS + name); } catch (_) {}
+      return;
+    }
     try { sessionStorage.removeItem(SESS + name); } catch (_) {}
   }
 

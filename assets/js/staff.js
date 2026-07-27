@@ -1476,8 +1476,10 @@
       div.innerHTML = '<span class="msg-from">' + esc(label) + "</span>";
       const span = document.createElement("span"); div.appendChild(span);
       const noteHost = document.createElement("span"); noteHost.className = "msg-notes"; div.appendChild(noteHost);
-      if (m.lang && m.lang === cur) span.textContent = m.text;
-      else J.translate.fill(span, m.text, noteHost);
+      // Script-aware: translate when the text isn't actually in the viewer's
+      // language, even if it was declared as such (see translate.js).
+      if (J.translate.needsTranslation(m.text, m.lang, cur)) J.translate.fill(span, m.text, noteHost);
+      else span.textContent = m.text;
       if (m.ts) {
         const time = document.createElement("time");
         time.className = "msg-time";
@@ -2423,6 +2425,15 @@
       ? (mineConv ? t("staff.chat.assignedYou") : t("staff.chat.assignedTo").replace("{name}", conv.assignedStaffName))
       : t("staff.chat.unassigned");
     const convTier = chatTier(conv);
+    // "Guest's language" must name the language the GUEST writes in — the last
+    // message FROM them, not the last message overall (which flips to the
+    // staff's language the moment they reply, mislabelling the thread). The
+    // declared language is only a first guess; it's refined below to the
+    // DETECTED language of that message, since a guest can leave the site in
+    // one language and type in another (a Japanese question on the Thai site
+    // was showing up labelled "Thai").
+    const lastGuestMsg = (conv.messages || []).filter((m) => m.from === "guest").slice(-1)[0];
+    const guestLangGuess = (lastGuestMsg && lastGuestMsg.lang) || conv.lang || "";
     let html =
       '<div class="cc-conv-head">' +
         // The name is a button: same slide-over the Guest Requests board opens,
@@ -2432,7 +2443,7 @@
         '<span class="cch-mark" title="' + esc(t(TIER_KEY[convTier])) + '">' + TIER_MARK[convTier] + "</span>" +
         esc(chatDisplayName(conv)) + "</button>" +
         '<span class="cch-owner' + (mineConv ? " mine" : "") + '">' + esc(ownerLabel) + "</span>" +
-        '<span class="cch-lang">' + esc(t("staff.chat.guestLang")) + ": " + esc(I.LANG_NAMES[conv.lang] || conv.lang || "") + "</span></div>" +
+        '<span class="cch-lang">' + esc(t("staff.chat.guestLang")) + ": " + esc(I.LANG_NAMES[guestLangGuess] || guestLangGuess || "") + "</span></div>" +
       chatIdentityStrip(conv, convTier) +
       '<div class="cc-conv-body" id="ccBody"></div>';
     if (mineConv) {
@@ -2450,6 +2461,21 @@
 
     const bodyEl = document.getElementById("ccBody");
     const cur = I.getLang();
+
+    // Refine the "Guest's language" label to the DETECTED language of the
+    // guest's last message (the declared one can be wrong — see above). The
+    // translation is the same one the message bubble requests, so this
+    // resolves from cache and costs nothing extra.
+    if (lastGuestMsg && lastGuestMsg.text) {
+      J.translate.text(lastGuestMsg.text, cur).then((res) => {
+        if (!res || !res.src) return;
+        const langEl = convEl.querySelector(".cch-lang");
+        if (!langEl || convEl.dataset.thread !== conv.id) return; // thread switched away
+        langEl.textContent = t("staff.chat.guestLang") + ": " +
+          (I.LANG_NAMES[res.src] || J.translate.langName(res.src) || res.src);
+      });
+    }
+    convEl.dataset.thread = conv.id;
     conv.messages.forEach((m) => {
       const div = document.createElement("div");
       div.className = "msg " + m.from + (m.pinned ? " pinned" : "");
@@ -2467,8 +2493,10 @@
         const noteHost = document.createElement("span");
         noteHost.className = "msg-notes";
         div.appendChild(noteHost);
-        if (m.lang && m.lang === cur) span.textContent = m.text;
-        else J.translate.fill(span, m.text, noteHost);
+        // Script-aware: translate a message that isn't really in the viewer's
+        // language even if it claims to be (see translate.js needsTranslation).
+        if (J.translate.needsTranslation(m.text, m.lang, cur)) J.translate.fill(span, m.text, noteHost);
+        else span.textContent = m.text;
       }
       // Every message carries the time it was sent. Without it the front desk
       // couldn't tell a question asked a minute ago from one left overnight.
@@ -3490,8 +3518,16 @@
   }
 
   /* ====================  GUEST BOOKINGS  ==================== */
+  // Dates arrive either as "YYYY-MM-DD" (local seed) or as a full ISO
+  // timestamp — the API serialises DATE columns as e.g.
+  // "2026-07-25T00:00:00.000Z". Slice to the date part before formatting so
+  // the raw timestamp never leaks into the list, and both render in the
+  // reader's locale (formatDate expects a bare YYYY-MM-DD).
+  function fmtBookingDate(x) {
+    return x ? U.formatDate(String(x).slice(0, 10)) : "?";
+  }
   function bookingDateRange(b) {
-    return (b.checkIn || "?") + " → " + (b.checkOut || "?");
+    return fmtBookingDate(b.checkIn) + " → " + fmtBookingDate(b.checkOut);
   }
 
   // Local (per-browser) display preferences for the archive sections — which
@@ -3523,7 +3559,10 @@
   // imported long ago — see BK_AGE_OLDER2_DAYS/BK_AGE_OLDER6_DAYS above).
   function bookingAgeBucket(b) {
     if (!b.checkOut) return "recent";
-    const checkOut = new Date(b.checkOut + "T00:00:00");
+    // Slice first: checkOut may be a full ISO timestamp, and
+    // "2026-07-25T00:00:00.000Z" + "T00:00:00" is an unparseable date (every
+    // such booking then wrongly bucketed as "recent").
+    const checkOut = new Date(String(b.checkOut).slice(0, 10) + "T00:00:00");
     if (isNaN(checkOut.getTime())) return "recent";
     const ageDays = (Date.now() - checkOut.getTime()) / 86400000;
     if (ageDays >= BK_AGE_OLDER6_DAYS) return "older6";
@@ -4261,8 +4300,8 @@
     }
     fields += bookingField("msg.bk.room", b.room);
     fields += bookingField("msg.bk.roomNumber", b.roomNumber);
-    fields += bookingField("msg.bk.checkin", b.checkIn);
-    fields += bookingField("msg.bk.checkout", b.checkOut);
+    fields += bookingField("msg.bk.checkin", fmtBookingDate(b.checkIn));
+    fields += bookingField("msg.bk.checkout", fmtBookingDate(b.checkOut));
     fields += bookingField("msg.bk.nights", b.nights);
     fields += bookingField("msg.bk.adults", b.adults);
     if (b.children) {
@@ -4727,8 +4766,8 @@
       const sep = t("msg.fwdBody");
       const info = "Channel: " + (b.channelName || "") +
         "\nGuest: " + (b.guestName || "") + "\nRef: " + (b.ref || "") +
-        "\nRoom: " + (b.room || "") + "\nCheck-in: " + (b.checkIn || "") +
-        "\nCheck-out: " + (b.checkOut || "") +
+        "\nRoom: " + (b.room || "") + "\nCheck-in: " + (b.checkIn ? String(b.checkIn).slice(0, 10) : "") +
+        "\nCheck-out: " + (b.checkOut ? String(b.checkOut).slice(0, 10) : "") +
         "\nTotal: " + ((b.currency || "THB") + " " + (b.total || ""));
       const body = "\n\n" + sep + "\n" + info + "\n\n" + (confirmation || "");
       openCompose({ subject: subj, body });

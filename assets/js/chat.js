@@ -783,8 +783,11 @@
           const noteHost = document.createElement("span");
           noteHost.className = "msg-notes";
           div.appendChild(noteHost);
-          if (m.lang && m.lang === cur) span.textContent = m.text;
-          else JPark.translate.fill(span, m.text, noteHost);
+          // Don't trust the declared language alone: a message written in a
+          // different script than it claims (e.g. Japanese typed on the Thai
+          // site) still gets translated for the reader — see translate.js.
+          if (JPark.translate.needsTranslation(m.text, m.lang, cur)) JPark.translate.fill(span, m.text, noteHost);
+          else span.textContent = m.text;
         }
         // When the message was sent — always the last line of the bubble.
         appendTime(div, m.ts);
