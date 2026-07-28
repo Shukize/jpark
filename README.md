@@ -698,7 +698,7 @@ console (no visible error) until someone happened to log back in.
 | `POST /api/v1/ota-email` | OTA **email-forwarding** bridge — parses a forwarded confirmation email into the Guest Booking inbox |
 | `GET /api/v1/booking-availability` | Remaining room count per type for a date range (overbooking guard) |
 | `PATCH /api/guest-bookings/:id` | Staff-only: mark read, assign a physical room number, or record in-person payment (cash/card/PromptPay) received at check-in |
-| `POST /api/email` | Send transactional email (Resend); `GET /api/email/status` reports if configured |
+| `POST /api/email` | **Administrator only** — send an ad-hoc transactional email (Resend), rate limited, max 10 recipients. Guest confirmations do **not** go through here (see `routes/guestBookings.js`); `GET /api/email/status` reports if email is configured |
 | `GET /health` | Liveness probe |
 
 **Running locally:**

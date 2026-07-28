@@ -30,6 +30,12 @@
   const SESSION_KEY = "jpark.staff";
   const DEFAULT_STAFF_PASSWORD = "jparkhotel";
   let nsUserId = null; // staff id mid-way through first-time password setup
+  // The password that account just authenticated with (its temporary one).
+  // POST /api/auth/change-password will not replace an existing password
+  // without it — holding a token is not proof you know the password you're
+  // replacing — so the forced first-login setup carries it through this one
+  // step and drops it the moment the change succeeds. Never persisted.
+  let nsCurrentPass = "";
   const SECTIONS = [
     { id: "coffee", label: "nav.coffee" }, { id: "services", label: "nav.services" },
     { id: "about", label: "nav.about" }, { id: "rooms", label: "nav.rooms" },
@@ -246,7 +252,7 @@
     document.querySelectorAll(".auth-card").forEach((c) =>
       c.classList.toggle("show", c.dataset.auth === name));
     document.querySelectorAll(".form-error").forEach((p) => { p.textContent = ""; });
-    if (name !== "newStaff") nsUserId = null;
+    if (name !== "newStaff") { nsUserId = null; nsCurrentPass = ""; }
   }
   function nsShowStep(n) {
     const form = document.getElementById("newStaffForm");
@@ -254,8 +260,11 @@
     form.querySelectorAll(".auth-step").forEach((s) => { s.hidden = Number(s.dataset.step) !== n; });
   }
   // Drop a logged-in user into the first-time "set a new password" step.
-  function startPasswordSetup(staffId) {
+  // `currentPass` is the temporary password they just signed in with; the
+  // backend requires it to authorise the replacement (see nsCurrentPass).
+  function startPasswordSetup(staffId, currentPass) {
     nsUserId = staffId;
+    nsCurrentPass = currentPass || "";
     showAuthView("newStaff");
     nsShowStep(2);
     const n1 = document.getElementById("nsNew1"), n2 = document.getElementById("nsNew2");
@@ -7144,7 +7153,12 @@
       if (btn) btn.disabled = false;
       if (res.error) { err.textContent = res.error; return; }
       err.textContent = "";
-      if (res.mustChange) { startPasswordSetup(res.staffId); return; }
+      if (res.mustChange) {
+        // Hand the temporary password straight to the setup step — the
+        // backend requires it to authorise replacing itself.
+        startPasswordSetup(res.staffId, document.getElementById("loginPass").value);
+        return;
+      }
       completeLogin(res.user);
     });
 
@@ -7164,6 +7178,7 @@
       if (!u.mustChange) { err.textContent = t("staff.login.alreadySetup"); return; }
       if (pass !== DEFAULT_STAFF_PASSWORD) { err.textContent = t("staff.login.badTempPass"); return; }
       nsUserId = u.id;
+      nsCurrentPass = pass;
       nsShowStep(2);
     });
 
@@ -7181,9 +7196,13 @@
       // Persist to backend — JWT already stored from the login step above.
       const API = window.JPark && window.JPark.api;
       if (API) {
-        const res = await API.post("/api/auth/change-password", { newPassword: p1 });
+        const res = await API.post("/api/auth/change-password", {
+          currentPassword: nsCurrentPass,
+          newPassword: p1,
+        });
         if (res.error && !res.offline) { err.textContent = res.error; return; }
       }
+      nsCurrentPass = "";
       if (u) S.update("staff", nsUserId, { password: p1, mustChange: false });
       const userObj = u
         ? { id: u.id, name: u.name, role: u.role, username: u.username }

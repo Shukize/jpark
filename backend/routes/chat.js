@@ -20,6 +20,7 @@
 const express = require('express');
 const db = require('../db');
 const { requireAuth, verifyToken } = require('../middleware/auth');
+const sessionCache = require('../lib/sessionCache');
 const { makeLimiter } = require('../lib/rateLimit');
 const { findBooking, stayStatus } = require('../lib/guestLookup');
 
@@ -576,8 +577,21 @@ router.post('/', async (req, res) => {
   // 'guest' made the bot's replies re-render as the guest's own messages after
   // a sync. Anything else falls back to a plain 'guest' message. (Staff replies
   // carry the bearer token automatically — see assets/js/api.js.)
+  //
+  // The signature check alone is not enough: this is the one place a staff
+  // identity is granted outside middleware/auth.js's requireAuth, and it was
+  // skipping requireAuth's session-governance checks. An admin who signed a
+  // device out, or banned the IP it was on, would still have had that device
+  // able to post as the front desk for the remaining life of its access token
+  // — exactly the window revocation exists to close, on the one surface a
+  // guest actually reads as the hotel speaking. So the same revoked/expired
+  // tests run here.
   const authHeader = req.get('authorization') || '';
-  const authed = authHeader.startsWith('Bearer ') ? verifyToken(authHeader.slice(7).trim()) : null;
+  const claims = authHeader.startsWith('Bearer ') ? verifyToken(authHeader.slice(7).trim()) : null;
+  const sessionLive = !!claims
+    && !(claims.jti && sessionCache.isRevoked(claims.jti))
+    && !(claims.absExp && Date.now() / 1000 > claims.absExp);
+  const authed = sessionLive ? claims : null;
   let role;
   if (from === 'staff') role = authed ? 'staff' : 'guest';
   else if (from === 'bot' || from === 'system') role = from;

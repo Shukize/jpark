@@ -401,12 +401,38 @@ router.post('/guest-login', async (req, res) => {
   }
 });
 
-/* ---- POST /api/auth/change-password ---- */
+/* ---- POST /api/auth/change-password ----
+   Re-authentication is MANDATORY: whoever asks must prove they know the
+   password they are replacing, not merely hold a valid access token.
+
+   The check used to be `if (password_hash && currentPassword)` — i.e. it was
+   skipped entirely whenever the caller simply omitted currentPassword. Any
+   valid token was therefore enough to seize the account outright: an
+   unattended front-desk terminal, a token copied off a shared device, or a
+   session someone forgot to sign out could set a new password without ever
+   knowing the old one, locking the real owner out of a console that also
+   holds every guest's details. Shared department accounts signed in on up to
+   MAX_SESSIONS_PER_EMPLOYEE devices make that a routine exposure, not an
+   exotic one.
+
+   The only carve-out left is an account with NO hash at all (never
+   provisioned) — there is nothing to prove knowledge of. A first-time
+   forced setup after an admin reset supplies the temporary password it was
+   just issued, exactly as the profile dialog supplies the current one (see
+   startPasswordSetup in assets/js/staff.js). */
+const changePwFailures = makeFailureLimiter(10, 15 * 60 * 1000); // per employee id
+
 router.post('/change-password', requireAuth, async (req, res) => {
   if (!bcrypt) return res.status(500).json({ error: 'bcrypt not available' });
   const { currentPassword, newPassword } = req.body || {};
   if (!newPassword || newPassword.length < 6)
     return res.status(400).json({ error: 'New password must be at least 6 characters' });
+
+  // Requiring the current password turns this into a guessing surface for a
+  // caller who already holds a token, so bound it the same way login is.
+  if (changePwFailures.blocked(req.user.id)) {
+    return res.status(429).json({ error: 'Too many failed attempts. Please try again later.' });
+  }
 
   try {
     const { rows } = await db.query(
@@ -415,9 +441,16 @@ router.post('/change-password', requireAuth, async (req, res) => {
     );
     if (!rows.length) return res.status(404).json({ error: 'Employee not found' });
 
-    if (rows[0].password_hash && currentPassword) {
+    if (rows[0].password_hash) {
+      if (!currentPassword) {
+        return res.status(400).json({ error: 'Current password required' });
+      }
       const ok = await bcrypt.compare(currentPassword, rows[0].password_hash);
-      if (!ok) return res.status(401).json({ error: 'Current password incorrect' });
+      if (!ok) {
+        changePwFailures.recordFailure(req.user.id);
+        return res.status(401).json({ error: 'Current password incorrect' });
+      }
+      changePwFailures.clear(req.user.id);
     }
 
     const hash = await bcrypt.hash(newPassword, 10);
