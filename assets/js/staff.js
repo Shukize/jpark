@@ -5229,7 +5229,9 @@
     const CS = J.contentSync;
     if (!CS || siteContentPulled) return;
     siteContentPulled = true;
-    const res = await CS.pull();
+    // full: skip the ?since= shortcut so the Previous-edits history comes down
+    // even when this browser already cached a (history-free) guest response.
+    const res = await CS.pull({ full: true });
     if (res && res.localAhead) {
       // Nothing published yet, but this browser holds edits from before the
       // Site Editor could publish at all. Push them live rather than lose them.
@@ -5318,12 +5320,17 @@
   }
 
   // Turn an i18n key into a human-readable field name, e.g.
-  // "rooms.grandSuite1BedName" → "Grand Suite 1 Bed Name".
+  // "rooms.grandSuite1BedName" → "Grand Suite 1 Bed Name",
+  // "rooms.studioB4Name"       → "Studio B4 Name".
+  // Only a LOWERCASE letter is split from a following digit: "suite1" is a word
+  // then a number, but "B4" is the building's actual name and splitting it gave
+  // "Studio B 4Name" wherever a field is labelled.
   function humanizeKey(key) {
     const last = String(key).split(".").pop();
     return last
       .replace(/([a-z])([A-Z])/g, "$1 $2")
-      .replace(/([A-Za-z])(\d)/g, "$1 $2")
+      .replace(/([a-z])(\d)/g, "$1 $2")
+      .replace(/(\d)([A-Za-z])/g, "$1 $2")
       .replace(/[_-]+/g, " ")
       .replace(/^./, (c) => c.toUpperCase())
       .trim();
@@ -5850,7 +5857,12 @@
       row.className = "ed-hist-row";
       let desc = "";
       if (e.type === "text") {
-        desc = t("staff.site.histText").replace("{key}", e.key).replace("{lang}", I.LANG_NAMES[e.lang] || e.lang);
+        // Name the field the way the editor labels it ("Studio B 4 Name"), not
+        // by its raw i18n key — the people reading this history are the front
+        // desk, and "rooms.studioB4Name" tells them nothing.
+        desc = t("staff.site.histText")
+          .replace("{key}", humanizeKey(e.key))
+          .replace("{lang}", I.LANG_NAMES[e.lang] || e.lang);
       } else if (e.type === "photo") {
         desc = t("staff.site.histPhoto").replace("{set}", t(e.label)).replace("{n}", e.count);
       } else if (e.type === "photoReset") {

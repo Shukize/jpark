@@ -126,4 +126,26 @@ function requireAdmin(req, res, next) {
   });
 }
 
-module.exports = { requireAuth, requireAdmin, verifyToken, verifyTokenIgnoringExpiry };
+// Non-blocking: sets req.user when a valid, unrevoked admin token is present
+// and otherwise just carries on. For endpoints a guest must be able to read but
+// which carry an extra field only staff should see — never for anything that
+// grants an action. Returns nothing; callers branch on `req.user`.
+function attachAdminIfPresent(req, _res, next) {
+  const header = req.get('authorization') || '';
+  const token = header.startsWith('Bearer ') ? header.slice(7).trim() : null;
+  if (!token) return next();
+  const payload = verifyToken(token);
+  if (!payload) return next();
+  if (payload.jti && sessionCache.isRevoked(payload.jti)) return next();
+  if (payload.absExp && Date.now() / 1000 > payload.absExp) return next();
+  if (!Array.isArray(payload.perms) || !payload.perms.includes('admin')) return next();
+  req.user = {
+    id: payload.sub, name: payload.name, email: payload.email,
+    role: payload.role, perms: payload.perms, jti: payload.jti || null,
+  };
+  next();
+}
+
+module.exports = {
+  requireAuth, requireAdmin, attachAdminIfPresent, verifyToken, verifyTokenIgnoringExpiry,
+};

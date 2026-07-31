@@ -19,7 +19,7 @@
    ============================================================ */
 const express = require('express');
 const db = require('../db');
-const { requireAdmin } = require('../middleware/auth');
+const { requireAdmin, attachAdminIfPresent } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -35,8 +35,16 @@ function jsonSize(...parts) {
   return parts.reduce((n, p) => n + Buffer.byteLength(JSON.stringify(p || null)), 0);
 }
 
-/* GET /api/content — no auth required (public site reads it) */
-router.get('/', async (req, res) => {
+/* GET /api/content — no auth required (public site reads it).
+   `edit_log` is the ONE field here that is not public: it is the Site Editor's
+   audit trail, carrying staff names, ids, timestamps and the full before/after
+   text of every edit. It is returned only when the caller presents a valid
+   admin token. (Harmless until now only because nothing ever wrote the column —
+   the moment the editor started publishing, an anonymous GET would have handed
+   any visitor the hotel's internal edit history.) Keeping it out of the guest
+   response also keeps up to 250 log entries off every single page load. */
+router.get('/', attachAdminIfPresent, async (req, res) => {
+  const isAdmin = !!req.user;
   const since = Number(req.query.since);
   try {
     // Cheap freshness probe first: one timestamp, not the whole CMS row.
@@ -48,27 +56,61 @@ router.get('/', async (req, res) => {
       if (updatedAt <= since) return res.json({ unchanged: true, updatedAt });
     }
 
+    // Only select the audit log when the caller is entitled to it — the guest
+    // read stays as narrow as it was before this column started being written.
     const { rows } = await db.query(
-      `SELECT overrides, images, theme, hidden, media, announcements, edit_log, updated_at
+      `SELECT overrides, images, theme, hidden, media, announcements, updated_at
+              ${isAdmin ? ', edit_log' : ''}
          FROM site_content WHERE id = 1`
     );
     if (!rows.length) return res.json({});
     const r = rows[0];
-    res.json({
+    const body = {
       overrides:     r.overrides     || {},
       images:        r.images        || {},
       theme:         r.theme         || {},
       hidden:        r.hidden        || [],
       media:         r.media         || {},
       announcements: r.announcements || [],
-      editLog:       r.edit_log      || [],
       updatedAt: r.updated_at ? new Date(r.updated_at).getTime() : null,
-    });
+    };
+    if (isAdmin) body.editLog = r.edit_log || [];
+    res.json(body);
   } catch (e) {
     console.error('[content] get', e);
     res.status(500).json({ error: 'Database error' });
   }
 });
+
+const EDIT_LOG_MAX = 250; // mirrors EDIT_LOG_MAX in assets/js/staff.js
+
+/* The edit history is append-only, so it is MERGED rather than replaced —
+   unlike every other field in this row, which the admin's browser owns
+   outright. Two reasons it cannot be a blind overwrite:
+
+   • The browser doing the PUT may hold a trimmed copy. A guest-side GET
+     deliberately omits edit_log (see above), so a console whose cached copy
+     came from one would otherwise publish an empty log over the real one and
+     erase the hotel's whole edit trail on the next save.
+   • Two admins editing at once each hold only their own view of the log; last
+     writer would otherwise silently drop the other's entries.
+
+   Entries are identified by timestamp + author + type, which is what makes
+   re-sending the same log idempotent. */
+function mergeEditLog(stored, submitted) {
+  const key = (e) => [e && e.ts, e && e.userId, e && e.type, e && (e.key || e.setId || '')].join('|');
+  const out = Array.isArray(stored) ? stored.slice() : [];
+  const seen = new Set(out.map(key));
+  (Array.isArray(submitted) ? submitted : []).forEach((e) => {
+    if (!e || typeof e !== 'object') return;
+    const k = key(e);
+    if (seen.has(k)) return;
+    seen.add(k);
+    out.push(e);
+  });
+  out.sort((a, b) => (a.ts || 0) - (b.ts || 0));
+  return out.slice(Math.max(0, out.length - EDIT_LOG_MAX));
+}
 
 /* Validates the Photos tab's payload: { setId: [{ src, video }] }. A bad
    shape here would render as broken <img>s across the public site, so it is
@@ -113,6 +155,9 @@ router.put('/', requireAdmin, async (req, res) => {
   }
 
   try {
+    const prior = await db.query('SELECT edit_log FROM site_content WHERE id = 1');
+    const mergedLog = mergeEditLog(prior.rows.length ? prior.rows[0].edit_log : [], editLog);
+
     const { rows } = await db.query(
       `INSERT INTO site_content (id, overrides, images, theme, hidden, media, announcements, edit_log, updated_at)
        VALUES (1, $1, $2, $3, $4, $5, $6, $7, NOW())
@@ -133,7 +178,7 @@ router.put('/', requireAdmin, async (req, res) => {
         hidden || [],
         JSON.stringify(media    || {}),
         JSON.stringify(announcements || []),
-        JSON.stringify(editLog   || []),
+        JSON.stringify(mergedLog),
       ]
     );
     res.json({ ok: true, updatedAt: new Date(rows[0].updated_at).getTime() });

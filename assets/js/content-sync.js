@@ -72,13 +72,18 @@
 
   /* Fetches the published content and adopts it locally. Resolves with
      { changed, mediaChanged, offline } — `mediaChanged` matters to callers
-     that built galleries from the old order and need to repaint. */
-  function pull() {
+     that built galleries from the old order and need to repaint.
+
+     Pass { full: true } from the Site Editor. The guest-facing GET omits the
+     edit history (it is staff-only, see backend/routes/content.js), so the
+     ?since= shortcut can answer "unchanged" against a version this browser
+     cached from a public page — leaving the editor with no history to show. */
+  function pull(opts) {
     if (pullPromise) return pullPromise;
     const S = store(), API = api();
     if (!S || !API) return Promise.resolve({ changed: false });
 
-    const since = localVersion();
+    const since = (opts && opts.full) ? 0 : localVersion();
     const path = "/api/content" + (since ? "?since=" + since : "");
     pullPromise = API.get(path).then((res) => {
       if (!res || res.error) return { changed: false, offline: !!res && !!res.offline };
@@ -130,8 +135,12 @@
       theme:     res.theme     || {},
       hidden:    hiddenToMap(res.hidden),
       media:     res.media     || {},
-      editLog:   Array.isArray(res.editLog) ? res.editLog : [],
     });
+    // The edit history only rides along on an admin's own fetch. A guest-side
+    // response simply doesn't carry it, and "absent" must mean "leave what is
+    // cached alone" — reading it as "empty" would blank the editor's history
+    // panel on this browser for no reason.
+    if (Array.isArray(res.editLog)) next.editLog = res.editLog;
 
     const mediaChanged = JSON.stringify(next.media || null) !== before;
     const stored = S.write("content", next);
