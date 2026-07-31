@@ -558,6 +558,27 @@ ALTER TABLE site_content ADD COLUMN IF NOT EXISTS room_inventory JSONB NOT NULL 
 -- can never inject markup (rendered as textContent) or affect pricing/auth.
 ALTER TABLE site_content ADD COLUMN IF NOT EXISTS chat_config JSONB NOT NULL DEFAULT '{}';
 
+-- Admin-editable photo-set overrides (Site Editor "Photos" tab). Shape:
+--   { [setId]: [ { src: string, video: boolean }, … ] }
+-- where setId is one of assets/js/media.js's DEFAULT_SETS ids ("room:Studio B4",
+-- "coffee", "hero", …) and the array is that set's FULL ordered item list,
+-- replacing the shipped default. Sparse: a set the admin never touched simply
+-- isn't a key here, and the site uses media.js's built-in order.
+--
+-- This column exists because reordering photos used to be browser-local only:
+-- the editor wrote content.media to the admin's own localStorage and nothing
+-- ever PUT it, so the new cover/order was visible on exactly one machine and no
+-- guest ever saw it — which reads, from the admin's chair, as "the reorder
+-- button does nothing". Written by routes/content.js's PUT, read by every guest
+-- page through assets/js/content-sync.js.
+ALTER TABLE site_content ADD COLUMN IF NOT EXISTS media JSONB NOT NULL DEFAULT '{}';
+
+-- Admin-posted announcements (the dismissible banner across the top of the
+-- public site). Shape: [ { id, text, active, createdAt }, … ]. Same story as
+-- `media` above — the Site Editor used to keep these in the admin's own
+-- localStorage, so an announcement reached nobody.
+ALTER TABLE site_content ADD COLUMN IF NOT EXISTS announcements JSONB NOT NULL DEFAULT '[]';
+
 -- ── Staff session tracking (sliding sessions, concurrency cap, audit log) ────
 -- One row per staff device/browser login. `jti` is embedded in that login's
 -- access token so middleware/auth.js can revoke a single session without

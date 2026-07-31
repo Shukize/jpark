@@ -1222,6 +1222,23 @@
     return out;
   }
 
+  // Site Editor content (photo order/covers + text overrides). The room cards
+  // here are drawn straight off the media registry, so a published photo
+  // reorder only reaches this page once the override is in the local store —
+  // repaint as soon as it lands. Before assets/js/content-sync.js this page
+  // didn't even load the store, which is why reordering a room's photos in the
+  // Site Editor changed the room lineup nowhere a guest could see it.
+  (function loadSiteContent() {
+    var CS = window.JPark && window.JPark.contentSync;
+    if (!CS) return;
+    CS.pull().then(function (res) {
+      if (!res || !res.changed) return;
+      if (I && I.refreshOverrides) I.refreshOverrides();
+      if (I && I.applyLang) I.applyLang(I.getLang()); // repaint static [data-i18n] copy
+      renderAll();                                    // repaint the dynamic cards
+    }).catch(function () {});
+  })();
+
   (function loadRoomAvailability() {
     var API = window.JPark && window.JPark.api;
     if (!API) return;

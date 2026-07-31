@@ -712,6 +712,9 @@
     updateBadges();
     requestNotifyPermission();
     startApiPolling();
+    // Admins edit the public site from here; make sure this browser is looking
+    // at what is actually published before it can overwrite it.
+    if (isAdmin()) syncSiteContent();
   }
 
   /* ====================  PANELS  ==================== */
@@ -5183,6 +5186,60 @@
     });
   }
 
+  /* ---- publishing Site Editor edits to the live site ----
+     Everything the Content / Photos / Colours / Sections / Announcements tabs
+     write goes into localStorage first (instant, works offline) and is then
+     PUT to /api/content by assets/js/content-sync.js. Before this existed the
+     first half was the WHOLE story: an edit lived in the editing admin's own
+     browser profile and nothing on jparkhotel.com ever read it. From the
+     admin's chair that looks exactly like a broken button — the photo tiles
+     renumber, the set says "edited", and the website keeps its old order.
+
+     Every editor action therefore ends in publish(), and — just as important —
+     a failed publish says so instead of toasting "Saved". */
+  function publish() {
+    const CS = J.contentSync;
+    if (!CS) return Promise.resolve({ ok: true }); // module absent: local-only, as before
+    return CS.push().then((res) => {
+      if (res && res.ok) return res;
+      let msg;
+      if (res && res.offline) msg = t("staff.site.publishOffline");
+      // The server refuses a content row too big to serve to every guest on
+      // every page load — say so in the admin's language, and say what to do.
+      else if (res && res.code === "CONTENT_TOO_LARGE") msg = t("staff.site.publishTooLarge");
+      else msg = t("staff.site.publishFailed").replace("{error}", (res && res.error) || "");
+      U.toast(msg, "error");
+      return res;
+    });
+  }
+
+  /* Saves + publishes, and only claims success once the server has it. */
+  function publishToast(okKey) {
+    publish().then((res) => {
+      if (res && res.ok) U.toast(t(okKey || "staff.site.saved"), "success");
+    });
+  }
+
+  /* Adopt whatever is already published before the admin edits anything.
+     Without this, a second admin's browser would open the editor showing its
+     own (empty) local copy and the next save would publish that over the first
+     admin's work — the PUT is a full replace. */
+  let siteContentPulled = false;
+  async function syncSiteContent() {
+    const CS = J.contentSync;
+    if (!CS || siteContentPulled) return;
+    siteContentPulled = true;
+    const res = await CS.pull();
+    if (res && res.localAhead) {
+      // Nothing published yet, but this browser holds edits from before the
+      // Site Editor could publish at all. Push them live rather than lose them.
+      const up = await CS.push();
+      if (up && up.ok) U.toast(t("staff.site.publishedLocal"), "success");
+      return;
+    }
+    if (res && res.changed && panel === "site") renderSite();
+  }
+
   /* ---- content overrides store helpers ---- */
   function getOverride(lang, key) {
     const c = S.read("content", {}) || {};
@@ -5224,6 +5281,7 @@
     const isReset = !val || val === I.base(key, srcLang);
     if (isReset) {
       targets.forEach((l) => setOverride(l, key, ""));
+      publish();
       return;
     }
     if (statusEl) { statusEl.textContent = t("staff.site.translating"); statusEl.className = "ed-field-status translating"; }
@@ -5234,11 +5292,17 @@
         return true;
       }).catch(() => false)
     )).then(() => {
-      if (statusEl) {
+      publish().then((res) => {
+        if (!statusEl) return;
+        if (res && !res.ok) {
+          statusEl.textContent = t("staff.site.publishFailedShort");
+          statusEl.className = "ed-field-status error";
+          return;
+        }
         statusEl.textContent = t("staff.site.translatedAll");
         statusEl.className = "ed-field-status saved";
         setTimeout(() => { statusEl.textContent = ""; statusEl.className = "ed-field-status"; }, 2200);
-      }
+      });
     });
   }
 
@@ -5381,7 +5445,8 @@
         logEdit({ type: "text", key: r.key, lang: edLang, from: String(oldEffective), to: String(val) });
       }
       flashSaved();
-      // keep every language in sync
+      // keep every language in sync — autoTranslateField publishes once all
+      // five languages have landed, so the site never goes live half-translated
       autoTranslateField(r.key, edLang, val, status);
     }
     input.addEventListener("change", () => commit(input.value, false));
@@ -5395,6 +5460,52 @@
   /* ---- photo manager (every section's photo set) ---- */
   function isVideoUrl(u) { return /\.(mp4|webm|mov|m4v)(\?|#|$)/i.test(u || ""); }
 
+  /* An uploaded photo is inlined into the content row as a data: URL — there is
+     no file store behind this editor — so its size is paid TWICE over: once
+     against this browser's ~5MB localStorage quota, and again by every single
+     guest who loads a page, on every visit, out of the database. A 4MB phone
+     photo is roughly 5.3MB of base64; a couple of those is the 2026-07-13 Neon
+     transfer outage all over again, and more than the browser will even keep.
+     So re-encode to what a website actually needs, walking the steps below
+     until the result comes in under UPLOAD_TARGET_BYTES: a quiet photo clears
+     the first pass, while a busy, high-detail one (fine textiles, foliage,
+     pool ripples) steps down instead of sailing past the publish cap and
+     failing at the very last moment, after the admin thinks they are done.
+     Measured: a 3.3MB 3000x2250 phone photo lands at ~270KB in ~100ms, and is
+     indistinguishable in a room card or lightbox.
+     Videos are passed through untouched (canvas can't re-encode them). */
+  const UPLOAD_STEPS = [[1600, 0.82], [1280, 0.74], [1024, 0.66], [800, 0.6]];
+  const UPLOAD_TARGET_BYTES = 500 * 1024;
+
+  function downscaleImage(dataUrl) {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        let best = dataUrl;
+        for (let i = 0; i < UPLOAD_STEPS.length; i++) {
+          const edge = UPLOAD_STEPS[i][0], q = UPLOAD_STEPS[i][1];
+          const scale = Math.min(1, edge / Math.max(img.width, img.height));
+          const cv = document.createElement("canvas");
+          cv.width = Math.max(1, Math.round(img.width * scale));
+          cv.height = Math.max(1, Math.round(img.height * scale));
+          let out;
+          try {
+            cv.getContext("2d").drawImage(img, 0, 0, cv.width, cv.height);
+            out = cv.toDataURL("image/jpeg", q);
+          } catch (_) {
+            resolve(dataUrl); // e.g. a tainted canvas — keep the original
+            return;
+          }
+          if (out.length < best.length) best = out;
+          if (best.length <= UPLOAD_TARGET_BYTES) break;
+        }
+        resolve(best);
+      };
+      img.onerror = () => resolve(dataUrl);
+      img.src = dataUrl;
+    });
+  }
+
   function pickImageFile(cb) {
     const file = document.createElement("input");
     file.type = "file"; file.accept = "image/*,video/*"; file.style.display = "none";
@@ -5407,8 +5518,12 @@
         U.toast(t("staff.site.imgTooBig"), "error");
         return;
       }
+      const isVideo = f.type.startsWith("video/");
       const reader = new FileReader();
-      reader.onload = (e) => cb({ src: e.target.result, video: f.type.startsWith("video/") });
+      reader.onload = (e) => {
+        if (isVideo) { cb({ src: e.target.result, video: true }); return; }
+        downscaleImage(e.target.result).then((src) => cb({ src: src, video: false }));
+      };
       reader.onerror = () => U.toast("Upload failed.", "error");
       reader.readAsDataURL(f);
     });
@@ -5475,10 +5590,17 @@
   }
 
   function commitMedia(det, s, newItems) {
-    MED.setItems(s.id, newItems);
+    const stored = MED.setItems(s.id, newItems);
+    fillSet(det, s); // repaint from what is genuinely stored, not from newItems
+    if (!stored) {
+      // Out of browser storage — the set is unchanged. Saying "saved" here is
+      // how a just-added photo appears to vanish on the next repaint.
+      U.toast(t("staff.site.storageFull"), "error");
+      return;
+    }
     logEdit({ type: "photo", setId: s.id, label: s.labelKey, count: newItems.length });
-    fillSet(det, s);
-    U.toast(t("staff.site.saved"), "success");
+    // "Saved" only once the new order is actually live on jparkhotel.com.
+    publishToast("staff.site.photoPublished");
   }
 
   function buildTile(det, s, items, idx) {
@@ -5661,7 +5783,7 @@
         MED.reset(s.id);
         logEdit({ type: "photoReset", setId: s.id, label: s.labelKey });
         fillSet(det, s);
-        U.toast(t("staff.site.saved"), "success");
+        publishToast();
       });
       toolbar.appendChild(rs);
     }
@@ -5775,7 +5897,7 @@
         cc.theme = cc.theme || {};
         cc.theme[col.key] = swatch.value;
         S.write("content", cc);
-        U.toast(t("staff.site.saved"), "success");
+        publishToast();
       });
       const span = document.createElement("span");
       span.textContent = t(col.label);
@@ -5789,7 +5911,7 @@
     delete c.theme;
     S.write("content", c);
     renderColors();
-    U.toast(t("staff.site.saved"), "success");
+    publishToast();
   }
 
   /* ---- room rates (Site Editor "Rates" tab) ----
@@ -6330,7 +6452,11 @@
       row.innerHTML = '<span class="ae-text"></span><button type="button"></button>';
       row.querySelector(".ae-text").textContent = a.text;
       row.querySelector("button").textContent = t("common.delete");
-      row.querySelector("button").addEventListener("click", () => { S.remove("announcements", a.id); renderAnnouncements(); });
+      row.querySelector("button").addEventListener("click", () => {
+        S.remove("announcements", a.id);
+        renderAnnouncements();
+        publish();
+      });
       annList.appendChild(row);
     });
   }
@@ -6352,6 +6478,7 @@
         cc.hidden = cc.hidden || {};
         cc.hidden[s.id] = !e.target.checked;
         S.write("content", cc);
+        publishToast();
       });
       togWrap.appendChild(lab);
     });
@@ -6600,7 +6727,7 @@
     const search = document.getElementById("edSearch");
     if (search) search.value = "";
     renderSite();
-    U.toast(t("staff.site.resetEditsDone"), "success");
+    publishToast("staff.site.resetEditsDone");
   }
 
   /* ====================  STAFF MANAGEMENT (admin)  ==================== */
@@ -7405,6 +7532,7 @@
       S.insert("announcements", { text: text, active: true });
       inp.value = "";
       renderAnnouncements();
+      publish();
     });
     document.getElementById("edResetAll").addEventListener("click", () => {
       // This wipes the local working copy of requests, chats, messages and
@@ -7446,6 +7574,14 @@
     S.on("announcements", () => { if (panel === "site") renderAnnouncements(); });
     // The editor saves overrides in place (keeps focus/scroll), so we don't
     // re-render the whole panel on every content write.
+
+    // An edit made a second before the tab closes still has its publish sitting
+    // in the debounce window — send it now rather than lose it. pagehide fires
+    // on mobile Safari's bfcache path too, which "unload" does not.
+    window.addEventListener("pagehide", () => {
+      const CS = J.contentSync;
+      if (CS && CS.hasUnpublishedEdits()) CS.pushNow();
+    });
 
     // re-render on language change
     document.addEventListener("jpark:langchange", () => {

@@ -12,6 +12,14 @@
    { src, video } where video:true marks an mp4. Reordering,
    removing, replacing and adding photos all work by rewriting
    that array.
+
+   That array is only half the journey: assets/js/content-sync.js
+   publishes it to site_content.media (backend/routes/content.js) and
+   pulls it back on every public page, which is what makes an edit
+   visible to a guest rather than only to the admin who made it.
+   Every page that renders a set therefore needs store.js loaded —
+   without it this file silently serves the shipped defaults and the
+   Site Editor appears to do nothing.
    ============================================================ */
 (function () {
   "use strict";
@@ -358,9 +366,15 @@
     return list.length ? list[0].src : null;
   }
 
-  /* ---- write helpers (used by the Site Editor) ---- */
+  /* ---- write helpers (used by the Site Editor) ----
+     Each returns TRUE only if the change actually reached storage. It can fail:
+     an uploaded photo is inlined as a base64 data: URL, and a few of those
+     exhaust the browser's ~5MB localStorage quota (store.js's write() reports
+     the failure instead of throwing). When that happens the set is unchanged on
+     the next read, so the caller must NOT tell the admin it saved — that
+     mismatch is a photo appearing to vanish the moment it is added. */
   function setItems(id, list) {
-    if (!S) return;
+    if (!S) return false;
     const c = S.read("content", {}) || {};
     c.media = c.media || {};
     const def = SETS_BY_ID[id];
@@ -368,19 +382,19 @@
     if (!list || !list.length || sameAsDefault) delete c.media[id];
     else c.media[id] = clone(list);
     if (c.media && !Object.keys(c.media).length) delete c.media;
-    S.write("content", c);
+    return S.write("content", c) !== false;
   }
   function reset(id) {
-    if (!S) return;
+    if (!S) return false;
     const c = S.read("content", {}) || {};
     if (c.media) { delete c.media[id]; if (!Object.keys(c.media).length) delete c.media; }
-    S.write("content", c);
+    return S.write("content", c) !== false;
   }
   function resetAll() {
-    if (!S) return;
+    if (!S) return false;
     const c = S.read("content", {}) || {};
     delete c.media;
-    S.write("content", c);
+    return S.write("content", c) !== false;
   }
 
   J.media = {

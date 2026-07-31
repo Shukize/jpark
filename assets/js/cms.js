@@ -188,12 +188,33 @@
      flow through the i18n layer (content.overrides), so we refresh it
      and re-run the current language. */
   let lastMediaJSON = JSON.stringify((content().media) || null);
+
+  /* The reload below is the one thing on this page that can re-trigger itself:
+     it fires on a media change, and the change arrives from a store write that
+     the next page load will make again if it could not be persisted (a full
+     localStorage, typically an inlined photo). Cap it per tab so a browser that
+     cannot cache the new photo order degrades to "shows the old order" instead
+     of reloading forever. */
+  const RELOAD_KEY = "jpark.mediaReloads";
+  const RELOAD_MAX = 2;
+  function reloadOnce() {
+    let n = 0;
+    try { n = Number(sessionStorage.getItem(RELOAD_KEY)) || 0; } catch (_) {}
+    if (n >= RELOAD_MAX) return false;
+    try { sessionStorage.setItem(RELOAD_KEY, String(n + 1)); } catch (_) {}
+    location.reload();
+    return true;
+  }
+
   function applyAllText() {
     // Photo-set edits change galleries/carousels that are built once at load,
     // so the cleanest way to reflect them live (e.g. the admin editing in
     // another tab) is a one-time reload when the media subtree changes.
     const nowMedia = JSON.stringify((content().media) || null);
-    if (nowMedia !== lastMediaJSON) { lastMediaJSON = nowMedia; location.reload(); return; }
+    if (nowMedia !== lastMediaJSON) {
+      lastMediaJSON = nowMedia;
+      if (reloadOnce()) return;
+    }
     if (I.refreshOverrides) I.refreshOverrides();
     if (I.applyLang) I.applyLang(I.getLang()); // re-renders [data-i18n] + dynamic sections
     applyContent();
@@ -257,27 +278,20 @@
 
   function applyAll() { applyContent(); applyAnnouncements(); applyAdminBar(); }
 
-  /* Fetch content from the API and merge into localStorage so edits made on
-     any device (or by another admin tab) are reflected on this page. */
+  /* Adopt whatever the admin has published (assets/js/content-sync.js), so
+     edits made on any device — or by another tab — show up here. This used to
+     be a hand-rolled merge that pointedly did NOT carry `media`, which is why
+     reordering a room's photos in the Site Editor changed nothing for anyone
+     but the admin who did it. The store write below wakes applyAllText(). */
   async function syncContentFromApi() {
-    const API = window.JPark && window.JPark.api;
-    if (!API) return;
-    const res = await API.get("/api/content");
-    if (res.error || res.offline) return;
-    // Only update if the API has actual overrides / settings
-    const hasData = (res.overrides && Object.keys(res.overrides).length)
-      || (res.images && Object.keys(res.images).length)
-      || (res.theme  && Object.keys(res.theme).length)
-      || (res.hidden && res.hidden.length);
-    if (!hasData) return;
-    const local = S.read("content", {}) || {};
-    const merged = Object.assign({}, local, {
-      overrides: res.overrides || local.overrides || {},
-      images:    res.images    || local.images    || {},
-      theme:     res.theme     || local.theme     || {},
-      hidden:    res.hidden    ? Object.fromEntries(res.hidden.map((k) => [k, true])) : (local.hidden || {}),
-    });
-    S.write("content", merged);
+    const CS = window.JPark && window.JPark.contentSync;
+    if (!CS) return;
+    const res = await CS.pull();
+    // Landing on an already-current page proves the repaint loop is settled,
+    // so give this tab its reload budget back for the admin's NEXT edit.
+    if (res && !res.changed && !res.offline) {
+      try { sessionStorage.removeItem(RELOAD_KEY); } catch (_) {}
+    }
   }
 
   /* Fetch the delisted-room list from the API and merge into localStorage,
