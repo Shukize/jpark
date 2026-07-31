@@ -500,8 +500,10 @@
     });
   }
   function initCardGalleries() {
+    // A card's photos come from data-media when it has its own set (the
+    // Twin / 2-Bedroom variants), otherwise from its room type.
     document.querySelectorAll(".room-card[data-room]").forEach((card) =>
-      bindOpener(card, () => roomImages(card.dataset.room))
+      bindOpener(card, () => roomImages(card.dataset.media || card.dataset.room))
     );
     document.querySelectorAll("[data-lb]").forEach((card) =>
       bindOpener(card, () => {

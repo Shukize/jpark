@@ -144,15 +144,16 @@
     if (ov("aboutSub"))  setImgSrc(".about-img-sub", firstImage("aboutSub"));
     if (ov("banquet"))   setBg('.fac-card[data-video="banquet"]', firstImage("banquet"));
     if (ov("allday"))    setImgSrc('.dining-card[data-video="allday"] .dining-img img', firstImage("allday"));
-    // Room thumbnails + photo counts
-    MED.sets().filter((s) => s.id.indexOf("room:") === 0).forEach((s) => {
-      if (!ov(s.id)) return;
-      const folder = s.id.slice(5);
-      const card = document.querySelector('.room-card[data-room="' + folder + '"]');
-      if (!card) return;
-      applyCover(card.querySelector(".room-img"), s.id);
+    // Room thumbnails + photo counts. Driven off the cards, not the sets:
+    // several room types have two cards (Corner Suite Single/Twin, the 1- and
+    // 2-bedroom suites), so a set-first loop with querySelector repainted only
+    // the first of them and left the other showing the shipped photo.
+    document.querySelectorAll(".room-card[data-room]").forEach((card) => {
+      const setId = "room:" + (card.dataset.media || card.dataset.room);
+      if (!ov(setId)) return;
+      applyCover(card.querySelector(".room-img"), setId);
       const badge = card.querySelector(".room-photos");
-      if (badge) badge.textContent = "📷 " + MED.items(s.id).length;
+      if (badge) badge.textContent = "📷 " + MED.items(setId).length;
     });
   }
 

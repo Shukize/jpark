@@ -317,11 +317,21 @@
     { id: "room:Premium Single",  labelKey: "rooms.premiumSingleName", section: "rooms", gallery: true, items: PREMIUM_SINGLE_ITEMS },
     { id: "room:Premium Twin",    labelKey: "rooms.premiumTwinName",   section: "rooms", gallery: true, items: PREMIUM_TWIN_ITEMS },
     { id: "room:Grand Premium",   labelKey: "rooms.grandPremiumName",  section: "rooms", gallery: true, items: GRAND_PREMIUM_ITEMS },
-    { id: "room:Corner Suite",    labelKey: "rooms.cornerName",        section: "rooms", gallery: true, items: roomItems("Corner Suite") },
+    { id: "room:Corner Suite",    labelKey: "rooms.cornerSingleName",  section: "rooms", gallery: true, galleryKey: "rooms.cornerName", items: roomItems("Corner Suite") },
+    /* Corner Suite · Twin, Executive Suite · 2 Bedrooms and Grand Suite ·
+       2 Bedrooms are the same physical rooms in another layout, so they start
+       out sharing the base set's photos — but each homepage card gets its OWN
+       set id, so the Site Editor lists it separately and an admin can give it
+       different photos (same pattern as Studio Twin above). gallery:false so
+       the full Gallery doesn't list the same photos as a second category;
+       the base set still carries the generic name there via galleryKey. */
+    { id: "room:Corner Suite Twin", labelKey: "rooms.cornerTwinName",  section: "rooms", gallery: false, items: roomItems("Corner Suite") },
     { id: "room:Grand Deluxe",    labelKey: "rooms.grandDeluxeName",   section: "rooms", gallery: true, items: GRAND_DELUXE_ITEMS },
-    { id: "room:Executive Suite 1 Bedroom", labelKey: "rooms.execSuite1brName", section: "rooms", gallery: true, items: EXEC_SUITE_ITEMS },
+    { id: "room:Executive Suite 1 Bedroom", labelKey: "rooms.execSuite1brName", section: "rooms", gallery: true, galleryKey: "rooms.execSuiteName", items: EXEC_SUITE_ITEMS },
+    { id: "room:Executive Suite 2 Bedrooms", labelKey: "rooms.execSuite2brName", section: "rooms", gallery: false, items: EXEC_SUITE_ITEMS.slice() },
     { id: "room:Premium Suite",   labelKey: "rooms.premiumSuiteName",  section: "rooms", gallery: true, items: PREMIUM_SUITE_ITEMS },
-    { id: "room:Grand Suite 1 Bedroom", labelKey: "rooms.grandSuiteName", section: "rooms", gallery: true, items: roomItems("Grand Suite 1 Bedroom") },
+    { id: "room:Grand Suite 1 Bedroom", labelKey: "rooms.grandSuite1brName", section: "rooms", gallery: true, galleryKey: "rooms.grandSuiteName", items: roomItems("Grand Suite 1 Bedroom") },
+    { id: "room:Grand Suite 2 Bedrooms", labelKey: "rooms.grandSuite2brName", section: "rooms", gallery: false, items: roomItems("Grand Suite 1 Bedroom") },
     { id: "building5",    labelKey: "building.galTitle",      section: "building",   gallery: true, galleryKey: "building.galTitle", items: BUILDING5_ITEMS },
     { id: "lobby",        labelKey: "gallery.cat.lobby",      section: "gallery", gallery: true, items: LOBBY_ITEMS },
     { id: "galleryPreview", labelKey: "media.set.preview", section: "gallery", items: PREVIEW_ITEMS }

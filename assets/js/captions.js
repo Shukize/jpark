@@ -38,10 +38,22 @@ window.JPark.captions = {
     "kitchenette",
     "diningArea"
   ],
+  /* Twin / 2-Bedroom cards start out on the same photos as their base set
+     (see DEFAULT_SETS in media.js), so they carry the same captions. Once an
+     admin gives one its own photos in the Site Editor these no longer line up
+     — same caveat as the re-photographed rooms above. */
+  "room:Corner Suite Twin": [
+    "livingArea",
+    "bedroom",
+    "kitchenette",
+    "diningArea"
+  ],
   "room:Grand Deluxe": [],
   "room:Executive Suite 1 Bedroom": [],
+  "room:Executive Suite 2 Bedrooms": [],
   "room:Premium Suite": [],
   "room:Grand Suite 1 Bedroom": [],
+  "room:Grand Suite 2 Bedrooms": [],
   "building5": [
     "entrance",
     "staircase",

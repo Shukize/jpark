@@ -717,7 +717,10 @@
       </div>
     </article>
 
-    <article class="room-card reveal" data-room="Corner Suite" tabindex="0" role="button" aria-label="Corner Suite · Twin — view photos">
+    <!-- data-room stays the room TYPE (availability/delisting is per type, so
+         both Corner cards hide together); data-media names this card's own
+         photo set in the media registry, which is what the Site Editor edits. -->
+    <article class="room-card reveal" data-room="Corner Suite" data-media="Corner Suite Twin" tabindex="0" role="button" aria-label="Corner Suite · Twin — view photos">
       <div class="room-img"><img src="images/Corner%20Suite/room_01.jpg" data-i18n-attr="alt:rooms.cornerTwinName" alt="Corner Suite · Twin" loading="lazy" /><span class="room-photos" aria-hidden="true">&#128247; 13</span></div>
       <div class="room-body">
         <span class="room-size" data-i18n="rooms.cornerSize">55 m²</span>
@@ -744,7 +747,7 @@
       </div>
     </article>
 
-    <article class="room-card reveal" data-room="Executive Suite 1 Bedroom" tabindex="0" role="button" aria-label="Executive Suite · 2 Bedrooms — view photos">
+    <article class="room-card reveal" data-room="Executive Suite 1 Bedroom" data-media="Executive Suite 2 Bedrooms" tabindex="0" role="button" aria-label="Executive Suite · 2 Bedrooms — view photos">
       <div class="room-img"><img src="images/Executive%20Suite%201%20Bedroom/a0bd708d-6bc9-4555-8c45-e3423002c4ba.jpg" data-i18n-attr="alt:rooms.execSuite2brName" alt="Executive Suite · 2 Bedrooms" loading="lazy" /><span class="room-photos" aria-hidden="true">&#128247; 9</span></div>
       <div class="room-body">
         <span class="room-size" data-i18n="rooms.execSuiteSize">75 m²</span>
@@ -771,7 +774,7 @@
       </div>
     </article>
 
-    <article class="room-card reveal" data-room="Grand Suite 1 Bedroom" tabindex="0" role="button" aria-label="Grand Suite · 2 Bedrooms — view photos">
+    <article class="room-card reveal" data-room="Grand Suite 1 Bedroom" data-media="Grand Suite 2 Bedrooms" tabindex="0" role="button" aria-label="Grand Suite · 2 Bedrooms — view photos">
       <div class="room-img"><img src="images/Grand%20Suite%201%20Bedroom/room_01.jpg" data-i18n-attr="alt:rooms.grandSuite2brName" alt="Grand Suite · 2 Bedrooms" loading="lazy" /><span class="room-photos" aria-hidden="true">&#128247; 11</span></div>
       <div class="room-body">
         <span class="room-size" data-i18n="rooms.grandSuiteSize">75 m²</span>
@@ -1019,10 +1022,10 @@
 <script src="assets/js/i18n-extra.js?v=2026-07-23"></script>
 <script src="assets/js/i18n-app.js?v=2026-07-25"></script>
 <script src="assets/js/translate.js?v=2026-07-27"></script>
-<script src="assets/js/captions.js?v=2026-07-23"></script>
-<script src="assets/js/media.js?v=2026-07-31"></script>
-<script src="assets/js/main.js?v=2026-07-23"></script>
-<script src="assets/js/cms.js?v=2026-07-31"></script>
+<script src="assets/js/captions.js?v=2026-07-31b"></script>
+<script src="assets/js/media.js?v=2026-07-31b"></script>
+<script src="assets/js/main.js?v=2026-07-31b"></script>
+<script src="assets/js/cms.js?v=2026-07-31b"></script>
 <script src="assets/js/guest.js?v=2026-07-27"></script>
 <script src="assets/js/chat.js?v=2026-07-27"></script>
 </body>
