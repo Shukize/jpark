@@ -3,20 +3,67 @@ const db = require('../db');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const router = express.Router();
 
-// GET /api/messages
-// Returns every message visible to the signed-in user (sent to them, sent by
-// them, or broadcast to all). userId is taken from the bearer token, never
-// from the query string, so callers can't read someone else's inbox.
+// The set of messages one signed-in user may read. userId comes from the bearer
+// token, never from the query string, so callers can't read someone else's inbox.
+const VISIBLE_TO_CALLER = '(to_all = TRUE OR $1 = ANY(to_ids) OR from_id = $1)';
+
+// Every open staff console re-reads this list every 10 seconds, so what it
+// costs must not grow with the hotel's history — an unbounded SELECT on a poll
+// loop is exactly what exhausted the database's transfer allowance on
+// 2026-07-13. Two bounds, in order of how much they save:
+//
+//   1. A version fingerprint (?v=), same pattern as guest-bookings. Internal
+//      memos change a handful of times a day, so nearly every poll is a no-op
+//      and now answers in a few bytes instead of re-sending every message.
+//   2. LIMIT — only the newest MESSAGES_LIST_LIMIT are carried. Older ones are
+//      already in the console's cache and are kept there (see _pollMessages in
+//      assets/js/staff.js), so nothing disappears from anyone's inbox; this
+//      caps what the POLL carries, not what exists.
+const MESSAGES_LIST_LIMIT = 200;
+
+// MAX(updated_at) moves on any insert, edit or read-stamp (trg_messages_updated_at)
+// and COUNT(*) moves on delete, so the pair changes on anything this caller
+// could see. Both are aggregates: the whole probe is one short row on the wire.
+async function messagesVersion(userId) {
+  const { rows } = await db.query(
+    `SELECT COALESCE(MAX(updated_at)::text, '') AS m, COUNT(*)::int AS c
+       FROM messages WHERE ${VISIBLE_TO_CALLER}`,
+    [userId]
+  );
+  return rows[0].m + '|' + rows[0].c;
+}
+
+function listMessages(userId) {
+  return db.query(
+    `SELECT * FROM messages
+      WHERE ${VISIBLE_TO_CALLER}
+      ORDER BY created_at DESC
+      LIMIT ${MESSAGES_LIST_LIMIT}`,
+    [userId]
+  ).then((r) => r.rows);
+}
+
+// GET /api/messages          → plain array (legacy callers, and any client
+//                              running against a half-rolled-out deploy)
+// GET /api/messages?v=<fp>   → { unchanged: true, v } when nothing this user can
+//                              see has changed, else { v, messages, truncated }.
+//                              `truncated` tells the console the window is full,
+//                              so it knows to keep the older rows it already has
+//                              rather than treating the page as the whole inbox.
 router.get('/', requireAuth, async (req, res) => {
   const userId = req.user.id;
   try {
-    const { rows } = await db.query(
-      `SELECT * FROM messages
-       WHERE to_all = TRUE OR $1 = ANY(to_ids) OR from_id = $1
-       ORDER BY created_at DESC`,
-      [userId]
-    );
-    res.json(rows);
+    if (req.query.v !== undefined) {
+      const version = await messagesVersion(userId);
+      if (req.query.v === version) return res.json({ unchanged: true, v: version });
+      const rows = await listMessages(userId);
+      return res.json({
+        v: version,
+        messages: rows,
+        truncated: rows.length >= MESSAGES_LIST_LIMIT,
+      });
+    }
+    res.json(await listMessages(userId));
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Database error' });

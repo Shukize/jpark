@@ -29,6 +29,17 @@ CREATE TABLE IF NOT EXISTS messages (
 
 ALTER TABLE messages ADD COLUMN IF NOT EXISTS reported_by TEXT[] NOT NULL DEFAULT '{}';
 
+-- updated_at + trigger exist so routes/messages.js can answer its 10s poll with
+-- a cheap version fingerprint instead of re-sending every memo (see the comment
+-- there). The trigger is what makes a read-stamp or an edit move the
+-- fingerprint; COUNT(*) alongside it covers deletes.
+ALTER TABLE messages ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
+DROP TRIGGER IF EXISTS trg_messages_updated_at ON messages;
+CREATE TRIGGER trg_messages_updated_at
+  BEFORE UPDATE ON messages
+  FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+
 -- ── Service requests (housekeeping, maintenance, dining, front-desk) ─────────
 CREATE TABLE IF NOT EXISTS service_requests (
   id          SERIAL PRIMARY KEY,

@@ -290,6 +290,9 @@
   // self-heal against any missed change.
   let _bookingsFp = "";
   let _bookingsPollCount = 0;
+  // Same conditional-fetch state for internal messages (see _pollMessages).
+  let _messagesFp = "";
+  let _messagesPollCount = 0;
   const RECONCILE_EVERY = 30; // ~5 min at the 10s interval
 
   function _pollAll() {
@@ -532,8 +535,25 @@
     if (!session) return;
     const API = window.JPark && window.JPark.api;
     if (!API) return;
-    const data = await API.get("/api/messages");
-    if (!Array.isArray(data)) return;
+    // Conditional fetch: send back the last fingerprint so an unchanged inbox
+    // costs a few bytes instead of every memo, and drop it periodically to
+    // force one full reconcile. Mirrors _pollGuestBookings.
+    if (_messagesPollCount++ % RECONCILE_EVERY === 0) _messagesFp = "";
+    const res = await API.get("/api/messages?v=" + encodeURIComponent(_messagesFp));
+    if (!res || res.error) {
+      if (!res || !res.offline) console.error("[staff] messages poll failed:", res && res.error);
+      return;
+    }
+    if (res.unchanged) { if (res.v) _messagesFp = res.v; return; }
+    // Accept both the conditional envelope and, during a rollout window, a
+    // legacy bare array from an older server (which is never truncated).
+    let data, truncated;
+    if (Array.isArray(res)) { data = res; truncated = false; }
+    else if (Array.isArray(res.messages)) {
+      data = res.messages;
+      truncated = !!res.truncated;
+      _messagesFp = res.v || "";
+    } else return; // unexpected shape — keep what we already have
     const local = S.list("messages");
     const personal = new Map();
     local.forEach(function (m) {
@@ -562,7 +582,24 @@
     const localOnly = local.filter(function (m) {
       return typeof m.id !== "string" || m.id.indexOf("srv_") !== 0;
     });
-    const merged = remote.concat(localOnly);
+    // Server rows that have aged out of the newest-N window the API carries
+    // (see MESSAGES_LIST_LIMIT in backend/routes/messages.js). They are kept
+    // from the local cache so the inbox doesn't silently shrink as the hotel
+    // accumulates history. Only rows OLDER than the oldest one the server just
+    // sent qualify, and only when the server says its page was truncated — so
+    // when the list is complete it stays canonical and an admin's delete still
+    // removes the message here.
+    let aged = [];
+    if (truncated && remote.length) {
+      let oldest = Infinity;
+      remote.forEach(function (m) { if (m.createdAt < oldest) oldest = m.createdAt; });
+      const remoteIds = new Set(remote.map(function (m) { return m.id; }));
+      aged = local.filter(function (m) {
+        return typeof m.id === "string" && m.id.indexOf("srv_") === 0
+          && !remoteIds.has(m.id) && !hidden.has(m.id) && m.createdAt < oldest;
+      });
+    }
+    const merged = remote.concat(aged, localOnly);
     if (JSON.stringify(merged) !== JSON.stringify(local)) {
       S.write("messages", merged);
     }

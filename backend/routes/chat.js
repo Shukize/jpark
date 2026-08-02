@@ -235,21 +235,43 @@ router.post('/identify', async (req, res) => {
   }
 });
 
-/* GET /api/chat/all — all conversations grouped by guest (staff only).
+/* How much of the chat history the live thread list carries. The console polls
+   /all every 10 seconds from every open tab, and one row per guest who has
+   *ever* opened the widget grows without bound — the same shape of unbounded
+   poll that exhausted the database's transfer allowance on 2026-07-13, just
+   slower to arrive. A thread with no activity for a month is not live work.
+
+   Nothing is deleted or hidden by this: the full conversation is always there
+   at GET /api/chat?guestId=…, a guest who writes again lands back in the window
+   with their whole history, and the console keeps threads it has already seen
+   in its local cache (_pollChats in assets/js/staff.js only ever adds and
+   updates). This bounds what the POLL carries, not what exists. */
+const CHAT_LIST_DAYS = 30;
+const CHAT_LIST_LIMIT = 400;
+
+/* GET /api/chat/all — recent conversations grouped by guest (staff only).
    Includes the currently assigned staff so every console can show who owns
    each thread (and only that account's badge ticks). */
 router.get('/all', requireAuth, async (_req, res) => {
   try {
     const { rows } = await db.query(`
-      SELECT DISTINCT ON (guest_id)
-        guest_id, guest_name, room,
-        body AS last_msg,
-        lang,
-        escalated,
-        assigned_staff_id,
-        assigned_staff_name,
-        guest_kind, guest_verified, booking_id, booking_ref, confirmed_by,
-        created_at AS last_at,
+      WITH live AS (
+        SELECT guest_id
+          FROM chat_messages
+         GROUP BY guest_id
+        HAVING MAX(created_at) > NOW() - INTERVAL '${CHAT_LIST_DAYS} days'
+         ORDER BY MAX(created_at) DESC
+         LIMIT ${CHAT_LIST_LIMIT}
+      )
+      SELECT DISTINCT ON (cm.guest_id)
+        cm.guest_id, cm.guest_name, cm.room,
+        cm.body AS last_msg,
+        cm.lang,
+        cm.escalated,
+        cm.assigned_staff_id,
+        cm.assigned_staff_name,
+        cm.guest_kind, cm.guest_verified, cm.booking_id, cm.booking_ref, cm.confirmed_by,
+        cm.created_at AS last_at,
         -- Guest messages since the last time a HUMAN answered. Only 'staff'
         -- counts as an answer: this used to include 'system', but every
         -- escalation posts a system notice ("our front desk will reply here…")
@@ -279,7 +301,8 @@ router.get('/all', requireAuth, async (_req, res) => {
             )
         ) AS unread_for_staff
       FROM chat_messages cm
-      ORDER BY guest_id, created_at DESC
+      JOIN live ON live.guest_id = cm.guest_id
+      ORDER BY cm.guest_id, cm.created_at DESC
     `);
 
     const convos = rows.map((r) => ({
