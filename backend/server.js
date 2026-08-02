@@ -78,16 +78,29 @@ const bodyOta      = express.json({ limit: '1mb' });   // forwarded OTA HTML ema
 const bodyPayments = express.json({ limit: '256kb' }); // structured JSON only, no images
 const bodyDefault  = express.json({ limit: '512kb' }); // comfortably covers the 350KB avatar upload
 
-app.get('/health', (_req, res) => res.json({ status: 'ok' }));
+// Which build is actually serving. Render exposes the deployed commit as
+// RENDER_GIT_COMMIT at runtime; without it there is no way to tell from
+// outside whether a push has finished rolling out, which turned "did the
+// deploy land?" into guesswork. Short SHA only, and the repo is public, so
+// this reveals nothing that isn't already on GitHub. Falls back to 'dev'
+// when running locally.
+const BUILD_COMMIT = (process.env.RENDER_GIT_COMMIT || 'dev').slice(0, 7);
+
+app.get('/health', (_req, res) => res.json({ status: 'ok', commit: BUILD_COMMIT }));
 
 // Deliberately separate from /health: Render's own deploy health check hits
 // /health, and it must never fail on a transient DB hiccup mid-deploy. This
-// one actually touches Postgres — see .github/workflows/health-check.yml,
-// which pings it every few minutes so Neon's autosuspend compute never goes
-// idle long enough to sleep. Left to sleep, the next real query (very often
-// a guest's chat message — see chat.js's serialized postChain) pays the full
-// wake cost; see backend/db.js's connectionTimeoutMillis for the other half
-// of this fix, which bounds that cost instead of letting it hang forever.
+// one actually touches Postgres.
+//
+// It is pinged only a few times a day, NOT continuously. Waking the compute
+// costs a full autosuspend window (~5 min) every time, and on Neon's Free
+// plan the month's whole allowance is 100 CU-hours ≈ 400 hours at 0.25 CU —
+// so a keep-warm ping every few minutes would spend the budget on an idle
+// database and suspend the compute mid-month, which is the very outage it
+// was meant to prevent. The database is therefore allowed to sleep, and
+// backend/db.js's connectionTimeoutMillis bounds what a guest's first query
+// pays to wake it (see chat.js's serialized postChain for why that mattered).
+// See .github/workflows/health-check.yml for the two schedules.
 app.get('/health/db', async (_req, res) => {
   try {
     await db.query('SELECT 1');

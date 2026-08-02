@@ -871,11 +871,28 @@
 
   function startTrackerPoll() {
     stopTrackerPoll();
-    pollTimer = setInterval(renderTracker, 8000);
+    // Skip ticks while the tab is hidden. Every tick is THREE API calls
+    // (service requests, orders, thread summary — see fetchTrackerItems), and
+    // a guest who leaves the portal open on their phone and pockets it would
+    // otherwise poll all night for a screen nobody is looking at. That keeps
+    // the database awake on a plan where it is meant to sleep, and waking it
+    // is the expensive part. The staff console and the chat widget already
+    // work this way; this was the last poller without the guard.
+    pollTimer = setInterval(function () {
+      if (document.visibilityState === "hidden") return;
+      renderTracker();
+    }, 8000);
   }
   function stopTrackerPoll() {
     if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
   }
+
+  // Coming back to the tab refreshes at once, so a skipped tick is never
+  // something the guest can perceive — the tracker is current by the time
+  // they are looking at it.
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState === "visible" && pollTimer) renderTracker();
+  });
 
   /* ─────────────────────────────── CONCIERGE ──────────────────────────────── */
   function renderConcierge() {
