@@ -769,6 +769,19 @@ router.post('/reservations/group', async (req, res) => {
 });
 
 // Optional shared-secret gate for the webhook, ?key=<PAYMENT_WEBHOOK_SECRET>.
+/* A tally of what the webhook endpoint has actually been receiving.
+
+   Enforcing signature verification introduces a failure mode that enabling it
+   is supposed to prevent: if OMISE_WEBHOOK_SIGNING_SECRET does not match what
+   the gateway signs with — and test mode and live mode have DIFFERENT signing
+   secrets — then every genuine delivery is rejected as a forgery. Payments
+   still get recovered, because the reconciler does not depend on the webhook,
+   so nothing breaks loudly. The fast path simply dies in silence.
+
+   These counters make that visible on the diagnostics page. In memory only —
+   they reset on deploy, cost nothing, and touch no database. */
+const webhookStats = { accepted: 0, badSignature: 0, badKey: 0, ignored: 0, lastAt: null };
+
 // This is a SECONDARY guard only — every webhook delivery is re-verified
 // against the gateway's own API below regardless of this check, since no
 // supported gateway cryptographically signs its notification bodies and none
@@ -835,7 +848,9 @@ router.get('/payments/webhook', (req, res) => {
 });
 
 router.post('/payments/webhook', express.urlencoded({ extended: false, limit: '64kb' }), async (req, res) => {
+  webhookStats.lastAt = new Date().toISOString();
   if (!webhookKeyOk(req.query.key)) {
+    webhookStats.badKey += 1;
     return res.status(401).json({ error: 'Invalid webhook key' });
   }
 
@@ -846,12 +861,19 @@ router.post('/payments/webhook', express.urlencoded({ extended: false, limit: '6
   // check out, which is a forgery attempt, not a delivery.
   const signature = payments.verifySignature(req.rawBody, req.headers);
   if (signature === false) {
-    console.error('[payments] webhook rejected — bad signature');
+    webhookStats.badSignature += 1;
+    console.error('[payments] webhook rejected — bad signature. If this is happening to ' +
+      'real deliveries, OMISE_WEBHOOK_SIGNING_SECRET does not match the gateway ' +
+      '(test and live mode have different signing secrets).');
     return res.status(401).json({ error: 'Invalid signature' });
   }
 
   const parsed = payments.parseWebhook(req.body);
-  if (!parsed || !parsed.chargeRef) return res.status(200).json({ ok: true });
+  if (!parsed || !parsed.chargeRef) {
+    webhookStats.ignored += 1;
+    return res.status(200).json({ ok: true });
+  }
+  webhookStats.accepted += 1;
   const chargeRef = parsed.chargeRef;
 
   try {
@@ -995,6 +1017,9 @@ router.get('/payments/diagnostics', diagnosticsAuth, async (req, res) => {
     methods: provider && provider.isConfigured() ? provider.methods() : [],
     expectedWebhookUrl: redact(expectedWebhook) || null,
     siteBaseUrl: payments.siteBaseUrl() || null,
+    // Since the last deploy. Zeroes are normal on a quiet API or a fresh
+    // restart; they mean "nothing observed", not "nothing working".
+    webhookDeliveries: Object.assign({}, webhookStats),
     apiBaseUrl: payments.apiBaseUrl() || null,
     checks: [],
   };
@@ -1044,6 +1069,23 @@ router.get('/payments/diagnostics', diagnosticsAuth, async (req, res) => {
       add('Registered webhook points at this API', registered.split('?')[0] === expectedBase,
         `registered: ${redact(registered)}  ·  expected: ${redact(expectedWebhook)}`);
     }
+    /* The specific pattern that means the signing secret is WRONG: real
+       deliveries arriving and every one being rejected as a forgery. Rejections
+       alongside accepted deliveries are just someone probing the endpoint, which
+       is not a fault and must not raise an alarm. Both counters are since the
+       last deploy, so this can only ever fire on evidence. */
+    if (webhookStats.badSignature > 0 && webhookStats.accepted === 0) {
+      add('Webhook deliveries are being accepted', false,
+        webhookStats.badSignature + ' delivery(ies) rejected for a bad signature and none accepted — ' +
+        'OMISE_WEBHOOK_SIGNING_SECRET almost certainly does not match the gateway. ' +
+        'Test mode and live mode have DIFFERENT signing secrets. Payments are still being ' +
+        'recovered by the reconciler, so nothing is lost, but the webhook is doing nothing.');
+    } else if (webhookStats.accepted > 0) {
+      add('Webhook deliveries are being accepted', true,
+        webhookStats.accepted + ' accepted since the last deploy' +
+        (webhookStats.badSignature ? ', ' + webhookStats.badSignature + ' rejected (probing — harmless while others are accepted)' : ''));
+    }
+
     add('Webhook signature checking is on', Boolean(process.env.OMISE_WEBHOOK_SIGNING_SECRET),
       process.env.OMISE_WEBHOOK_SIGNING_SECRET
         ? 'OMISE_WEBHOOK_SIGNING_SECRET set'

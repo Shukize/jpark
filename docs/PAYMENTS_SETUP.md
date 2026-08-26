@@ -17,7 +17,7 @@ Code: `backend/lib/payments/` (gateway adapters), `backend/routes/payments.js`
 (booking + webhook + diagnostics routes), `backend/paymentReconciler.js` (the
 safety net under the webhook), `backend/routes/guestBookings.js` (email copy),
 `assets/js/booking-payment.js` (the booking page).
-Tests: `node backend/test-payments.js` — 102 checks, no account or database
+Tests: `node backend/test-payments.js` — 107 checks, no account or database
 needed. Also runs as part of `npm test`, which is the Render build gate.
 
 ---
@@ -229,7 +229,7 @@ every room shares one `payment_charge_id`, so one webhook flips them all.
 ## Verifying in Test mode
 
 ```
-node backend/test-payments.js     # 102 checks, offline
+node backend/test-payments.js     # 107 checks, offline
 ```
 
 That covers the wire contract (satang conversion, `return_uri`, charge-event

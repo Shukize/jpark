@@ -677,6 +677,45 @@ const fakeDb = {
   const hookJson = await realFetch(base + '/payments/webhook').then((r) => r.json());
   check('GET webhook answers JSON for non-browsers', hookJson.ok === true && hookJson.accepts === 'POST',
     JSON.stringify(hookJson).slice(0, 90));
+
+  /* Enforcing signatures can silently kill the webhook: a signing secret that
+     does not match the gateway rejects every genuine delivery as a forgery,
+     and because the reconciler still recovers the payments, nothing breaks
+     loudly. Diagnostics has to be able to say so. */
+  process.env.PAYMENT_WEBHOOK_SECRET = 'sekrit-value';
+  process.env.OMISE_WEBHOOK_SIGNING_SECRET = Buffer.from('a-different-secret').toString('base64');
+  const forged = await realFetch(base + '/payments/webhook?key=sekrit-value', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Omise-Signature': 'ffff', 'Omise-Signature-Timestamp': String(Math.floor(Date.now() / 1000)),
+    },
+    body: JSON.stringify({ key: 'charge.complete', data: { object: 'charge', id: 'chrg_sigfail' } }),
+  });
+  check('a mis-signed delivery is rejected', forged.status === 401, String(forged.status));
+  const sigDiag = await realFetch(base + '/payments/diagnostics?key=sekrit-value').then((r) => r.json());
+  check('diagnostics counts the rejected delivery',
+    sigDiag.webhookDeliveries && sigDiag.webhookDeliveries.badSignature > 0,
+    JSON.stringify(sigDiag.webhookDeliveries));
+  const acceptCheck = (sigDiag.checks || []).find((c) => c.name.indexOf('Webhook deliveries are being accepted') === 0);
+  /* The rule, asserted as a rule rather than as one hard-coded outcome: the
+     alarm fires only when deliveries are rejected AND none are getting
+     through. By this point the suite has already posted webhooks that were
+     accepted, so what is exercised here is the OTHER half — rejections
+     alongside successes must be reported as harmless probing, because an
+     endpoint on the public internet will be probed, and an alarm that cries
+     wolf at that is worse than no alarm. */
+  const d = sigDiag.webhookDeliveries;
+  const shouldAlarm = d.badSignature > 0 && d.accepted === 0;
+  check('the accepted-deliveries check follows its documented rule',
+    acceptCheck && acceptCheck.ok === !shouldAlarm,
+    JSON.stringify({ counters: d, check: acceptCheck }));
+  check('rejections alongside accepted deliveries are treated as harmless probing',
+    d.accepted > 0 && acceptCheck.ok === true && /probing/.test(acceptCheck.detail),
+    JSON.stringify(acceptCheck));
+  check('the report is not failed by probing alone', sigDiag.ok === true, 'ok=' + sigDiag.ok);
+  delete process.env.OMISE_WEBHOOK_SIGNING_SECRET;
+  delete process.env.PAYMENT_WEBHOOK_SECRET;
   // It must stay silent about whether a key was right: no public oracle to
   // guess the webhook secret against.
   process.env.PAYMENT_WEBHOOK_SECRET = 'sekrit-value';
