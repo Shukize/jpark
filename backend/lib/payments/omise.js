@@ -30,7 +30,21 @@
 
 const crypto = require('crypto');
 
-const API_BASE = 'https://api.omise.com';
+/* Omise's API host is api.omise.**co**, not .com.
+
+   `api.omise.com` does not exist — it is not a typo that resolves somewhere
+   harmless, it is NXDOMAIN — so every call made through it failed at DNS
+   before a request was ever sent. That was the value here from the original
+   integration onwards, which means online card payment could never have
+   worked at any point: no charge, no source, no status check. It survived
+   because the test suite rewrites this host to a local mock (so the literal
+   is never exercised offline) and because no real payment had been attempted
+   until the account went live.
+
+   The value is asserted in backend/test-payments.js for that reason: a
+   mocked HTTP client cannot catch a wrong hostname, so the hostname itself
+   has to be checked as a fact. */
+const API_BASE = 'https://api.omise.co';
 
 function isConfigured() {
   return Boolean(process.env.OMISE_SECRET_KEY);

@@ -1,12 +1,27 @@
-// Offline end-to-end test for the GB Prime Pay payment integration.
-// Needs no database, no network and no merchant account: it runs the REAL
-// routes/payments.js + lib/payments against a MOCK GB Prime Pay gateway and a
-// stubbed database, asserting the wire contract (which key signs which call,
-// THB vs satang, the 15-char referenceNo cap, form-encoded webhooks) and the
-// full booking -> 3-D Secure -> webhook -> paid path.
-//
-//   Run: node test-gbprimepay.js
+/* Offline end-to-end test for the online payment integration.
+   Run: node backend/test-payments.js   (also part of `npm test`)
+
+   Needs no database, no network and no merchant account: it runs the REAL
+   routes/payments.js + lib/payments against mock gateways and a stubbed
+   database, covering the wire contract (which key signs which call, THB vs
+   satang, the 15-char referenceNo cap, form-encoded webhooks), the full
+   booking -> 3-D Secure -> webhook -> paid path, webhook signature
+   verification, and the reconciler recovering a payment whose webhook never
+   arrived.
+
+   Two things this suite has learned the hard way, both worth keeping in mind
+   before trusting a green run:
+
+     1. A MOCK CANNOT CATCH A WRONG ADDRESS. The gateway host is rewritten to
+        a local server here, so `https://api.omise.com` — a domain that does
+        not exist — sat in the adapter unnoticed from the original
+        integration until real keys went live. The hostname is now asserted
+        as a literal instead of merely being exercised.
+     2. A STUB MUST MATCH THE REAL COLUMN TYPES. The fake database handed out
+        integer booking ids while production uses UUIDs, which hid a route
+        that 404'd every real status poll. It now generates UUIDs. */
 const http = require('http');
+const fs = require('fs');
 const path = require('path');
 const ROOT = __dirname;
 
@@ -187,7 +202,7 @@ const fakeDb = {
   globalThis.fetch = (url, opts) =>
     realFetch(String(url)
       .replace('https://api.globalprimepay.com', 'http://127.0.0.1:4599')
-      .replace('https://api.omise.com', 'http://127.0.0.1:4601'), opts);
+      .replace('https://api.omise.co', 'http://127.0.0.1:4601'), opts);
 
   /* Start from a known-empty gateway configuration.
 
@@ -473,6 +488,21 @@ const fakeDb = {
 
   // ── 5. Webhook signature verification ──────────────────────────────────
   const omiseAdapter = require(path.join(ROOT, 'lib', 'payments', 'omise'));
+
+  /* The API hostname, asserted as a literal.
+
+     This suite rewrites Omise's host to a local mock, so the real hostname is
+     never exercised offline — which is precisely how `https://api.omise.com`
+     survived in this adapter from the original integration until the account
+     went live. That domain does not exist (NXDOMAIN), so every charge, source
+     and status check failed at DNS resolution before a request left the
+     server. Every test passed throughout, because the mock answered.
+     The correct host is api.omise.co; see https://docs.omise.co/api. */
+  const omiseSrc = fs.readFileSync(path.join(ROOT, 'lib', 'payments', 'omise.js'), 'utf8');
+  const apiBaseLiteral = (omiseSrc.match(/const API_BASE = '([^']+)'/) || [])[1];
+  check('Omise API host is api.omise.co (api.omise.com does not exist)',
+    apiBaseLiteral === 'https://api.omise.co', String(apiBaseLiteral));
+
   check('no signing secret -> checking is off (null, not false)',
     omiseAdapter.verifySignature('{}', {}) === null);
 
