@@ -105,16 +105,29 @@ jobs:
       # a key, exactly like the webhook it backs up.
       - name: Reconcile pending payments (rides the Neon wake above)
         if: github.event_name != 'schedule' || github.event.schedule == '23 3,9,15,21 * * *'
+        env:
+          KEY: ${{ secrets.PAYMENT_WEBHOOK_SECRET }}
         run: |
           url="https://jpark.onrender.com/api/v1/payments/reconcile"
-          if [ -n "${{ secrets.PAYMENT_WEBHOOK_SECRET }}" ]; then
-            url="$url?key=${{ secrets.PAYMENT_WEBHOOK_SECRET }}"
+          if [ -n "$KEY" ]; then
+            url="$url?key=$KEY"
           fi
           body=$(curl -s -m 60 -X POST "$url" || echo '')
           code=$(curl -s -m 60 -o /dev/null -w "%{http_code}" -X POST "$url" || echo 000)
           echo "HTTP $code $body"
+          # This step IS the backstop under the payment webhook, so it must
+          # never pass while doing nothing. It did exactly that on first run:
+          # PAYMENT_WEBHOOK_SECRET was not set as a repository secret, the
+          # call went out unauthenticated, the API answered 401, and the job
+          # still reported success — a safety net quietly not running is worse
+          # than no safety net, because it also stops anyone looking.
           if [ "$code" != "200" ]; then
-            echo "::warning::Payment reconciliation returned $code. Pending online payments may not be getting confirmed — check the Render logs."
+            if [ "$code" = "401" ]; then
+              echo "::error::Payment reconciliation was REJECTED (401). The repository secret PAYMENT_WEBHOOK_SECRET is missing or does not match the value set on the API in Render, so lost payments are NOT being recovered. Set it under Settings -> Secrets and variables -> Actions."
+            else
+              echo "::error::Payment reconciliation returned $code — lost payments are not being recovered. Check the Render logs."
+            fi
+            exit 1
           fi
           # A recovery is newsworthy: it means a webhook was lost and the
           # backstop caught a real payment the hotel would otherwise have
