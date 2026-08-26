@@ -450,6 +450,20 @@ h1, h2, h3 { font-weight: 500; line-height: 1.12; letter-spacing: 0.01em; }
 .room-body h3 { font-family: var(--serif); font-size: 1.7rem; color: var(--teal-deep); }
 .room-body p { color: var(--ink-soft); margin-top: 12px; font-size: 0.96rem; }
 
+/* "from ฿990 / night" — injected per card by assets/js/room-prices.js. Sits
+   directly under the room name so the price reads as part of the heading
+   block rather than as a footnote to the description. */
+.room-from-price {
+  display: block; margin-top: 6px;
+  font-size: 0.98rem; font-weight: 700; letter-spacing: 0.01em;
+  color: var(--teal);
+}
+.room-from-price[hidden] { display: none; }
+.rooms-price-note {
+  margin: 22px auto 0; max-width: 62ch; text-align: center;
+  color: var(--ink-soft); font-size: 0.82rem; line-height: 1.5;
+}
+
 /* ---------------- facilities ---------------- */
 .fac-grid { display: grid; grid-template-columns: repeat(2, 1fr); grid-auto-rows: 260px; gap: 22px; }
 .fac-card {

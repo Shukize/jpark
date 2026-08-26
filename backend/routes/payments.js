@@ -4,37 +4,49 @@
    inventory the same way any booking would), regardless of how the guest
    chooses to pay. Payment is a HYBRID choice per booking: pay in person at
    check-in (cash / card / PromptPay QR at the front desk, the default), or
-   pay online now via Omise/Opn Payments (card or PromptPay QR). Mounted at
-   /api/v1 in server.js:
-     GET  /api/v1/booking-availability    -> { [room]: remainingCount }
-     GET  /api/v1/payments/config         -> { publicKey, paymentEnabled }
-     POST /api/v1/reservations            -> create a confirmed overnight booking
-     POST /api/v1/reservations/group      -> create a confirmed multi-room ("group") booking
-     GET  /api/v1/payments/status/:id     -> poll a booking's payment_status
-     POST /api/v1/payments/webhook        -> Omise event receiver
-     POST /api/v1/payments/dayuse-booking -> pending 3-hour day-use request
+   pay online now by card or PromptPay QR through Omise / Opn Payments, the
+   hotel's approved acquirer (see lib/payments/). Mounted at /api/v1 in
+   server.js:
+     GET  /api/v1/booking-availability     -> { [room]: remainingCount }
+     GET  /api/v1/payments/config          -> { provider, publicKey, paymentEnabled, methods, testMode }
+     POST /api/v1/reservations             -> create a confirmed overnight booking
+     POST /api/v1/reservations/group       -> create a confirmed multi-room ("group") booking
+     GET  /api/v1/payments/status/:id      -> poll a booking's payment_status
+     POST /api/v1/payments/webhook         -> gateway notification receiver
+     GET  /api/v1/payments/webhook         -> a human opened that URL; explains itself
+     POST /api/v1/payments/reconcile       -> scheduled backstop for a lost webhook
+     GET  /api/v1/payments/diagnostics     -> go-live checklist, run against the live keys
+     POST /api/v1/payments/dayuse-booking  -> pending 3-hour day-use request
 
    Security notes:
    - The client only ever tells us WHICH room/variant/dates it wants; the
      price is always recomputed here from lib/rateOverrides.js (which merges
      lib/roomRates.js's static base rates with any live admin edits saved via
      the Site Editor's Rates tab). Never trust a client-supplied amount.
-   - Omise webhooks are not cryptographically signed, so on receipt we
-     re-fetch the charge from Omise's own API before trusting its status.
+   - A webhook body is never trusted on its own. Omise DOES sign deliveries
+     (verified here when OMISE_WEBHOOK_SIGNING_SECRET is set), but the status
+     itself always comes from re-asking the gateway's API — see
+     lib/payments' verify().
+   - Omise does NOT retry failed webhook deliveries, so the webhook is a fast
+     path and not a guarantee. backend/paymentReconciler.js is what actually
+     guarantees a paid charge is recognised; see its header.
 
    Overbooking is a known non-goal for this property (the owner has said it
    isn't a real concern — see lib/roomRates.js's ROOM_INVENTORY placeholders),
    so a booking is written as status='confirmed' the moment it's submitted
-   regardless of payment outcome. Only the payment_* columns differ: a card
-   charge resolves SYNCHRONOUSLY (approved/declined before the row is ever
-   written), while a PromptPay charge stays payment_status='pending' until
+   regardless of payment outcome. Only the payment_* columns differ: a charge
+   that settles SYNCHRONOUSLY is approved/declined before the row is ever
+   written, while an asynchronous one (a PromptPay QR awaiting a scan, or a
+   card awaiting a 3-D Secure challenge) stays payment_status='pending' until
    the webhook below confirms it — there is no "hold room pending payment"
    state to reconcile.
    ============================================================ */
 const express = require('express');
 const crypto = require('crypto');
 const db = require('../db');
-const omise = require('../lib/omise');
+const payments = require('../lib/payments');
+const reconciler = require('../paymentReconciler');
+const { requireAdmin } = require('../middleware/auth');
 const roomRates = require('../lib/roomRates');
 const rateOverrides = require('../lib/rateOverrides');
 const { countOverlappingPool } = require('../lib/availability');
@@ -256,9 +268,9 @@ async function validateAndPriceRoom(r, nights) {
 // of a multi-room group. Runs on whatever client/pool is passed (a shared
 // transaction client for the group path).
 // p.paymentProvider/paymentMethod/paymentStatus/paymentChargeId are optional
-// overrides for a booking paid online (Omise) — omitted (or undefined), they
-// default to exactly what every pay-at-checkin booking has always used, so
-// no existing call site needs to change.
+// overrides for a booking paid online — omitted (or undefined), they default
+// to exactly what every pay-at-checkin booking has always used, so no
+// existing call site needs to change.
 async function insertBookingRow(client, p) {
   const { rows } = await client.query(
     `INSERT INTO guest_bookings
@@ -284,20 +296,21 @@ async function insertBookingRow(client, p) {
   return rows[0];
 }
 
-// ── Online payment (Omise/Opn: card + PromptPay) ────────────────────────────
+// ── Online payment (card + PromptPay, via lib/payments) ─────────────────────
 // Hybrid, per-booking choice — a guest may still pick pay-at-checkin (the
-// default, and the only option while OMISE_SECRET_KEY is unset). Nothing
+// default, and the only option while no gateway's keys are set). Nothing
 // below ever trusts a client-supplied amount; amountTHB is always the sum
 // that computeTotal()/validateAndPriceRoom() produced server-side.
 const ONLINE_PAYMENT_METHODS = ['card', 'promptpay'];
 
 // Is prepayment currently required (busy/holiday policy) AND actually
 // enforceable? require_prepayment is an admin switch (site_content, toggled from
-// routes/bookingPolicy.js), but it only takes effect while Omise is configured —
-// forcing prepay when nobody can pay online would block every booking. Fails
-// safe to FALSE on any DB error: a booking must never be blocked by this lookup.
+// routes/bookingPolicy.js), but it only takes effect while a payment gateway is
+// configured — forcing prepay when nobody can pay online would block every
+// booking. Fails safe to FALSE on any DB error: a booking must never be blocked
+// by this lookup.
 async function isPrepayRequired() {
-  if (!omise.isConfigured()) return false;
+  if (!payments.isConfigured()) return false;
   try {
     const { rows } = await db.query('SELECT require_prepayment FROM site_content WHERE id = 1');
     return rows.length ? !!rows[0].require_prepayment : false;
@@ -319,7 +332,10 @@ function resolvePaymentChoice(b, prepayRequired) {
   if (!ONLINE_PAYMENT_METHODS.includes(raw)) {
     return { error: 'paymentMethod must be "pay_at_checkin", "card", or "promptpay"' };
   }
-  if (!omise.isConfigured()) {
+  // supportsMethod() is per-method, not just per-gateway: a GB Prime Pay
+  // account can have cards activated while its QR Cash product is still
+  // pending, and offering PromptPay in that window would fail at charge time.
+  if (!payments.supportsMethod(raw)) {
     return { error: 'Online payment is not currently available. Please choose pay at check-in.' };
   }
   if (raw === 'card' && !b.cardToken) {
@@ -328,58 +344,71 @@ function resolvePaymentChoice(b, prepayRequired) {
   return { method: raw, cardToken: b.cardToken };
 }
 
-// Charges ONE amount — a single room's total, or a whole group cart's grand
-// total — via Omise. Card resolves synchronously (paid: true/false known
-// immediately); PromptPay stays async (paid: false until the webhook below
-// confirms it) and returns a QR image for the frontend to display.
-async function chargeOnline({ method, amountTHB, cardToken, description, metadata }) {
-  const amountSatang = Math.round(amountTHB * 100);
-  try {
-    if (method === 'card') {
-      const charge = await omise.createCardCharge({ amountSatang, currency: 'thb', token: cardToken, description, metadata });
-      if (charge.status === 'successful') {
-        return { ok: true, paid: true, chargeId: charge.id };
-      }
-      return { ok: false, status: 402, error: 'Your card was declined. Please try a different card or pay at check-in.' };
-    }
-    if (method === 'promptpay') {
-      const source = await omise.createPromptPaySource({ amountSatang, currency: 'thb' });
-      const charge = await omise.createChargeFromSource({ amountSatang, currency: 'thb', sourceId: source.id, description, metadata });
-      const qrImage = (charge.source && charge.source.scannable_code
-        && charge.source.scannable_code.image && charge.source.scannable_code.image.download_uri) || null;
-      return { ok: true, paid: false, chargeId: charge.id, qrImage, expiresAt: charge.expires_at || null };
-    }
-    return { ok: false, status: 400, error: 'Unsupported payment method' };
-  } catch (e) {
-    console.error('[payments] omise charge error', (e && e.omise) || (e && e.message) || e);
-    return { ok: false, status: 502, error: (e && e.omise && e.omise.message) || 'Could not process online payment. Please try again or pay at check-in.' };
-  }
+// Builds the payment fragment of the API response from a charge outcome.
+// Deliberately narrow: the frontend gets what it needs to show a QR, follow
+// a 3-D Secure redirect, or print a "paid" banner — and nothing else about
+// the gateway transaction.
+function paymentResponse(method, onlinePayment) {
+  if (!onlinePayment) return null;
+  return {
+    method,
+    provider: onlinePayment.provider,
+    paid: Boolean(onlinePayment.paid),
+    qrImage: onlinePayment.qrImage || null,
+    redirect: onlinePayment.redirect || null,
+    expiresAt: onlinePayment.expiresAt || null,
+  };
 }
 
-/* GET /payments/config — tells the booking page whether to show the online
-   payment choice at all. One flag covers both card and PromptPay (the owner
-   hasn't asked to enable them independently); while OMISE_SECRET_KEY is
-   unset this is false and the guest sees only pay-at-checkin — i.e. this
-   route can ship long before the client's Omise account exists. */
+/* GET /payments/config — tells the booking page which online payment methods
+   to offer, and how to tokenize a card for whichever gateway is live. While
+   no gateway's keys are set this reports paymentEnabled: false and the guest
+   sees only pay-at-checkin — i.e. all of this ships long before the hotel's
+   merchant account is approved, and needs no redeploy when it is. */
 router.get('/payments/config', async (_req, res) => {
-  // prepayRequired already folds in omise.isConfigured() (see isPrepayRequired),
-  // so the booking page only ever hides pay-at-check-in when online payment can
-  // actually be taken — the switch is inert until the hotel's Omise keys are live.
-  res.json({
-    publicKey: omise.publicKey(),
-    paymentEnabled: omise.isConfigured(),
+  // prepayRequired already folds in payments.isConfigured() (see
+  // isPrepayRequired), so the booking page only ever hides pay-at-check-in when
+  // online payment can actually be taken — the switch is inert until real keys
+  // are live.
+  res.json(Object.assign(payments.publicConfig(), {
     prepayRequired: await isPrepayRequired(),
-  });
+  }));
 });
 
-/* GET /payments/status/:id — the frontend polls this while a PromptPay QR is
-   awaiting the guest's scan. Works the same for a solo or group-cart row —
-   each row (even within a group sharing one charge) has its own id. */
+/* GET /payments/status/:id — the frontend polls this while an online payment
+   is still resolving: a PromptPay QR awaiting the guest's scan, or a card
+   awaiting the 3-D Secure round trip. Works the same for a solo or group-cart
+   row — each row (even within a group sharing one charge) has its own id.
+
+   :id is EITHER the booking id (what the page has when it never left the
+   browser) or a reference string (what it has after coming back from a 3-D
+   Secure redirect, since the booking id was never in that URL).
+
+   All four candidate columns are matched in ONE query rather than picking a
+   lookup by the shape of the id, which is how this route was written and why
+   it was broken: it tested /^\d+$/ and treated a non-numeric id as a
+   reference, on the assumption that booking ids are integers. They are not —
+   guest_bookings.id is `TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text`,
+   so every real booking id fell through to the reference branch, matched
+   nothing, and 404'd. The effect was invisible server-side (the webhook still
+   settled the charge and the emails still went out) and highly visible to the
+   guest: after paying by PromptPay or clearing a 3-D Secure challenge, the
+   page polled a 404 until it gave up and never showed "paid".
+
+   Which column identifies a payment depends on the gateway, so all of them
+   are tried: Omise mints its charge id only once the charge exists — too late
+   to appear in a return URL built before it — so an Omise booking is found by
+   its own ref, or by group_ref since every room of a group shares one charge.
+   Every one of these values is unguessable, and the response is the same
+   three non-sensitive fields the poll always exposed. */
 router.get('/payments/status/:id', async (req, res) => {
+  const id = String(req.params.id || '');
   try {
     const { rows } = await db.query(
-      'SELECT id, ref, status, payment_status FROM guest_bookings WHERE id = $1',
-      [req.params.id]
+      `SELECT id, ref, status, payment_status FROM guest_bookings
+        WHERE id = $1 OR payment_charge_id = $1 OR ref = $1 OR group_ref = $1
+        ORDER BY group_index NULLS FIRST LIMIT 1`,
+      [id]
     );
     if (!rows.length) return res.status(404).json({ error: 'Booking not found' });
     const bk = rows[0];
@@ -388,6 +417,36 @@ router.get('/payments/status/:id', async (req, res) => {
     console.error('[payments] status', e);
     res.status(500).json({ error: 'Database error' });
   }
+});
+
+/* GET|POST /payments/return — the landing point for a guest coming back from
+   a 3-D Secure challenge, and nothing more than a redirector.
+
+   It exists because of a hosting mismatch: GB Prime Pay returns the payer by
+   POSTing to responseUrl, while the booking page is served from static
+   hosting that answers a POST with 405. This route absorbs that POST and
+   sends the guest on to the booking page as a plain GET.
+
+   It deliberately reads NO payment status from the request. Whatever the
+   gateway posts here arrives through the guest's own browser and is therefore
+   forgeable; the authoritative confirmation is the server-to-server webhook
+   below, which re-verifies against the gateway's API. All this route carries
+   forward is the charge reference, which the booking page uses only to poll
+   for a status this server already knows. */
+router.all('/payments/return', express.urlencoded({ extended: false, limit: '64kb' }), (req, res) => {
+  const ref = String((req.query && req.query.ref) || (req.body && req.body.referenceNo) || '');
+  const target = payments.bookingPageUrl(ref);
+  if (!target) {
+    // No PUBLIC_SITE_URL / FRONTEND_ORIGIN configured — better a plain,
+    // truthful page than a redirect to nowhere. The booking is already
+    // confirmed and the guest has their emailed confirmation regardless.
+    return res.status(200).type('html').send(
+      '<!doctype html><meta charset="utf-8"><title>Payment received</title>' +
+      '<p style="font-family:system-ui;padding:2rem">Thank you — your payment has been submitted and your reservation is confirmed. ' +
+      'You can close this window; a confirmation email is on its way.</p>'
+    );
+  }
+  res.redirect(302, target);
 });
 
 /* GET /booking-availability?checkIn=&checkOut= */
@@ -481,17 +540,25 @@ router.post('/reservations', async (req, res) => {
       return res.status(409).json({ error: 'Sorry, this room type is fully booked for those dates.' });
     }
 
+    // The guest-facing booking ref is minted BEFORE the charge so it can ride
+    // along to the gateway (GB Prime Pay shows it against the transaction in
+    // the merchant dashboard) — that line is what lets the front desk match a
+    // settlement entry back to a reservation.
+    const ref = genRef();
+
     // Charge BEFORE inserting anything: a declined card must leave no row
     // behind at all — there is nothing to roll back, since nothing was
-    // written. A PromptPay charge always "succeeds" at this step (it only
-    // creates a pending charge for the guest to scan) so it always proceeds
-    // to the insert below.
+    // written. An asynchronous charge (PromptPay QR, or a card heading into a
+    // 3-D Secure challenge) always "succeeds" at this step — it only creates
+    // a pending charge — so it always proceeds to the insert below.
     let onlinePayment = null;
     if (paymentChoice.method !== 'pay_at_checkin') {
-      const result = await chargeOnline({
+      const result = await payments.charge({
         method: paymentChoice.method,
         amountTHB: v.total,
         cardToken: paymentChoice.cardToken,
+        bookingRef: ref,
+        guest: { name: `${guestName} ${guestLastName || ''}`.trim(), email: guest.email, phone: guest.phone },
         description: `J Park Hotel — ${v.room} (${v.variantLabel}) ${checkIn} to ${checkOut}`,
         metadata: { room: v.room, variantLabel: v.variantLabel, checkIn, checkOut },
       });
@@ -503,26 +570,32 @@ router.post('/reservations', async (req, res) => {
     }
 
     const saved = await insertBookingRow(client, {
-      ref: genRef(), guestName, guestLastName, guestEmail: guest.email, guestPhone: guest.phone,
+      ref, guestName, guestLastName, guestEmail: guest.email, guestPhone: guest.phone,
       room: v.room, checkIn, checkOut, nights, adults: v.adults, children: v.children,
       total: v.total, lang: b.lang, smoking: v.smoking, breakfast: v.breakfast,
       childAges: v.childAges, extraBed: v.extraBed, specialRequests,
       nonRefundable: prepayRequired,
-      paymentProvider: onlinePayment ? 'omise' : undefined,
+      paymentProvider: onlinePayment ? onlinePayment.provider : undefined,
       paymentMethod: onlinePayment ? paymentChoice.method : undefined,
       paymentStatus: onlinePayment ? (onlinePayment.paid ? 'paid' : 'pending') : undefined,
-      paymentChargeId: onlinePayment ? onlinePayment.chargeId : undefined,
+      paymentChargeId: onlinePayment ? onlinePayment.chargeRef : undefined,
     });
     await client.query('COMMIT');
 
     fireBookingEmails({ ...saved, inserted: true });
 
+    // A charge that did not settle inline (a PromptPay QR awaiting a scan, a
+    // card heading into 3-D Secure) is now waiting on a webhook Omise does
+    // not promise to retry. Start watching it independently, so the payment
+    // is recognised even if that delivery never lands.
+    if (onlinePayment && !onlinePayment.paid && onlinePayment.chargeRef) {
+      reconciler.watch(onlinePayment.chargeRef);
+    }
+
     res.status(201).json({
       status: 'confirmed',
       booking: row2js(saved),
-      payment: onlinePayment
-        ? { method: paymentChoice.method, paid: onlinePayment.paid, qrImage: onlinePayment.qrImage || null, expiresAt: onlinePayment.expiresAt || null }
-        : null,
+      payment: paymentResponse(paymentChoice.method, onlinePayment),
     });
   } catch (e) {
     try { await client.query('ROLLBACK'); } catch (_) {}
@@ -631,10 +704,12 @@ router.post('/reservations/group', async (req, res) => {
     // lets the webhook below flip all of them together with a single UPDATE.
     let onlinePayment = null;
     if (paymentChoice.method !== 'pay_at_checkin') {
-      const result = await chargeOnline({
+      const result = await payments.charge({
         method: paymentChoice.method,
         amountTHB: grandTotal,
         cardToken: paymentChoice.cardToken,
+        bookingRef: groupRef,
+        guest: { name: `${guestName} ${guestLastName || ''}`.trim(), email: guest.email, phone: guest.phone },
         description: `J Park Hotel — group booking, ${groupSize} rooms, ${checkIn} to ${checkOut}`,
         metadata: { groupRef, rooms: priced.map((p) => p.room), checkIn, checkOut },
       });
@@ -656,10 +731,10 @@ router.post('/reservations/group', async (req, res) => {
         childAges: v.childAges, extraBed: v.extraBed, specialRequests,
         groupRef, groupIndex: i + 1, groupSize,
         nonRefundable: prepayRequired,
-        paymentProvider: onlinePayment ? 'omise' : undefined,
+        paymentProvider: onlinePayment ? onlinePayment.provider : undefined,
         paymentMethod: onlinePayment ? paymentChoice.method : undefined,
         paymentStatus: onlinePayment ? (onlinePayment.paid ? 'paid' : 'pending') : undefined,
-        paymentChargeId: onlinePayment ? onlinePayment.chargeId : undefined,
+        paymentChargeId: onlinePayment ? onlinePayment.chargeRef : undefined,
       });
       savedRows.push(saved);
     }
@@ -669,6 +744,12 @@ router.post('/reservations/group', async (req, res) => {
     // whole group (fire-and-forget; queries the just-inserted rows by group_ref).
     fireGroupBookingEmails(groupRef);
 
+    // Same safety net as the single-room path. Every room of the group shares
+    // one payment_charge_id, so one watch covers the whole reservation.
+    if (onlinePayment && !onlinePayment.paid && onlinePayment.chargeRef) {
+      reconciler.watch(onlinePayment.chargeRef);
+    }
+
     res.status(201).json({
       status: 'confirmed',
       groupRef,
@@ -676,9 +757,7 @@ router.post('/reservations/group', async (req, res) => {
       currency: 'THB',
       rooms: savedRows.map((r) => ({ ref: r.ref, room: r.room, total: Number(r.total || 0) })),
       bookings: savedRows.map(row2js),
-      payment: onlinePayment
-        ? { method: paymentChoice.method, paid: onlinePayment.paid, qrImage: onlinePayment.qrImage || null, expiresAt: onlinePayment.expiresAt || null }
-        : null,
+      payment: paymentResponse(paymentChoice.method, onlinePayment),
     });
   } catch (e) {
     try { await client.query('ROLLBACK'); } catch (_) {}
@@ -689,13 +768,15 @@ router.post('/reservations/group', async (req, res) => {
   }
 });
 
-// Optional shared-secret gate for the webhook, ?key=<OMISE_WEBHOOK_SECRET>.
+// Optional shared-secret gate for the webhook, ?key=<PAYMENT_WEBHOOK_SECRET>.
 // This is a SECONDARY guard only — every webhook delivery is re-verified
-// against Omise's own API below regardless of this check, since Omise
-// webhook bodies aren't cryptographically signed and must never be trusted
-// on their own. Same shape as guestBookings.js's ingestKeyOk().
-function omiseWebhookKeyOk(provided) {
-  const expected = process.env.OMISE_WEBHOOK_SECRET || '';
+// against the gateway's own API below regardless of this check, since no
+// supported gateway cryptographically signs its notification bodies and none
+// may ever be trusted on their own. Same shape as guestBookings.js's
+// ingestKeyOk(). OMISE_WEBHOOK_SECRET is still honoured so an existing
+// deployment's env doesn't have to be renamed to keep working.
+function webhookKeyOk(provided) {
+  const expected = process.env.PAYMENT_WEBHOOK_SECRET || process.env.OMISE_WEBHOOK_SECRET || '';
   if (!expected) return true;
   if (!provided) return false;
   const a = Buffer.from(String(provided));
@@ -704,51 +785,292 @@ function omiseWebhookKeyOk(provided) {
   return crypto.timingSafeEqual(a, b);
 }
 
-/* POST /payments/webhook — Omise event receiver. Confirms a PromptPay charge
-   once the guest has scanned and paid (card charges already resolved
-   synchronously at booking time, so this is mostly a no-op for them — see
-   the payment_status != 'paid' guard below). For a group booking, every room
-   shares the SAME payment_charge_id (one charge covers the whole cart), so
-   the UPDATE naturally flips every row in the group in one statement. */
-router.post('/payments/webhook', async (req, res) => {
-  if (!omiseWebhookKeyOk(req.query.key)) {
+/* POST /payments/webhook — payment-gateway notification receiver (GB Prime
+   Pay's backgroundUrl, Omise's webhook). Confirms any charge that could not
+   settle synchronously: a PromptPay QR once the guest has scanned and paid,
+   or a card once the guest has cleared the 3-D Secure challenge. A charge
+   that already settled inline is a no-op here — see the payment_status !=
+   'paid' guard below. For a group booking, every room shares the SAME
+   payment_charge_id (one charge covers the whole cart), so the UPDATE
+   naturally flips every row in the group in one statement.
+
+   Mounted with a urlencoded body parser in addition to the router-wide JSON
+   one because GB Prime Pay posts form-encoded notifications for some payment
+   products and JSON for others; express.json() ignores the former, which
+   would otherwise leave req.body empty and silently drop every confirmation. */
+/* GET /payments/webhook — a human opened the webhook address in a browser.
+
+   The webhook itself is POST-only, so without this the URL answers Express's
+   bare "Cannot GET /api/v1/payments/webhook", which reads as a broken
+   endpoint at exactly the moment someone is checking whether they set it up
+   correctly. They almost certainly want the diagnostics page, so say so.
+
+   Deliberately says nothing about whether the ?key= was right: the webhook's
+   shared secret must not have a public oracle to guess against. Key checking
+   belongs on the diagnostics route, which is itself gated. */
+router.get('/payments/webhook', (req, res) => {
+  const site = payments.siteBaseUrl();
+  const wantsHtml = String(req.get('accept') || '').includes('text/html');
+  const message = 'This is the payment webhook endpoint. It is working, and it is meant to be ' +
+    'called by the payment gateway, not opened in a browser — it only accepts POST requests.';
+  const next = 'To check your payment setup, open /api/v1/payments/diagnostics?key=YOUR_PAYMENT_WEBHOOK_SECRET';
+
+  if (!wantsHtml) {
+    return res.json({ ok: true, endpoint: 'payments/webhook', accepts: 'POST', message, next });
+  }
+  res.type('html').send(
+    '<!doctype html><meta charset="utf-8"><title>Payment webhook · J Park Hotel</title>' +
+    '<div style="font-family:system-ui,sans-serif;max-width:640px;margin:12vh auto;padding:0 24px;line-height:1.6;color:#1a1a1a">' +
+    '<p style="color:#0c5b58;font-weight:700;letter-spacing:.02em;margin:0 0 6px">J PARK HOTEL · PAYMENTS</p>' +
+    '<h1 style="margin:0 0 16px;font-size:1.5rem">Webhook endpoint is live</h1>' +
+    '<p>' + esc(message) + '</p>' +
+    '<p style="background:#f2f7f6;border:1px solid #cfe3e0;border-radius:10px;padding:14px 16px">' +
+    'Nothing is wrong. Seeing this page means the address is correct — register this exact URL in the ' +
+    'Omise dashboard under <strong>Webhooks</strong>.</p>' +
+    '<p><strong>To actually check your setup</strong>, open:<br>' +
+    '<code style="background:#f4f4f4;padding:3px 6px;border-radius:5px">/api/v1/payments/diagnostics?key=YOUR_PAYMENT_WEBHOOK_SECRET</code></p>' +
+    (site ? '<p style="margin-top:28px"><a href="' + esc(site) + '" style="color:#0c5b58">← Back to jparkhotel.com</a></p>' : '') +
+    '</div>'
+  );
+});
+
+router.post('/payments/webhook', express.urlencoded({ extended: false, limit: '64kb' }), async (req, res) => {
+  if (!webhookKeyOk(req.query.key)) {
     return res.status(401).json({ error: 'Invalid webhook key' });
   }
-  const chargeId = req.body && req.body.data && req.body.data.id;
-  if (!chargeId) return res.status(200).json({ ok: true });
+
+  // Cryptographic check, when Omise is signing (OMISE_WEBHOOK_SIGNING_SECRET
+  // set). `null` means this provider has no signature scheme or no secret is
+  // configured — carry on, because the API re-verification below is the real
+  // authority either way. `false` means a signature was presented and did not
+  // check out, which is a forgery attempt, not a delivery.
+  const signature = payments.verifySignature(req.rawBody, req.headers);
+  if (signature === false) {
+    console.error('[payments] webhook rejected — bad signature');
+    return res.status(401).json({ error: 'Invalid signature' });
+  }
+
+  const parsed = payments.parseWebhook(req.body);
+  if (!parsed || !parsed.chargeRef) return res.status(200).json({ ok: true });
+  const chargeRef = parsed.chargeRef;
 
   try {
-    // Never trust the webhook body's own claimed status — re-fetch the
-    // charge from Omise's API and act only on that.
-    const charge = await omise.getCharge(chargeId);
-    if (!charge || charge.status !== 'successful') {
-      return res.status(200).json({ ok: true }); // not (yet) a successful charge
-    }
-
-    const { rows } = await db.query(
-      `UPDATE guest_bookings SET payment_status = 'paid'
-       WHERE payment_charge_id = $1 AND payment_status != 'paid'
-       RETURNING *`,
-      [chargeId]
-    );
-    if (rows.length) {
-      if (rows[0].group_ref) {
-        const sorted = rows.slice().sort((a, b) => (a.group_index || 0) - (b.group_index || 0));
-        sendGroupPaymentConfirmedEmail(sorted).catch((err) => console.error('[payments] webhook group email error', err));
-      } else {
-        sendPaymentConfirmedEmail(rows[0]).catch((err) => console.error('[payments] webhook email error', err));
-      }
-    }
-    // Otherwise: 0 rows matched, either a duplicate delivery of an event we
-    // already processed (payment_status already 'paid') or a charge id we
-    // don't recognise — either way, nothing left to do.
+    // Never trust the notification body's own claimed status — re-ask the
+    // gateway and act only on that answer. settle() re-verifies, performs the
+    // atomic flip and sends the confirmation email; it is the same function
+    // the reconciler calls, so a webhook and a reconciliation check can race
+    // safely and only one of them will ever record the payment.
+    await reconciler.settle(chargeRef);
     res.status(200).json({ ok: true });
   } catch (e) {
     console.error('[payments] webhook', e);
-    // A non-2xx here makes Omise retry the delivery later — the right call
-    // for a transient failure on OUR side (e.g. a DB blip), since the charge
-    // itself already succeeded and must not be silently dropped.
+    // Omise does NOT retry failed deliveries, so a non-2xx here does not buy
+    // a second chance the way it would with most gateways — this response is
+    // for the logs. What actually recovers the payment is
+    // backend/paymentReconciler.js, which re-checks this charge on its own
+    // schedule until it settles.
     res.status(500).json({ error: 'Webhook processing error' });
+  }
+});
+
+/* POST /payments/reconcile — the scheduled backstop for a webhook that never
+   arrived. Re-checks every recent booking still waiting on an online payment
+   against the gateway, settles any that were really paid, and closes out any
+   whose charge expired. See backend/paymentReconciler.js for why this is
+   necessary rather than belt-and-braces: Omise does not retry failed webhook
+   deliveries, so without this a single missed delivery means the guest paid
+   and the hotel never found out.
+
+   Gated by the same shared secret as the webhook. Called by
+   .github/workflows/health-check.yml on its 4×/day schedule — the one that
+   already wakes the database, so this adds no extra Neon compute — and safe
+   to run by hand at any time (it is idempotent). */
+router.post('/payments/reconcile', async (req, res) => {
+  if (!webhookKeyOk(req.query.key)) {
+    return res.status(401).json({ error: 'Invalid webhook key' });
+  }
+  if (!payments.isConfigured()) {
+    return res.json({ ok: true, skipped: 'no payment gateway configured' });
+  }
+  try {
+    const result = await reconciler.sweep({ reason: 'scheduled' });
+    res.json(Object.assign({ ok: true }, result));
+  } catch (e) {
+    console.error('[payments] reconcile', e);
+    res.status(500).json({ error: 'Reconcile failed' });
+  }
+});
+
+/* GET /payments/diagnostics — admin-only go-live check, run against the
+   DEPLOYED service where the keys actually live.
+
+   This exists because every way pasting the keys can go wrong is silent. Test
+   keys look exactly like live keys apart from one prefix segment. An
+   unregistered webhook fails invisibly until a real guest pays. A missing
+   PUBLIC_SITE_URL only shows up when someone is stranded after 3-D Secure.
+   None of that surfaces anywhere until money is involved, so it is asked
+   here, out loud, in one place.
+
+   Two ways in, because the person who needs this most is the one pasting keys
+   into Render, who has no admin session in hand at that moment:
+     • a signed-in admin (the staff console), or
+     • ?key=<PAYMENT_WEBHOOK_SECRET>, so it can be opened in a browser.
+   The key route is available ONLY when that secret is actually set — an unset
+   secret makes the webhook accept unauthenticated posts by design, and that
+   must never extend to an endpoint that reports merchant-account details.
+
+   Talks to the gateway for real (GET /account), so it is gated and not
+   something to hammer. It returns no secret — only the account facts needed
+   to answer "is this actually going to work". */
+/* Renders the diagnostics result for whoever asked.
+
+   A browser gets a readable checklist, because the person running this is the
+   one pasting keys into Render — often not a developer, and usually mid-way
+   through a go-live with a hotel to run. A raw JSON dump is a poor answer to
+   "did it work?". Anything else (curl, a script) still gets the JSON. */
+function sendDiagnostics(req, res, out) {
+  out.ok = out.checks.every((c) => c.ok);
+  if (!String(req.get('accept') || '').includes('text/html')) return res.json(out);
+
+  const row = (c) => {
+    const mark = c.ok ? '✓' : '✕';
+    const colour = c.ok ? '#1a7f37' : '#b3261e';
+    return '<li style="display:flex;gap:12px;padding:11px 0;border-bottom:1px solid #ececec">' +
+      '<span style="color:' + colour + ';font-weight:700;flex:0 0 16px">' + mark + '</span>' +
+      '<span><strong style="font-weight:600">' + esc(c.name) + '</strong>' +
+      (c.detail ? '<br><span style="color:#666;font-size:.9em">' + esc(c.detail) + '</span>' : '') +
+      '</span></li>';
+  };
+
+  const live = out.mode === 'live';
+  const banner = !out.configured
+    ? { bg: '#fdecea', bd: '#f0b7b1', fg: '#8a2a1a', text: 'Online payment is OFF — no gateway keys are set. Guests can only pay at check-in.' }
+    : live
+      ? { bg: '#e6f4ea', bd: '#a6d8b1', fg: '#1a7f37', text: 'LIVE MODE — real payments are being taken.' }
+      : { bg: '#fff4e5', bd: '#f0c07a', fg: '#8a5a00', text: 'TEST MODE — no real money will move. Swap in the live keys when ready.' };
+
+  res.type('html').send(
+    '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
+    '<title>Payment status · J Park Hotel</title>' +
+    '<div style="font-family:system-ui,sans-serif;max-width:720px;margin:8vh auto;padding:0 24px;line-height:1.55;color:#1a1a1a">' +
+    '<p style="color:#0c5b58;font-weight:700;letter-spacing:.02em;margin:0 0 6px">J PARK HOTEL · PAYMENTS</p>' +
+    '<h1 style="margin:0 0 4px;font-size:1.6rem">' + (out.ok ? 'Everything checks out' : 'Needs attention') + '</h1>' +
+    '<p style="color:#666;margin:0 0 20px">' +
+      (out.provider ? esc(out.provider) : 'no gateway') +
+      (out.methods && out.methods.length ? ' · ' + esc(out.methods.join(', ')) : '') + '</p>' +
+    '<p style="background:' + banner.bg + ';border:1px solid ' + banner.bd + ';border-radius:10px;' +
+      'padding:12px 16px;color:' + banner.fg + ';font-weight:600">' + esc(banner.text) + '</p>' +
+    '<ul style="list-style:none;padding:0;margin:24px 0 0">' + out.checks.map(row).join('') + '</ul>' +
+    (out.ok
+      ? '<p style="margin-top:24px;color:#666">Nothing to do. A guest paying online will be charged, ' +
+        'confirmed by email, and shown as paid on the booking board.</p>'
+      : '<p style="margin-top:24px;color:#666">Fix anything marked ✕ above, then reload this page. ' +
+        'See <code>docs/PAYMENTS_SETUP.md</code> for what each check means.</p>') +
+    '</div>'
+  );
+}
+
+function diagnosticsAuth(req, res, next) {
+  const secret = process.env.PAYMENT_WEBHOOK_SECRET || process.env.OMISE_WEBHOOK_SECRET || '';
+  if (secret && req.query.key && webhookKeyOk(req.query.key)) return next();
+  return requireAdmin(req, res, next);
+}
+
+router.get('/payments/diagnostics', diagnosticsAuth, async (req, res) => {
+  const provider = payments.active();
+  const expectedWebhook = payments.webhookUrl();
+  // payments.webhookUrl() embeds PAYMENT_WEBHOOK_SECRET as ?key=… — that is
+  // correct for the URL registered with Omise, and wrong to hand back in a
+  // response body that gets pasted into chats, screenshots and logs. Report
+  // the address, redact the credential: nobody needs to copy it by hand,
+  // because POST /payments/diagnostics/register-webhook registers the real
+  // URL directly. The registered-vs-expected comparison below only ever looks
+  // at the part before the query string, so redaction costs the check nothing.
+  const redact = (url) => String(url || '').replace(/([?&]key=)[^&]+/, '$1***');
+  const out = {
+    configured: payments.isConfigured(),
+    provider: provider ? provider.id : null,
+    mode: payments.mode(),
+    methods: provider && provider.isConfigured() ? provider.methods() : [],
+    expectedWebhookUrl: redact(expectedWebhook) || null,
+    siteBaseUrl: payments.siteBaseUrl() || null,
+    apiBaseUrl: payments.apiBaseUrl() || null,
+    checks: [],
+  };
+  const add = (name, ok, detail) => out.checks.push({ name, ok, detail: detail || '' });
+
+  add('Gateway keys are set', out.configured,
+    out.configured ? `${out.provider} (${out.mode} mode)` : 'No gateway keys in the environment — online payment is switched off');
+  add('Public site URL is set (guests return here after 3-D Secure)', Boolean(out.siteBaseUrl),
+    out.siteBaseUrl || 'Set PUBLIC_SITE_URL, or a non-wildcard FRONTEND_ORIGIN');
+  add('API base URL is known (used to build the webhook address)', Boolean(out.apiBaseUrl),
+    out.apiBaseUrl || 'Set PUBLIC_API_URL (Render injects RENDER_EXTERNAL_URL automatically)');
+
+  if (!out.configured || !provider || !provider.account) {
+    return sendDiagnostics(req, res, out);
+  }
+
+  try {
+    const acct = await provider.account();
+    out.account = {
+      email: acct.email || null,
+      country: acct.country || null,
+      currency: acct.currency || null,
+      livemode: Boolean(acct.livemode),
+      webhookUri: acct.webhook_uri || null,
+      apiVersion: acct.api_version || null,
+    };
+    add('Gateway credentials are accepted', true, `Account ${acct.email || acct.id || ''}`.trim());
+    add('Account currency is THB', String(acct.currency || '').toLowerCase() === 'thb', acct.currency || 'unknown');
+    add('Account country is Thailand', String(acct.country || '').toUpperCase() === 'TH', acct.country || 'unknown');
+    // The key's mode and the account's own livemode must agree; if they ever
+    // disagree the keys are not the ones this account thinks they are.
+    add('Key mode matches the account', Boolean(acct.livemode) === (out.mode === 'live'),
+      `keys look ${out.mode}, account reports livemode=${Boolean(acct.livemode)}`);
+
+    // The check this route is really for. A webhook that is unregistered, or
+    // registered against the wrong host, is the single most likely reason a
+    // real payment silently never reaches the booking board.
+    const registered = String(acct.webhook_uri || '');
+    const expectedBase = String(expectedWebhook || '').split('?')[0];
+    add('Webhook is registered with the gateway', Boolean(registered),
+      redact(registered) || 'Not set. Register it in the Omise dashboard, or POST /payments/diagnostics/register-webhook');
+    if (registered && expectedBase) {
+      add('Registered webhook points at this API', registered.split('?')[0] === expectedBase,
+        `registered: ${redact(registered)}  ·  expected: ${redact(expectedWebhook)}`);
+    }
+    add('Webhook signature checking is on', Boolean(process.env.OMISE_WEBHOOK_SIGNING_SECRET),
+      process.env.OMISE_WEBHOOK_SIGNING_SECRET
+        ? 'OMISE_WEBHOOK_SIGNING_SECRET set'
+        : 'Optional — deliveries are re-verified against the gateway API regardless');
+  } catch (e) {
+    add('Gateway credentials are accepted', false, (e && e.message) || 'Could not reach the gateway');
+  }
+  sendDiagnostics(req, res, out);
+});
+
+/* POST /payments/diagnostics/register-webhook — point the merchant account's
+   webhook at this API.
+
+   Separated from the read-only diagnostics above and never triggered
+   automatically, because it WRITES to the live merchant account and
+   overwrites whatever webhook is currently registered there. An admin has to
+   ask for it deliberately. */
+router.post('/payments/diagnostics/register-webhook', diagnosticsAuth, async (_req, res) => {
+  const provider = payments.active();
+  if (!provider || !provider.isConfigured() || !provider.setWebhookUri) {
+    return res.status(400).json({ error: 'No gateway configured, or it does not support webhook registration by API.' });
+  }
+  const url = payments.webhookUrl();
+  if (!url) {
+    return res.status(400).json({ error: 'Cannot build the webhook URL — PUBLIC_API_URL / RENDER_EXTERNAL_URL is not set.' });
+  }
+  try {
+    const acct = await provider.setWebhookUri(url);
+    res.json({ ok: true, webhookUri: acct.webhook_uri || url });
+  } catch (e) {
+    console.error('[payments] register webhook', e);
+    res.status(502).json({ error: (e && e.message) || 'Could not register the webhook.' });
   }
 });
 

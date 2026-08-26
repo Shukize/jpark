@@ -29,6 +29,8 @@ const cors = require('cors');
 
 const migrate = require('./migrate');
 const db                    = require('./db');
+const payments              = require('./lib/payments');
+const paymentReconciler     = require('./paymentReconciler');
 const sessionCache          = require('./lib/sessionCache');
 const authRouter            = require('./routes/auth');
 const sessionsRouter        = require('./routes/sessions');
@@ -75,8 +77,23 @@ app.use(cors({
 // image-upload PUT actually needs megabytes.
 const bodyLarge    = express.json({ limit: '4mb' });   // image data-URLs (content editor)
 const bodyOta      = express.json({ limit: '1mb' });   // forwarded OTA HTML emails can be sizable
-const bodyPayments = express.json({ limit: '256kb' }); // structured JSON only, no images
 const bodyDefault  = express.json({ limit: '512kb' }); // comfortably covers the 350KB avatar upload
+
+// Payments are structured JSON only, no images — but the webhook additionally
+// needs the EXACT bytes it was sent. Omise signs `<timestamp>.<raw body>`, and
+// a body that has been parsed and re-serialised no longer hashes to the same
+// value (key order, whitespace and number formatting are all free to change),
+// so the signature could never be checked from req.body.
+//
+// The raw copy is kept for the webhook path alone. Retaining a buffer on every
+// booking POST would be a pointless per-request cost, and req.url here is
+// already relative to this router's mount point.
+const bodyPayments = express.json({
+  limit: '256kb',
+  verify: (req, _res, buf) => {
+    if (req.url && req.url.indexOf('/payments/webhook') !== -1) req.rawBody = buf;
+  },
+});
 
 // Which build is actually serving. Render exposes the deployed commit as
 // RENDER_GIT_COMMIT at runtime; without it there is no way to tell from
@@ -135,7 +152,41 @@ app.use('/api/rates',            bodyDefault,  ratesRouter);
 app.use('/api/availability',     bodyDefault,  availabilityRouter);
 app.use('/api/v1/hotel-ads',                   hotelAdsRouter);   // GET-only feed, no body parser needed
 
+/* Say out loud, once, which payment gateway is live and in which mode.
+
+   Test keys and live keys are indistinguishable everywhere else — same API
+   host, same code path, same "paid" banner for the guest — so a deployment
+   can sit on test keys for weeks while appearing to take money. One
+   unmissable startup line is the cheapest possible guard against that, in
+   both directions: it also catches live keys left in a staging environment. */
+function announcePayments() {
+  const provider = payments.active();
+  if (!provider || !provider.isConfigured()) {
+    console.log('[payments] No gateway configured — the booking page offers pay-at-check-in only.');
+    return;
+  }
+  const mode = payments.mode();
+  if (mode === 'live') {
+    console.log(`[payments] ${provider.label} is LIVE — real payments will be taken. Webhook: ${payments.webhookUrl() || '(no API URL set)'}`);
+  } else {
+    console.warn(`[payments] ${provider.label} is in TEST MODE — no real money will move. ` +
+      'Swap in the live keys when you are ready to take real payments.');
+  }
+  if (!payments.siteBaseUrl()) {
+    console.warn('[payments] PUBLIC_SITE_URL is not set — a guest returning from a 3-D Secure ' +
+      'challenge cannot be sent back to the booking page.');
+  }
+}
+
 migrate()
   .then(() => sessionCache.hydrate())
-  .then(() => app.listen(PORT, () => console.log(`J Park API listening on port ${PORT}`)))
+  .then(() => app.listen(PORT, () => {
+    console.log(`J Park API listening on port ${PORT}`);
+    announcePayments();
+    // Recover any payment left in flight by a restart. See
+    // backend/paymentReconciler.js — Omise does not retry failed webhook
+    // deliveries, so a deploy timed badly against a guest's payment would
+    // otherwise lose the confirmation permanently.
+    paymentReconciler.start();
+  }))
   .catch((err) => { console.error('[migrate] failed:', err); process.exit(1); });

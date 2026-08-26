@@ -828,7 +828,7 @@
   /* ---- require prepayment for busy/holiday periods (admin) ----
      Same shape as maintenance mode, against /api/booking-policy. Also surfaces
      whether it can actually take effect: prepay only bites while online payment
-     (Omise) is live — until then the switch saves but has no guest-facing effect,
+     (the payment gateway) is live — until then the switch saves but has no guest-facing effect,
      so we show a note rather than pretend it's working. */
   let prepayToggleWired = false;
   async function renderPrepay() {
@@ -3681,15 +3681,23 @@
     const v = t(k);
     return v === k ? (s.charAt(0).toUpperCase() + s.slice(1)) : v;
   }
-  // Payment method + status for bookings taken through the site's own
-  // Omise checkout — blank for OTA/manual bookings (paymentStatus "n/a"),
-  // so staff can tell at a glance whether a "direct" booking was actually paid.
-  // A genuine online Omise charge and a front-desk-recorded in-person card
-  // payment both carry paymentMethod "card" — the "(online)" qualifier
-  // (gated on paymentProvider === "omise") is what disambiguates them, since
-  // otherwise they'd render as an identical "Card — Paid" label. PromptPay
-  // doesn't need this: "promptpay" (online) and "promptpay_instore"
-  // (front-desk) are already distinct values.
+  // Payment method + status for bookings taken through the site's own online
+  // checkout — blank for OTA/manual bookings (paymentStatus "n/a"), so staff
+  // can tell at a glance whether a "direct" booking was actually paid.
+  // A genuine online gateway charge and a front-desk-recorded in-person card
+  // payment both carry paymentMethod "card" — the "(online)" qualifier is
+  // what disambiguates them, since otherwise they'd render as an identical
+  // "Card — Paid" label. PromptPay doesn't need this: "promptpay" (online)
+  // and "promptpay_instore" (front-desk) are already distinct values.
+  //
+  // "Online" is any provider that isn't the front desk, rather than a named
+  // gateway. This previously tested paymentProvider === "omise", which
+  // silently mislabelled every booking once the hotel changed acquirer — see
+  // isOnlineProvider() in backend/routes/guestBookings.js for the same rule
+  // server-side.
+  function bkIsOnlineProvider(p) {
+    return !!p && p !== "in_person";
+  }
   function bkPaymentLabel(b) {
     if (!b.paymentStatus || b.paymentStatus === "n/a") return "";
     const methodKey = b.paymentMethod === "cash" ? "msg.bk.payment.cash"
@@ -3699,7 +3707,7 @@
       : b.paymentMethod === "promptpay" ? "msg.bk.payment.promptpay"
       : "";
     let method = methodKey ? t(methodKey) : (b.paymentProvider || "");
-    if (b.paymentProvider === "omise" && b.paymentMethod === "card") {
+    if (bkIsOnlineProvider(b.paymentProvider) && b.paymentMethod === "card") {
       method = method + " " + t("msg.bk.payment.onlineSuffix");
     }
     const statusKey = "msg.bk.payment.status." + b.paymentStatus;
@@ -3866,7 +3874,7 @@
     if (!b.roomNumber && dueWithin(BK_ROOM_LEAD_DAYS)) reasons.push("room");
 
     const paid = b.paymentStatus === "paid";
-    const onlineIncomplete = b.paymentProvider === "omise" && b.paymentStatus === "pending";
+    const onlineIncomplete = bkIsOnlineProvider(b.paymentProvider) && b.paymentStatus === "pending";
     if (onlineIncomplete) reasons.push("payment");
     else if (!paid && dueWithin(0)) reasons.push("payment");
 

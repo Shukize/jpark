@@ -346,4 +346,18 @@
       "onsen.womenTitle": "日式溫泉 · 女湯"
     }
   });
+
+  /* Footer link to policies.html. Registered here rather than in i18n-app.js
+     because this is the only translation bundle loaded by BOTH index.html and
+     booking.html — and the checkout page is precisely where a guest, and the
+     card acquirer's reviewer, must be able to find the cancellation, refund
+     and privacy terms. */
+  I.registerI18n({
+    en: { "footer.policies": "Policies" },
+    th: { "footer.policies": "นโยบาย" },
+    ja: { "footer.policies": "規約・方針" },
+    "zh-Hans": { "footer.policies": "政策" },
+    "zh-Hant": { "footer.policies": "政策" },
+  });
 })();
+

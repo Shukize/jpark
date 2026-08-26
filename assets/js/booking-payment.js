@@ -59,6 +59,10 @@
       'bk.pay.qrTitle': 'Scan to pay with PromptPay',
       'bk.pay.qrInstructions': 'Open your banking app and scan this QR code to complete payment.',
       'bk.pay.qrWaiting': 'Waiting for payment confirmation…',
+      'bk.pay.redirectTitle': 'Confirming with your bank',
+      'bk.pay.redirectNote': 'You are being taken to your bank’s secure page to approve this payment. Your reservation is already confirmed — please note the confirmation number above.',
+      'bk.pay.confirmingTitle': 'Checking your payment…',
+      'bk.pay.confirmingNote': 'We are confirming this payment with your bank. Your reservation is confirmed either way — if the payment did not go through, you can simply pay at check-in.',
       'bk.pay.qrCloseNote': "Your reservation is confirmed either way. You can close this and finish paying later via the QR, or pay at check-in instead — we'll email you as soon as your PromptPay payment is confirmed.",
       'bk.pay.paidOnlineNote': 'You paid {amount} online. Thank you!',
       'bk.pay.onlinePayNote': "You're paying online now. We'll email your confirmation as soon as payment is processed.",
@@ -78,6 +82,8 @@
       'bk.pay.reserveTitle': 'Reserve now — pay at check-in',
       'bk.pay.checkinNote': "You're not paying online. We'll email your confirmation now, and you'll settle the balance in person at check-in — by cash, credit/debit card, or PromptPay QR at our front desk.",
       'bk.pay.prepayRequiredNote': "During this busy period, full prepayment is required — pay-at-check-in isn't available for these dates, and this booking is non-refundable if you don't arrive (no-show) or cancel.",
+      'bk.pay.testModeTitle': 'Test mode — no payment will be taken.',
+      'bk.pay.testModeNote': 'This booking page is connected to the payment gateway in test mode. You can complete the form, but no card is charged and no money is transferred. Please contact the hotel to confirm your reservation.',
       'bk.pay.confirmReservation': 'Confirm reservation',
       'bk.pay.err.required': 'Please fill in your first name, email, and phone number.',
       'bk.pay.err.generic': 'Something went wrong. Please try again.',
@@ -122,6 +128,10 @@
       'bk.pay.qrTitle': 'สแกนเพื่อชำระเงินผ่าน PromptPay',
       'bk.pay.qrInstructions': 'เปิดแอปธนาคารของท่านแล้วสแกน QR โค้ดนี้เพื่อชำระเงินให้เสร็จสมบูรณ์',
       'bk.pay.qrWaiting': 'กำลังรอการยืนยันการชำระเงิน…',
+      'bk.pay.redirectTitle': 'กำลังยืนยันกับธนาคารของท่าน',
+      'bk.pay.redirectNote': 'ระบบกำลังนำท่านไปยังหน้าเว็บที่ปลอดภัยของธนาคารเพื่ออนุมัติการชำระเงิน การจองของท่านได้รับการยืนยันแล้ว โปรดจดหมายเลขการจองด้านบนไว้',
+      'bk.pay.confirmingTitle': 'กำลังตรวจสอบการชำระเงิน…',
+      'bk.pay.confirmingNote': 'ระบบกำลังยืนยันการชำระเงินกับธนาคารของท่าน ไม่ว่าผลจะเป็นอย่างไร การจองของท่านได้รับการยืนยันแล้ว หากการชำระเงินไม่สำเร็จ ท่านสามารถชำระที่เคาน์เตอร์เมื่อเช็คอินได้',
       'bk.pay.qrCloseNote': 'การจองของท่านได้รับการยืนยันแล้วไม่ว่าผลการชำระเงินจะเป็นอย่างไร ท่านสามารถปิดหน้าต่างนี้แล้วชำระเงินภายหลังผ่าน QR หรือชำระที่หน้าเคาน์เตอร์แทนก็ได้ — เราจะแจ้งให้ท่านทราบทางอีเมลทันทีที่ได้รับการยืนยันการชำระเงินผ่าน PromptPay',
       'bk.pay.paidOnlineNote': 'ท่านได้ชำระเงิน {amount} ออนไลน์เรียบร้อยแล้ว ขอบคุณที่ใช้บริการ',
       'bk.pay.onlinePayNote': 'ท่านกำลังชำระเงินออนไลน์ เราจะส่งอีเมลยืนยันให้ทันทีที่การชำระเงินเสร็จสมบูรณ์',
@@ -141,6 +151,8 @@
       'bk.pay.reserveTitle': 'จองเลย ชำระเงินที่โรงแรม',
       'bk.pay.checkinNote': 'ท่านไม่ต้องชำระเงินออนไลน์ เราจะส่งอีเมลยืนยันการจองให้ทันที และท่านสามารถชำระยอดคงเหลือได้ที่หน้าเคาน์เตอร์เมื่อเช็คอิน — ด้วยเงินสด บัตรเครดิต/เดบิต หรือ QR พร้อมเพย์',
       'bk.pay.prepayRequiredNote': 'ในช่วงที่มีผู้เข้าพักจำนวนมาก จำเป็นต้องชำระเงินล่วงหน้าเต็มจำนวน — ไม่สามารถเลือกชำระที่โรงแรมสำหรับวันดังกล่าวได้ และการจองนี้จะไม่คืนเงินหากท่านไม่เข้าพัก (No-show) หรือยกเลิก',
+      'bk.pay.testModeTitle': 'โหมดทดสอบ — จะไม่มีการเรียกเก็บเงิน',
+      'bk.pay.testModeNote': 'หน้าจองนี้เชื่อมต่อกับระบบชำระเงินในโหมดทดสอบ ท่านสามารถกรอกแบบฟอร์มได้ แต่จะไม่มีการตัดบัตรและไม่มีการโอนเงินใด ๆ กรุณาติดต่อโรงแรมเพื่อยืนยันการจองของท่าน',
       'bk.pay.confirmReservation': 'ยืนยันการจอง',
       'bk.pay.err.required': 'กรุณากรอกชื่อ อีเมล และเบอร์โทรศัพท์ของท่าน',
       'bk.pay.err.generic': 'เกิดข้อผิดพลาด กรุณาลองใหม่',
@@ -185,6 +197,10 @@
       'bk.pay.qrTitle': 'プロンプトペイでお支払い（QRコードをスキャン）',
       'bk.pay.qrInstructions': '銀行アプリを開き、このQRコードをスキャンしてお支払いを完了してください。',
       'bk.pay.qrWaiting': 'お支払いの確認をお待ちしています…',
+      'bk.pay.redirectTitle': '銀行での認証手続き',
+      'bk.pay.redirectNote': 'お支払いを承認するため、ご利用銀行の安全なページへ移動します。ご予約はすでに確定しています。上記の予約番号をお控えください。',
+      'bk.pay.confirmingTitle': 'お支払いを確認しています…',
+      'bk.pay.confirmingNote': 'ご利用銀行にお支払いを確認しています。いずれの場合もご予約は確定済みです。お支払いが完了しなかった場合は、チェックイン時にお支払いいただけます。',
       'bk.pay.qrCloseNote': 'ご予約はいずれにしても確定しております。この画面を閉じて後ほどQRコードからお支払いいただくことも、チェックイン時にお支払いいただくことも可能です。プロンプトペイのお支払いが確認され次第メールにてご案内いたします。',
       'bk.pay.paidOnlineNote': '{amount} をオンラインでお支払いいただきました。誠にありがとうございます。',
       'bk.pay.onlinePayNote': 'ただいまオンラインでお支払い手続き中です。お支払い完了後、確認メールをお送りいたします。',
@@ -204,6 +220,8 @@
       'bk.pay.reserveTitle': '今すぐご予約 — お支払いはチェックイン時に',
       'bk.pay.checkinNote': 'オンラインでのお支払いは不要です。ご予約確認メールをすぐにお送りいたします。残額はチェックイン時にフロントにて、現金・クレジット/デビットカード、またはプロンプトペイQRでお支払いいただけます。',
       'bk.pay.prepayRequiredNote': '混雑期のため、全額前払いが必要です。この期間はチェックイン時のお支払いはお選びいただけず、ご到着がない場合（ノーショー）やキャンセルの場合は返金されません。',
+      'bk.pay.testModeTitle': 'テストモード — お支払いは発生しません。',
+      'bk.pay.testModeNote': 'この予約ページは決済システムのテストモードに接続されています。フォームの入力は可能ですが、カードへの請求も送金も行われません。ご予約の確定はホテルまでご連絡ください。',
       'bk.pay.confirmReservation': '予約を確定する',
       'bk.pay.err.required': 'お名前、メールアドレス、電話番号をご入力ください。',
       'bk.pay.err.generic': '問題が発生しました。再度お試しください。',
@@ -248,6 +266,10 @@
       'bk.pay.qrTitle': '扫码使用PromptPay付款',
       'bk.pay.qrInstructions': '请打开您的银行应用程序扫描此二维码以完成付款。',
       'bk.pay.qrWaiting': '正在等待付款确认…',
+      'bk.pay.redirectTitle': '正在与您的银行确认',
+      'bk.pay.redirectNote': '正在跳转至银行安全页面以完成付款验证。您的预订已确认，请记下上方的确认号。',
+      'bk.pay.confirmingTitle': '正在核实您的付款…',
+      'bk.pay.confirmingNote': '我们正在向银行核实这笔付款。无论结果如何，您的预订均已确认；如付款未成功，您可在入住时付款。',
       'bk.pay.qrCloseNote': '无论付款结果如何，您的预订均已确认。您可以关闭此窗口稍后通过二维码完成付款，或改为入住时付款——PromptPay付款确认后我们将通过邮件通知您。',
       'bk.pay.paidOnlineNote': '您已在线支付 {amount}，感谢您！',
       'bk.pay.onlinePayNote': '您正在进行在线支付。付款完成后我们将立即发送确认邮件。',
@@ -267,6 +289,8 @@
       'bk.pay.reserveTitle': '立即预订 — 入住时付款',
       'bk.pay.checkinNote': '您无需在线支付。我们会立即发送预订确认邮件，您可在入住时于前台以现金、信用卡/借记卡或PromptPay二维码支付余款。',
       'bk.pay.prepayRequiredNote': '旺季期间需全额预付——所选日期不提供到店支付，且如未入住（No-show）或取消恕不退款。',
+      'bk.pay.testModeTitle': '测试模式 — 不会收取任何款项。',
+      'bk.pay.testModeNote': '此预订页面已连接至支付网关的测试模式。您可以填写表单，但不会扣款，也不会发生任何资金转移。请联系酒店确认您的预订。',
       'bk.pay.confirmReservation': '确认预订',
       'bk.pay.err.required': '请填写您的名字、电子邮箱和电话号码。',
       'bk.pay.err.generic': '出现了一些问题，请重试。',
@@ -311,6 +335,10 @@
       'bk.pay.qrTitle': '掃碼使用PromptPay付款',
       'bk.pay.qrInstructions': '請開啟您的銀行應用程式掃描此二維碼以完成付款。',
       'bk.pay.qrWaiting': '正在等待付款確認…',
+      'bk.pay.redirectTitle': '正在與您的銀行確認',
+      'bk.pay.redirectNote': '正在跳轉至銀行安全頁面以完成付款驗證。您的預訂已確認，請記下上方的確認號碼。',
+      'bk.pay.confirmingTitle': '正在核實您的付款…',
+      'bk.pay.confirmingNote': '我們正在向銀行核實這筆付款。無論結果如何，您的預訂均已確認；如付款未成功，您可在入住時付款。',
       'bk.pay.qrCloseNote': '無論付款結果如何，您的預訂均已確認。您可以關閉此視窗稍後透過二維碼完成付款，或改為入住時付款——PromptPay付款確認後我們將透過郵件通知您。',
       'bk.pay.paidOnlineNote': '您已線上支付 {amount}，感謝您！',
       'bk.pay.onlinePayNote': '您正在進行線上支付。付款完成後我們將立即傳送確認郵件。',
@@ -330,6 +358,8 @@
       'bk.pay.reserveTitle': '立即預訂 — 入住時付款',
       'bk.pay.checkinNote': '您無需線上支付。我們會立即發送預訂確認郵件，您可在入住時於前台以現金、信用卡/簽帳卡或PromptPay二維碼支付餘款。',
       'bk.pay.prepayRequiredNote': '旺季期間需全額預付——所選日期不提供到店支付，且如未入住（No-show）或取消恕不退款。',
+      'bk.pay.testModeTitle': '測試模式 — 不會收取任何款項。',
+      'bk.pay.testModeNote': '此訂房頁面已連接至支付閘道的測試模式。您可以填寫表單，但不會扣款，也不會發生任何資金轉移。請聯繫酒店確認您的訂房。',
       'bk.pay.confirmReservation': '確認預訂',
       'bk.pay.err.required': '請填寫您的名字、電子郵箱和電話號碼。',
       'bk.pay.err.generic': '出現了一些問題，請重試。',
@@ -357,22 +387,39 @@
 
   // ============================================================
   //  Online payment config — GET /api/v1/payments/config, fetched once at
-  //  load. Until the hotel's Omise account is live (OMISE_SECRET_KEY unset
-  //  server-side), paymentEnabled stays false and the payment-method choice
-  //  below never renders — the guest sees exactly today's pay-at-checkin-
-  //  only flow. Fetched eagerly (not lazily on modal open) so it's already
-  //  resolved by the time a guest reaches the guest-details step.
+  //  load. Reports WHICH gateway is live (GB Prime Pay today, Omise if that
+  //  application is ever approved), its browser-safe public key, and which
+  //  methods that merchant account can actually take. Until the hotel's
+  //  merchant account is approved and its keys are set server-side,
+  //  paymentEnabled stays false and the payment-method choice below never
+  //  renders — the guest sees exactly today's pay-at-checkin-only flow.
+  //  Fetched eagerly (not lazily on modal open) so it's already resolved by
+  //  the time a guest reaches the guest-details step.
   // ============================================================
-  var paymentConfig = { publicKey: null, paymentEnabled: false };
+  var paymentConfig = { provider: null, publicKey: null, paymentEnabled: false, methods: [], tokenizeUrl: null };
   if (window.JPark.api) {
     window.JPark.api.get('/api/v1/payments/config').then(function (r) {
       if (r && !r.error) paymentConfig = r;
     }).catch(function () {});
   }
 
+  // Does the live gateway offer this method? An account can have cards
+  // activated while its QR product is still pending approval, so the two are
+  // asked about separately rather than assumed to arrive together.
+  function methodAvailable(m) {
+    var list = paymentConfig.methods;
+    // An older backend that predates the per-method list reported only a
+    // single paymentEnabled flag; treat that as "both", so a stale API and a
+    // fresh booking page never disagree about what to show.
+    if (!list || !list.length) return !!paymentConfig.paymentEnabled;
+    return list.indexOf(m) !== -1;
+  }
+
   // Lazy-loads Omise.js (card tokenization) only the first time a guest
   // actually picks "pay by card" — never unconditionally, since most guests
   // will never touch it. Resolves once, cached for subsequent opens.
+  // Only used when Omise is the live provider; GB Prime Pay tokenizes with a
+  // plain fetch and needs no third-party script at all.
   var omiseScriptPromise = null;
   function loadOmiseScript() {
     if (window.Omise) return Promise.resolve();
@@ -387,29 +434,79 @@
     return omiseScriptPromise;
   }
 
-  // Tokenizes the card fields currently in the DOM via Omise.js, so the raw
-  // card number never reaches our own server — only the resulting token id
-  // does. Resolves { token } or { error }.
-  function tokenizeCard() {
+  // Reads and sanity-checks the card fields currently in the DOM. Returns
+  // { error } for anything incomplete, else the normalized parts each
+  // gateway's tokenizer wants. Kept separate from the tokenizers below so
+  // both providers validate identically.
+  function readCardFields() {
     var name = val('bkpCardName');
     var number = val('bkpCardNumber');
     var expiry = val('bkpCardExpiry');
     var cvc = val('bkpCardCvc');
     var m = /^(\d{1,2})\s*\/\s*(\d{2}|\d{4})$/.exec(expiry || '');
     if (!name || !number || !m || !cvc) {
-      return Promise.resolve({ error: TR('bk.pay.err.cardIncomplete') });
+      return { error: TR('bk.pay.err.cardIncomplete') };
     }
-    var expMonth = parseInt(m[1], 10);
-    var expYear = m[2].length === 2 ? (2000 + parseInt(m[2], 10)) : parseInt(m[2], 10);
+    return {
+      name: name,
+      number: number.replace(/\s+/g, ''),
+      cvc: cvc,
+      month: parseInt(m[1], 10),
+      year: m[2].length === 2 ? (2000 + parseInt(m[2], 10)) : parseInt(m[2], 10),
+    };
+  }
+
+  // GB Prime Pay tokenization — the browser posts the raw card straight to
+  // GB Prime Pay's own API using the PUBLIC key, and only the resulting token
+  // is sent to our server. That is the whole point: the card number never
+  // touches jparkhotel's backend, which is what keeps this integration out of
+  // PCI-DSS scope. Month/year are zero-padded 2-digit STRINGS ("05", "28") —
+  // GB Prime Pay rejects integers and 4-digit years.
+  function tokenizeGbPrimePay(c) {
+    var url = paymentConfig.tokenizeUrl;
+    if (!url || !paymentConfig.publicKey) return Promise.resolve({ error: TR('bk.pay.err.generic') });
+    return fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: 'Basic ' + btoa(paymentConfig.publicKey + ':'),
+      },
+      body: JSON.stringify({
+        rememberCard: false,
+        card: {
+          name: c.name,
+          number: c.number,
+          expirationMonth: ('0' + c.month).slice(-2),
+          expirationYear: String(c.year).slice(-2),
+          securityCode: c.cvc,
+        },
+      }),
+    }).then(function (res) {
+      return res.json();
+    }).then(function (data) {
+      if (data && String(data.resultCode) === '00' && data.card && data.card.token) {
+        return { token: data.card.token };
+      }
+      // A tokenization failure is a bad card NUMBER (Luhn, expiry, format) —
+      // never a decline, which can only happen later at charge time. Same
+      // guest-facing wording either way, since the distinction is meaningless
+      // to them and the raw gateway code would only confuse.
+      return { error: TR('bk.pay.err.cardDeclined') };
+    }).catch(function () {
+      return { error: TR('bk.pay.err.generic') };
+    });
+  }
+
+  function tokenizeOmise(c) {
     return loadOmiseScript().then(function () {
       return new Promise(function (resolve) {
         Omise.setPublicKey(paymentConfig.publicKey);
         Omise.createToken('card', {
-          name: name,
-          number: number.replace(/\s+/g, ''),
-          expiration_month: expMonth,
-          expiration_year: expYear,
-          security_code: cvc,
+          name: c.name,
+          number: c.number,
+          expiration_month: c.month,
+          expiration_year: c.year,
+          security_code: c.cvc,
         }, function (statusCode, response) {
           if (response && response.object === 'error') {
             resolve({ error: response.message || TR('bk.pay.err.cardDeclined') });
@@ -421,6 +518,15 @@
     }).catch(function () {
       return { error: TR('bk.pay.err.generic') };
     });
+  }
+
+  // Tokenizes the card fields currently in the DOM with whichever gateway is
+  // live, so the raw card number never reaches our own server — only the
+  // resulting token does. Resolves { token } or { error }.
+  function tokenizeCard() {
+    var c = readCardFields();
+    if (c.error) return Promise.resolve({ error: c.error });
+    return paymentConfig.provider === 'omise' ? tokenizeOmise(c) : tokenizeGbPrimePay(c);
   }
 
   // ============================================================
@@ -707,24 +813,36 @@
     '</div>';
   }
 
+  // When prepayment is forced, the guest must start on a method the gateway
+  // can actually take — PromptPay if that product is live, otherwise card.
+  // Picking a method the account doesn't have would dead-end the booking at
+  // the final step with no way forward.
+  function firstOnlineMethod() {
+    return methodAvailable('promptpay') ? 'promptpay' : 'card';
+  }
+
   // Pay-at-check-in normally, but when the hotel is forcing prepayment
   // (busy/holiday — paymentConfig.prepayRequired, which the server only reports
-  // true while Omise is actually live) that option is gone, so start the guest
-  // on a valid online method instead.
+  // true while a gateway is actually live) that option is gone, so start the
+  // guest on a valid online method instead.
   function defaultPaymentMethod() {
-    return paymentConfig.prepayRequired ? 'promptpay' : 'pay_at_checkin';
+    return paymentConfig.prepayRequired ? firstOnlineMethod() : 'pay_at_checkin';
   }
   function currentPaymentMethod() {
     var m = (state && state.paymentMethod) || defaultPaymentMethod();
     // Guard: if prepay is required, never resolve to pay-at-check-in (e.g. a
     // stale state set before the config finished loading).
-    if (paymentConfig.prepayRequired && m === 'pay_at_checkin') return 'promptpay';
+    if (paymentConfig.prepayRequired && m === 'pay_at_checkin') return firstOnlineMethod();
+    // Guard: never resolve to an online method this account can't take.
+    if (m !== 'pay_at_checkin' && !methodAvailable(m)) {
+      return paymentConfig.prepayRequired ? firstOnlineMethod() : 'pay_at_checkin';
+    }
     return m;
   }
 
   // Shared payment-method choice — rendered in both the solo checkout
   // (renderReservationForm) and the cart review (renderCartReview), only
-  // when the backend actually has Omise configured (paymentConfig.
+  // when the backend actually has a gateway configured (paymentConfig.
   // paymentEnabled). Defaults to pay-at-checkin either way, so nothing here
   // changes the deposit note/ack below it, which stays required regardless
   // of payment method — a guest paying online in full still owes the
@@ -740,13 +858,27 @@
     var prepayNotice = prepay ?
       '<p class="bkp-prepay-note" style="background:#fdecea;border:1px solid #f0b7b1;border-radius:8px;padding:9px 12px;margin:0 0 8px;color:#8a2a1a;font-size:0.82rem;line-height:1.45">' +
         esc(TR('bk.pay.prepayRequiredNote')) + '</p>' : '';
+    // The gateway is running on TEST keys. Everything below behaves exactly
+    // as it does live — the card form, the QR, the "paid" banner, the
+    // confirmation email — while no money moves at all. Left unsaid, a real
+    // guest would finish this form believing they had paid. Said out loud, a
+    // deployment still on test keys is obvious to the first person who opens
+    // the booking page.
+    var testNotice = paymentConfig.testMode ?
+      '<p class="bkp-test-note" style="background:#fff4e5;border:1px solid #f0c07a;border-radius:8px;padding:9px 12px;margin:0 0 8px;color:#8a5a00;font-size:0.82rem;line-height:1.45">' +
+        '<strong>' + esc(TR('bk.pay.testModeTitle')) + '</strong> ' + esc(TR('bk.pay.testModeNote')) + '</p>' : '';
     return '<div class="bkp-field bkp-payment-method">' +
       '<label class="bkp-label">' + TR('bk.pay.howToPay') + '</label>' +
+      testNotice +
       prepayNotice +
       '<div class="bkp-radio-row" id="bkpPaymentMethodRow">' +
         payAtCheckinRadio +
-        '<label class="bkp-radio"><input type="radio" name="bkpPaymentMethod" value="card"' + (m === 'card' ? ' checked' : '') + '> ' + TR('bk.pay.payOnlineCard') + '</label>' +
-        '<label class="bkp-radio"><input type="radio" name="bkpPaymentMethod" value="promptpay"' + (m === 'promptpay' ? ' checked' : '') + '> ' + TR('bk.pay.payOnlinePromptpay') + '</label>' +
+        (methodAvailable('card')
+          ? '<label class="bkp-radio"><input type="radio" name="bkpPaymentMethod" value="card"' + (m === 'card' ? ' checked' : '') + '> ' + TR('bk.pay.payOnlineCard') + '</label>'
+          : '') +
+        (methodAvailable('promptpay')
+          ? '<label class="bkp-radio"><input type="radio" name="bkpPaymentMethod" value="promptpay"' + (m === 'promptpay' ? ' checked' : '') + '> ' + TR('bk.pay.payOnlinePromptpay') + '</label>'
+          : '') +
       '</div>' +
       '<div class="bkp-card-fields" id="bkpCardFields"' + (m === 'card' ? '' : ' hidden') + '>' +
         '<div class="bkp-field"><label>' + TR('bk.pay.cardName') + '</label><input id="bkpCardName" autocomplete="cc-name"></div>' +
@@ -1151,6 +1283,60 @@
     qrPollTimer = setTimeout(tick, 5000);
   }
 
+  // ── 3-D Secure round trip ───────────────────────────────────────────────
+  // A card payment that needs the guest's bank to authenticate them cannot
+  // stay inside this modal — the guest genuinely leaves the site and comes
+  // back. Two things have to survive that: the confirmation number (so the
+  // return page can show it again) and the amount (so the "you paid X"
+  // banner is right). sessionStorage is the correct store — it is per-tab
+  // and cleared when the tab closes, so a shared/kiosk browser never leaks a
+  // previous guest's booking reference into the next guest's session.
+  var PENDING_KEY = 'jparkPendingPayment';
+
+  // bookingId is stashed alongside them because it is the ONLY identifier
+  // guaranteed to work for every gateway on return. GB Prime Pay's return URL
+  // carries a charge reference; Omise's cannot, because Omise mints its charge
+  // id during the charge call — after the return URL has already been built.
+  // The booking id is known here, client-side, either way.
+  function stashPendingPayment(ref, amount, bookingId) {
+    try {
+      sessionStorage.setItem(PENDING_KEY, JSON.stringify({
+        ref: ref || '', amount: amount || 0, bookingId: bookingId || null,
+      }));
+    } catch (e) { /* private mode / storage disabled — the return page degrades gracefully */ }
+  }
+  function readPendingPayment() {
+    try {
+      var raw = sessionStorage.getItem(PENDING_KEY);
+      sessionStorage.removeItem(PENDING_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) { return null; }
+  }
+
+  // Sends the browser to the gateway's authentication page. GB Prime Pay's
+  // 3-D Secure endpoint only accepts a FORM POST (a plain link 404s), so this
+  // builds and submits a real form rather than assigning location.href. Omise
+  // hands back an ordinary GET url, which is handled by the same helper.
+  function submitRedirect(redirect) {
+    if (!redirect || !redirect.url) return;
+    if (String(redirect.method || 'POST').toUpperCase() === 'GET') {
+      window.location.href = redirect.url;
+      return;
+    }
+    var form = document.createElement('form');
+    form.method = 'POST';
+    form.action = redirect.url;
+    Object.keys(redirect.fields || {}).forEach(function (k) {
+      var input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = k;
+      input.value = redirect.fields[k];
+      form.appendChild(input);
+    });
+    document.body.appendChild(form);
+    form.submit();
+  }
+
   // Populates #bkpPaymentOutcome for whichever payment outcome the booking
   // actually has: nothing for pay-at-checkin (payment is null/undefined),
   // a paid-online banner for a synchronously-approved card charge, or a
@@ -1165,6 +1351,28 @@
     if (payment.paid) {
       el.className = 'bkp-payment-outcome bkp-payment-paid';
       el.innerHTML = '<strong>' + TR('bk.pay.paidOnlineNote').replace('{amount}', money(amount)) + '</strong>';
+      return;
+    }
+    // 3-D Secure: the guest's bank wants to authenticate them before the card
+    // is charged, so they leave this site entirely. The RESERVATION is already
+    // confirmed and stored at this point — this is only the payment leg — so
+    // the confirmation number and amount are stashed first and shown again on
+    // return, and a guest who abandons the challenge still has a valid
+    // booking to pay for at check-in.
+    if (payment.redirect && payment.redirect.url) {
+      el.className = 'bkp-payment-outcome bkp-payment-pending';
+      el.innerHTML =
+        '<h4>' + TR('bk.pay.redirectTitle') + '</h4>' +
+        '<p class="bkp-qr-instructions">' + TR('bk.pay.redirectNote') + '</p>';
+      stashPendingPayment(
+        qs('#bkpRefText') ? qs('#bkpRefText').textContent : '',
+        amount,
+        payment.bookingId
+      );
+      // A tick of delay so the confirmation number above is actually painted
+      // before the browser navigates away — otherwise a guest whose bank page
+      // errors out never saw their booking reference at all.
+      setTimeout(function () { submitRedirect(payment.redirect); }, 900);
       return;
     }
     el.className = 'bkp-payment-outcome bkp-payment-pending';
@@ -1653,6 +1861,60 @@
       showFormError(TR('bk.pay.err.offline'));
     });
   }
+
+  // ── Returning from a 3-D Secure challenge ───────────────────────────────
+  // The gateway sends the guest back to booking.html?jpPay=<chargeReference>.
+  // By this point the reservation already exists and is confirmed — the only
+  // open question is whether the payment leg succeeded, and that answer comes
+  // from the gateway's own server-to-server notification, not from anything
+  // in this URL. So the confirmation view is reopened and the same poll the
+  // PromptPay QR uses runs until payment_status flips to 'paid'.
+  //
+  // A guest who abandoned the bank page, or whose payment failed, simply
+  // never sees it flip — and that is a correct, non-alarming outcome: they
+  // keep a valid reservation and pay at check-in.
+  function resumeRedirectPayment() {
+    var m = /[?&]jpPay=([^&]*)/.exec(window.location.search || '');
+    if (!m) return;
+    var chargeRef = decodeURIComponent(m[1] || '');
+    var stashed = readPendingPayment() || { ref: '', amount: 0 };
+
+    // Scrub the marker from the address bar so a refresh — or a link the
+    // guest copies and shares — never reopens someone else's confirmation.
+    try {
+      var search = window.location.search.replace(/([?&])jpPay=[^&]*/, '$1').replace(/[?&]$/, '').replace(/\?&/, '?');
+      window.history.replaceState({}, '', window.location.pathname + search + window.location.hash);
+    } catch (e) { /* older browser — the marker just stays in the URL */ }
+
+    // What to poll on. The stashed booking id is preferred because it is exact
+    // and gateway-independent; the reference from the URL is the fallback for
+    // when sessionStorage is unavailable (private mode) or the guest finished
+    // the bank challenge in a different tab.
+    var pollKey = stashed.bookingId || chargeRef;
+    if (!pollKey) return;
+
+    build();
+    overlay.hidden = false;
+    lockBodyScroll();
+    showSuccess(stashed.ref, {}, stashed.amount);
+
+    var el = qs('#bkpPaymentOutcome');
+    if (!el) return;
+    el.hidden = false;
+    el.className = 'bkp-payment-outcome bkp-payment-pending';
+    el.innerHTML =
+      '<h4>' + TR('bk.pay.confirmingTitle') + '</h4>' +
+      '<p class="bkp-qr-instructions">' + TR('bk.pay.confirmingNote') + '</p>' +
+      '<p class="bkp-qr-waiting">' + TR('bk.pay.qrWaiting') + '</p>';
+    // The status endpoint accepts a booking id OR any of the reference
+    // columns, precisely so this can poll on whichever one survived the round
+    // trip — see its comment in backend/routes/payments.js.
+    pollPaymentStatus(pollKey, function () {
+      el.className = 'bkp-payment-outcome bkp-payment-paid';
+      el.innerHTML = '<strong>' + TR('bk.pay.paidOnlineNote').replace('{amount}', money(stashed.amount)) + '</strong>';
+    });
+  }
+  resumeRedirectPayment();
 
   // Restore the cart bar on load (a sessionStorage cart survives a refresh)
   // and keep its labels — and an open review modal — in sync with the site

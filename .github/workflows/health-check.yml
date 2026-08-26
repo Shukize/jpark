@@ -85,3 +85,41 @@ jobs:
           fi
           echo "::error::Database health check FAILED — $url returned $code. Neon may be suspended, over its cap, or unreachable — check the Neon dashboard."
           exit 1
+
+      # Payment reconciliation — the backstop under the payment webhook.
+      #
+      # Omise does not guarantee retries for failed webhook deliveries, so a
+      # single missed one would otherwise mean a guest paid and the hotel
+      # never found out (see backend/paymentReconciler.js). The API watches
+      # each charge in-process, but those timers die with a deploy, so this
+      # catches anything a restart dropped.
+      #
+      # Deliberately attached to the 4x-daily schedule, NOT the twice-hourly
+      # one: this query wakes Neon, and the step above has just woken it
+      # anyway, so it rides along inside the same autosuspend window for no
+      # extra compute. It is idempotent — a sweep with nothing to do is a
+      # no-op, and a charge already recorded as paid is never re-emailed.
+      #
+      # Needs PAYMENT_WEBHOOK_SECRET as a repo secret ONLY if that variable is
+      # set on the API; when it is unset the endpoint accepts the call without
+      # a key, exactly like the webhook it backs up.
+      - name: Reconcile pending payments (rides the Neon wake above)
+        if: github.event_name != 'schedule' || github.event.schedule == '23 3,9,15,21 * * *'
+        run: |
+          url="https://jpark.onrender.com/api/v1/payments/reconcile"
+          if [ -n "${{ secrets.PAYMENT_WEBHOOK_SECRET }}" ]; then
+            url="$url?key=${{ secrets.PAYMENT_WEBHOOK_SECRET }}"
+          fi
+          body=$(curl -s -m 60 -X POST "$url" || echo '')
+          code=$(curl -s -m 60 -o /dev/null -w "%{http_code}" -X POST "$url" || echo 000)
+          echo "HTTP $code $body"
+          if [ "$code" != "200" ]; then
+            echo "::warning::Payment reconciliation returned $code. Pending online payments may not be getting confirmed — check the Render logs."
+          fi
+          # A recovery is newsworthy: it means a webhook was lost and the
+          # backstop caught a real payment the hotel would otherwise have
+          # missed. Surface it rather than burying it in the run log.
+          recovered=$(echo "$body" | sed -n 's/.*"recovered":\([0-9]*\).*/\1/p')
+          if [ -n "$recovered" ] && [ "$recovered" != "0" ]; then
+            echo "::warning::Recovered $recovered payment(s) whose webhook never arrived. Payments are being confirmed by the backstop, not the webhook — verify the webhook URL is registered in the Omise dashboard."
+          fi

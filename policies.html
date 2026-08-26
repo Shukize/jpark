@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Policies · J Park Hotel</title>
+<meta name="description" content="J Park Hotel — booking, cancellation and refund policy, and privacy policy." />
+<link rel="canonical" href="https://jparkhotel.com/policies.html" />
+<meta name="theme-color" content="#0c5b58" />
+<link rel="icon" href="images/logo-mark.png" />
+<link rel="stylesheet" href="assets/css/style.css?v=2026-08-26" />
+<link rel="stylesheet" href="assets/css/app.css?v=2026-07-23" />
+<style>
+  /* Long-form reading column. Deliberately plain: this page is read by
+     guests looking for a specific rule and by the card acquirer's reviewer
+     checking the policies exist, so findability beats decoration. */
+  .policy-wrap { max-width: 820px; margin: 0 auto; padding: 130px 22px 90px; }
+  .policy-head { margin-bottom: 34px; }
+  .policy-head h1 { font-family: var(--serif); font-size: 2.6rem; color: var(--teal-deep); }
+  .policy-lede { color: var(--ink-soft); margin-top: 12px; font-size: 1.02rem; line-height: 1.6; }
+  .policy-updated { color: var(--ink-soft); margin-top: 8px; font-size: 0.82rem; }
+  .policy-toc { display: flex; flex-wrap: wrap; gap: 10px; margin: 26px 0 0; padding: 0; list-style: none; }
+  .policy-toc a {
+    display: inline-block; padding: 8px 16px; border-radius: 999px;
+    border: 1px solid rgba(12,91,88,0.25); color: var(--teal);
+    font-size: 0.84rem; font-weight: 600; text-decoration: none;
+  }
+  .policy-toc a:hover { background: var(--teal); color: var(--ivory); }
+  .policy-section { margin-top: 54px; scroll-margin-top: 110px; }
+  .policy-section > h2 {
+    font-family: var(--serif); font-size: 1.9rem; color: var(--teal-deep);
+    padding-bottom: 12px; border-bottom: 2px solid rgba(12,91,88,0.15);
+  }
+  .policy-section h3 { font-size: 1.06rem; color: var(--teal-deep); margin: 30px 0 8px; }
+  .policy-section p { color: var(--ink); line-height: 1.68; margin-top: 10px; font-size: 0.97rem; }
+  .policy-contact {
+    margin-top: 54px; padding: 22px 24px; border-radius: 14px;
+    background: rgba(12,91,88,0.05); border: 1px solid rgba(12,91,88,0.14);
+  }
+  .policy-contact h3 { margin-top: 0; }
+  .policy-contact a { color: var(--teal); font-weight: 600; }
+  @media (max-width: 720px) {
+    .policy-wrap { padding-top: 100px; }
+    .policy-head h1 { font-size: 2rem; }
+    .policy-section > h2 { font-size: 1.5rem; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ====== TOP / NAV ====== -->
+<header class="site-header" id="siteHeader">
+  <div class="nav-inner">
+    <a href="index.html" class="brand" aria-label="J Park Hotel">
+      <img class="brand-mark" src="images/logo-mark.png" alt="J Park Hotel" />
+      <span class="brand-text">
+        <span class="brand-name">J PARK</span>
+        <span class="brand-sub" data-i18n="brand.sub">HOTEL · CHONBURI</span>
+      </span>
+    </a>
+
+    <nav class="nav-links" id="navLinks">
+      <a href="index.html#rooms" data-i18n="nav.rooms">Rooms</a>
+      <a href="index.html#facilities" data-i18n="nav.facilities">Facilities</a>
+      <a href="index.html#contact" data-i18n="nav.contact">Contact</a>
+    </nav>
+
+    <div class="nav-actions">
+      <div class="lang-switch" id="langSwitch">
+        <button class="lang-btn" id="langBtn" aria-haspopup="true" aria-expanded="false">
+          <span class="globe" aria-hidden="true">&#127760;</span>
+          <span id="langCurrent">ไทย</span>
+          <span class="caret" aria-hidden="true">&#9662;</span>
+        </button>
+        <ul class="lang-menu" id="langMenu" role="menu">
+          <li><button data-lang="th" role="menuitem">ไทย</button></li>
+          <li><button data-lang="en" role="menuitem">English</button></li>
+          <li><button data-lang="ja" role="menuitem">日本語</button></li>
+          <li><button data-lang="zh-Hans" role="menuitem">简体中文</button></li>
+          <li><button data-lang="zh-Hant" role="menuitem">繁體中文</button></li>
+        </ul>
+      </div>
+      <a href="booking.html" class="btn btn-book" data-i18n="nav.book">Book Now</a>
+      <button class="hamburger" id="hamburger" aria-label="Menu"><span></span><span></span><span></span></button>
+    </div>
+  </div>
+</header>
+
+<main class="policy-wrap">
+  <div class="policy-head">
+    <h1 data-i18n="pol.title">Policies</h1>
+    <p class="policy-lede" data-i18n="pol.lede">Our booking, cancellation and refund terms, and how we handle your personal information.</p>
+    <p class="policy-updated" data-i18n="pol.updated">Last updated: 26 August 2026</p>
+    <ul class="policy-toc">
+      <li><a href="#booking-policy" data-i18n="pol.navBooking">Booking, Cancellation &amp; Refunds</a></li>
+      <li><a href="#privacy-policy" data-i18n="pol.navPrivacy">Privacy Policy</a></li>
+    </ul>
+  </div>
+
+  <!-- ====== BOOKING / CANCELLATION / REFUND ====== -->
+  <section class="policy-section" id="booking-policy">
+    <h2 data-i18n="pol.book.title">Booking, Cancellation &amp; Refund Policy</h2>
+
+    <h3 data-i18n="pol.book.pricesH">Prices and currency</h3>
+    <p data-i18n="pol.book.pricesP">All prices on this website are shown in Thai Baht (THB), per room, per night.</p>
+
+    <h3 data-i18n="pol.book.payH">How you can pay</h3>
+    <p data-i18n="pol.book.payP">You may pay in person at check-in, or pay online now by card or PromptPay QR.</p>
+    <p data-i18n="pol.book.payP2">Online card payments are processed by Opn Payments (Omise).</p>
+
+    <h3 data-i18n="pol.book.depositH">Key-card deposit</h3>
+    <p data-i18n="pol.book.depositP">A 200 THB deposit for your room key card is collected at check-in, and refunded in full at check-out.</p>
+
+    <h3 data-i18n="pol.book.timesH">Check-in and check-out</h3>
+    <p data-i18n="pol.book.timesP">Check-in is from 14:00 (ICT) and check-out is until 12:00 (ICT).</p>
+
+    <h3 data-i18n="pol.book.changeH">Changing or cancelling a booking</h3>
+    <p data-i18n="pol.book.changeP">To change or cancel a reservation, contact the hotel by phone or email with your confirmation number.</p>
+    <p data-i18n="pol.book.changeP2">Cancelling less than 24 hours before check-in, or a no-show, may be charged at one night’s room rate.</p>
+
+    <h3 data-i18n="pol.book.refundH">Refunds</h3>
+    <p data-i18n="pol.book.refundP">If you paid online and cancel within the free-cancellation window, the amount is refunded to the card or account you paid from.</p>
+    <p data-i18n="pol.book.refundP2">Refunds are always returned to the original payment method.</p>
+
+    <h3 data-i18n="pol.book.nonrefH">Non-refundable bookings</h3>
+    <p data-i18n="pol.book.nonrefP">During certain busy or holiday periods we require full prepayment, and those bookings are non-refundable.</p>
+
+    <h3 data-i18n="pol.book.problemH">If something goes wrong</h3>
+    <p data-i18n="pol.book.problemP">If you were charged incorrectly or your payment does not appear on your booking, contact us with your confirmation number.</p>
+  </section>
+
+  <!-- ====== PRIVACY ====== -->
+  <section class="policy-section" id="privacy-policy">
+    <h2 data-i18n="pol.priv.title">Privacy Policy</h2>
+
+    <h3 data-i18n="pol.priv.whoH">Who we are</h3>
+    <p data-i18n="pol.priv.whoP">J Park Hotel, Chonburi, Thailand, is responsible for the personal information described here.</p>
+
+    <h3 data-i18n="pol.priv.collectH">What we collect</h3>
+    <p data-i18n="pol.priv.collectP">When you book, we collect your name, email address, phone number and stay details.</p>
+
+    <h3 data-i18n="pol.priv.cardH">Card and payment information</h3>
+    <p data-i18n="pol.priv.cardP">We do not collect, see or store your card number, expiry date or security code.</p>
+
+    <h3 data-i18n="pol.priv.whyH">Why we use it</h3>
+    <p data-i18n="pol.priv.whyP">To take and manage your reservation, send your confirmation, take payment, and meet legal obligations.</p>
+
+    <h3 data-i18n="pol.priv.shareH">Who we share it with</h3>
+    <p data-i18n="pol.priv.shareP">We share only what is necessary, and only with the services that run this hotel’s systems.</p>
+
+    <h3 data-i18n="pol.priv.keepH">How long we keep it</h3>
+    <p data-i18n="pol.priv.keepP">We keep booking and payment records for as long as we need them for accounting and legal purposes.</p>
+
+    <h3 data-i18n="pol.priv.rightsH">Your rights</h3>
+    <p data-i18n="pol.priv.rightsP">Under Thailand’s Personal Data Protection Act you may ask for a copy of your data, or ask us to correct or delete it.</p>
+
+    <h3 data-i18n="pol.priv.cookiesH">Cookies and browser storage</h3>
+    <p data-i18n="pol.priv.cookiesP">We use your browser’s local storage to remember your language, your booking in progress, and whether you are signed in.</p>
+
+    <h3 data-i18n="pol.priv.secH">Security</h3>
+    <p data-i18n="pol.priv.secP">The site is served over an encrypted HTTPS connection and access to guest data is restricted to hotel staff who need it.</p>
+
+    <h3 data-i18n="pol.priv.changeH">Changes to this policy</h3>
+    <p data-i18n="pol.priv.changeP">If we change these policies we will update this page and the date at the top.</p>
+  </section>
+
+  <div class="policy-contact">
+    <h3 data-i18n="pol.contactH">Contact us</h3>
+    <p data-i18n="pol.contactP">J Park Hotel, 88/88 Thanon Sukprayun, Na Pa, Mueang Chonburi District, Chon Buri 20000, Thailand</p>
+    <p>
+      <a href="tel:+66863260664">+66 086 326 0664</a> / <a href="tel:+6638448111">+66 038 448 111</a>
+      &nbsp;·&nbsp;
+      <a href="mailto:jparkhotel1@gmail.com">jparkhotel1@gmail.com</a>
+    </p>
+  </div>
+</main>
+
+<!-- ====== FOOTER ====== -->
+<footer class="site-footer">
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <img class="footer-logo" src="images/logo-full.png" alt="J Park Hotel" />
+      <span class="footer-brand-tag" data-i18n="footer.tag">Japanese-inspired hospitality · Chonburi, Thailand</span>
+    </div>
+    <nav class="footer-links">
+      <a href="index.html#rooms" data-i18n="nav.rooms">Rooms</a>
+      <a href="index.html#contact" data-i18n="nav.contact">Contact</a>
+      <a href="policies.html" data-i18n="footer.policies">Policies</a>
+      <a href="staff.html" data-i18n="footer.staff">Staff Login</a>
+    </nav>
+    <p class="footer-copy">© <span id="year"></span> J Park Hotel. <span data-i18n="footer.rights">All rights reserved.</span></p>
+  </div>
+</footer>
+
+<script src="assets/js/store.js?v=2026-07-31"></script>
+<script src="assets/js/config.js?v=2026-07-23"></script>
+<script src="assets/js/api.js?v=2026-07-23"></script>
+<script src="assets/js/util.js?v=2026-07-23"></script>
+<script src="assets/js/i18n.js?v=2026-07-23"></script>
+<script src="assets/js/i18n-extra.js?v=2026-08-26"></script>
+<script src="assets/js/i18n-app.js?v=2026-07-25"></script>
+<script src="assets/js/i18n-policies.js?v=2026-08-26"></script>
+<script>
+  // This page has no hero, carousel or booking widget, so it deliberately
+  // does not load main.js. All it needs is the language switch, the mobile
+  // menu and the footer year — small enough to keep here rather than pull in
+  // a large script for three behaviours.
+  (function () {
+    'use strict';
+    var I = window.JPark && window.JPark.i18n;
+
+    var yearEl = document.getElementById('year');
+    if (yearEl) yearEl.textContent = new Date().getFullYear();
+
+    var LABELS = { th: 'ไทย', en: 'English', ja: '日本語', 'zh-Hans': '简体中文', 'zh-Hant': '繁體中文' };
+    var btn = document.getElementById('langBtn');
+    var menu = document.getElementById('langMenu');
+    var current = document.getElementById('langCurrent');
+
+    function syncLabel() {
+      if (current && I) current.textContent = LABELS[I.getLang()] || 'English';
+      // Keep <html lang> honest for screen readers and for search engines
+      // indexing a policy page they must not mistake for English.
+      if (I) document.documentElement.setAttribute('lang', I.getLang());
+    }
+    if (I) { I.applyLang(I.getLang()); syncLabel(); }
+
+    if (btn && menu) {
+      btn.addEventListener('click', function () {
+        var open = menu.classList.toggle('open');
+        btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      });
+      menu.addEventListener('click', function (e) {
+        var target = e.target.closest('button[data-lang]');
+        if (!target || !I) return;
+        I.applyLang(target.getAttribute('data-lang'));
+        syncLabel();
+        menu.classList.remove('open');
+        btn.setAttribute('aria-expanded', 'false');
+      });
+      document.addEventListener('click', function (e) {
+        if (!e.target.closest('#langSwitch')) {
+          menu.classList.remove('open');
+          btn.setAttribute('aria-expanded', 'false');
+        }
+      });
+    }
+
+    var burger = document.getElementById('hamburger');
+    var links = document.getElementById('navLinks');
+    if (burger && links) {
+      burger.addEventListener('click', function () { links.classList.toggle('open'); });
+    }
+
+    document.addEventListener('jpark:langchange', syncLabel);
+  })();
+</script>
+</body>
+</html>

@@ -46,18 +46,48 @@ services:
         # Front-desk inbox that receives a notice for every new booking that
         # lands in the Guest Booking system. Comma-separate for multiple staff.
         value: jparkhotel1@gmail.com
+      # ── Online booking payments (Omise / Opn Payments) ───────────────────
+      # Card + PromptPay QR. Leave the keys unset to keep online payment
+      # disabled — the booking page falls back to pay-at-checkin-only with
+      # zero visible change. See docs/PAYMENTS_SETUP.md.
+      #
+      # >>> GO-LIVE IS EXACTLY THESE TWO VALUES. <<<
+      # Paste the keys from the Omise dashboard here and save. Nothing else
+      # needs changing: the provider is auto-detected from the keys, the
+      # webhook URL builds itself from RENDER_EXTERNAL_URL, and no redeploy
+      # or code change is involved. Use the skey_test_/pkey_test_ pair first
+      # (Test mode, no real money), then swap in the live pair.
       - key: OMISE_PUBLIC_KEY
-        # Online booking payments (Omise/Opn Payments — PromptPay QR and
-        # card). Leave unset to keep online payment disabled — the booking
-        # page falls back to pay-at-checkin-only with zero visible change.
-        # See docs/PAYMENTS_SETUP.md for account signup + go-live steps.
-        sync: false
+        sync: false         # pkey_… — browser-safe, card tokenization only
       - key: OMISE_SECRET_KEY
-        sync: false         # server-side only — never expose to the browser
-      - key: OMISE_WEBHOOK_SECRET
-        # Optional secondary guard on the webhook URL (?key=...). Every
-        # webhook is re-verified against the Omise API regardless.
+        sync: false         # skey_… — server-side only, never expose
+      - key: PUBLIC_SITE_URL
+        # Where a guest is sent back to after a 3-D Secure card challenge.
+        # Must be the PUBLIC website, not this API.
+        value: https://jparkhotel.com
+      - key: PAYMENT_WEBHOOK_SECRET
+        # Guards the webhook URL (?key=...) and unlocks the browser-openable
+        # form of GET /api/v1/payments/diagnostics. Every webhook is
+        # re-verified against Omise's API regardless, so this is a secondary
+        # guard — but SET IT: without it the diagnostics page is
+        # admin-session-only, which is the awkward moment you least want it.
         sync: false
+      - key: OMISE_WEBHOOK_SIGNING_SECRET
+        # Optional. The webhook secret from the Omise dashboard's Webhooks
+        # page (base64). When set, every delivery's Omise-Signature header is
+        # verified with HMAC-SHA256 before anything else happens, so forged
+        # posts are rejected without costing an API call. Test and live have
+        # SEPARATE secrets — swap this when you swap the keys.
+        sync: false
+      - key: PAYMENT_PROVIDER
+        # Pinned to Omise, the hotel's approved acquirer. Auto-detect would
+        # also land on Omise, but pinning means the live gateway can never be
+        # decided by which keys happen to be present in the environment.
+        value: omise
+      # GB Prime Pay is NOT in use — Omise is the hotel's acquirer. Its adapter
+      # stays in the codebase as a tested fallback (the acquirer changed twice
+      # in one day once), but nothing here is set and PAYMENT_PROVIDER above
+      # pins Omise regardless, so it cannot activate by accident.
 
   # The public website is served solely by GitHub Pages (free) — primary URL
   # shukize.github.io/jpark, custom domain jparkhotel.com. The former

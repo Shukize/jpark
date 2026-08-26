@@ -130,5 +130,41 @@ serverSurchargeKeys.forEach((key) => {
   check(`surcharge "${key}" value`, clientSurcharges[key], roomRates.DEFAULT_SURCHARGES[key]);
 });
 
+/* ── Homepage "from ฿X / night" parity ──────────────────────────────────
+   assets/js/room-prices.js carries a THIRD mirror of the room-only rates, so
+   the homepage can name a price before any API call resolves (the card
+   acquirer requires a visible Thai Baht price, and a blank card while the
+   database wakes would not satisfy that). Same drift risk as booking-page.js
+   above, so the same guard: every rate in that table is diffed against
+   roomRates.js, in both directions, on every build. */
+console.log('\n# Homepage from-price parity (assets/js/room-prices.js)');
+const pricesSrc = fs.readFileSync(path.join(__dirname, '..', 'assets', 'js', 'room-prices.js'), 'utf8');
+const fromMatch = pricesSrc.match(/var FROM_RATES = (\{[\s\S]*?\n\s*\});/);
+if (!fromMatch) {
+  check('FROM_RATES table found in room-prices.js', false, true);
+} else {
+  // eslint-disable-next-line no-new-func
+  const clientFrom = new Function(`return ${fromMatch[1]}`)();
+  const serverRooms = roomRates.roomKeys();
+
+  for (const room of serverRooms) {
+    check(`room "${room}" priced on the homepage`, Object.prototype.hasOwnProperty.call(clientFrom, room), true);
+  }
+  for (const room of Object.keys(clientFrom)) {
+    check(`homepage room "${room}" exists in roomRates.js`, serverRooms.includes(room), true);
+  }
+  for (const room of serverRooms) {
+    if (!clientFrom[room]) continue; // already flagged above
+    roomRates.getRoom(room).variants.forEach((v) => {
+      check(`from-price "${room}" / "${v.label}"`, clientFrom[room][v.label], v.room);
+    });
+    // A variant the homepage invents would price a room the guest cannot book.
+    Object.keys(clientFrom[room]).forEach((label) => {
+      const known = roomRates.getRoom(room).variants.some((v) => v.label === label);
+      check(`homepage variant "${room}" / "${label}" exists in roomRates.js`, known, true);
+    });
+  }
+}
+
 console.log(`\n${passed} passed, ${failed} failed.`);
 process.exit(failed ? 1 : 0);

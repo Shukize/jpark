@@ -1,144 +1,297 @@
-# Online booking payments (Omise / Opn Payments — card + PromptPay) — setup notes
+# Online booking payments (Omise / Opn Payments) — setup + go-live runbook
 
-How the booking page's "Book Now" flow takes real online payments, and how
-to bring it live. Payment is a **hybrid, per-booking choice**: a guest can
-pay in person at check-in (cash, credit/debit card, or PromptPay QR at the
-front desk — the default, and the only option while the steps below aren't
-done yet), or pay online now by card or PromptPay via Omise. Code lives in
-`backend/lib/omise.js`, `backend/routes/payments.js`,
-`backend/routes/guestBookings.js` (email copy), and `assets/js/booking-payment.js`.
+How the booking page takes real online payments (credit/debit card and
+PromptPay QR), and exactly what has to happen to switch it on.
+
+Payment is a **hybrid, per-booking choice**: a guest can pay in person at
+check-in (cash, card, or PromptPay QR at the front desk — the default, and
+the only option until the keys below are set), or pay online now.
+
+**Omise is the hotel's approved acquirer and the only one in use.** GB Prime
+Pay's adapter is still in the tree as a tested fallback — the acquirer changed
+twice in one day while Omise's application was stalled — but it has no keys,
+and `PAYMENT_PROVIDER=omise` is pinned in `render.yaml`, so it cannot activate
+by accident.
+
+Code: `backend/lib/payments/` (gateway adapters), `backend/routes/payments.js`
+(booking + webhook + diagnostics routes), `backend/paymentReconciler.js` (the
+safety net under the webhook), `backend/routes/guestBookings.js` (email copy),
+`assets/js/booking-payment.js` (the booking page).
+Tests: `node backend/test-payments.js` — 91 checks, no account or database
+needed. Also runs as part of `npm test`, which is the Render build gate.
 
 ---
 
-## Current state: built, not yet live
+## Go-live: paste two values into Render
 
-No Omise account exists yet. Until `OMISE_SECRET_KEY` is set,
-`GET /api/v1/payments/config` returns `paymentEnabled: false` and the
-booking page never shows the online-payment choice at all — every guest
-sees exactly today's pay-at-checkin-only flow. **Nothing breaks by leaving
-Omise unset**, and this doc's steps can be done at any pace without taking
-the booking page down.
+Render dashboard → **`jpark` service → Environment**:
 
-## 1. Create the Omise account
-
-1. Sign up at <https://dashboard.omise.co> (Opn Payments) with the hotel's
-   business details (this is a real KYC process — expect to provide business
-   registration documents) and a Thai bank account for settlement.
-2. Start in **Test mode** (top-left toggle) — the whole flow below can be
-   built and verified before any real payment is ever taken.
-3. Dashboard → **Keys** gives you:
-   - `pkey_test_...` (public key — safe to expose to the browser; this is
-     what card tokenization uses client-side)
-   - `skey_test_...` (secret key — server-side only, never expose)
-
-## 2. Set the environment variables
-
-Local dev — add to `backend/.env` (see `backend/.env.example`):
 ```
-OMISE_PUBLIC_KEY=pkey_test_...
-OMISE_SECRET_KEY=skey_test_...
+OMISE_PUBLIC_KEY   = pkey_test_...
+OMISE_SECRET_KEY   = skey_test_...
 ```
 
-Production — Render dashboard → `jpark` service → **Environment**: add
-`OMISE_PUBLIC_KEY` and `OMISE_SECRET_KEY` (already declared as `sync: false`
-in `render.yaml`, so they must be pasted in manually — a blueprint sync
-never carries secret values).
+Save. Render restarts the service and online payment is live. Specifically,
+you do *not* need to redeploy, change code, or touch the public site — the
+booking page reads `GET /api/v1/payments/config` at load and adapts on its own.
 
-Optional: `OMISE_WEBHOOK_SECRET` — an extra shared-secret check on the
-webhook URL (`?key=...`). Every webhook is re-verified against the Omise API
-regardless of this, so it's a secondary guard, not the primary one — Omise
-webhook bodies aren't cryptographically signed, so the server always
-re-fetches the charge from Omise's own API before ever trusting it.
+Start with the **Test mode** keys (`pkey_test_…` / `skey_test_…`) so no real
+money moves. When you're happy, replace them with the live pair
+(`pkey_…` / `skey_…`) — same two boxes.
 
-## 3. Register the webhook (for PromptPay confirmation)
+> **Nothing breaks while the keys are blank.**
+> `GET /api/v1/payments/config` returns `paymentEnabled: false`, the booking
+> page never shows the online-payment choice, and every guest sees exactly
+> today's pay-at-check-in flow.
 
-Card charges resolve synchronously (no webhook needed), but PromptPay is
-asynchronous — the guest scans *after* the booking is created, so a webhook
-is what flips it from "pending" to "paid." Omise dashboard → **Webhooks** →
-add:
+### You will know which mode you are in
+
+Test and live keys are identical in every way except one prefix segment — same
+API host, same code path, same "paid" banner, same confirmation email. A
+deployment can therefore sit on test keys for weeks while looking, to a guest,
+exactly like one taking real money. Three things now make that impossible to
+miss:
+
+- the API logs it at startup: `[payments] Omise / Opn Payments is LIVE` or
+  `… is in TEST MODE — no real money will move`;
+- `GET /api/v1/payments/config` reports `testMode`;
+- the booking page shows an orange **"Test mode — no payment will be taken"**
+  banner above the payment choice, in all five languages.
+
+If a guest ever reports seeing that banner, the live keys are not in Render.
+
+### Two things to set in the Omise dashboard
+
+**1. Register the webhook** — Omise dashboard → **Webhooks**:
+
 ```
 https://jpark.onrender.com/api/v1/payments/webhook
 ```
-(append `?key=<OMISE_WEBHOOK_SECRET>` if you set one). Without this, a
-PromptPay payment never resolves — the guest's reservation stays confirmed,
-but staff never see the payment_status flip to "paid" and the guest never
-gets the payment-confirmed follow-up email.
 
-## 4. Test end-to-end (Test mode — no real money moves)
+If `PAYMENT_WEBHOOK_SECRET` is set in Render, append `?key=<that value>`.
 
-Omise's Test mode provides:
-- **Test card numbers** that simulate an approved or declined charge (see
-  Omise's docs for the current test PAN list — these change occasionally).
-- A **test PromptPay QR** that auto-completes after a short delay, so the
-  whole scan → webhook → confirmed path can be verified without a real
-  banking app.
+Test-mode and live-mode webhooks are **separate** in Omise's dashboard — when
+you switch to live keys, register it again under Live.
 
-Verify, for both a single-room and a multi-room ("group cart") booking:
-- **Card, approved**: a row appears in `guest_bookings` with
-  `payment_status = 'paid'`, `payment_provider = 'omise'`,
-  `payment_method = 'card'`, and a real `payment_charge_id`. The guest
-  confirmation email shows the green "paid online" banner (not a balance-due
-  note), and the hotel notice shows `✓ PAID ONLINE` with the charge id.
-- **Card, declined**: no row is written at all — the guest sees a decline
-  message and can retry or switch to pay-at-check-in.
-- **PromptPay**: the row is inserted `payment_status = 'pending'`
-  immediately (the reservation is already confirmed regardless); the guest
-  sees a QR + a live poll. Once the test QR auto-completes, the webhook
-  fires, flips `payment_status` to `'paid'`, and sends the "payment
-  confirmed" follow-up email to **both** the guest and the hotel
-  (`jparkhotel1@gmail.com` by default) — this is what closes the loop for
-  staff on a booking that started out "awaiting PromptPay confirmation."
-- **Group cart** (2+ rooms): confirm all rooms in the group share the same
-  `payment_charge_id` and flip to `paid` together — check this with a direct
-  DB query, not just the UI, since the webhook's `UPDATE ... WHERE
-  payment_charge_id = $1` is what makes this work.
-- **Staff console**: `staff.html` → Guest Booking detail view shows the
-  payment as a read-only "paid" summary (no manual mark-paid control) for an
-  online-paid booking, and disambiguates it from a front-desk-recorded card
-  payment with an "(online)" suffix.
+You can also let the API register it for you:
 
-## 5. Room inventory
+```
+POST https://jpark.onrender.com/api/v1/payments/diagnostics/register-webhook?key=<PAYMENT_WEBHOOK_SECRET>
+```
 
-`backend/lib/roomRates.js`'s `ROOM_INVENTORY` holds the real per-type room
-counts the owner gave (2026-07-24) — online payment doesn't change anything
-here; the availability guard already existed and just now enforces the
-real numbers instead of the old 999-placeholder ceiling. See that file's
-comments for the Single/Twin shared-pool and Executive/Grand Suite
-combined-pool caveats.
+That writes the account's `webhook_uri` via Omise's Account API. It overwrites
+whatever is registered, which is why it is never automatic.
 
-Those numbers are now the FALLBACK only: staff edit the live counts in the
-Site Editor ("How many rooms", Sections tab), stored in
-`site_content.room_inventory` and merged over the fallback by
-`rateOverrides.getEffectiveInventoryMap()`. Every guard — single booking,
-multi-room cart, reopen-a-cancelled-booking, the Hotel Ads feed and the
-booking page's availability sweep — reads the merged value, so a count
-lowered at 3pm applies to the next booking attempt. A count is a whole
-number 0–500; 0 means "sell none of this type".
+**2. Copy the webhook signing secret** (optional but recommended) from the
+same Webhooks page into Render as `OMISE_WEBHOOK_SIGNING_SECRET`. Every
+delivery's `Omise-Signature` header is then verified (HMAC-SHA256 over
+`<timestamp>.<raw body>`, with the base64 secret decoded first) before
+anything else happens, so a forged post is rejected without costing an API
+call. Test and live have **different** signing secrets.
 
-## 6. Known limitation — 3-D Secure
+### Check it actually worked
 
-This design assumes a card charge resolves as a plain synchronous
-approve/decline from a token. If Omise or the guest's issuing bank requires
-an offsite 3-D Secure challenge, the charge response instead carries an
-`authorize_uri` the guest must be redirected to — **the current frontend
-does not handle that redirect.** Check for this specifically during Test
-Mode verification with a few different test cards before go-live; if it
-turns out to trigger often for real Thai or international cards, that
-redirect flow is the next thing to build (out of scope for this pass).
+```
+GET https://jpark.onrender.com/api/v1/payments/diagnostics?key=<PAYMENT_WEBHOOK_SECRET>
+```
 
-## 7. Go live
+(Or open it while signed in as an admin.) It asks Omise directly and answers,
+in one place, every question that otherwise only surfaces when a guest pays:
 
-1. Flip the Omise dashboard from Test mode to Live, generate live keys
-   (`pkey_...` / `skey_...`), and replace the env vars in Render.
-2. Re-register the webhook URL under **Live mode** — test-mode and live-mode
-   webhooks are separate in Omise's dashboard; the Test-mode registration
-   from step 3 does not carry over.
-3. Confirm Resend's sending domain is verified (see `docs/OTA_EMAIL_BRIDGE.md`
-   / the running-costs notes) so guest confirmation and payment-confirmed
-   emails actually reach guest inboxes and not just the Resend sandbox
-   account owner.
-4. Do one small real booking (a real card, or a real PromptPay scan for a
-   nominal amount) before announcing this publicly, and confirm the charge
-   appears correctly in the Omise dashboard's settlement/transaction view —
-   this is also the reconciliation source of truth for accounting, matched
-   against the "Omise charge: chrg_..." line in each hotel notice email.
+- are the keys accepted, and is the account in **live** or **test** mode
+- does the key's mode match the account's own `livemode`
+- is the account's currency THB and country TH
+- **is a webhook registered, and does it point at this API**
+- is `PUBLIC_SITE_URL` set (without it, a guest cannot be returned to the
+  booking page after a 3-D Secure challenge)
+- is signature checking on
+
+An unregistered or mistyped webhook is the single most likely reason a real
+payment silently never reaches the booking board, and it is invisible until it
+happens. This is how you check without spending a real payment to find out.
+
+---
+
+## The webhook is not a guarantee — and that is designed for
+
+**Omise does not retry failed webhook deliveries.** From its own docs: *"Omise
+does not currently guarantee automatic retries for failed deliveries"*, with
+polling given as the recommended fallback.
+
+That matters more than it sounds. If one delivery is missed — a Render deploy
+restarting the process mid-payment, a Neon cold start timing out the write, a
+brief network fault, a webhook that was never registered — then nothing would
+ever learn that the guest paid. The failure is silent and lands the wrong way
+round: the money is gone, Omise shows the charge as successful, and the
+hotel's own booking board still says *awaiting payment*, so the front desk
+charges the guest a second time at check-in.
+
+So every asynchronous payment is watched from two directions
+(`backend/paymentReconciler.js`):
+
+| | |
+| --- | --- |
+| **Webhook** (fast) | Usually lands within seconds. |
+| **Reconciler** (sure) | Re-asks Omise directly at 1, 3, 8, 20, 45 and 90 minutes after the charge, until it settles. |
+
+Whichever gets there first wins. The loser is a harmless no-op — the flip to
+paid is one atomic `UPDATE … WHERE payment_status != 'paid'`, so only one of
+them can ever match a row and send an email. Postgres does the arbitration.
+
+Two backstops sit under that, for the case where the process restarted and
+lost its in-memory timers:
+
+- a **sweep at startup**, 30 seconds after boot;
+- a **scheduled sweep**, `POST /api/v1/payments/reconcile`, called by
+  `.github/workflows/health-check.yml` on its 4×/day schedule.
+
+The scheduled sweep deliberately rides the same schedule as the `/health/db`
+check, which already wakes Neon — so it costs no extra database compute. (It
+is *not* on a short interval for exactly that reason: a once-a-minute poll
+would hold Neon's compute awake permanently and burn the monthly allowance on
+an idle hotel, which is a mistake this project has already made once.)
+
+**If that workflow ever warns that it recovered a payment, the webhook is not
+working** — check the diagnostics endpoint above. Recovery is meant to be the
+exception, not the mechanism.
+
+---
+
+## Getting the Omise account
+
+Sign up at <https://dashboard.omise.co> with the hotel's business details
+(a real KYC process — business registration documents) and a Thai bank account
+for settlement. Dashboard → **Keys** gives the public/secret pair, separately
+for Test and Live mode.
+
+### The merchant website checklist
+
+Omise requires the website itself to carry certain things before the account
+is approved to take live transactions. All seven are in place:
+
+| Requirement | Where |
+| --- | --- |
+| Contact name, address, phone, email | `index.html` → **Contact** section, and `policies.html` |
+| Product / service details | `index.html` → Rooms, Facilities, Dining, Onsen |
+| **Price in Thai Baht** | "from ฿X,XXX / night" on every room card — `assets/js/room-prices.js` |
+| Shopping cart / checkout | `booking.html` (multi-room cart + checkout modal) |
+| HTTPS | GitHub Pages with `jparkhotel.com`; keep *Enforce HTTPS* on |
+| **Business policy (cancellation, refunds)** | `policies.html#booking-policy` |
+| **Privacy policy** | `policies.html#privacy-policy` |
+
+The last three of those were added for this: the room lineup previously showed
+no price anywhere on the public site (prices lived only inside the booking
+modal, behind a date search), and neither policy existed at all.
+
+`policies.html` is linked from the homepage footer and the booking page
+footer, and is written in all five site languages. **Its wording describes what
+the system actually does** — the 200 THB key-card deposit, the 14:00/12:00
+times, "contact the hotel to change or cancel" (there is no self-service
+cancel), and the non-refundable prepay case — so keep it in step with the code
+if any of that changes.
+
+Two numbers in it are commercial choices rather than facts read out of the
+code, and are worth confirming against how the front desk really works:
+**free cancellation up to 24 hours before check-in**, and **refunds started
+within 7 business days**. Both are single strings in
+`assets/js/i18n-policies.js` (`pol.book.changeP`, `pol.book.refundP`).
+
+> **Stripe is not an option**, so it does not get re-litigated: in Thailand
+> *"Hotels, tour operators and transportation services"* are on
+> [Stripe's Restricted Businesses list](https://stripe.com/en-th/legal/restricted-businesses)
+> — reviewed case by case, never guaranteed — and Stripe Thailand is
+> Visa/Mastercard only (no JCB, Amex or UnionPay).
+
+---
+
+## What happens on a payment
+
+A charge resolves one of three ways, and the booking page handles all three
+through one code path:
+
+1. **Settled immediately** — a normal card approval. `payment_status = 'paid'`
+   before the booking row is even written. A decline writes **no row at all**;
+   the guest can retry or switch to pay-at-check-in.
+2. **PromptPay QR** — the row is inserted `payment_status = 'pending'` (the
+   reservation is confirmed either way), the guest scans, and the webhook (or
+   the reconciler) flips it to paid.
+3. **3-D Secure redirect** — the guest's bank wants to authenticate them, so
+   Omise returns an `authorize_uri`. The guest is redirected, comes back via
+   `/api/v1/payments/return`, and the webhook confirms.
+
+A charge that expires or fails without being paid is closed out as
+`payment_status = 'failed'` rather than left pending forever — the reservation
+stays confirmed, and the desk collects at check-in.
+
+A multi-room group booking is charged **once** for the cart's grand total, and
+every room shares one `payment_charge_id`, so one webhook flips them all.
+
+## Verifying in Test mode
+
+```
+node backend/test-payments.js     # 91 checks, offline
+```
+
+That covers the wire contract (satang conversion, `return_uri`, charge-event
+filtering), signature verification, the charge-state mapping, the whole
+booking → 3-D Secure → webhook → paid path against a mock Omise, and the
+reconciler recovering a payment whose webhook never arrived.
+
+With real Test-mode keys, then confirm end to end:
+
+- **Card approved** → row has `payment_status = 'paid'`,
+  `payment_provider = 'omise'`, a real `chrg_…` id. Guest email shows the
+  green "paid online" banner; the hotel notice shows `✓ PAID ONLINE`.
+- **Card declined** → no row written; guest sees a decline message.
+- **PromptPay** → **test charges do not complete on their own.** Create the
+  charge, then mark it successful from the Omise dashboard's **Actions**
+  button on that charge. Then confirm the booking page's poll flips to paid
+  and the payment-confirmed email reaches guest and hotel.
+- **3-D Secure** → test cards that trigger 3DS only work on a **3DS-enabled
+  test account**; email support@omise.co to have it switched on. Then confirm
+  the redirect out and back, and that the booking flips to paid.
+- **The reconciler** → the honest test of the safety net: pay a PromptPay test
+  charge with the webhook URL *unregistered*, and confirm the booking still
+  flips to paid on its own within a couple of minutes.
+- **Group cart (2+ rooms)** → confirm every room shares one
+  `payment_charge_id` and flips together. Check with a direct DB query, not
+  just the UI — the webhook's `UPDATE … WHERE payment_charge_id = $1` is
+  what makes it work.
+- **Staff console** → the Guest Booking detail shows a read-only "paid"
+  summary with an "(online)" qualifier, distinguishing it from a front-desk
+  card payment.
+
+## Going live
+
+1. Flip the Omise dashboard to Live, generate live keys, replace the two
+   values in Render.
+2. Re-register the webhook under **Live mode** (the Test registration does
+   not carry over), and swap `OMISE_WEBHOOK_SIGNING_SECRET` for the live one.
+3. Open the diagnostics endpoint and confirm every check passes, in
+   particular `livemode: true` and the registered webhook URL.
+4. Confirm the booking page no longer shows the test-mode banner.
+5. Confirm the Resend sending domain is verified so guest emails deliver.
+6. Do one small real payment and confirm it appears in Omise's
+   settlement/transaction view — that view is the reconciliation source of
+   truth, matched against the "Gateway ref:" line in each hotel notice email.
+
+---
+
+## Notes that matter later
+
+- **Refunds are manual**, by design. A cancelled booking that was genuinely
+  paid online says so in the cancellation email and asks the guest to contact
+  the hotel — refund it from the Omise dashboard. Nothing in
+  `lib/payments/` has a refund call.
+- **The prepayment switch stays inert until this is live.** The staff "require
+  prepayment for busy periods" toggle only takes effect while a gateway is
+  configured, so it can never block a booking nobody can pay for.
+- **Booking ids are UUIDs, not integers.** `GET /payments/status/:id` matches
+  `id`, `payment_charge_id`, `ref` and `group_ref` in one query for that
+  reason. It used to branch on `/^\d+$/` to tell a booking id from a payment
+  reference, which meant every real id fell through to the reference branch
+  and 404'd — so after paying by PromptPay or clearing 3-D Secure, the guest's
+  page polled a 404 and never showed "paid". The test suite's fake database
+  handed out integer ids and never caught it; it now uses UUIDs.
+- **Room inventory is unaffected** — see `backend/lib/roomRates.js` and the
+  Site Editor's "How many rooms".

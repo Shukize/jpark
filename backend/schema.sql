@@ -179,7 +179,7 @@ CREATE TRIGGER trg_guest_bookings_updated_at
   BEFORE UPDATE ON guest_bookings
   FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
--- Payment columns (online booking + Omise/Opn Payments). NULL / 'n/a' for
+-- Payment columns (online booking + the payment gateway). NULL / 'n/a' for
 -- OTA and manual bookings, which never go through the site's own payment flow.
 ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS payment_provider  VARCHAR(20);
 ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS payment_method    VARCHAR(20);
@@ -189,7 +189,8 @@ ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS payment_charge_id VARCHAR(10
 -- Set TRUE when a booking was taken while "require prepayment" was on (busy /
 -- holiday periods — see site_content.require_prepayment and routes/bookingPolicy.js).
 -- Such a booking is prepaid online and non-refundable on no-show. There is no
--- automated refund anywhere in this system (omise.js has no refund call); this
+-- automated refund anywhere in this system (no adapter in lib/payments/ has a
+-- refund call); this
 -- flag only drives the guest-facing / staff-facing "non-refundable" copy, so the
 -- desk knows not to refund. Always FALSE for OTA/manual and normal direct bookings.
 ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS non_refundable BOOLEAN NOT NULL DEFAULT FALSE;
@@ -488,9 +489,9 @@ ALTER TABLE site_content ADD COLUMN IF NOT EXISTS maintenance_mode BOOLEAN NOT N
 -- drops the pay-at-check-in option — every new direct booking must pay online
 -- (card/PromptPay) and is stamped non_refundable. Toggled by admins from the
 -- same maintenance panel (routes/bookingPolicy.js). It only has teeth while
--- online payment is actually live (OMISE_SECRET_KEY set): GET /payments/config
--- reports prepayRequired = require_prepayment AND omise.isConfigured(), so if
--- Omise isn't configured the switch is inert and no guest is ever blocked.
+-- online payment is actually live (a gateway's keys are set): GET /payments/config
+-- reports prepayRequired = require_prepayment AND payments.isConfigured(), so if
+-- no gateway is configured the switch is inert and no guest is ever blocked.
 ALTER TABLE site_content ADD COLUMN IF NOT EXISTS require_prepayment BOOLEAN NOT NULL DEFAULT FALSE;
 
 -- Admin-editable room-rate overrides (room-only/breakfast prices per room +

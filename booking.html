@@ -71,7 +71,7 @@
      no guest's page view is reported to a third party, and the page does not
      block on a host we do not control. Regenerate with tools/refresh-fonts.sh. -->
 <link href="assets/css/fonts.css?v=2026-07-23" rel="stylesheet" />
-<link rel="stylesheet" href="assets/css/style.css?v=2026-07-23" />
+<link rel="stylesheet" href="assets/css/style.css?v=2026-08-26" />
 <link rel="stylesheet" href="assets/css/booking.css?v=2026-07-24" />
 </head>
 <body class="booking-pg">
@@ -259,11 +259,19 @@
       <span aria-hidden="true"> &middot; </span>
       <a href="mailto:jparkhotel1@gmail.com">jparkhotel1@gmail.com</a>
     </p>
+    <!-- The checkout page must be able to reach the terms a guest is agreeing
+         to when they pay — both because a guest deserves to read them here,
+         and because the card acquirer's merchant checklist requires the
+         cancellation/refund and privacy policies to be reachable from the
+         site. -->
+    <p class="bk-footer-contact">
+      <a href="policies.html" data-i18n="footer.policies">Policies</a>
+    </p>
   </div>
 </footer>
 
 <script src="assets/js/i18n.js?v=2026-07-23"></script>
-<script src="assets/js/i18n-extra.js?v=2026-07-23"></script>
+<script src="assets/js/i18n-extra.js?v=2026-08-26"></script>
 <script src="assets/js/captions.js?v=2026-07-31b"></script>
 <!-- store.js MUST load before media.js: media.js reads the admin's photo-set
      overrides out of the store, and without it every set on this page silently
@@ -276,6 +284,6 @@
 <script src="assets/js/content-sync.js?v=2026-07-31"></script>
 <script src="assets/js/util.js?v=2026-07-23"></script>
 <script src="assets/js/booking-page.js?v=2026-07-31"></script>
-<script src="assets/js/booking-payment.js?v=2026-07-24"></script>
+<script src="assets/js/booking-payment.js?v=2026-08-26"></script>
 </body>
 </html>

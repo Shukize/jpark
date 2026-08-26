@@ -59,11 +59,30 @@ function hotelRecipients() {
 // Build a hotel-facing "new booking" notice from a booking row. Sent to the front
 // desk inbox so staff see every OTA / direct reservation as it arrives, mirroring
 // the Guest Booking entry in the staff console.
-// Accounting-friendly line for the front-desk/hotel notice. A genuine Omise
-// online charge (card or PromptPay) is called out distinctly — with the
-// charge id, so staff can reconcile against Omise's own dashboard/settlement
-// reports without opening the staff console — rather than blending in with
-// the plain "Method — Status" wording every other payment state still uses.
+// Was this booking paid through an online payment GATEWAY, as opposed to at
+// the front desk or not through this system at all?
+//
+// Written as "has a provider, and it isn't the front desk" rather than as a
+// list of gateway names on purpose. It used to read `=== 'omise'`, which
+// quietly became wrong the moment the hotel switched acquirer: a real,
+// fully-paid GB Prime Pay booking would have been described to the guest as
+// never having paid — including on the cancellation email's refund line,
+// which would have told someone who really was charged that there was
+// nothing to refund. Anchoring on 'in_person' means a future third gateway
+// is correct here with no edit at all.
+//   - NULL / 'n/a'    OTA and manually-entered bookings (never paid here)
+//   - 'in_person'     pay-at-check-in and day-use requests
+//   - anything else   an online gateway (see backend/lib/payments/)
+function isOnlineProvider(provider) {
+  return Boolean(provider) && provider !== 'in_person';
+}
+
+// Accounting-friendly line for the front-desk/hotel notice. A genuine online
+// gateway charge (card or PromptPay) is called out distinctly — with the
+// charge reference, so staff can reconcile against the gateway's own
+// dashboard/settlement reports without opening the staff console — rather
+// than blending in with the plain "Method — Status" wording every other
+// payment state still uses.
 function paymentLabel(bk) {
   if (!bk.payment_status || bk.payment_status === 'n/a') return null;
   const method = bk.payment_method === 'cash' ? 'Cash'
@@ -72,9 +91,9 @@ function paymentLabel(bk) {
     : bk.payment_method === 'pay_at_checkin' ? 'Pay at check-in (cash / card / PromptPay)'
     : bk.payment_method === 'promptpay' ? 'PromptPay'
     : bk.payment_provider || 'Online';
-  const online = bk.payment_provider === 'omise';
+  const online = isOnlineProvider(bk.payment_provider);
   const money = bk.total != null ? `${bk.total} ${bk.currency || 'THB'}` : '—';
-  const chargeSuffix = bk.payment_charge_id ? ` (Omise charge: ${bk.payment_charge_id})` : '';
+  const chargeSuffix = bk.payment_charge_id ? ` (gateway ref: ${bk.payment_charge_id})` : '';
   if (online && bk.payment_status === 'paid') {
     return `✓ PAID ONLINE — ${method} — ${money}${chargeSuffix}`;
   }
@@ -391,8 +410,8 @@ function confirmationEmail(bk) {
   const L = EMAIL_I18N[bk.lang] || EMAIL_I18N.en;
   const money = bk.total != null ? `${bk.total} ${bk.currency || 'THB'}` : '—';
   const payment = guestPaymentLabel(bk, L);
-  const paidOnline = bk.payment_provider === 'omise' && bk.payment_status === 'paid';
-  const awaitingOnline = bk.payment_provider === 'omise' && bk.payment_status === 'pending';
+  const paidOnline = isOnlineProvider(bk.payment_provider) && bk.payment_status === 'paid';
+  const awaitingOnline = isOnlineProvider(bk.payment_provider) && bk.payment_status === 'pending';
   const balanceDueMoney = (bk.payment_method === 'pay_at_checkin' && bk.payment_status === 'pending' && bk.total != null)
     ? `${bk.total} ${bk.currency || 'THB'}` : null;
   const smokingText = bk.smoking_preference === 'smoking' ? L.smoking : L.nonSmoking;
@@ -481,8 +500,8 @@ function groupConfirmationEmail(rows) {
   const grandMoney = `${grand} ${currency}`;
   const balanceDueMoney = (first.payment_method === 'pay_at_checkin' && first.payment_status === 'pending')
     ? grandMoney : null;
-  const paidOnline = first.payment_provider === 'omise' && first.payment_status === 'paid';
-  const awaitingOnline = first.payment_provider === 'omise' && first.payment_status === 'pending';
+  const paidOnline = isOnlineProvider(first.payment_provider) && first.payment_status === 'paid';
+  const awaitingOnline = isOnlineProvider(first.payment_provider) && first.payment_status === 'pending';
   const payment = guestPaymentLabel(first, L);
   const roomMoney = (r) => (r.total != null ? `${r.total} ${currency}` : '—');
 
@@ -647,7 +666,7 @@ function cancellationEmail(bk) {
   // A room actually charged online (card or PromptPay) really did take real
   // money — unlike every other booking, which never collected anything
   // online — so the refund line must not claim there's nothing to refund.
-  const wasPaidOnline = bk.payment_provider === 'omise' && bk.payment_status === 'paid';
+  const wasPaidOnline = isOnlineProvider(bk.payment_provider) && bk.payment_status === 'paid';
   const money = bk.total != null ? `${bk.total} ${bk.currency || 'THB'}` : 'the amount';
   const refundLine = wasPaidOnline
     ? `You were charged ${money} online for this booking. Please contact us to arrange a refund.`
@@ -696,9 +715,9 @@ function cancellationEmail(bk) {
 function groupCancellationEmail(rows) {
   const first = rows[0];
   const roomLines = rows.map((r, i) => `  Room ${r.group_index || i + 1}: ${r.room || '—'}`);
-  // Every room in a group shares one Omise charge, so checking the first row
+  // Every room in a group shares one gateway charge, so checking the first row
   // is representative of the whole group's payment outcome.
-  const wasPaidOnline = first.payment_provider === 'omise' && first.payment_status === 'paid';
+  const wasPaidOnline = isOnlineProvider(first.payment_provider) && first.payment_status === 'paid';
   const grand = rows.reduce((s, r) => s + Number(r.total || 0), 0);
   const grandMoney = `${grand} ${first.currency || 'THB'}`;
   const refundLine = wasPaidOnline
@@ -750,7 +769,7 @@ function groupCancellationEmail(rows) {
 // already says "paid" — no follow-up needed. PromptPay does not: the guest
 // may well have closed the browser before scanning, so payments.js's webhook
 // handler calls sendPaymentConfirmedEmail()/sendGroupPaymentConfirmedEmail()
-// once Omise confirms the charge, to close the loop for BOTH the guest (who
+// once the gateway confirms the charge, to close the loop for BOTH the guest (who
 // might otherwise never learn their payment went through) and the front desk
 // (who saw the original booking notice arrive as "awaiting confirmation" and
 // would otherwise have no signal that it later resolved).
@@ -844,8 +863,8 @@ function paymentConfirmedHotelNotice(bk) {
     '',
     `Guest: ${bk.guest_name || '—'}`,
     `Amount: ${money}`,
-    `Method: ${method} (online via Omise)`,
-    `Omise charge: ${bk.payment_charge_id || '—'}`,
+    `Method: ${method} (online)`,
+    `Gateway ref: ${bk.payment_charge_id || '—'}`,
     '',
     'This booking now shows as paid in the Guest Booking inbox of the staff console.',
   ];
@@ -857,8 +876,8 @@ function paymentConfirmedHotelNotice(bk) {
     `<table style="border-collapse:collapse;margin:16px 0">` +
     `<tr><td style="padding:4px 12px 4px 0;color:#555">Guest</td><td style="padding:4px 0">${escapeHtml(bk.guest_name || '—')}</td></tr>` +
     `<tr><td style="padding:4px 12px 4px 0;color:#555">Amount</td><td style="padding:4px 0"><strong>${money}</strong></td></tr>` +
-    `<tr><td style="padding:4px 12px 4px 0;color:#555">Method</td><td style="padding:4px 0">${method} (online via Omise)</td></tr>` +
-    `<tr><td style="padding:4px 12px 4px 0;color:#555">Omise charge</td><td style="padding:4px 0">${escapeHtml(bk.payment_charge_id || '—')}</td></tr>` +
+    `<tr><td style="padding:4px 12px 4px 0;color:#555">Method</td><td style="padding:4px 0">${method} (online)</td></tr>` +
+    `<tr><td style="padding:4px 12px 4px 0;color:#555">Gateway ref</td><td style="padding:4px 0">${escapeHtml(bk.payment_charge_id || '—')}</td></tr>` +
     `</table>` +
     `<p style="color:#555">This booking now shows as paid in the <strong>Guest Booking</strong> inbox of the staff console.</p>` +
     letterhead.html +
@@ -876,8 +895,8 @@ function groupPaymentConfirmedHotelNotice(rows) {
     '',
     `Guest: ${first.guest_name || '—'}`,
     `Amount: ${grand} ${first.currency || 'THB'}`,
-    `Method: ${method} (online via Omise)`,
-    `Omise charge: ${first.payment_charge_id || '—'}`,
+    `Method: ${method} (online)`,
+    `Gateway ref: ${first.payment_charge_id || '—'}`,
     '',
     'This booking now shows as paid in the Guest Booking inbox of the staff console.',
   ];
@@ -889,8 +908,8 @@ function groupPaymentConfirmedHotelNotice(rows) {
     `<table style="border-collapse:collapse;margin:16px 0">` +
     `<tr><td style="padding:4px 12px 4px 0;color:#555">Guest</td><td style="padding:4px 0">${escapeHtml(first.guest_name || '—')}</td></tr>` +
     `<tr><td style="padding:4px 12px 4px 0;color:#555">Amount</td><td style="padding:4px 0"><strong>${grand} ${first.currency || 'THB'}</strong></td></tr>` +
-    `<tr><td style="padding:4px 12px 4px 0;color:#555">Method</td><td style="padding:4px 0">${method} (online via Omise)</td></tr>` +
-    `<tr><td style="padding:4px 12px 4px 0;color:#555">Omise charge</td><td style="padding:4px 0">${escapeHtml(first.payment_charge_id || '—')}</td></tr>` +
+    `<tr><td style="padding:4px 12px 4px 0;color:#555">Method</td><td style="padding:4px 0">${method} (online)</td></tr>` +
+    `<tr><td style="padding:4px 12px 4px 0;color:#555">Gateway ref</td><td style="padding:4px 0">${escapeHtml(first.payment_charge_id || '—')}</td></tr>` +
     `</table>` +
     `<p style="color:#555">This booking now shows as paid in the <strong>Guest Booking</strong> inbox of the staff console.</p>` +
     letterhead.html +
