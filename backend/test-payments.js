@@ -189,6 +189,27 @@ const fakeDb = {
       .replace('https://api.globalprimepay.com', 'http://127.0.0.1:4599')
       .replace('https://api.omise.com', 'http://127.0.0.1:4601'), opts);
 
+  /* Start from a known-empty gateway configuration.
+
+     This suite runs as part of `npm test`, which is the Render BUILD command
+     — and Render injects the service's real environment into the build. So
+     the hotel's live `PAYMENT_PROVIDER=omise` and `OMISE_SECRET_KEY` are
+     present here, and without this the first section (which sets GB Prime Pay
+     keys and expects the registry to select GB Prime Pay) would instead find
+     Omise pinned, fail, and take the whole deploy down with it — a test
+     asserting the wrong thing about a machine it was never describing.
+
+     Ambient secrets also must not leak into assertions: the webhook-secret
+     checks below rely on knowing exactly what is and isn't set. */
+  [
+    'PAYMENT_PROVIDER',
+    'OMISE_PUBLIC_KEY', 'OMISE_SECRET_KEY',
+    'OMISE_WEBHOOK_SECRET', 'OMISE_WEBHOOK_SIGNING_SECRET',
+    'PAYMENT_WEBHOOK_SECRET',
+    'GBPRIMEPAY_PUBLIC_KEY', 'GBPRIMEPAY_SECRET_KEY', 'GBPRIMEPAY_TOKEN_KEY',
+    'PUBLIC_SITE_URL', 'PUBLIC_API_URL', 'RENDER_EXTERNAL_URL',
+  ].forEach((k) => { delete process.env[k]; });
+
   process.env.GBPRIMEPAY_PUBLIC_KEY = 'PUBKEY';
   process.env.GBPRIMEPAY_SECRET_KEY = 'SECKEY';
   process.env.GBPRIMEPAY_TOKEN_KEY = 'TOKKEY';
