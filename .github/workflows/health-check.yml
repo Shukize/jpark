@@ -123,3 +123,46 @@ jobs:
           if [ -n "$recovered" ] && [ "$recovered" != "0" ]; then
             echo "::warning::Recovered $recovered payment(s) whose webhook never arrived. Payments are being confirmed by the backstop, not the webhook — verify the webhook URL is registered in the Omise dashboard."
           fi
+
+      # Is the payment gateway still correctly configured?
+      #
+      # Every way this breaks is silent from the outside. The booking page
+      # keeps offering to take a card, the form still submits, and the guest
+      # only finds out at the moment they try to pay. Three real ways it has
+      # already gone wrong or nearly gone wrong here:
+      #
+      #   - a rolled Omise secret key that was never copied into Render.
+      #     Omise keeps the old key alive for 60 MINUTES after a roll, so the
+      #     site looks perfectly healthy right up until it doesn't.
+      #   - the webhook_uri being unset on the account, so payments complete
+      #     at Omise and never reach the booking board.
+      #   - live keys quietly replaced by test keys, or the reverse.
+      #
+      # This asks the API to check itself against Omise and fails the run if
+      # anything is wrong, so the owner gets an email instead of a guest
+      # getting a declined card. It costs one Omise API call, four times a
+      # day, on the schedule that already wakes the database.
+      - name: Check the payment gateway is still configured correctly
+        if: github.event_name != 'schedule' || github.event.schedule == '23 3,9,15,21 * * *'
+        env:
+          KEY: ${{ secrets.PAYMENT_WEBHOOK_SECRET }}
+        run: |
+          if [ -z "$KEY" ]; then
+            echo "PAYMENT_WEBHOOK_SECRET is not set as a repository secret — skipping."
+            echo "Add it under Settings -> Secrets and variables -> Actions to enable this check."
+            exit 0
+          fi
+          body=$(curl -s -m 60 "https://jpark.onrender.com/api/v1/payments/diagnostics?key=$KEY" || echo '')
+          # Print with the mode visible but nothing sensitive: the endpoint
+          # already redacts the webhook secret out of its own response.
+          echo "$body"
+          case "$body" in
+            *'"ok":true'*)
+              echo "Payment gateway configuration is healthy." ;;
+            *'"ok":false'*)
+              echo "::error::PAYMENT GATEWAY MISCONFIGURED — online card payments are at risk. Open https://jpark.onrender.com/api/v1/payments/diagnostics?key=YOUR_SECRET in a browser for the checklist. The most likely cause is a rolled Omise secret key that was never updated in Render."
+              exit 1 ;;
+            *)
+              echo "::error::Could not read payment diagnostics (empty or unexpected response). The API may be down, or PAYMENT_WEBHOOK_SECRET may not match the value set in Render."
+              exit 1 ;;
+          esac
