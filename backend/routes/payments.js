@@ -929,12 +929,13 @@ router.post('/payments/reconcile', async (req, res) => {
    through a go-live with a hotel to run. A raw JSON dump is a poor answer to
    "did it work?". Anything else (curl, a script) still gets the JSON. */
 function sendDiagnostics(req, res, out) {
-  out.ok = out.checks.every((c) => c.ok);
+  // Advisory items are recommendations; they never fail the report.
+  out.ok = out.checks.every((c) => c.ok || c.advisory);
   if (!String(req.get('accept') || '').includes('text/html')) return res.json(out);
 
   const row = (c) => {
-    const mark = c.ok ? '✓' : '✕';
-    const colour = c.ok ? '#1a7f37' : '#b3261e';
+    const mark = c.ok ? '✓' : (c.advisory ? '•' : '✕');
+    const colour = c.ok ? '#1a7f37' : (c.advisory ? '#8a5a00' : '#b3261e');
     return '<li style="display:flex;gap:12px;padding:11px 0;border-bottom:1px solid #ececec">' +
       '<span style="color:' + colour + ';font-weight:700;flex:0 0 16px">' + mark + '</span>' +
       '<span><strong style="font-weight:600">' + esc(c.name) + '</strong>' +
@@ -997,7 +998,8 @@ router.get('/payments/diagnostics', diagnosticsAuth, async (req, res) => {
     apiBaseUrl: payments.apiBaseUrl() || null,
     checks: [],
   };
-  const add = (name, ok, detail) => out.checks.push({ name, ok, detail: detail || '' });
+  const add = (name, ok, detail, advisory) =>
+    out.checks.push({ name, ok, detail: detail || '', advisory: Boolean(advisory) });
 
   add('Gateway keys are set', out.configured,
     out.configured ? `${out.provider} (${out.mode} mode)` : 'No gateway keys in the environment — online payment is switched off');
@@ -1017,7 +1019,10 @@ router.get('/payments/diagnostics', diagnosticsAuth, async (req, res) => {
       country: acct.country || null,
       currency: acct.currency || null,
       livemode: Boolean(acct.livemode),
-      webhookUri: acct.webhook_uri || null,
+      // Redacted like every other rendering of this URL: once the webhook
+      // is registered, the account's own webhook_uri carries ?key=<secret>,
+      // and this object is the part most likely to be copied into a chat.
+      webhookUri: redact(acct.webhook_uri) || null,
       apiVersion: acct.api_version || null,
     };
     add('Gateway credentials are accepted', true, `Account ${acct.email || acct.id || ''}`.trim());
@@ -1042,7 +1047,8 @@ router.get('/payments/diagnostics', diagnosticsAuth, async (req, res) => {
     add('Webhook signature checking is on', Boolean(process.env.OMISE_WEBHOOK_SIGNING_SECRET),
       process.env.OMISE_WEBHOOK_SIGNING_SECRET
         ? 'OMISE_WEBHOOK_SIGNING_SECRET set'
-        : 'Optional — deliveries are re-verified against the gateway API regardless');
+        : 'Recommended, not required — every delivery is re-verified against the gateway API regardless',
+      true);
   } catch (e) {
     add('Gateway credentials are accepted', false, (e && e.message) || 'Could not reach the gateway');
   }

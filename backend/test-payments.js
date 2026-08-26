@@ -75,6 +75,8 @@ const gateway = http.createServer((req, res) => {
 // ── Mock Omise ────────────────────────────────────────────────────────────
 const omiseSeen = { charge: null, source: null, lookups: [] };
 const omisePaid = new Set();
+// Mutable so the register-webhook test can observe the PATCH taking effect.
+const omiseAccount = { webhook_uri: null };
 let chargeSeq = 0;
 
 const omiseApi = http.createServer((req, res) => {
@@ -108,6 +110,24 @@ const omiseApi = http.createServer((req, res) => {
       omiseSeen.lookups.push(id);
       if (!/^chrg_/.test(id)) return json({ object: 'error', code: 'not_found' }, 404);
       return json({ object: 'charge', id, status: omisePaid.has(id) ? 'successful' : 'pending' });
+    }
+    // Account API — what the go-live diagnostics reads. `webhook_uri: null`
+    // is the interesting default: it is the real state of a fresh merchant
+    // account, and the one that silently loses payments.
+    if (req.method === 'GET' && req.url === '/account') {
+      return json({
+        object: 'account', id: 'acct_test_1', email: 'test@jparkhotel.com',
+        country: 'TH', currency: 'thb', livemode: false,
+        webhook_uri: omiseAccount.webhook_uri, api_version: '2019-05-29',
+      });
+    }
+    if (req.method === 'PATCH' && req.url === '/account') {
+      omiseAccount.webhook_uri = (JSON.parse(body || '{}') || {}).webhook_uri || null;
+      return json({
+        object: 'account', id: 'acct_test_1', email: 'test@jparkhotel.com',
+        country: 'TH', currency: 'thb', livemode: false,
+        webhook_uri: omiseAccount.webhook_uri, api_version: '2019-05-29',
+      });
     }
     return json({ object: 'error', code: 'not_found' }, 404);
   });
@@ -594,6 +614,22 @@ const fakeDb = {
   check('register-webhook: wrong key -> 401',
     (await realFetch(base + '/payments/diagnostics/register-webhook?key=wrong', { method: 'POST' })).status === 401);
 
+  // Registering the webhook by API, which is what turns the failing check
+  // above into a passing one without anyone touching the dashboard.
+  const reg = await realFetch(base + '/payments/diagnostics/register-webhook?key=sekrit-value', { method: 'POST' });
+  const regBody = await reg.json();
+  check('register-webhook: registers this API address', reg.status === 200 &&
+    /\/api\/v1\/payments\/webhook/.test(regBody.webhookUri || ''), JSON.stringify(regBody));
+  check('register-webhook: the registered URL carries the shared secret',
+    /key=sekrit-value/.test(regBody.webhookUri || ''), 'registered URL missing ?key=');
+  const afterReg = await realFetch(base + '/payments/diagnostics?key=sekrit-value').then((r) => r.json());
+  const regCheck = afterReg.checks.find((c) => c.name.indexOf('Webhook is registered') === 0);
+  const pointsHere = afterReg.checks.find((c) => c.name.indexOf('Registered webhook points at this API') === 0);
+  check('diagnostics now sees the webhook registered', regCheck && regCheck.ok === true, JSON.stringify(regCheck));
+  check('diagnostics confirms it points at this API', pointsHere && pointsHere.ok === true, JSON.stringify(pointsHere));
+  check('the registered-webhook detail is redacted too',
+    !JSON.stringify(afterReg).includes('sekrit-value'), 'secret leaked into diagnostics after registering');
+
   // A browser asking for the checklist should get a readable page, not JSON.
   const diagHtml = await realFetch(base + '/payments/diagnostics?key=sekrit-value', {
     headers: { Accept: 'text/html' },
@@ -604,6 +640,29 @@ const fakeDb = {
     diagHtml.headers.get('content-type'));
   check('diagnostics HTML says which mode it is in', /TEST MODE/.test(diagHtmlBody));
   check('diagnostics HTML never echoes the webhook secret', !diagHtmlBody.includes('sekrit-value'));
+  // The account lookup really ran against the mock, so the account-derived
+  // checks are exercised rather than skipped.
+  const named = (n) => (diagBody.checks || []).find((c) => c.name.indexOf(n) === 0);
+  check('diagnostics reads the account back', diagBody.account &&
+    diagBody.account.country === 'TH' && diagBody.account.currency === 'thb',
+    JSON.stringify(diagBody.account));
+  check('diagnostics passes THB / Thailand',
+    named('Account currency is THB').ok && named('Account country is Thailand').ok);
+  // The check that actually matters: an unregistered webhook is invisible
+  // until a guest pays and the booking never flips.
+  check('diagnostics flags an unregistered webhook',
+    named('Webhook is registered with the gateway').ok === false,
+    JSON.stringify(named('Webhook is registered with the gateway')));
+
+  // An advisory item is a recommendation, not a fault. If one could fail the
+  // report, a correct setup would still show red — which teaches whoever runs
+  // this to ignore red, defeating the point of a go-live check.
+  const advisory = (diagBody.checks || []).filter((c) => c.advisory);
+  check('optional items are marked advisory', advisory.length > 0,
+    JSON.stringify((diagBody.checks || []).map((c) => c.name)));
+  check('the report ignores advisory items when deciding pass/fail',
+    diagBody.ok === diagBody.checks.every((c) => c.ok || c.advisory),
+    'ok=' + diagBody.ok);
   delete process.env.PAYMENT_WEBHOOK_SECRET;
 
   // ── 8. Opening the webhook URL in a browser ────────────────────────────
