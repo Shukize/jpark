@@ -46,6 +46,12 @@ const crypto = require('crypto');
 const db = require('../db');
 const payments = require('../lib/payments');
 const reconciler = require('../paymentReconciler');
+const T = require('../lib/emailTemplate');
+// Mirrors the constants in routes/guestBookings.js; the day-use request is
+// the only guest email built here rather than there.
+const HOTEL_ADDRESS_LINE = '88/88 Thanon Sukprayun, Na Pa, Mueang Chonburi District, Chon Buri 20000, Thailand';
+const HOTEL_PHONE_LIST = ['+66 86 326 0664', '+66 38 448 111'];
+const HOTEL_EMAIL_ADDR = 'jparkhotel1@gmail.com';
 const { requireAdmin } = require('../middleware/auth');
 const roomRates = require('../lib/roomRates');
 const rateOverrides = require('../lib/rateOverrides');
@@ -60,6 +66,7 @@ const {
   sendGroupPaymentConfirmedEmail,
   computeNights,
   hotelNotice,
+  confirmationEmail,
   hotelRecipients,
   emailLetterhead,
   escapeHtml: esc,
@@ -923,6 +930,66 @@ router.post('/payments/reconcile', async (req, res) => {
   }
 });
 
+/* POST /payments/email-preview — send the real templates to the hotel's own
+   inbox, so they can be judged where they will actually be read.
+
+   A rendered file in a browser is not the test that matters: mail clients
+   rewrite HTML, block images, and Outlook lays out with Word. This posts the
+   genuine builders through the genuine mailer, with sample data, so what lands
+   in the inbox is what a guest would receive.
+
+   Two properties keep it from being a mail relay, which is what the last
+   audit found and closed on POST /api/email:
+
+     • the recipient is NOT taken from the request. It is always
+       hotelRecipients() — the hotel's own configured address. There is no
+       parameter that can redirect it anywhere.
+     • the body is NOT taken from the request either. It is rendered from
+       fixed sample data by the same functions that build real confirmations,
+       so nothing a caller sends can appear in the message.
+
+   Every subject is prefixed so nobody mistakes one for a real reservation. */
+router.post('/payments/email-preview', diagnosticsAuth, async (_req, res) => {
+  const sample = {
+    id: '00000000-0000-4000-8000-000000000000',
+    ref: 'JP-SAMPLE-001',
+    channel: 'direct', channel_name: 'Direct (Website)',
+    guest_name: 'Sample Guest', guest_last_name: 'Preview',
+    guest_email: hotelRecipients()[0], guest_phone: '+66 86 326 0664',
+    room: 'Studio Single', check_in: '2026-12-01', check_out: '2026-12-03',
+    nights: 2, adults: 2, children: 1, total: '1980.00', currency: 'THB',
+    status: 'confirmed', lang: 'en',
+    smoking_preference: 'non_smoking', breakfast: true, extra_bed: false,
+    child_ages: [7], special_requests: 'Late arrival, around 23:00',
+    payment_provider: 'omise', payment_method: 'card',
+    payment_status: 'paid', payment_charge_id: 'chrg_sample_preview',
+    non_refundable: false,
+  };
+
+  const messages = [
+    ['Guest confirmation (paid online)', confirmationEmail(sample)],
+    ['Guest confirmation (pay at check-in)', confirmationEmail(Object.assign({}, sample, {
+      payment_provider: 'in_person', payment_method: 'pay_at_checkin', payment_status: 'pending', payment_charge_id: null,
+    }))],
+    ['Hotel notice (new booking)', hotelNotice(sample)],
+  ];
+
+  const to = hotelRecipients();
+  const sent = [];
+  for (const [label, msg] of messages) {
+    const r = await sendEmail({
+      to,
+      subject: `[TEST — please ignore] ${label} — J Park Hotel email preview`,
+      html: msg.html,
+      text: `*** THIS IS A TEST EMAIL. No booking has been made. ***
+
+` + msg.text,
+    }, { kind: 'email-preview' });
+    sent.push({ label, ok: !!(r && r.ok), error: (r && r.error) || null });
+  }
+  res.json({ ok: sent.every((x) => x.ok), to, sent });
+});
+
 /* GET /payments/diagnostics — admin-only go-live check, run against the
    DEPLOYED service where the keys actually live.
 
@@ -1152,26 +1219,26 @@ function dayUseGuestEmail(bk, preferredTime) {
   const letterhead = emailLetterhead();
   const text = lines.join('\n') + letterhead.text;
   const html =
-    `<div style="font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;line-height:1.5">` +
-    `<h2 style="color:#0f766e;margin:0 0 12px">Day-use request received</h2>` +
-    `<p>Dear ${bk.guest_name || 'Guest'},</p>` +
-    `<p>Thank you for your day-use request at <strong>J Park Hotel, Chonburi</strong> (Ref: <strong>${bk.ref}</strong>).</p>` +
-    `<table style="border-collapse:collapse;margin:16px 0">` +
-    `<tr><td style="padding:4px 12px 4px 0;color:#555">Room</td><td style="padding:4px 0">${bk.room || '—'}</td></tr>` +
-    `<tr><td style="padding:4px 12px 4px 0;color:#555">Date</td><td style="padding:4px 0">${bk.check_in}</td></tr>` +
-    `<tr><td style="padding:4px 12px 4px 0;color:#555">Preferred time</td><td style="padding:4px 0">${preferredTime || 'Not specified'}</td></tr>` +
-    (bk.special_requests ? `<tr><td style="padding:4px 12px 4px 0;color:#555">Special requests</td><td style="padding:4px 0">${esc(bk.special_requests)}</td></tr>` : '') +
-    `<tr><td style="padding:4px 12px 4px 0;color:#555">Total</td><td style="padding:4px 0">${money}</td></tr>` +
-    `</table>` +
-    `<p style="background:#eef6f4;border:1px solid #a9d6cb;border-radius:8px;padding:10px 14px;color:#0f4a3e">` +
-    `<strong>Payable in person</strong> at check-in by cash, credit/debit card, or PromptPay QR at our front desk.</p>` +
-    `<p style="background:#fbf3df;border:1px solid #e0c178;border-radius:8px;padding:10px 14px;color:#5a4a1a">` +
-    `<strong>This request is pending</strong> until we confirm your exact time slot.</p>` +
-    `<p>We will contact you by phone or email shortly to confirm availability.</p>` +
-    SPAM_NOTE_HTML +
-    `<p style="color:#0f766e;font-weight:bold;margin-top:24px">J Park Hotel, Chonburi</p>` +
-    letterhead.html +
-    `</div>`;
+    T.wrap({
+      preheader: `Day-use request received · ${bk.ref}`,
+      footer: T.footerBlock({ address: HOTEL_ADDRESS_LINE, phones: HOTEL_PHONE_LIST, email: HOTEL_EMAIL_ADDR, site: 'https://jparkhotel.com' }),
+      body:
+        T.heading('Day-use request received') +
+        T.paragraph(`Dear ${bk.guest_name || 'Guest'},`) +
+        T.paragraph('Thank you for your day-use request at J Park Hotel, Chonburi.') +
+        T.refBlock('Reference', bk.ref) +
+        T.table(
+          T.row('Room', bk.room || '—', { strong: true }) +
+          T.row('Date', bk.check_in) +
+          T.row('Preferred time', preferredTime || 'Not specified') +
+          (bk.special_requests ? T.row('Special requests', bk.special_requests) : '') +
+          T.row('Total', money, { strong: true })
+        ) +
+        T.notice('warn', 'This request is pending until we confirm your exact time slot.', { strong: true }) +
+        T.notice('due', 'Payable in person at check-in by cash, credit/debit card, or PromptPay QR at our front desk.') +
+        T.paragraph('We will contact you by phone or email shortly to confirm availability.') +
+        T.paragraph(SPAM_NOTE_TEXT, { small: true, muted: true }),
+    });
   return { text, html };
 }
 

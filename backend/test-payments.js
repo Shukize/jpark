@@ -614,6 +614,26 @@ const fakeDb = {
   check('register-webhook: wrong key -> 401',
     (await realFetch(base + '/payments/diagnostics/register-webhook?key=wrong', { method: 'POST' })).status === 401);
 
+  /* The email-preview endpoint must not become what the last audit found on
+     POST /api/email: a relay that will send hotel-signed mail anywhere. The
+     recipient comes from HOTEL_NOTIFY_EMAIL, never from the request. */
+  check('email-preview: wrong key -> 401',
+    (await realFetch(base + '/payments/email-preview?key=wrong', { method: 'POST' })).status === 401);
+  process.env.HOTEL_NOTIFY_EMAIL = 'desk@jparkhotel.example';
+  const preview = await realFetch(base + '/payments/email-preview?key=sekrit-value', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ to: 'attacker@evil.example', subject: 'Your account', html: '<b>pay here</b>' }),
+  });
+  const previewBody = await preview.json();
+  check('email-preview: sends only to the hotel address',
+    JSON.stringify(previewBody.to) === JSON.stringify(['desk@jparkhotel.example']),
+    JSON.stringify(previewBody.to));
+  check('email-preview: a caller-supplied recipient is ignored',
+    JSON.stringify(previewBody).indexOf('attacker@evil.example') === -1);
+  check('email-preview: renders the real templates, not caller content',
+    Array.isArray(previewBody.sent) && previewBody.sent.length === 3,
+    JSON.stringify(previewBody.sent));
+
   // Registering the webhook by API, which is what turns the failing check
   // above into a passing one without anyone touching the dashboard.
   const reg = await realFetch(base + '/payments/diagnostics/register-webhook?key=sekrit-value', { method: 'POST' });

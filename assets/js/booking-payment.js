@@ -84,6 +84,8 @@
       'bk.pay.prepayRequiredNote': "During this busy period, full prepayment is required — pay-at-check-in isn't available for these dates, and this booking is non-refundable if you don't arrive (no-show) or cancel.",
       'bk.pay.testModeTitle': 'Test mode — no payment will be taken.',
       'bk.pay.testModeNote': 'This booking page is connected to the payment gateway in test mode. You can complete the form, but no card is charged and no money is transferred. Please contact the hotel to confirm your reservation.',
+      'bk.pay.noRefundTitle': 'Paying online is non-refundable.',
+      'bk.pay.noRefundNote': 'If you pay now and later cancel, change your dates, arrive late or do not arrive, the amount is not returned. Choose “Pay at check-in” instead if you would rather keep your booking flexible — nothing is charged until you arrive. The 200 THB key-card deposit is separate and always refunded.',
       'bk.pay.confirmReservation': 'Confirm reservation',
       'bk.pay.err.required': 'Please fill in your first name, email, and phone number.',
       'bk.pay.err.generic': 'Something went wrong. Please try again.',
@@ -153,6 +155,8 @@
       'bk.pay.prepayRequiredNote': 'ในช่วงที่มีผู้เข้าพักจำนวนมาก จำเป็นต้องชำระเงินล่วงหน้าเต็มจำนวน — ไม่สามารถเลือกชำระที่โรงแรมสำหรับวันดังกล่าวได้ และการจองนี้จะไม่คืนเงินหากท่านไม่เข้าพัก (No-show) หรือยกเลิก',
       'bk.pay.testModeTitle': 'โหมดทดสอบ — จะไม่มีการเรียกเก็บเงิน',
       'bk.pay.testModeNote': 'หน้าจองนี้เชื่อมต่อกับระบบชำระเงินในโหมดทดสอบ ท่านสามารถกรอกแบบฟอร์มได้ แต่จะไม่มีการตัดบัตรและไม่มีการโอนเงินใด ๆ กรุณาติดต่อโรงแรมเพื่อยืนยันการจองของท่าน',
+      'bk.pay.noRefundTitle': 'การชำระเงินออนไลน์ไม่สามารถขอคืนเงินได้',
+      'bk.pay.noRefundNote': 'หากท่านชำระเงินตอนนี้ แล้วภายหลังยกเลิก เปลี่ยนวันเข้าพัก มาถึงล่าช้า หรือไม่เข้าพัก จะไม่มีการคืนเงิน หากท่านต้องการความยืดหยุ่น กรุณาเลือก “ชำระเงิน ณ วันเช็คอิน” แทน ซึ่งจะไม่มีการเรียกเก็บเงินจนกว่าท่านจะเดินทางมาถึง ทั้งนี้เงินมัดจำบัตรคีย์การ์ด 200 บาท เป็นคนละส่วนและคืนให้เสมอ',
       'bk.pay.confirmReservation': 'ยืนยันการจอง',
       'bk.pay.err.required': 'กรุณากรอกชื่อ อีเมล และเบอร์โทรศัพท์ของท่าน',
       'bk.pay.err.generic': 'เกิดข้อผิดพลาด กรุณาลองใหม่',
@@ -222,6 +226,8 @@
       'bk.pay.prepayRequiredNote': '混雑期のため、全額前払いが必要です。この期間はチェックイン時のお支払いはお選びいただけず、ご到着がない場合（ノーショー）やキャンセルの場合は返金されません。',
       'bk.pay.testModeTitle': 'テストモード — お支払いは発生しません。',
       'bk.pay.testModeNote': 'この予約ページは決済システムのテストモードに接続されています。フォームの入力は可能ですが、カードへの請求も送金も行われません。ご予約の確定はホテルまでご連絡ください。',
+      'bk.pay.noRefundTitle': 'オンラインでのお支払いは返金不可です。',
+      'bk.pay.noRefundNote': '今お支払いいただいた後にキャンセル、日程の変更、到着の遅れ、ご不泊となった場合でも、料金は返金されません。変更の可能性がある場合は「チェックイン時にお支払い」をお選びください。ご到着まで請求は発生いたしません。なお、ルームキーカードのデポジット200THBはこれとは別で、必ず返金いたします。',
       'bk.pay.confirmReservation': '予約を確定する',
       'bk.pay.err.required': 'お名前、メールアドレス、電話番号をご入力ください。',
       'bk.pay.err.generic': '問題が発生しました。再度お試しください。',
@@ -291,6 +297,8 @@
       'bk.pay.prepayRequiredNote': '旺季期间需全额预付——所选日期不提供到店支付，且如未入住（No-show）或取消恕不退款。',
       'bk.pay.testModeTitle': '测试模式 — 不会收取任何款项。',
       'bk.pay.testModeNote': '此预订页面已连接至支付网关的测试模式。您可以填写表单，但不会扣款，也不会发生任何资金转移。请联系酒店确认您的预订。',
+      'bk.pay.noRefundTitle': '在线支付恕不退款。',
+      'bk.pay.noRefundNote': '如您现在付款，之后取消、变更日期、延迟抵达或未入住，款项恕不退还。如您希望保留灵活性，请改选“到店支付”，在您抵达前不会产生任何扣款。200 泰铢房卡押金为另计，且必定退还。',
       'bk.pay.confirmReservation': '确认预订',
       'bk.pay.err.required': '请填写您的名字、电子邮箱和电话号码。',
       'bk.pay.err.generic': '出现了一些问题，请重试。',
@@ -360,6 +368,8 @@
       'bk.pay.prepayRequiredNote': '旺季期間需全額預付——所選日期不提供到店支付，且如未入住（No-show）或取消恕不退款。',
       'bk.pay.testModeTitle': '測試模式 — 不會收取任何款項。',
       'bk.pay.testModeNote': '此訂房頁面已連接至支付閘道的測試模式。您可以填寫表單，但不會扣款，也不會發生任何資金轉移。請聯繫酒店確認您的訂房。',
+      'bk.pay.noRefundTitle': '線上付款恕不退款。',
+      'bk.pay.noRefundNote': '如您現在付款，之後取消、變更日期、延遲抵達或未入住，款項恕不退還。如您希望保留彈性，請改選「到店付款」，在您抵達前不會產生任何扣款。200 泰銖房卡押金為另計，且必定退還。',
       'bk.pay.confirmReservation': '確認預訂',
       'bk.pay.err.required': '請填寫您的名字、電子郵箱和電話號碼。',
       'bk.pay.err.generic': '出現了一些問題，請重試。',
@@ -880,6 +890,14 @@
           ? '<label class="bkp-radio"><input type="radio" name="bkpPaymentMethod" value="promptpay"' + (m === 'promptpay' ? ' checked' : '') + '> ' + TR('bk.pay.payOnlinePromptpay') + '</label>'
           : '') +
       '</div>' +
+      // Online payments are non-refundable, so the guest is told here — at the
+      // moment of choosing — rather than only in policies.html, which they may
+      // never open. It names the flexible alternative in the same breath, so
+      // the choice is informed rather than a term discovered afterwards.
+      '<p class="bkp-norefund-note">' +
+        '<strong>' + esc(TR('bk.pay.noRefundTitle')) + '</strong> ' + esc(TR('bk.pay.noRefundNote')) +
+        ' <a href="policies.html#booking-policy" target="_blank" rel="noopener">' + esc(TR('footer.policies')) + '</a>' +
+      '</p>' +
       '<div class="bkp-card-fields" id="bkpCardFields"' + (m === 'card' ? '' : ' hidden') + '>' +
         '<div class="bkp-field"><label>' + TR('bk.pay.cardName') + '</label><input id="bkpCardName" autocomplete="cc-name"></div>' +
         '<div class="bkp-field"><label>' + TR('bk.pay.cardNumber') + '</label><input id="bkpCardNumber" inputmode="numeric" autocomplete="cc-number" placeholder="4242 4242 4242 4242"></div>' +

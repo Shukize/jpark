@@ -987,6 +987,16 @@ body.bk-pay-open { position: fixed; left: 0; right: 0; overflow: hidden; }
 .bkp-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .bkp-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
 
+/* Non-refundable notice under the online payment options. Amber rather than
+   red: this is a term the guest needs to read before choosing, not an error
+   they have made. */
+.bkp-norefund-note {
+  background: #fff4e5; border: 1px solid #f0c07a; border-radius: 8px;
+  padding: 9px 12px; margin: 10px 0 0; color: #8a5a00;
+  font-size: 0.82rem; line-height: 1.45;
+}
+.bkp-norefund-note a { color: #8a5a00; font-weight: 700; }
+
 .bkp-radio-row { display: flex; flex-wrap: wrap; gap: 10px; }
 .bkp-radio {
   display: flex; align-items: center; gap: 6px;

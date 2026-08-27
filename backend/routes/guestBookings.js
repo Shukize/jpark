@@ -14,6 +14,7 @@ const crypto = require('crypto');
 const db = require('../db');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const { sendEmail } = require('../mailer');
+const T = require('../lib/emailTemplate');
 const { makeLimiter } = require('../lib/rateLimit');
 const { countOverlappingPool } = require('../lib/availability');
 const roomRates = require('../lib/roomRates');
@@ -77,6 +78,33 @@ function isOnlineProvider(provider) {
   return Boolean(provider) && provider !== 'in_person';
 }
 
+/* What a cancellation email tells the guest about their money.
+
+   The hotel's policy is that online payments are NOT refundable (see
+   policies.html / assets/js/i18n-policies.js). This used to promise the
+   opposite — "please contact us to arrange a refund" — which would have
+   committed the hotel in writing, to the guest, at the worst possible moment,
+   to something it does not do.
+
+   It is one function because the text body and the HTML body are built
+   separately and had already drifted: the group cancellation's HTML hard-coded
+   "there is nothing to refund" regardless of payment, so a group booking that
+   really had been paid online was told, in the HTML most mail clients render,
+   that it had paid nothing. One source, both bodies, both shapes.
+
+   A billing MISTAKE is deliberately still invited. Refusing refunds is a
+   policy; refusing to correct a double charge is not one, and the offer costs
+   nothing to make honestly. */
+function cancellationRefundLine(paidOnline, money) {
+  if (!paidOnline) {
+    return 'No payment was taken online for this booking, so there is nothing to refund.';
+  }
+  return `You paid ${money} online for this booking. As set out in our booking terms, ` +
+    'payments made online are non-refundable, so this amount is not returned. If you think ' +
+    'you were charged in error or charged twice, reply to this email with your confirmation ' +
+    'number and we will look into it. Our full terms are at https://jparkhotel.com/policies.html';
+}
+
 // Accounting-friendly line for the front-desk/hotel notice. A genuine online
 // gateway charge (card or PromptPay) is called out distinctly — with the
 // charge reference, so staff can reconcile against the gateway's own
@@ -92,7 +120,7 @@ function paymentLabel(bk) {
     : bk.payment_method === 'promptpay' ? 'PromptPay'
     : bk.payment_provider || 'Online';
   const online = isOnlineProvider(bk.payment_provider);
-  const money = bk.total != null ? `${bk.total} ${bk.currency || 'THB'}` : '—';
+  const money = bk.total != null ? formatMoney(bk.total, bk.currency) : '—';
   const chargeSuffix = bk.payment_charge_id ? ` (gateway ref: ${bk.payment_charge_id})` : '';
   if (online && bk.payment_status === 'paid') {
     return `✓ PAID ONLINE — ${method} — ${money}${chargeSuffix}`;
@@ -112,14 +140,31 @@ function paymentLabel(bk) {
 // uniform one-liner across every booking type in the inbox. Only shown for
 // a reservation still awaiting its in-person payment (see routes/payments.js
 // POST /reservations, which always creates bookings in this state).
+function formatMoney(amount, currency) {
+  const cur = currency || 'THB';
+  const n = Number(amount);
+  if (!Number.isFinite(n)) return String(amount == null ? '' : amount) + ' ' + cur;
+  // Thai hotel rates are whole baht; show decimals only if there really are any.
+  const body = Number.isInteger(n)
+    ? n.toLocaleString('en-US')
+    : n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return body + ' ' + cur;
+}
+
 function balanceDueNote(bk) {
   if (bk.payment_method !== 'pay_at_checkin' || bk.payment_status !== 'pending') return null;
-  const money = bk.total != null ? `${bk.total} ${bk.currency || 'THB'}` : '—';
+  const money = bk.total != null ? formatMoney(bk.total, bk.currency) : '—';
   return {
     text: `Balance due: ${money}. Payable in person at check-in by cash, credit/debit card, or PromptPay QR at our front desk.`,
     html: `<p style="background:#eef6f4;border:1px solid #a9d6cb;border-radius:8px;padding:10px 14px;color:#0f4a3e">` +
       `<strong>Balance due: ${money}.</strong> Payable in person at check-in by cash, credit/debit card, or PromptPay QR at our front desk.</p>`,
   };
+}
+
+function guestCountLabel(adults, children) {
+  const a = Number(adults) || 0;
+  const c = Number(children) || 0;
+  return `${a} ${a === 1 ? 'adult' : 'adults'}` + (c > 0 ? `, ${c} ${c === 1 ? 'child' : 'children'}` : '');
 }
 
 function smokingLabel(bk) {
@@ -149,6 +194,14 @@ const CHECKOUT_TIME = '12:00';
 // "Sat Jul 25 2026 14:00 ICT" instead, explicitly pinned to UTC so a
 // server/host timezone other than UTC can never shift the calendar date by
 // a day.
+function formatPlainDate(dateVal) {
+  const d = new Date(dateVal);
+  if (Number.isNaN(d.getTime())) return String(dateVal == null ? '—' : dateVal);
+  const weekday = d.toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' });
+  const month = d.toLocaleDateString('en-US', { month: 'short', timeZone: 'UTC' });
+  return `${weekday} ${month} ${d.getUTCDate()} ${d.getUTCFullYear()}`;
+}
+
 function formatCheckDate(dateVal, hhmm) {
   const d = new Date(dateVal);
   const weekday = d.toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' });
@@ -172,7 +225,7 @@ const EMAIL_I18N = {
     extraBed: 'Extra bed',
     specialRequests: 'Special requests',
     total: 'Total', payment: 'Payment',
-    adultsChildren: (a, c) => `${a} adult(s), ${c} child(ren)`,
+    adultsChildren: (a, c) => `${a} ${a === 1 ? 'adult' : 'adults'}` + (c > 0 ? `, ${c} ${c === 1 ? 'child' : 'children'}` : ''),
     childAgesSuffix: (ages) => (ages && ages.length ? ` (ages: ${ages.join(', ')})` : ''),
     nonSmoking: 'Non-Smoking', smoking: 'Smoking', yes: 'Yes', no: 'No',
     balanceDue: (money) => `Balance due: ${money}. Payable in person at check-in by cash, credit/debit card, or PromptPay QR at our front desk.`,
@@ -200,7 +253,7 @@ const EMAIL_I18N = {
     extraBed: 'เตียงเสริม',
     specialRequests: 'คำขอพิเศษ',
     total: 'ยอดรวม', payment: 'การชำระเงิน',
-    adultsChildren: (a, c) => `ผู้ใหญ่ ${a} ท่าน, เด็ก ${c} ท่าน`,
+    adultsChildren: (a, c) => `ผู้ใหญ่ ${a} ท่าน` + (c > 0 ? `, เด็ก ${c} ท่าน` : ''),
     childAgesSuffix: (ages) => (ages && ages.length ? ` (อายุ: ${ages.join(', ')})` : ''),
     nonSmoking: 'ห้องปลอดบุหรี่', smoking: 'ห้องสูบบุหรี่', yes: 'มี', no: 'ไม่มี',
     balanceDue: (money) => `ยอดคงเหลือที่ต้องชำระ: ${money} ชำระได้ที่หน้าเคาน์เตอร์ในวันเช็คอิน ด้วยเงินสด บัตรเครดิต/เดบิต หรือ PromptPay QR`,
@@ -228,7 +281,7 @@ const EMAIL_I18N = {
     extraBed: 'エキストラベッド',
     specialRequests: 'ご要望',
     total: '合計金額', payment: 'お支払い',
-    adultsChildren: (a, c) => `大人 ${a}名、子供 ${c}名`,
+    adultsChildren: (a, c) => `大人 ${a}名` + (c > 0 ? `、子供 ${c}名` : ''),
     childAgesSuffix: (ages) => (ages && ages.length ? ` (年齢: ${ages.join('、')})` : ''),
     nonSmoking: '禁煙', smoking: '喫煙可', yes: 'あり', no: 'なし',
     balanceDue: (money) => `お支払い残額：${money}。チェックイン時にフロントにて現金、クレジット/デビットカード、またはプロンプトペイQRでお支払いください。`,
@@ -256,7 +309,7 @@ const EMAIL_I18N = {
     extraBed: '加床',
     specialRequests: '特殊要求',
     total: '总计', payment: '付款方式',
-    adultsChildren: (a, c) => `成人 ${a} 位，儿童 ${c} 位`,
+    adultsChildren: (a, c) => `成人 ${a} 位` + (c > 0 ? `，儿童 ${c} 位` : ''),
     childAgesSuffix: (ages) => (ages && ages.length ? ` (年龄：${ages.join('、')})` : ''),
     nonSmoking: '无烟房', smoking: '吸烟房', yes: '含', no: '不含',
     balanceDue: (money) => `尚需支付金额：${money}。可于入住时在前台以现金、信用卡/借记卡或PromptPay二维码支付。`,
@@ -284,7 +337,7 @@ const EMAIL_I18N = {
     extraBed: '加床',
     specialRequests: '特殊要求',
     total: '總計', payment: '付款方式',
-    adultsChildren: (a, c) => `成人 ${a} 位，兒童 ${c} 位`,
+    adultsChildren: (a, c) => `成人 ${a} 位` + (c > 0 ? `，兒童 ${c} 位` : ''),
     childAgesSuffix: (ages) => (ages && ages.length ? ` (年齡：${ages.join('、')})` : ''),
     nonSmoking: '無菸房', smoking: '吸菸房', yes: '含', no: '不含',
     balanceDue: (money) => `尚需支付金額：${money}。可於入住時在前台以現金、信用卡/簽帳卡或PromptPay二維碼支付。`,
@@ -322,6 +375,20 @@ const HOTEL_ADDRESS = '88/88 Thanon Sukprayun, Na Pa, Mueang Chonburi District, 
 const HOTEL_PHONES = ['+66 86 326 0664', '+66 38 448 111'];
 const HOTEL_EMAIL = 'jparkhotel1@gmail.com';
 
+/* The address block for the HTML side of every email.
+
+   emailLetterhead() below still provides the PLAIN TEXT half, which is a
+   different job: text bodies are read by people with images off, by screen
+   readers, and by the spam filters that penalise an HTML-only message. */
+function emailFooterHtml() {
+  return T.footerBlock({
+    address: HOTEL_ADDRESS,
+    phones: HOTEL_PHONES,
+    email: HOTEL_EMAIL,
+    site: SITE_ORIGIN,
+  });
+}
+
 function emailLetterhead() {
   const text =
     '\n' +
@@ -340,9 +407,9 @@ function emailLetterhead() {
 }
 
 function hotelNotice(bk) {
-  const money = bk.total != null ? `${bk.total} ${bk.currency || 'THB'}` : '—';
+  const money = bk.total != null ? formatMoney(bk.total, bk.currency) : '—';
   const childAges = Array.isArray(bk.child_ages) && bk.child_ages.length ? ` (ages: ${bk.child_ages.join(', ')})` : '';
-  const guests = `${bk.adults} adult(s), ${bk.children} child(ren)${childAges}`;
+  const guests = `${guestCountLabel(bk.adults, bk.children)}${childAges}`;
   const via = bk.channel_name || bk.channel || 'Direct';
   const payment = paymentLabel(bk);
   const balanceDue = balanceDueNote(bk);
@@ -370,30 +437,39 @@ function hotelNotice(bk) {
   ];
   const letterhead = emailLetterhead();
   const text = lines.join('\n') + letterhead.text;
-  const html =
-    `<div style="font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;line-height:1.5">` +
-    `<h2 style="color:#0f766e;margin:0 0 12px">New booking via ${via}</h2>` +
-    `<table style="border-collapse:collapse;margin:16px 0">` +
-    `<tr><td style="padding:4px 12px 4px 0;color:#555">Confirmation</td><td style="padding:4px 0"><strong>${bk.ref}</strong></td></tr>` +
-    `<tr><td style="padding:4px 12px 4px 0;color:#555">Guest</td><td style="padding:4px 0">${bk.guest_name || '—'}</td></tr>` +
-    `<tr><td style="padding:4px 12px 4px 0;color:#555">Guest email</td><td style="padding:4px 0">${bk.guest_email || '—'}</td></tr>` +
-    `<tr><td style="padding:4px 12px 4px 0;color:#555">Guest phone</td><td style="padding:4px 0">${bk.guest_phone || '—'}</td></tr>` +
-    `<tr><td style="padding:4px 12px 4px 0;color:#555">Room</td><td style="padding:4px 0">${bk.room || '—'}</td></tr>` +
-    `<tr><td style="padding:4px 12px 4px 0;color:#555">Check-in</td><td style="padding:4px 0">${formatCheckDate(bk.check_in, CHECKIN_TIME)}</td></tr>` +
-    `<tr><td style="padding:4px 12px 4px 0;color:#555">Check-out</td><td style="padding:4px 0">${formatCheckDate(bk.check_out, CHECKOUT_TIME)}</td></tr>` +
-    `<tr><td style="padding:4px 12px 4px 0;color:#555">Nights</td><td style="padding:4px 0">${bk.nights}</td></tr>` +
-    `<tr><td style="padding:4px 12px 4px 0;color:#555">Guests</td><td style="padding:4px 0">${guests}</td></tr>` +
-    `<tr><td style="padding:4px 12px 4px 0;color:#555">Room preference</td><td style="padding:4px 0">${smokingLabel(bk)}</td></tr>` +
-    `<tr><td style="padding:4px 12px 4px 0;color:#555">Breakfast</td><td style="padding:4px 0">${breakfastLabel(bk)}</td></tr>` +
-    (bk.extra_bed ? `<tr><td style="padding:4px 12px 4px 0;color:#555">Extra bed</td><td style="padding:4px 0">Yes</td></tr>` : '') +
-    (bk.special_requests ? `<tr><td style="padding:4px 12px 4px 0;color:#555">Special requests</td><td style="padding:4px 0">${escapeHtml(bk.special_requests)}</td></tr>` : '') +
-    `<tr><td style="padding:4px 12px 4px 0;color:#555">Total</td><td style="padding:4px 0">${money}</td></tr>` +
-    (payment ? `<tr><td style="padding:4px 12px 4px 0;color:#555">Payment</td><td style="padding:4px 0">${payment}</td></tr>` : '') +
-    `</table>` +
-    (balanceDue ? balanceDue.html : '') +
-    `<p style="color:#555">This reservation is now in the <strong>Guest Booking</strong> inbox of the staff console.</p>` +
-    letterhead.html +
-    `</div>`;
+  const html = T.wrap({
+    // Staff scan these in a list, so the preview line has to carry the two
+    // facts that decide whether it needs opening now: who, and when they arrive.
+    preheader: `${bk.guest_name || 'Guest'} · ${formatCheckDate(bk.check_in, CHECKIN_TIME)} · ${bk.ref}`,
+    accent: T.BRAND.gold,
+    footer: emailFooterHtml(),
+    body:
+      T.heading(`New booking via ${via}`) +
+      T.refBlock('Confirmation', bk.ref) +
+      T.table(
+        // Guest name, email and phone come straight from the public booking
+        // form. T.row() escapes them; before this template existed they were
+        // interpolated raw, so a booking made under a name containing markup
+        // rendered as live HTML inside this very message — a credible place
+        // to hide a link, since the mail genuinely comes from the hotel.
+        T.row('Guest', bk.guest_name || '—', { strong: true }) +
+        T.row('Guest email', bk.guest_email || '—') +
+        T.row('Guest phone', bk.guest_phone || '—') +
+        T.row('Room', bk.room || '—') +
+        T.row('Check-in', formatCheckDate(bk.check_in, CHECKIN_TIME)) +
+        T.row('Check-out', formatCheckDate(bk.check_out, CHECKOUT_TIME)) +
+        T.row('Nights', bk.nights) +
+        T.row('Guests', guests) +
+        T.row('Room preference', smokingLabel(bk)) +
+        T.row('Breakfast', breakfastLabel(bk)) +
+        (bk.extra_bed ? T.row('Extra bed', 'Yes') : '') +
+        (bk.special_requests ? T.row('Special requests', bk.special_requests) : '') +
+        T.row('Total', money, { strong: true }) +
+        (payment ? T.row('Payment', payment) : '')
+      ) +
+      (balanceDue ? T.notice('due', balanceDue.text) : '') +
+      T.paragraph('This reservation is now in the Guest Booking inbox of the staff console.', { small: true, muted: true }),
+  });
   return { text, html };
 }
 
@@ -408,12 +484,12 @@ const SPAM_NOTE_HTML =
 
 function confirmationEmail(bk) {
   const L = EMAIL_I18N[bk.lang] || EMAIL_I18N.en;
-  const money = bk.total != null ? `${bk.total} ${bk.currency || 'THB'}` : '—';
+  const money = bk.total != null ? formatMoney(bk.total, bk.currency) : '—';
   const payment = guestPaymentLabel(bk, L);
   const paidOnline = isOnlineProvider(bk.payment_provider) && bk.payment_status === 'paid';
   const awaitingOnline = isOnlineProvider(bk.payment_provider) && bk.payment_status === 'pending';
   const balanceDueMoney = (bk.payment_method === 'pay_at_checkin' && bk.payment_status === 'pending' && bk.total != null)
-    ? `${bk.total} ${bk.currency || 'THB'}` : null;
+    ? formatMoney(bk.total, bk.currency) : null;
   const smokingText = bk.smoking_preference === 'smoking' ? L.smoking : L.nonSmoking;
   const breakfastText = bk.breakfast ? L.yes : L.no;
   const lines = [
@@ -452,35 +528,38 @@ function confirmationEmail(bk) {
   ];
   const letterhead = emailLetterhead();
   const text = lines.join('\n') + letterhead.text;
-  const html =
-    `<div style="font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;line-height:1.5">` +
-    `<h2 style="color:#0f766e;margin:0 0 12px">${L.heading}</h2>` +
-    `<p>${L.greeting(bk.guest_name)}</p>` +
-    `<p>${L.intro}</p>` +
-    `<table style="border-collapse:collapse;margin:16px 0">` +
-    `<tr><td style="padding:4px 12px 4px 0;color:#555">${L.confirmation}</td><td style="padding:4px 0"><strong>${bk.ref}</strong></td></tr>` +
-    `<tr><td style="padding:4px 12px 4px 0;color:#555">${L.room}</td><td style="padding:4px 0">${bk.room || '—'}</td></tr>` +
-    `<tr><td style="padding:4px 12px 4px 0;color:#555">${L.checkin}</td><td style="padding:4px 0">${formatCheckDate(bk.check_in, CHECKIN_TIME)}</td></tr>` +
-    `<tr><td style="padding:4px 12px 4px 0;color:#555">${L.checkout}</td><td style="padding:4px 0">${formatCheckDate(bk.check_out, CHECKOUT_TIME)}</td></tr>` +
-    `<tr><td style="padding:4px 12px 4px 0;color:#555">${L.nights}</td><td style="padding:4px 0">${bk.nights}</td></tr>` +
-    `<tr><td style="padding:4px 12px 4px 0;color:#555">${L.guests}</td><td style="padding:4px 0">${L.adultsChildren(bk.adults, bk.children)}${L.childAgesSuffix(bk.child_ages)}</td></tr>` +
-    `<tr><td style="padding:4px 12px 4px 0;color:#555">${L.roomPref}</td><td style="padding:4px 0">${smokingText}</td></tr>` +
-    `<tr><td style="padding:4px 12px 4px 0;color:#555">${L.breakfast}</td><td style="padding:4px 0">${breakfastText}</td></tr>` +
-    (bk.extra_bed ? `<tr><td style="padding:4px 12px 4px 0;color:#555">${L.extraBed}</td><td style="padding:4px 0">${L.yes}</td></tr>` : '') +
-    (bk.special_requests ? `<tr><td style="padding:4px 12px 4px 0;color:#555">${L.specialRequests}</td><td style="padding:4px 0">${escapeHtml(bk.special_requests)}</td></tr>` : '') +
-    `<tr><td style="padding:4px 12px 4px 0;color:#555">${L.total}</td><td style="padding:4px 0">${money}</td></tr>` +
-    (payment ? `<tr><td style="padding:4px 12px 4px 0;color:#555">${L.payment}</td><td style="padding:4px 0">${payment}</td></tr>` : '') +
-    `</table>` +
-    (paidOnline ? `<p style="background:#e6f4ea;border:1px solid #a6d8b1;border-radius:8px;padding:10px 14px;color:#1a7f37"><strong>${L.paidOnline(money)}</strong></p>` : '') +
-    (awaitingOnline ? `<p style="background:#eef2ff;border:1px solid #b7c4f0;border-radius:8px;padding:10px 14px;color:#33408a">${L.awaitingOnlinePayment(money)}</p>` : '') +
-    (balanceDueMoney ? `<p style="background:#eef6f4;border:1px solid #a9d6cb;border-radius:8px;padding:10px 14px;color:#0f4a3e">${L.balanceDue(balanceDueMoney)}</p>` : '') +
-    (bk.non_refundable ? `<p style="background:#fdecea;border:1px solid #f0b7b1;border-radius:8px;padding:10px 14px;color:#8a2a1a"><strong>${L.nonRefundableNote}</strong></p>` : '') +
-    `<p style="background:#fbf3df;border:1px solid #e0c178;border-radius:8px;padding:10px 14px;color:#5a4a1a">${L.depositNote}</p>` +
-    `<p>${L.closing}</p>` +
-    `<p style="color:#888;font-size:0.85rem">${L.spamNote}</p>` +
-    `<p style="color:#0f766e;font-weight:bold;margin-top:24px">J Park Hotel, Chonburi</p>` +
-    letterhead.html +
-    `</div>`;
+  const html = T.wrap({
+    // The inbox preview line. Says what happened and names the reference, so
+    // the message is identifiable without opening it.
+    preheader: `${L.confirmation}: ${bk.ref} · ${formatCheckDate(bk.check_in, CHECKIN_TIME)}`,
+    footer: emailFooterHtml(),
+    body:
+      T.heading(L.heading) +
+      T.paragraph(L.greeting(bk.guest_name)) +
+      T.paragraph(L.intro) +
+      T.refBlock(L.confirmation, bk.ref) +
+      T.table(
+        T.row(L.room, bk.room || '—', { strong: true }) +
+        T.row(L.checkin, formatCheckDate(bk.check_in, CHECKIN_TIME)) +
+        T.row(L.checkout, formatCheckDate(bk.check_out, CHECKOUT_TIME)) +
+        T.row(L.nights, bk.nights) +
+        T.row(L.guests, `${L.adultsChildren(bk.adults, bk.children)}${L.childAgesSuffix(bk.child_ages)}`) +
+        T.row(L.roomPref, smokingText) +
+        T.row(L.breakfast, breakfastText) +
+        (bk.extra_bed ? T.row(L.extraBed, L.yes) : '') +
+        (bk.special_requests ? T.row(L.specialRequests, bk.special_requests) : '') +
+        T.row(L.total, money, { strong: true }) +
+        (payment ? T.row(L.payment, payment) : '')
+      ) +
+      (paidOnline ? T.notice('paid', L.paidOnline(money), { strong: true }) : '') +
+      (awaitingOnline ? T.notice('pending', L.awaitingOnlinePayment(money)) : '') +
+      (balanceDueMoney ? T.notice('due', L.balanceDue(balanceDueMoney)) : '') +
+      (bk.non_refundable ? T.notice('alert', L.nonRefundableNote, { strong: true }) : '') +
+      T.notice('warn', L.depositNote) +
+      T.divider() +
+      T.paragraph(L.closing) +
+      T.paragraph(L.spamNote, { small: true, muted: true }),
+  });
   return { text, html };
 }
 
@@ -497,13 +576,13 @@ function groupConfirmationEmail(rows) {
   const n = rows.length;
   const currency = first.currency || 'THB';
   const grand = rows.reduce((s, r) => s + Number(r.total || 0), 0);
-  const grandMoney = `${grand} ${currency}`;
+  const grandMoney = formatMoney(grand, currency);
   const balanceDueMoney = (first.payment_method === 'pay_at_checkin' && first.payment_status === 'pending')
     ? grandMoney : null;
   const paidOnline = isOnlineProvider(first.payment_provider) && first.payment_status === 'paid';
   const awaitingOnline = isOnlineProvider(first.payment_provider) && first.payment_status === 'pending';
   const payment = guestPaymentLabel(first, L);
-  const roomMoney = (r) => (r.total != null ? `${r.total} ${currency}` : '—');
+  const roomMoney = (r) => (r.total != null ? formatMoney(r.total, currency) : '—');
 
   const roomTextBlock = (r, i) => {
     const smokingText = r.smoking_preference === 'smoking' ? L.smoking : L.nonSmoking;
@@ -551,40 +630,42 @@ function groupConfirmationEmail(rows) {
   const roomRowsHtml = rows.map((r, i) => {
     const smokingText = r.smoking_preference === 'smoking' ? L.smoking : L.nonSmoking;
     return (
-      `<tr><td colspan="2" style="padding:12px 0 4px;border-top:1px solid #e2e2e2;color:#0f766e;font-weight:bold">${L.roomLabel(i + 1)} — ${escapeHtml(r.room || '—')}</td></tr>` +
-      `<tr><td style="padding:2px 12px 2px 0;color:#555">${L.guests}</td><td style="padding:2px 0">${L.adultsChildren(r.adults, r.children)}${L.childAgesSuffix(r.child_ages)}</td></tr>` +
-      `<tr><td style="padding:2px 12px 2px 0;color:#555">${L.roomPref}</td><td style="padding:2px 0">${smokingText}</td></tr>` +
-      `<tr><td style="padding:2px 12px 2px 0;color:#555">${L.breakfast}</td><td style="padding:2px 0">${r.breakfast ? L.yes : L.no}</td></tr>` +
-      (r.extra_bed ? `<tr><td style="padding:2px 12px 2px 0;color:#555">${L.extraBed}</td><td style="padding:2px 0">${L.yes}</td></tr>` : '') +
-      `<tr><td style="padding:2px 12px 6px 0;color:#555">${L.subtotal}</td><td style="padding:2px 0 6px">${roomMoney(r)}</td></tr>`
+      `<tr><td colspan="2" style="padding:16px 0 5px;border-top:1px solid ${T.BRAND.hairline};font-family:${T.FONT};font-size:14px;color:${T.BRAND.teal};font-weight:600">${escapeHtml(L.roomLabel(i + 1))} — ${escapeHtml(r.room || '—')}</td></tr>` +
+      T.row(L.guests, `${L.adultsChildren(r.adults, r.children)}${L.childAgesSuffix(r.child_ages)}`) +
+      T.row(L.roomPref, smokingText) +
+      T.row(L.breakfast, r.breakfast ? L.yes : L.no) +
+      (r.extra_bed ? T.row(L.extraBed, L.yes) : '') +
+      T.row(L.subtotal, roomMoney(r))
     );
   }).join('');
 
   const html =
-    `<div style="font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;line-height:1.5">` +
-    `<h2 style="color:#0f766e;margin:0 0 12px">${L.heading}</h2>` +
-    `<p>${L.greeting(first.guest_name)}</p>` +
-    `<p>${L.intro}</p>` +
-    `<table style="border-collapse:collapse;margin:16px 0;min-width:300px">` +
-    `<tr><td style="padding:4px 12px 4px 0;color:#555">${L.confirmation}</td><td style="padding:4px 0"><strong>${first.group_ref}</strong> (${L.roomsSummary(n)})</td></tr>` +
-    `<tr><td style="padding:4px 12px 4px 0;color:#555">${L.checkin}</td><td style="padding:4px 0">${formatCheckDate(first.check_in, CHECKIN_TIME)}</td></tr>` +
-    `<tr><td style="padding:4px 12px 4px 0;color:#555">${L.checkout}</td><td style="padding:4px 0">${formatCheckDate(first.check_out, CHECKOUT_TIME)}</td></tr>` +
-    `<tr><td style="padding:4px 12px 4px 0;color:#555">${L.nights}</td><td style="padding:4px 0">${first.nights}</td></tr>` +
-    roomRowsHtml +
-    `<tr><td style="padding:10px 12px 4px 0;border-top:2px solid #0f766e;color:#0f766e;font-weight:bold">${L.grandTotal}</td><td style="padding:10px 0 4px;border-top:2px solid #0f766e;font-weight:bold">${grandMoney}</td></tr>` +
-    (payment ? `<tr><td style="padding:4px 12px 4px 0;color:#555">${L.payment}</td><td style="padding:4px 0">${payment}</td></tr>` : '') +
-    (first.special_requests ? `<tr><td style="padding:4px 12px 4px 0;color:#555">${L.specialRequests}</td><td style="padding:4px 0">${escapeHtml(first.special_requests)}</td></tr>` : '') +
-    `</table>` +
-    (paidOnline ? `<p style="background:#e6f4ea;border:1px solid #a6d8b1;border-radius:8px;padding:10px 14px;color:#1a7f37"><strong>${L.paidOnline(grandMoney)}</strong></p>` : '') +
-    (awaitingOnline ? `<p style="background:#eef2ff;border:1px solid #b7c4f0;border-radius:8px;padding:10px 14px;color:#33408a">${L.awaitingOnlinePayment(grandMoney)}</p>` : '') +
-    (balanceDueMoney ? `<p style="background:#eef6f4;border:1px solid #a9d6cb;border-radius:8px;padding:10px 14px;color:#0f4a3e">${L.balanceDue(balanceDueMoney)}</p>` : '') +
-    (first.non_refundable ? `<p style="background:#fdecea;border:1px solid #f0b7b1;border-radius:8px;padding:10px 14px;color:#8a2a1a"><strong>${L.nonRefundableNote}</strong></p>` : '') +
-    `<p style="background:#fbf3df;border:1px solid #e0c178;border-radius:8px;padding:10px 14px;color:#5a4a1a">${L.depositNoteMulti(n)}</p>` +
-    `<p>${L.closing}</p>` +
-    `<p style="color:#888;font-size:0.85rem">${L.spamNote}</p>` +
-    `<p style="color:#0f766e;font-weight:bold;margin-top:24px">J Park Hotel, Chonburi</p>` +
-    letterhead.html +
-    `</div>`;
+    T.wrap({
+      preheader: `${L.confirmation}: ${first.group_ref} · ${L.roomsSummary(n)}`,
+      footer: emailFooterHtml(),
+      body:
+        T.heading(L.heading) +
+        T.paragraph(L.greeting(first.guest_name)) +
+        T.paragraph(L.intro) +
+        T.refBlock(`${L.confirmation} (${L.roomsSummary(n)})`, first.group_ref) +
+        T.table(
+          T.row(L.checkin, formatCheckDate(first.check_in, CHECKIN_TIME)) +
+          T.row(L.checkout, formatCheckDate(first.check_out, CHECKOUT_TIME)) +
+          T.row(L.nights, first.nights) +
+          roomRowsHtml +
+          T.row(T.raw(`<span style="color:${T.BRAND.teal};font-weight:600">${escapeHtml(L.grandTotal)}</span>`), grandMoney, { strong: true }) +
+          (payment ? T.row(L.payment, payment) : '') +
+          (first.special_requests ? T.row(L.specialRequests, first.special_requests) : '')
+        ) +
+        (paidOnline ? T.notice('paid', L.paidOnline(grandMoney), { strong: true }) : '') +
+        (awaitingOnline ? T.notice('pending', L.awaitingOnlinePayment(grandMoney)) : '') +
+        (balanceDueMoney ? T.notice('due', L.balanceDue(balanceDueMoney)) : '') +
+        (first.non_refundable ? T.notice('alert', L.nonRefundableNote, { strong: true }) : '') +
+        T.notice('warn', L.depositNoteMulti(n)) +
+        T.divider() +
+        T.paragraph(L.closing) +
+        T.paragraph(L.spamNote, { small: true, muted: true }),
+    });
   return { text, html };
 }
 
@@ -595,10 +676,10 @@ function groupHotelNotice(rows) {
   const currency = first.currency || 'THB';
   const grand = rows.reduce((s, r) => s + Number(r.total || 0), 0);
   const via = first.channel_name || first.channel || 'Direct';
-  const roomMoney = (r) => (r.total != null ? `${r.total} ${currency}` : '—');
+  const roomMoney = (r) => (r.total != null ? formatMoney(r.total, currency) : '—');
   const roomLine = (r, i) => {
     const childAges = Array.isArray(r.child_ages) && r.child_ages.length ? ` (ages: ${r.child_ages.join(', ')})` : '';
-    return `  Room ${i + 1}: ${r.room || '—'} — ${r.adults} adult(s), ${r.children} child(ren)${childAges}, `
+    return `  Room ${i + 1}: ${r.room || '—'} — ${guestCountLabel(r.adults, r.children)}${childAges}, `
       + `${smokingLabel(r)}, breakfast: ${breakfastLabel(r)}${r.extra_bed ? ', extra bed' : ''}, ${roomMoney(r)}`;
   };
   const lines = [
@@ -624,27 +705,29 @@ function groupHotelNotice(rows) {
   const text = lines.join('\n') + letterhead.text;
   const roomRowsHtml = rows.map((r, i) => {
     const childAges = Array.isArray(r.child_ages) && r.child_ages.length ? ` (ages: ${escapeHtml(r.child_ages.join(', '))})` : '';
-    return `<tr><td style="padding:4px 12px 4px 0;color:#555">Room ${i + 1}</td>`
-      + `<td style="padding:4px 0">${escapeHtml(r.room || '—')} — ${r.adults} adult(s), ${r.children} child(ren)${childAges}, ${smokingLabel(r)}, breakfast: ${breakfastLabel(r)}${r.extra_bed ? ', extra bed' : ''}, <strong>${roomMoney(r)}</strong></td></tr>`;
+    return T.row(`Room ${i + 1}`, `${r.room || '—'} — ${guestCountLabel(r.adults, r.children)}${childAges}, ${smokingLabel(r)}, breakfast: ${breakfastLabel(r)}${r.extra_bed ? ', extra bed' : ''}, ${roomMoney(r)}`);
   }).join('');
   const html =
-    `<div style="font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;line-height:1.5">` +
-    `<h2 style="color:#0f766e;margin:0 0 12px">New ${n}-room booking via ${via}</h2>` +
-    `<table style="border-collapse:collapse;margin:16px 0">` +
-    `<tr><td style="padding:4px 12px 4px 0;color:#555">Confirmation</td><td style="padding:4px 0"><strong>${first.group_ref}</strong></td></tr>` +
-    `<tr><td style="padding:4px 12px 4px 0;color:#555">Guest</td><td style="padding:4px 0">${first.guest_name || '—'}</td></tr>` +
-    `<tr><td style="padding:4px 12px 4px 0;color:#555">Guest email</td><td style="padding:4px 0">${first.guest_email || '—'}</td></tr>` +
-    `<tr><td style="padding:4px 12px 4px 0;color:#555">Guest phone</td><td style="padding:4px 0">${first.guest_phone || '—'}</td></tr>` +
-    `<tr><td style="padding:4px 12px 4px 0;color:#555">Check-in</td><td style="padding:4px 0">${formatCheckDate(first.check_in, CHECKIN_TIME)}</td></tr>` +
-    `<tr><td style="padding:4px 12px 4px 0;color:#555">Check-out</td><td style="padding:4px 0">${formatCheckDate(first.check_out, CHECKOUT_TIME)}</td></tr>` +
-    `<tr><td style="padding:4px 12px 4px 0;color:#555">Nights</td><td style="padding:4px 0">${first.nights}</td></tr>` +
-    roomRowsHtml +
-    (first.special_requests ? `<tr><td style="padding:4px 12px 4px 0;color:#555">Special requests</td><td style="padding:4px 0">${escapeHtml(first.special_requests)}</td></tr>` : '') +
-    `<tr><td style="padding:8px 12px 4px 0;border-top:2px solid #0f766e;color:#0f766e;font-weight:bold">Grand total</td><td style="padding:8px 0 4px;border-top:2px solid #0f766e;font-weight:bold">${grand} ${currency}</td></tr>` +
-    `</table>` +
-    `<p style="color:#555">This reservation is now in the <strong>Guest Booking</strong> inbox of the staff console.</p>` +
-    letterhead.html +
-    `</div>`;
+    T.wrap({
+      preheader: `${first.guest_name || 'Guest'} · ${n} rooms · ${formatCheckDate(first.check_in, CHECKIN_TIME)}`,
+      accent: T.BRAND.gold,
+      footer: emailFooterHtml(),
+      body:
+        T.heading(`New ${n}-room booking via ${via}`) +
+        T.refBlock('Confirmation', first.group_ref) +
+        T.table(
+          T.row('Guest', first.guest_name || '—', { strong: true }) +
+          T.row('Guest email', first.guest_email || '—') +
+          T.row('Guest phone', first.guest_phone || '—') +
+          T.row('Check-in', formatCheckDate(first.check_in, CHECKIN_TIME)) +
+          T.row('Check-out', formatCheckDate(first.check_out, CHECKOUT_TIME)) +
+          T.row('Nights', first.nights) +
+          roomRowsHtml +
+          (first.special_requests ? T.row('Special requests', first.special_requests) : '') +
+          T.row(T.raw(`<span style="color:${T.BRAND.teal};font-weight:600">Grand total</span>`), formatMoney(grand, currency), { strong: true })
+        ) +
+        T.paragraph('This reservation is now in the Guest Booking inbox of the staff console.', { small: true, muted: true }),
+    });
   return { text, html };
 }
 
@@ -666,11 +749,11 @@ function cancellationEmail(bk) {
   // A room actually charged online (card or PromptPay) really did take real
   // money — unlike every other booking, which never collected anything
   // online — so the refund line must not claim there's nothing to refund.
+  // See cancellationRefundLine() above for what it now says, and why one
+  // shared function produces it for the text and HTML bodies alike.
   const wasPaidOnline = isOnlineProvider(bk.payment_provider) && bk.payment_status === 'paid';
-  const money = bk.total != null ? `${bk.total} ${bk.currency || 'THB'}` : 'the amount';
-  const refundLine = wasPaidOnline
-    ? `You were charged ${money} online for this booking. Please contact us to arrange a refund.`
-    : 'No payment was taken online for this booking, so there is nothing to refund.';
+  const money = bk.total != null ? formatMoney(bk.total, bk.currency) : 'the amount';
+  const refundLine = cancellationRefundLine(wasPaidOnline, money);
   const lines = [
     `Dear ${bk.guest_name || 'Guest'},`,
     '',
@@ -690,21 +773,24 @@ function cancellationEmail(bk) {
   const letterhead = emailLetterhead();
   const text = lines.join('\n') + letterhead.text;
   const html =
-    `<div style="font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;line-height:1.5">` +
-    `<h2 style="color:#b45309;margin:0 0 12px">${grouped ? 'One room of your booking has been cancelled' : 'Your reservation has been cancelled'}</h2>` +
-    `<p>Dear ${bk.guest_name || 'Guest'},</p>` +
-    `<p>${intro}</p>` +
-    `<table style="border-collapse:collapse;margin:16px 0">` +
-    `<tr><td style="padding:4px 12px 4px 0;color:#555">Confirmation</td><td style="padding:4px 0"><strong>${confValue}</strong></td></tr>` +
-    `<tr><td style="padding:4px 12px 4px 0;color:#555">Room</td><td style="padding:4px 0">${escapeHtml(roomValue)}</td></tr>` +
-    `<tr><td style="padding:4px 12px 4px 0;color:#555">Check-in</td><td style="padding:4px 0">${bk.check_in}</td></tr>` +
-    `<tr><td style="padding:4px 12px 4px 0;color:#555">Check-out</td><td style="padding:4px 0">${bk.check_out}</td></tr>` +
-    `</table>` +
-    `<p>${refundLine}</p>` +
-    `<p>If this cancellation was made in error, or you would like to make a new reservation, please reply to this email or call us.</p>` +
-    `<p style="color:#0f766e;font-weight:bold;margin-top:24px">J Park Hotel, Chonburi</p>` +
-    letterhead.html +
-    `</div>`;
+    T.wrap({
+      preheader: `Cancelled · ${confValue}`,
+      accent: '#b45309',
+      footer: emailFooterHtml(),
+      body:
+        T.heading(grouped ? 'One room of your booking has been cancelled' : 'Your reservation has been cancelled') +
+        T.paragraph(`Dear ${bk.guest_name || 'Guest'},`) +
+        T.paragraph(intro) +
+        T.refBlock('Confirmation', confValue) +
+        T.table(
+          T.row('Room', roomValue) +
+          T.row('Check-in', formatPlainDate(bk.check_in)) +
+          T.row('Check-out', formatPlainDate(bk.check_out))
+        ) +
+        T.notice(wasPaidOnline ? 'alert' : 'info', refundLine) +
+        T.divider() +
+        T.paragraph('If this cancellation was made in error, or you would like to make a new reservation, please reply to this email or call us.'),
+    });
   return { text, html };
 }
 
@@ -719,10 +805,8 @@ function groupCancellationEmail(rows) {
   // is representative of the whole group's payment outcome.
   const wasPaidOnline = isOnlineProvider(first.payment_provider) && first.payment_status === 'paid';
   const grand = rows.reduce((s, r) => s + Number(r.total || 0), 0);
-  const grandMoney = `${grand} ${first.currency || 'THB'}`;
-  const refundLine = wasPaidOnline
-    ? `You were charged ${grandMoney} online for this booking. Please contact us to arrange a refund.`
-    : 'No payment was taken online for this booking, so there is nothing to refund.';
+  const grandMoney = formatMoney(grand, first.currency);
+  const refundLine = cancellationRefundLine(wasPaidOnline, grandMoney);
   const lines = [
     `Dear ${first.guest_name || 'Guest'},`,
     '',
@@ -743,24 +827,27 @@ function groupCancellationEmail(rows) {
   const letterhead = emailLetterhead();
   const text = lines.join('\n') + letterhead.text;
   const roomRowsHtml = rows.map((r, i) =>
-    `<tr><td style="padding:4px 12px 4px 0;color:#555">Room ${r.group_index || i + 1}</td><td style="padding:4px 0">${escapeHtml(r.room || '—')}</td></tr>`
+    T.row(`Room ${r.group_index || i + 1}`, r.room || '—')
   ).join('');
   const html =
-    `<div style="font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;line-height:1.5">` +
-    `<h2 style="color:#b45309;margin:0 0 12px">Your booking has been cancelled</h2>` +
-    `<p>Dear ${first.guest_name || 'Guest'},</p>` +
-    `<p>This is to confirm that your entire booking at <strong>J Park Hotel, Chonburi</strong> (${rows.length} rooms) has been cancelled.</p>` +
-    `<table style="border-collapse:collapse;margin:16px 0">` +
-    `<tr><td style="padding:4px 12px 4px 0;color:#555">Confirmation</td><td style="padding:4px 0"><strong>${first.group_ref}</strong></td></tr>` +
-    `<tr><td style="padding:4px 12px 4px 0;color:#555">Check-in</td><td style="padding:4px 0">${first.check_in}</td></tr>` +
-    `<tr><td style="padding:4px 12px 4px 0;color:#555">Check-out</td><td style="padding:4px 0">${first.check_out}</td></tr>` +
-    roomRowsHtml +
-    `</table>` +
-    `<p>No payment was taken online for this booking, so there is nothing to refund.</p>` +
-    `<p>If this cancellation was made in error, or you would like to make a new reservation, please reply to this email or call us.</p>` +
-    `<p style="color:#0f766e;font-weight:bold;margin-top:24px">J Park Hotel, Chonburi</p>` +
-    letterhead.html +
-    `</div>`;
+    T.wrap({
+      preheader: `Cancelled · ${first.group_ref} · ${rows.length} rooms`,
+      accent: '#b45309',
+      footer: emailFooterHtml(),
+      body:
+        T.heading('Your booking has been cancelled') +
+        T.paragraph(`Dear ${first.guest_name || 'Guest'},`) +
+        T.paragraph(`This is to confirm that your entire booking at J Park Hotel, Chonburi (${rows.length} rooms) has been cancelled.`) +
+        T.refBlock('Confirmation', first.group_ref) +
+        T.table(
+          T.row('Check-in', formatPlainDate(first.check_in)) +
+          T.row('Check-out', formatPlainDate(first.check_out)) +
+          roomRowsHtml
+        ) +
+        T.notice(wasPaidOnline ? 'alert' : 'info', refundLine) +
+        T.divider() +
+        T.paragraph('If this cancellation was made in error, or you would like to make a new reservation, please reply to this email or call us.'),
+    });
   return { text, html };
 }
 
@@ -776,7 +863,7 @@ function groupCancellationEmail(rows) {
 
 function paymentConfirmedEmail(bk) {
   const L = EMAIL_I18N[bk.lang] || EMAIL_I18N.en;
-  const money = bk.total != null ? `${bk.total} ${bk.currency || 'THB'}` : '—';
+  const money = bk.total != null ? formatMoney(bk.total, bk.currency) : '—';
   const lines = [
     L.greeting(bk.guest_name),
     '',
@@ -795,19 +882,19 @@ function paymentConfirmedEmail(bk) {
   const letterhead = emailLetterhead();
   const text = lines.join('\n') + letterhead.text;
   const html =
-    `<div style="font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;line-height:1.5">` +
-    `<h2 style="color:#0f766e;margin:0 0 12px">${L.paymentConfirmedHeading}</h2>` +
-    `<p>${L.greeting(bk.guest_name)}</p>` +
-    `<p style="background:#e6f4ea;border:1px solid #a6d8b1;border-radius:8px;padding:10px 14px;color:#1a7f37"><strong>${L.paidOnline(money)}</strong></p>` +
-    `<table style="border-collapse:collapse;margin:16px 0">` +
-    `<tr><td style="padding:4px 12px 4px 0;color:#555">${L.confirmation}</td><td style="padding:4px 0"><strong>${bk.ref}</strong></td></tr>` +
-    `</table>` +
-    `<p style="background:#fbf3df;border:1px solid #e0c178;border-radius:8px;padding:10px 14px;color:#5a4a1a">${L.depositNote}</p>` +
-    `<p>${L.closing}</p>` +
-    `<p style="color:#888;font-size:0.85rem">${L.spamNote}</p>` +
-    `<p style="color:#0f766e;font-weight:bold;margin-top:24px">J Park Hotel, Chonburi</p>` +
-    letterhead.html +
-    `</div>`;
+    T.wrap({
+      preheader: `${L.paidOnline(money)}`,
+      footer: emailFooterHtml(),
+      body:
+        T.heading(L.paymentConfirmedHeading) +
+        T.paragraph(L.greeting(bk.guest_name)) +
+        T.notice('paid', L.paidOnline(money), { strong: true }) +
+        T.refBlock(L.confirmation, bk.ref) +
+        T.notice('warn', L.depositNote) +
+        T.divider() +
+        T.paragraph(L.closing) +
+        T.paragraph(L.spamNote, { small: true, muted: true }),
+    });
   return { text, html };
 }
 
@@ -815,7 +902,7 @@ function groupPaymentConfirmedEmail(rows) {
   const first = rows[0];
   const L = EMAIL_I18N[first.lang] || EMAIL_I18N.en;
   const n = rows.length;
-  const grandMoney = `${rows.reduce((s, r) => s + Number(r.total || 0), 0)} ${first.currency || 'THB'}`;
+  const grandMoney = formatMoney(rows.reduce((s, r) => s + Number(r.total || 0), 0), first.currency);
   const lines = [
     L.greeting(first.guest_name),
     '',
@@ -834,19 +921,19 @@ function groupPaymentConfirmedEmail(rows) {
   const letterhead = emailLetterhead();
   const text = lines.join('\n') + letterhead.text;
   const html =
-    `<div style="font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;line-height:1.5">` +
-    `<h2 style="color:#0f766e;margin:0 0 12px">${L.paymentConfirmedHeading}</h2>` +
-    `<p>${L.greeting(first.guest_name)}</p>` +
-    `<p style="background:#e6f4ea;border:1px solid #a6d8b1;border-radius:8px;padding:10px 14px;color:#1a7f37"><strong>${L.paidOnline(grandMoney)}</strong></p>` +
-    `<table style="border-collapse:collapse;margin:16px 0">` +
-    `<tr><td style="padding:4px 12px 4px 0;color:#555">${L.confirmation}</td><td style="padding:4px 0"><strong>${first.group_ref}</strong> (${L.roomsSummary(n)})</td></tr>` +
-    `</table>` +
-    `<p style="background:#fbf3df;border:1px solid #e0c178;border-radius:8px;padding:10px 14px;color:#5a4a1a">${L.depositNoteMulti(n)}</p>` +
-    `<p>${L.closing}</p>` +
-    `<p style="color:#888;font-size:0.85rem">${L.spamNote}</p>` +
-    `<p style="color:#0f766e;font-weight:bold;margin-top:24px">J Park Hotel, Chonburi</p>` +
-    letterhead.html +
-    `</div>`;
+    T.wrap({
+      preheader: L.paidOnline(grandMoney),
+      footer: emailFooterHtml(),
+      body:
+        T.heading(L.paymentConfirmedHeading) +
+        T.paragraph(L.greeting(first.guest_name)) +
+        T.notice('paid', L.paidOnline(grandMoney), { strong: true }) +
+        T.refBlock(`${L.confirmation} (${L.roomsSummary(n)})`, first.group_ref) +
+        T.notice('warn', L.depositNoteMulti(n)) +
+        T.divider() +
+        T.paragraph(L.closing) +
+        T.paragraph(L.spamNote, { small: true, muted: true }),
+    });
   return { text, html };
 }
 
@@ -856,7 +943,7 @@ function groupPaymentConfirmedEmail(rows) {
 // email once it actually resolves, rather than having to notice a status
 // change themselves.
 function paymentConfirmedHotelNotice(bk) {
-  const money = bk.total != null ? `${bk.total} ${bk.currency || 'THB'}` : '—';
+  const money = bk.total != null ? formatMoney(bk.total, bk.currency) : '—';
   const method = bk.payment_method === 'card' ? 'Card' : bk.payment_method === 'promptpay' ? 'PromptPay' : (bk.payment_provider || 'Online');
   const lines = [
     `Payment confirmed for booking ${bk.ref}.`,
@@ -871,17 +958,21 @@ function paymentConfirmedHotelNotice(bk) {
   const letterhead = emailLetterhead();
   const text = lines.join('\n') + letterhead.text;
   const html =
-    `<div style="font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;line-height:1.5">` +
-    `<h2 style="color:#1a7f37;margin:0 0 12px">✓ Payment confirmed — ${escapeHtml(bk.ref)}</h2>` +
-    `<table style="border-collapse:collapse;margin:16px 0">` +
-    `<tr><td style="padding:4px 12px 4px 0;color:#555">Guest</td><td style="padding:4px 0">${escapeHtml(bk.guest_name || '—')}</td></tr>` +
-    `<tr><td style="padding:4px 12px 4px 0;color:#555">Amount</td><td style="padding:4px 0"><strong>${money}</strong></td></tr>` +
-    `<tr><td style="padding:4px 12px 4px 0;color:#555">Method</td><td style="padding:4px 0">${method} (online)</td></tr>` +
-    `<tr><td style="padding:4px 12px 4px 0;color:#555">Gateway ref</td><td style="padding:4px 0">${escapeHtml(bk.payment_charge_id || '—')}</td></tr>` +
-    `</table>` +
-    `<p style="color:#555">This booking now shows as paid in the <strong>Guest Booking</strong> inbox of the staff console.</p>` +
-    letterhead.html +
-    `</div>`;
+    T.wrap({
+      preheader: `Payment confirmed · ${money} · ${bk.ref}`,
+      accent: T.BRAND.gold,
+      footer: emailFooterHtml(),
+      body:
+        T.heading(`Payment confirmed — ${bk.ref}`) +
+        T.notice('paid', `${money} received online.`, { strong: true }) +
+        T.table(
+          T.row('Guest', bk.guest_name || '—', { strong: true }) +
+          T.row('Amount', money, { strong: true }) +
+          T.row('Method', `${method} (online)`) +
+          T.row('Gateway ref', bk.payment_charge_id || '—')
+        ) +
+        T.paragraph('This booking now shows as paid in the Guest Booking inbox of the staff console.', { small: true, muted: true }),
+    });
   return { text, html };
 }
 
@@ -894,7 +985,7 @@ function groupPaymentConfirmedHotelNotice(rows) {
     `Payment confirmed for group booking ${first.group_ref} (${n} rooms).`,
     '',
     `Guest: ${first.guest_name || '—'}`,
-    `Amount: ${grand} ${first.currency || 'THB'}`,
+    `Amount: ${formatMoney(grand, first.currency)}`,
     `Method: ${method} (online)`,
     `Gateway ref: ${first.payment_charge_id || '—'}`,
     '',
@@ -903,17 +994,21 @@ function groupPaymentConfirmedHotelNotice(rows) {
   const letterhead = emailLetterhead();
   const text = lines.join('\n') + letterhead.text;
   const html =
-    `<div style="font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;line-height:1.5">` +
-    `<h2 style="color:#1a7f37;margin:0 0 12px">✓ Payment confirmed — ${escapeHtml(first.group_ref)} (${n} rooms)</h2>` +
-    `<table style="border-collapse:collapse;margin:16px 0">` +
-    `<tr><td style="padding:4px 12px 4px 0;color:#555">Guest</td><td style="padding:4px 0">${escapeHtml(first.guest_name || '—')}</td></tr>` +
-    `<tr><td style="padding:4px 12px 4px 0;color:#555">Amount</td><td style="padding:4px 0"><strong>${grand} ${first.currency || 'THB'}</strong></td></tr>` +
-    `<tr><td style="padding:4px 12px 4px 0;color:#555">Method</td><td style="padding:4px 0">${method} (online)</td></tr>` +
-    `<tr><td style="padding:4px 12px 4px 0;color:#555">Gateway ref</td><td style="padding:4px 0">${escapeHtml(first.payment_charge_id || '—')}</td></tr>` +
-    `</table>` +
-    `<p style="color:#555">This booking now shows as paid in the <strong>Guest Booking</strong> inbox of the staff console.</p>` +
-    letterhead.html +
-    `</div>`;
+    T.wrap({
+      preheader: `Payment confirmed · ${formatMoney(grand, first.currency)} · ${first.group_ref}`,
+      accent: T.BRAND.gold,
+      footer: emailFooterHtml(),
+      body:
+        T.heading(`Payment confirmed — ${first.group_ref} (${n} rooms)`) +
+        T.notice('paid', `${formatMoney(grand, first.currency)} received online.`, { strong: true }) +
+        T.table(
+          T.row('Guest', first.guest_name || '—', { strong: true }) +
+          T.row('Amount', formatMoney(grand, first.currency), { strong: true }) +
+          T.row('Method', `${method} (online)`) +
+          T.row('Gateway ref', first.payment_charge_id || '—')
+        ) +
+        T.paragraph('This booking now shows as paid in the Guest Booking inbox of the staff console.', { small: true, muted: true }),
+    });
   return { text, html };
 }
 
@@ -1923,5 +2018,15 @@ module.exports.emailLetterhead = emailLetterhead;
 module.exports.SPAM_NOTE_TEXT = SPAM_NOTE_TEXT;
 module.exports.SPAM_NOTE_HTML = SPAM_NOTE_HTML;
 module.exports.escapeHtml = escapeHtml;
+// Exported so backend/test-emails.js can render every message and assert that
+// guest-supplied text arrives inert. Nothing else calls these from outside.
+module.exports.groupConfirmationEmail = groupConfirmationEmail;
+module.exports.groupHotelNotice = groupHotelNotice;
+module.exports.cancellationEmail = cancellationEmail;
+module.exports.groupCancellationEmail = groupCancellationEmail;
+module.exports.paymentConfirmedEmail = paymentConfirmedEmail;
+module.exports.groupPaymentConfirmedEmail = groupPaymentConfirmedEmail;
+module.exports.paymentConfirmedHotelNotice = paymentConfirmedHotelNotice;
+module.exports.groupPaymentConfirmedHotelNotice = groupPaymentConfirmedHotelNotice;
 module.exports.sendPaymentConfirmedEmail = sendPaymentConfirmedEmail;
 module.exports.sendGroupPaymentConfirmedEmail = sendGroupPaymentConfirmedEmail;

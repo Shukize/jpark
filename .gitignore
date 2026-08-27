@@ -24,3 +24,6 @@ my camera images/
 # Local scratch / contact-sheet workspace
 _work/
 _orig_lobby/
+
+# Rendered email previews written by `node backend/test-emails.js --write`
+backend/.email-preview/
