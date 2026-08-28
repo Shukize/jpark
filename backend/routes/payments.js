@@ -55,7 +55,7 @@ const T = require('../lib/emailTemplate');
 const HOTEL_ADDRESS_LINE = '88/88 Thanon Sukprayun, Na Pa, Mueang Chonburi District, Chon Buri 20000, Thailand';
 const HOTEL_PHONE_LIST = ['+66 86 326 0664', '+66 38 448 111'];
 const HOTEL_EMAIL_ADDR = 'jparkhotel1@gmail.com';
-const { requireAdmin } = require('../middleware/auth');
+const { requireAuth, requireAdmin } = require('../middleware/auth');
 const roomRates = require('../lib/roomRates');
 const rateOverrides = require('../lib/rateOverrides');
 const { countOverlappingPool } = require('../lib/availability');
@@ -1529,6 +1529,71 @@ router.post('/payments/settlement-refresh', requireAdmin, async (req, res) => {
   } catch (e) {
     console.error('[payments] settlement refresh', e);
     res.status(500).json({ error: 'Settlement refresh failed.' });
+  }
+});
+
+/* Fill in ONE booking's payment record from the gateway.
+
+   Deliberately narrower than the admin ledger, and deliberately requireAuth
+   rather than requireAdmin. The ledger sweeps every recent charge and returns
+   guest names, emails and card details across the whole property — that is an
+   admin screen. This asks about a single booking the member of staff already
+   has open, and returns only that booking's own payment. A receptionist
+   printing a receipt at the desk needs it; making them fetch an administrator
+   first is how a guest ends up handed a half-empty document.
+
+   The reason it exists at all: bookings taken before these columns shipped
+   have a charge id and nothing else, so their receipt renders with "Paid by:
+   card" and little more. Rather than telling staff to run a backfill, the
+   console asks for the detail the moment somebody opens such a booking.
+
+   Idempotent, and safe to call on a booking that already has its detail: the
+   write goes through reconciler.recordDetail(), which COALESCEs — it can only
+   ever add. */
+router.post('/payments/refresh/:id', requireAuth, async (req, res) => {
+  if (!ledgerGuard(req, res)) return;
+  try {
+    const { rows } = await db.query(
+      `SELECT id, ref, payment_charge_id, payment_status FROM guest_bookings WHERE id = $1`,
+      [req.params.id]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Booking not found' });
+    const bk = rows[0];
+    if (!bk.payment_charge_id) {
+      // Not an error: an OTA, walk-in or pay-at-desk booking has no gateway
+      // charge and never will. Say so plainly so the client stops asking.
+      return res.json({ ok: true, refreshed: false, reason: 'no_charge' });
+    }
+    if (!payments.isConfigured()) {
+      return res.status(503).json({ error: 'The payment gateway is not reachable right now.' });
+    }
+
+    let verified;
+    try {
+      verified = await payments.verify(bk.payment_charge_id);
+    } catch (e) {
+      return res.status(502).json({ error: 'Could not reach the payment gateway. Nothing has been changed.' });
+    }
+
+    // A charge the gateway now reports as PAID that this database still has as
+    // pending goes through the same atomic settle() the webhook uses, so the
+    // guest's confirmation email is sent exactly once — never from here twice.
+    if (verified.paid && bk.payment_status !== 'paid') {
+      await reconciler.settle(bk.payment_charge_id, verified);
+    } else if (verified.detail) {
+      await reconciler.recordDetail(bk.payment_charge_id, verified.detail);
+    }
+
+    const fresh = await db.query('SELECT * FROM guest_bookings WHERE id = $1', [req.params.id]);
+    res.json({
+      ok: true,
+      refreshed: true,
+      payment: fresh.rows.length ? require('../lib/payments/detail').fromColumns(fresh.rows[0]) : null,
+      paymentStatus: fresh.rows.length ? fresh.rows[0].payment_status : null,
+    });
+  } catch (e) {
+    console.error('[payments] refresh one', e);
+    res.status(500).json({ error: 'Could not refresh that payment.' });
   }
 });
 

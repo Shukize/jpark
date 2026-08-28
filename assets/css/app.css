@@ -2517,3 +2517,17 @@ body.mobile-view .fac-card.large {
   body.bk-printing .bk-rc-toggle { display: none !important; }
   body.bk-printing .bk-rc-internal { page-break-inside: avoid; background: none !important; }
 }
+
+/* An incomplete payment record announces itself. A receipt printed from a
+   half-filled record is worse than one that admits it is fetching. */
+.bk-pay-incomplete {
+  background: #eef2ff; border: 1px solid #b9c5f0; color: #33408a;
+  border-radius: 8px; padding: 9px 11px; margin: 0 0 10px;
+  font-size: 0.82rem; line-height: 1.45;
+}
+.bk-pay-head-actions { display: flex; gap: 6px; align-items: center; }
+.bk-pay-refresh-btn { padding: 4px 10px; font-size: 0.9rem; line-height: 1; }
+
+/* Receipt: the per-room secondary line (guests, breakfast, nights). */
+.bk-rc-sub-line { font-size: 0.76rem; color: #8a9294; margin-top: 2px; }
+.bk-rc-room-no { font-size: 0.78rem; color: #66716f; font-weight: normal; }

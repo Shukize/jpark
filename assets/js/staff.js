@@ -3765,6 +3765,44 @@
     }).catch(function () { return null; });
   }
 
+  /* Does this booking have a gateway charge but no record of what it was?
+
+     True for every booking taken before the payment detail columns existed.
+     Their receipt renders as "Paid by: card" and a charge id — technically
+     accurate, useless at a front desk. Rather than telling staff to go and
+     run a backfill, the console notices and asks the gateway itself. */
+  function bkPaymentIncomplete(pay) {
+    return !!(pay && pay.chargeId && pay.amount == null);
+  }
+
+  // One attempt per booking per session. Without this, a booking whose charge
+  // the gateway genuinely cannot answer for would re-ask on every ten-second
+  // re-render of the open detail panel, forever.
+  const bkPaymentRefreshed = new Set();
+
+  function refreshBookingPayment(b, slot, force) {
+    const API = window.JPark && window.JPark.api;
+    if (!API || !b || !b.id) return Promise.resolve(null);
+    if (!force && bkPaymentRefreshed.has(b.id)) return Promise.resolve(null);
+    bkPaymentRefreshed.add(b.id);
+    return API.post("/api/v1/payments/refresh/" + encodeURIComponent(b.id), {}).then((r) => {
+      if (!r || r.error || !r.refreshed || !r.payment) return null;
+      // Re-key the cache: the record changed, so the entry stored against the
+      // old status must not win the next render.
+      bkPaymentCache.set(bkPaymentCacheKey(b), r.payment);
+      if (r.paymentStatus && r.paymentStatus !== b.paymentStatus) {
+        updateBookingLocal(b.id, { paymentStatus: r.paymentStatus });
+        b.paymentStatus = r.paymentStatus;
+        bkPaymentCache.set(bkPaymentCacheKey(b), r.payment);
+      }
+      if (slot && slot.isConnected) {
+        slot.innerHTML = bkPaymentBlockHTML(b, r.payment);
+        wireBkReceiptButton(slot, b, r.payment);
+      }
+      return r.payment;
+    }).catch(() => null);
+  }
+
   function bkPayMoney(v, currency) {
     if (v == null) return "";
     return (currency || "THB") + " " + Number(v).toLocaleString(undefined, {
@@ -3868,12 +3906,22 @@
       ? '<div class="bk-pay-test">⚠ ' + esc(t("msg.bk.pay.testMode")) + "</div>"
       : "";
 
+    // An incomplete record says so rather than presenting its gaps as facts —
+    // a receipt printed from a half-filled record is worse than one refused.
+    const incompleteHtml = bkPaymentIncomplete(pay)
+      ? '<div class="bk-pay-incomplete">' + esc(t("msg.bk.pay.incomplete")) + "</div>"
+      : "";
+
     return '<div class="bk-pay-block">' +
       '<div class="bk-pay-head">' + esc(t("msg.bk.pay.title")) +
-        '<button class="mda-action-btn bk-pay-receipt-btn" id="bkPayReceiptBtn">🧾 ' +
-          esc(t("msg.bk.pay.receipt")) + "</button>" +
+        '<span class="bk-pay-head-actions">' +
+          '<button class="mda-action-btn bk-pay-refresh-btn" id="bkPayRefreshBtn" title="' +
+            esc(t("msg.bk.pay.refresh")) + '">↻</button>' +
+          '<button class="mda-action-btn bk-pay-receipt-btn" id="bkPayReceiptBtn">🧾 ' +
+            esc(t("msg.bk.pay.receipt")) + "</button>" +
+        "</span>" +
       "</div>" +
-      testHtml + failHtml +
+      testHtml + incompleteHtml + failHtml +
       '<div class="bk-pay-rows">' + rows + "</div>" +
       settleHtml +
     "</div>";
@@ -3886,8 +3934,10 @@
     // Painted straight from cache when we already have it, so the ten-second
     // poll re-render does not flash a loading line over a filled-in panel.
     if (bkPaymentCache.has(key)) {
-      slot.innerHTML = bkPaymentBlockHTML(b, bkPaymentCache.get(key));
-      wireBkReceiptButton(slot, b, bkPaymentCache.get(key));
+      const cached = bkPaymentCache.get(key);
+      slot.innerHTML = bkPaymentBlockHTML(b, cached);
+      wireBkReceiptButton(slot, b, cached);
+      if (bkPaymentIncomplete(cached)) refreshBookingPayment(b, slot, false);
       return;
     }
     slot.innerHTML = '<div class="bk-pay-block bk-pay-empty">' + esc(t("msg.bk.pay.loading")) + "</div>";
@@ -3895,12 +3945,31 @@
       if (!slot.isConnected) return;
       slot.innerHTML = bkPaymentBlockHTML(b, pay);
       wireBkReceiptButton(slot, b, pay);
+      // A booking from before these columns shipped: ask the gateway once,
+      // now, rather than showing a half-empty record and leaving it there.
+      if (bkPaymentIncomplete(pay)) refreshBookingPayment(b, slot, false);
     });
   }
 
   function wireBkReceiptButton(slot, b, pay) {
     const btn = slot.querySelector("#bkPayReceiptBtn");
     if (btn) btn.addEventListener("click", () => openBkReceipt(b, pay));
+    const refresh = slot.querySelector("#bkPayRefreshBtn");
+    if (refresh) {
+      refresh.addEventListener("click", () => {
+        refresh.disabled = true;
+        refresh.textContent = "…";
+        // force:true — a human pressing it means "ask again", even if this
+        // session already tried once.
+        refreshBookingPayment(b, slot, true).then((fresh) => {
+          if (!fresh) {
+            refresh.disabled = false;
+            refresh.textContent = "↻";
+            U.toast(t("msg.bk.pay.refreshFailed"), "error");
+          }
+        });
+      });
+    }
   }
 
   /* ── A printable receipt ────────────────────────────────────────────────
@@ -4011,10 +4080,31 @@
     const line = (k, v) => (v == null || v === "" ? "" :
       '<tr><th>' + esc(k) + "</th><td>" + esc(v) + "</td></tr>");
 
-    const roomLines = rows.map((r) =>
-      '<tr><td>' + esc(r.room || "") + (r.roomNumber ? " · " + esc(r.roomNumber) : "") + "</td>" +
-      "<td>" + esc(fmtBookingDate(r.checkIn) + " → " + fmtBookingDate(r.checkOut)) + "</td>" +
-      '<td class="bk-rc-amt">' + esc(bkPayMoney(r.total, cur)) + "</td></tr>").join("");
+    /* One line per room, carrying what a guest checks a hotel receipt for:
+       which room, which nights, how many people, and whether breakfast was in
+       the price. The old line showed room and dates only, which is thin
+       enough that a guest cannot tell a room-only rate from one with
+       breakfast — the single most common question at a front desk. */
+    const roomLines = rows.map((r) => {
+      const nights = r.nights ? t("msg.bk.receipt.nights").replace("{n}", String(r.nights)) : "";
+      const guests = [
+        r.adults ? t("msg.bk.receipt.adults").replace("{n}", String(r.adults)) : "",
+        r.children ? t("msg.bk.receipt.children").replace("{n}", String(r.children)) : "",
+      ].filter(Boolean).join(", ");
+      const extras = [
+        r.breakfast ? t("msg.bk.receipt.withBreakfast") : t("msg.bk.receipt.roomOnly"),
+        r.extraBed ? t("msg.bk.extraBed") : "",
+      ].filter(Boolean).join(" · ");
+      return '<tr><td>' +
+          "<b>" + esc(r.room || "") + "</b>" +
+          (r.roomNumber ? ' <span class="bk-rc-room-no">' + esc(t("msg.bk.roomNumber")) + " " + esc(r.roomNumber) + "</span>" : "") +
+          '<div class="bk-rc-sub-line">' + esc([guests, extras].filter(Boolean).join(" · ")) + "</div>" +
+        "</td>" +
+        "<td>" + esc(fmtBookingDate(r.checkIn) + " → " + fmtBookingDate(r.checkOut)) +
+          (nights ? '<div class="bk-rc-sub-line">' + esc(nights) + "</div>" : "") +
+        "</td>" +
+        '<td class="bk-rc-amt">' + esc(bkPayMoney(r.total, cur)) + "</td></tr>";
+    }).join("");
 
     return '<div class="bk-receipt-sheet">' +
       '<div class="bk-rc-head">' +
@@ -4024,9 +4114,14 @@
       (pay && pay.livemode === false
         ? '<div class="bk-rc-test">' + esc(t("msg.bk.pay.testMode")) + "</div>" : "") +
       '<table class="bk-rc-meta">' +
-        line(t("msg.bk.receipt.for"), [b.guestName, b.guestEmail].filter(Boolean).join(" · ")) +
+        line(t("msg.bk.receipt.for"), [b.guestName, b.guestLastName].filter(Boolean).join(" ")) +
+        line(t("msg.bk.email"), b.guestEmail) +
+        line(t("msg.bk.phone"), b.guestPhone) +
         line(t("msg.bk.ref"), b.groupRef || b.ref) +
         line(t("msg.bk.receipt.issued"), bkPayTime(pay && pay.paidAt ? pay.paidAt : b.createdAt, false)) +
+        // Who printed it. A receipt nobody signed is a receipt nobody stands
+        // behind, and this is the one field a printed copy cannot recover.
+        line(t("msg.bk.receipt.issuedBy"), session ? session.name : "") +
       "</table>" +
       '<div class="bk-rc-section">' + esc(t("msg.bk.receipt.rooms")) + "</div>" +
       '<table class="bk-rc-rooms">' + roomLines +
