@@ -603,30 +603,30 @@
 <div class="msg-compose-modal" id="msgComposeModal" role="dialog" aria-label="New Message">
   <div class="msg-compose-box" id="msgComposeBox">
     <div class="msg-compose-head">
-      <span class="mch-title">New Message</span>
-      <button class="mch-btn" id="msgComposeClose" title="Close">✕</button>
+      <span class="mch-title" data-i18n="staff.compose.title">New Message</span>
+      <button class="mch-btn" id="msgComposeClose" data-i18n-attr="title:staff.compose.close" title="Close">✕</button>
     </div>
     <div class="msg-compose-fields">
       <div class="msg-compose-row" id="msgToRow" style="position:relative">
-        <span class="mcr-label">To</span>
+        <span class="mcr-label" data-i18n="staff.compose.to">To</span>
         <div class="msg-compose-to-tags" id="msgToTags">
-          <input type="text" class="msg-to-input" id="msgToInput" placeholder="Add recipients…" autocomplete="off" />
+          <input type="text" class="msg-to-input" id="msgToInput" data-i18n-attr="placeholder:staff.compose.addRecipients" placeholder="Add recipients…" autocomplete="off" />
         </div>
         <div class="msg-to-dropdown" id="msgToDropdown"></div>
       </div>
       <div class="msg-compose-row">
-        <span class="mcr-label">Subject</span>
-        <input type="text" id="msgSubjectInput" class="msg-subject-input" placeholder="Subject" />
+        <span class="mcr-label" data-i18n="staff.compose.subjectLabel">Subject</span>
+        <input type="text" id="msgSubjectInput" class="msg-subject-input" data-i18n-attr="placeholder:staff.compose.subjectLabel" placeholder="Subject" />
       </div>
     </div>
-    <textarea class="msg-compose-body" id="msgBodyInput" placeholder="Write your message here…"></textarea>
+    <textarea class="msg-compose-body" id="msgBodyInput" data-i18n-attr="placeholder:staff.compose.bodyPlaceholder" placeholder="Write your message here…"></textarea>
     <div class="msg-compose-footer">
       <button class="msg-send-btn" id="msgSendBtn">
         <span class="msb-ico">&#9658;</span>
-        Send
+        <span data-i18n="staff.compose.send">Send</span>
       </button>
       <span class="mf-limit" id="msgToLimit"></span>
-      <button class="msg-discard-btn" id="msgDiscardBtn" title="Discard draft">🗑</button>
+      <button class="msg-discard-btn" id="msgDiscardBtn" data-i18n-attr="title:staff.compose.discard" title="Discard draft">🗑</button>
     </div>
   </div>
 </div>

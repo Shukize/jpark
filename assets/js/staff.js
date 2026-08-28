@@ -12,6 +12,15 @@
   const U = window.JPark.util;
   const MED = window.JPark.media;
   const t = (k) => I.t(k);
+  /* Translate into a SPECIFIC language rather than the console's.
+
+     i18n.js's t(key, lang) has always taken a language; the wrapper above
+     drops it, so every t("x", "th") written anywhere in this file silently
+     returned the console's language instead — a failure with no error and no
+     visible symptom until somebody reads the output in the wrong language.
+     Anything that renders for a reader who is not the logged-in user — the
+     guest's copy of a receipt, above all — must use this instead. */
+  const tl = (k, lang) => I.t(k, lang || I.getLang());
   const esc = U.escapeHtml;
 
   /* Resolve a media-set's display name. If its translation key is missing
@@ -529,7 +538,7 @@
       body: r.body,
       lang: r.lang,
       to: r.to_all ? "all" : (r.to_ids || []),
-      toNames: r.to_all ? "Everyone" : (r.to_names || []),
+      toNames: r.to_all ? t("staff.compose.everyone") : (r.to_names || []),
       readBy: r.read_by || [],
       reportedBy: r.reported_by || [],
       createdAt: r.created_at ? new Date(r.created_at).getTime() : Date.now(),
@@ -3172,7 +3181,7 @@
         const isSent = m.fromId === session.id;
         const unread = !isSent && isUnread(m);
         const displayName = isSent
-          ? (m.to === "all" ? "Everyone" : (Array.isArray(m.toNames) ? m.toNames.join(", ") : (m.toNames || "—")))
+          ? (m.to === "all" ? t("staff.compose.everyone") : (Array.isArray(m.toNames) ? m.toNames.join(", ") : (m.toNames || "—")))
           : m.fromName;
         row.className = "msg-row" + (unread ? " unread" : " read") + (m.to === "all" ? " announcement" : "");
         row.innerHTML =
@@ -3246,7 +3255,7 @@
         const isAnn = m.to === "all";
         const unread = !isSent && isUnread(m);
         const displayName = isSent
-          ? (isAnn ? "Everyone" : (Array.isArray(m.toNames) ? m.toNames.join(", ") : (m.toNames || "—")))
+          ? (isAnn ? t("staff.compose.everyone") : (Array.isArray(m.toNames) ? m.toNames.join(", ") : (m.toNames || "—")))
           : m.fromName;
         const avatarUserId = isSent ? session.id : m.fromId;
         const isSelected = selectedMsgIds.has(m.id);
@@ -3406,7 +3415,7 @@
       msgs.forEach((m) => {
         const isSent = m.fromId === session.id;
         const displayName = isSent
-          ? (m.to === "all" ? "Everyone" : (Array.isArray(m.toNames) ? m.toNames.join(", ") : (m.toNames || "—")))
+          ? (m.to === "all" ? t("staff.compose.everyone") : (Array.isArray(m.toNames) ? m.toNames.join(", ") : (m.toNames || "—")))
           : m.fromName;
         const avatarUserId = isSent ? session.id : m.fromId;
         const isSelected = selectedMsgIds.has(m.id);
@@ -3496,7 +3505,7 @@
     if (!m) { detailArea.innerHTML = ""; return; }
 
     const isAnn = m.to === "all";
-    const toLabel = isAnn ? "All Staff" : (Array.isArray(m.toNames) ? m.toNames.join(", ") : (m.toNames || ""));
+    const toLabel = isAnn ? t("staff.compose.allStaff") : (Array.isArray(m.toNames) ? m.toNames.join(", ") : (m.toNames || ""));
     const _nameParts = (m.fromName || "").toLowerCase().trim().split(/\s+/);
     const emailAlias = (_nameParts.length > 1 ? _nameParts[0][0] + _nameParts[_nameParts.length - 1] : (_nameParts[0] || "staff")) + "@jpark.hotel";
     const avatarClass = isAnn ? "mda-avatar announcement-avatar" : "mda-avatar";
@@ -3508,7 +3517,7 @@
     const canReport = !isInTrash && m.fromId !== session.id;
 
     detailArea.innerHTML =
-      '<button class="msg-detail-back" id="msgDetailBack">← Back</button>' +
+      '<button class="msg-detail-back" id="msgDetailBack">' + esc(t("staff.back")) + '</button>' +
       '<div class="msg-detail-subject"></div>' +
       '<div class="msg-detail-meta">' +
         '<div class="' + avatarClass + '">' + makeAvatarHtml(m.fromName, m.fromId) + "</div>" +
@@ -3635,8 +3644,11 @@
   // "2026-07-25T00:00:00.000Z". Slice to the date part before formatting so
   // the raw timestamp never leaks into the list, and both render in the
   // reader's locale (formatDate expects a bare YYYY-MM-DD).
-  function fmtBookingDate(x) {
-    return x ? U.formatDate(String(x).slice(0, 10)) : "?";
+  function fmtBookingDate(x, lang) {
+    // `lang` is only ever passed by the receipt, which may be rendering for a
+    // guest whose language is not the console's. Everywhere else omits it and
+    // gets the console language, exactly as before.
+    return x ? U.formatDate(String(x).slice(0, 10), lang) : "?";
   }
   function bookingDateRange(b) {
     return fmtBookingDate(b.checkIn) + " → " + fmtBookingDate(b.checkOut);
@@ -3803,9 +3815,11 @@
     }).catch(() => null);
   }
 
-  function bkPayMoney(v, currency) {
+  function bkPayMoney(v, currency, lang) {
     if (v == null) return "";
-    return (currency || "THB") + " " + Number(v).toLocaleString(undefined, {
+    // Grouping and decimal marks differ by locale; a receipt in Japanese that
+    // formats its total the English way reads as a template somebody forgot.
+    return (currency || "THB") + " " + Number(v).toLocaleString(lang || undefined, {
       minimumFractionDigits: 2, maximumFractionDigits: 2,
     });
   }
@@ -3820,12 +3834,12 @@
 
   // Times are always shown in Bangkok. Staff, guests and the owner are all in
   // ICT, and a receipt showing a 15:50 payment as 08:50 is a support call.
-  function bkPayTime(iso, withSeconds) {
+  function bkPayTime(iso, withSeconds, lang) {
     if (!iso) return "";
     const d = new Date(iso);
     if (isNaN(d.getTime())) return "";
     try {
-      return d.toLocaleString(undefined, {
+      return d.toLocaleString(lang || undefined, {
         timeZone: "Asia/Bangkok", year: "numeric", month: "short", day: "2-digit",
         hour: "2-digit", minute: "2-digit",
         second: withSeconds ? "2-digit" : undefined, hour12: false,
@@ -4001,7 +4015,7 @@
      The 7% is VAT charged on the FEE, not on the sale. On a 5,550 charge that
      is 202.58 + 14.18 = 216.76, which is 3.91% — not 10.65%. Showing the
      effective percentage next to the total removes the question. */
-  function bkReceiptInternalHTML(b, pay, grand, cur) {
+  function bkReceiptInternalHTML(b, pay, grand, cur, lang) {
     if (!pay) return "";
     const line = (k, v, cls) => (v == null || v === "" ? "" :
       '<tr' + (cls ? ' class="' + cls + '"' : '') + '><th>' + esc(k) + "</th><td>" + esc(v) + "</td></tr>");
@@ -4018,42 +4032,42 @@
     const pct = (v) => (v == null ? "" : v.toFixed(2).replace(/\.00$/, "") + "%");
 
     let money = "";
-    money += line(t("msg.bk.pay.txnAmount"), bkPayMoney(pay.amount, cur));
+    money += line(tl("msg.bk.pay.txnAmount", lang), bkPayMoney(pay.amount, cur, lang));
     // Same rule as the board: a charge that did not settle has no fee and no
     // net, whatever the gateway quotes against it.
     const settled = pay.state === "paid";
     if (settled && totalDeducted != null) {
-      money += line(t("msg.bk.pay.txnFee"),
-        "− " + bkPayMoney(totalDeducted, cur) + (effectiveRate != null ? "  (" + pct(effectiveRate) + " " + t("msg.bk.pay.ofSale") + ")" : ""));
-      money += line("  " + t("msg.bk.pay.feeRate").replace("{rate}", pct(feeRate)),
-        "− " + bkPayMoney(pay.fee, cur), "bk-rc-sub");
-      money += line("  " + t("msg.bk.pay.vatRate").replace("{rate}", pct(vatRate)),
-        "− " + bkPayMoney(pay.feeVat, cur), "bk-rc-sub");
+      money += line(tl("msg.bk.pay.txnFee", lang),
+        "− " + bkPayMoney(totalDeducted, cur, lang) + (effectiveRate != null ? "  (" + pct(effectiveRate) + " " + tl("msg.bk.pay.ofSale", lang) + ")" : ""));
+      money += line("  " + tl("msg.bk.pay.feeRate", lang).replace("{rate}", pct(feeRate)),
+        "− " + bkPayMoney(pay.fee, cur, lang), "bk-rc-sub");
+      money += line("  " + tl("msg.bk.pay.vatRate", lang).replace("{rate}", pct(vatRate)),
+        "− " + bkPayMoney(pay.feeVat, cur, lang), "bk-rc-sub");
     }
-    if (settled) money += line(t("msg.bk.pay.netAmount"), bkPayMoney(pay.net, cur), "bk-rc-net");
-    if (pay.refundedAmount) money += line(t("msg.bk.pay.refunded"), bkPayMoney(pay.refundedAmount, cur));
+    if (settled) money += line(tl("msg.bk.pay.netAmount", lang), bkPayMoney(pay.net, cur, lang), "bk-rc-net");
+    if (pay.refundedAmount) money += line(tl("msg.bk.pay.refunded", lang), bkPayMoney(pay.refundedAmount, cur, lang));
 
     let detail = "";
-    detail += line(t("msg.bk.pay.paidBy"), bkPayCardLabel(card) ||
-      (pay.method === "promptpay" ? t("msg.bk.pay.promptpay") : pay.method));
-    detail += line(t("msg.bk.pay.cardExpiry"), card.expiry);
-    detail += line(t("msg.bk.pay.cardholder"), card.name);
-    detail += line(t("msg.bk.pay.bank"), card.bank ? card.bank + (card.country ? " (" + card.country + ")" : "") : "");
-    detail += line(t("msg.bk.pay.cardType"), card.funding);
-    detail += line(t("msg.bk.pay.3ds"), pay.threeDS ? t("msg.bk.pay.3ds." + pay.threeDS) : "");
-    detail += line(t("msg.bk.pay.chargeStatus"), pay.status || pay.state);
-    detail += line(t("msg.bk.pay.created"), bkPayTime(pay.createdAt, true));
-    detail += line(t("msg.bk.pay.guestPaidAt"), bkPayTime(pay.paidAt, true));
-    detail += line(t("msg.bk.pay.chargeId"), pay.chargeId);
-    detail += line(t("msg.bk.pay.transactionId"), pay.transactionId);
-    if (pay.failure) detail += line(t("msg.bk.pay.failureReason"), pay.failure.text || pay.failure.message || pay.failure.code);
+    detail += line(tl("msg.bk.pay.paidBy", lang), bkPayCardLabel(card) ||
+      (pay.method === "promptpay" ? tl("msg.bk.pay.promptpay", lang) : pay.method));
+    detail += line(tl("msg.bk.pay.cardExpiry", lang), card.expiry);
+    detail += line(tl("msg.bk.pay.cardholder", lang), card.name);
+    detail += line(tl("msg.bk.pay.bank", lang), card.bank ? card.bank + (card.country ? " (" + card.country + ")" : "") : "");
+    detail += line(tl("msg.bk.pay.cardType", lang), card.funding);
+    detail += line(tl("msg.bk.pay.3ds", lang), pay.threeDS ? tl("msg.bk.pay.3ds." + pay.threeDS, lang) : "");
+    detail += line(tl("msg.bk.pay.chargeStatus", lang), pay.status || pay.state);
+    detail += line(tl("msg.bk.pay.created", lang), bkPayTime(pay.createdAt, true, lang));
+    detail += line(tl("msg.bk.pay.guestPaidAt", lang), bkPayTime(pay.paidAt, true, lang));
+    detail += line(tl("msg.bk.pay.chargeId", lang), pay.chargeId);
+    detail += line(tl("msg.bk.pay.transactionId", lang), pay.transactionId);
+    if (pay.failure) detail += line(tl("msg.bk.pay.failureReason", lang), pay.failure.text || pay.failure.message || pay.failure.code);
 
     let settleRows = "";
     if (settle) {
-      settleRows += line(t("msg.bk.pay.settleTitle"), t("msg.bk.pay.settle." + (settle.state || "on_hold")));
-      settleRows += line(t("msg.bk.pay.clearsHold"), bkPayTime(settle.transferableAt));
-      settleRows += line(t("msg.bk.pay.bankPaidAt"), bkPayTime(settle.paidAt));
-      settleRows += line(t("msg.bk.pay.transfer"), settle.transferId
+      settleRows += line(tl("msg.bk.pay.settleTitle", lang), tl("msg.bk.pay.settle." + (settle.state || "on_hold"), lang));
+      settleRows += line(tl("msg.bk.pay.clearsHold", lang), bkPayTime(settle.transferableAt, lang));
+      settleRows += line(tl("msg.bk.pay.bankPaidAt", lang), bkPayTime(settle.paidAt, lang));
+      settleRows += line(tl("msg.bk.pay.transfer", lang), settle.transferId
         ? settle.transferId + (settle.bank ? " → " + settle.bank : "") + (settle.last4 ? " ••••" + settle.last4 : "")
         : "");
     }
@@ -4063,15 +4077,15 @@
     // payment — say so rather than printing two numbers side by side and
     // leaving somebody to notice.
     const mismatch = (pay.amount != null && Math.abs(Number(pay.amount) - Number(grand)) > 0.01)
-      ? '<div class="bk-rc-mismatch">' + esc(t("msg.bk.receipt.mismatch")
-          .replace("{booking}", bkPayMoney(grand, cur))
-          .replace("{charged}", bkPayMoney(pay.amount, cur))) + "</div>"
+      ? '<div class="bk-rc-mismatch">' + esc(tl("msg.bk.receipt.mismatch", lang)
+          .replace("{booking}", bkPayMoney(grand, cur, lang))
+          .replace("{charged}", bkPayMoney(pay.amount, cur, lang))) + "</div>"
       : "";
 
     return '<div class="bk-rc-internal">' +
-      '<div class="bk-rc-internal-head">' + esc(t("msg.bk.receipt.internalTitle")) + "</div>" +
-      '<div class="bk-rc-internal-note">' + esc(t("msg.bk.receipt.internalNote")) + "</div>" +
-      (pay.livemode === false ? '<div class="bk-rc-test">' + esc(t("msg.bk.pay.testMode")) + "</div>" : "") +
+      '<div class="bk-rc-internal-head">' + esc(tl("msg.bk.receipt.internalTitle", lang)) + "</div>" +
+      '<div class="bk-rc-internal-note">' + esc(tl("msg.bk.receipt.internalNote", lang)) + "</div>" +
+      (pay.livemode === false ? '<div class="bk-rc-test">' + esc(tl("msg.bk.pay.testMode", lang)) + "</div>" : "") +
       mismatch +
       '<table class="bk-rc-meta bk-rc-money">' + money + "</table>" +
       '<table class="bk-rc-meta">' + detail + "</table>" +
@@ -4097,7 +4111,7 @@
     site: "jparkhotel.com",
   };
 
-  function bkReceiptHTML(b, pay, siblings, internal) {
+  function bkReceiptHTML(b, pay, siblings, internal, lang) {
     const cur = (pay && pay.currency) || b.currency || "THB";
     const rows = siblings && siblings.length > 1 ? siblings : [b];
     const grand = rows.reduce((s, r) => s + Number(r.total || 0), 0);
@@ -4112,30 +4126,30 @@
        room-only rate from one including breakfast — the most common question
        asked of a receipt at this desk. */
     const roomLines = rows.map((r) => {
-      const nights = r.nights ? t("msg.bk.receipt.nights").replace("{n}", String(r.nights)) : "";
+      const nights = r.nights ? tl("msg.bk.receipt.nights", lang).replace("{n}", String(r.nights)) : "";
       const guests = [
-        r.adults ? t("msg.bk.receipt.adults").replace("{n}", String(r.adults)) : "",
-        r.children ? t("msg.bk.receipt.children").replace("{n}", String(r.children)) : "",
+        r.adults ? tl("msg.bk.receipt.adults", lang).replace("{n}", String(r.adults)) : "",
+        r.children ? tl("msg.bk.receipt.children", lang).replace("{n}", String(r.children)) : "",
       ].filter(Boolean).join(", ");
       const extras = [
-        r.breakfast ? t("msg.bk.receipt.withBreakfast") : t("msg.bk.receipt.roomOnly"),
-        r.extraBed ? t("msg.bk.extraBed") : "",
+        r.breakfast ? tl("msg.bk.receipt.withBreakfast", lang) : tl("msg.bk.receipt.roomOnly", lang),
+        r.extraBed ? tl("msg.bk.extraBed", lang) : "",
       ].filter(Boolean).join(" · ");
       return "<tr>" +
         "<td>" +
           '<span class="bk-rc-room">' + esc(r.room || "") + "</span>" +
-          (r.roomNumber ? ' <span class="bk-rc-room-no">' + esc(t("msg.bk.roomNumber")) + " " + esc(r.roomNumber) + "</span>" : "") +
+          (r.roomNumber ? ' <span class="bk-rc-room-no">' + esc(tl("msg.bk.roomNumber", lang)) + " " + esc(r.roomNumber) + "</span>" : "") +
           '<div class="bk-rc-sub-line">' + esc([guests, extras].filter(Boolean).join(" · ")) + "</div>" +
         "</td>" +
-        "<td>" + esc(fmtBookingDate(r.checkIn) + " → " + fmtBookingDate(r.checkOut)) +
+        "<td>" + esc(fmtBookingDate(r.checkIn, lang) + " → " + fmtBookingDate(r.checkOut, lang)) +
           (nights ? '<div class="bk-rc-sub-line">' + esc(nights) + "</div>" : "") +
         "</td>" +
-        '<td class="bk-rc-amt">' + esc(bkPayMoney(r.total, cur)) + "</td>" +
+        '<td class="bk-rc-amt">' + esc(bkPayMoney(r.total, cur, lang)) + "</td>" +
       "</tr>";
     }).join("");
 
     const paidLabel = bkPayCardLabel(card) ||
-      (pay && pay.method === "promptpay" ? t("msg.bk.pay.promptpay") : (pay && pay.method) || "");
+      (pay && pay.method === "promptpay" ? tl("msg.bk.pay.promptpay", lang) : (pay && pay.method) || "");
 
     /* The receipt's own number. Derived from the confirmation reference
        rather than minted fresh, so reprinting the same booking gives the same
@@ -4151,30 +4165,30 @@
           'onerror="this.style.display=\'none\'">' +
         '<div class="bk-rc-contact">' +
           "<div>" + esc(RECEIPT_HOTEL.address) + "</div>" +
-          "<div>" + esc(t("msg.bk.receipt.tel")) + " " + esc(RECEIPT_HOTEL.phones.join(" · ")) +
+          "<div>" + esc(tl("msg.bk.receipt.tel", lang)) + " " + esc(RECEIPT_HOTEL.phones.join(" · ")) +
             "  ·  " + esc(RECEIPT_HOTEL.email) + "  ·  " + esc(RECEIPT_HOTEL.site) + "</div>" +
         "</div>" +
       "</div>" +
       '<div class="bk-rc-rule"></div>' +
-      '<h1 class="bk-rc-title">' + esc(t("msg.bk.receipt.title")) + "</h1>" +
+      '<h1 class="bk-rc-title">' + esc(tl("msg.bk.receipt.title", lang)) + "</h1>" +
 
       (pay && pay.livemode === false
-        ? '<div class="bk-rc-test">' + esc(t("msg.bk.pay.testMode")) + "</div>" : "") +
+        ? '<div class="bk-rc-test">' + esc(tl("msg.bk.pay.testMode", lang)) + "</div>" : "") +
 
       // ── Guest, and the document's own particulars, side by side ─────────
       '<div class="bk-rc-parties">' +
         '<div class="bk-rc-party">' +
-          '<div class="bk-rc-label">' + esc(t("msg.bk.receipt.for")) + "</div>" +
+          '<div class="bk-rc-label">' + esc(tl("msg.bk.receipt.for", lang)) + "</div>" +
           '<div class="bk-rc-party-name">' + esc([b.guestName, b.guestLastName].filter(Boolean).join(" ")) + "</div>" +
           (b.guestEmail ? "<div>" + esc(b.guestEmail) + "</div>" : "") +
           (b.guestPhone ? "<div>" + esc(b.guestPhone) + "</div>" : "") +
         "</div>" +
         '<div class="bk-rc-party bk-rc-party-right">' +
           '<table class="bk-rc-meta">' +
-            line(t("msg.bk.receipt.no"), receiptNo) +
-            line(t("msg.bk.ref"), b.groupRef || b.ref) +
-            line(t("msg.bk.receipt.issued"), bkPayTime(pay && pay.paidAt ? pay.paidAt : b.createdAt, false)) +
-            line(t("msg.bk.receipt.issuedBy"), session ? session.name : "") +
+            line(tl("msg.bk.receipt.no", lang), receiptNo) +
+            line(tl("msg.bk.ref", lang), b.groupRef || b.ref) +
+            line(tl("msg.bk.receipt.issued", lang), bkPayTime(pay && pay.paidAt ? pay.paidAt : b.createdAt, false, lang)) +
+            line(tl("msg.bk.receipt.issuedBy", lang), session ? session.name : "") +
           "</table>" +
         "</div>" +
       "</div>" +
@@ -4182,27 +4196,27 @@
       // ── What was bought ─────────────────────────────────────────────────
       '<table class="bk-rc-rooms">' +
         "<thead><tr>" +
-          "<th>" + esc(t("msg.bk.receipt.rooms")) + "</th>" +
-          "<th>" + esc(t("msg.bk.receipt.stay")) + "</th>" +
-          '<th class="bk-rc-amt">' + esc(t("msg.bk.total")) + "</th>" +
+          "<th>" + esc(tl("msg.bk.receipt.rooms", lang)) + "</th>" +
+          "<th>" + esc(tl("msg.bk.receipt.stay", lang)) + "</th>" +
+          '<th class="bk-rc-amt">' + esc(tl("msg.bk.total", lang)) + "</th>" +
         "</tr></thead>" +
         "<tbody>" + roomLines + "</tbody>" +
         '<tfoot><tr class="bk-rc-total">' +
-          '<td colspan="2">' + esc(t("msg.bk.receipt.totalPaid")) + "</td>" +
-          '<td class="bk-rc-amt">' + esc(bkPayMoney(grand, cur)) + "</td>" +
+          '<td colspan="2">' + esc(tl("msg.bk.receipt.totalPaid", lang)) + "</td>" +
+          '<td class="bk-rc-amt">' + esc(bkPayMoney(grand, cur, lang)) + "</td>" +
         "</tr></tfoot>" +
       "</table>" +
 
       // ── How it was paid ─────────────────────────────────────────────────
       (pay
-        ? '<div class="bk-rc-section">' + esc(t("msg.bk.pay.title")) + "</div>" +
+        ? '<div class="bk-rc-section">' + esc(tl("msg.bk.pay.title", lang)) + "</div>" +
           '<table class="bk-rc-meta bk-rc-meta-wide">' +
-            line(t("msg.bk.pay.paidBy"), paidLabel) +
-            line(t("msg.bk.pay.cardholder"), card.name) +
-            line(t("msg.bk.pay.bank"), card.bank) +
-            line(t("msg.bk.pay.amountCharged"), bkPayMoney(pay.amount, cur)) +
-            line(t("msg.bk.pay.guestPaidAt"), bkPayTime(pay.paidAt, true)) +
-            line(t("msg.bk.pay.chargeId"), pay.chargeId) +
+            line(tl("msg.bk.pay.paidBy", lang), paidLabel) +
+            line(tl("msg.bk.pay.cardholder", lang), card.name) +
+            line(tl("msg.bk.pay.bank", lang), card.bank) +
+            line(tl("msg.bk.pay.amountCharged", lang), bkPayMoney(pay.amount, cur, lang)) +
+            line(tl("msg.bk.pay.guestPaidAt", lang), bkPayTime(pay.paidAt, true, lang)) +
+            line(tl("msg.bk.pay.chargeId", lang), pay.chargeId) +
           "</table>"
         : "") +
 
@@ -4210,19 +4224,19 @@
       // cash at the desk, however the room itself was paid for. On the receipt
       // it is what stops a guest who prepaid online arriving believing there
       // is nothing left to hand over.
-      '<div class="bk-rc-note">' + esc(t("msg.bk.receipt.deposit")) + "</div>" +
+      '<div class="bk-rc-note">' + esc(tl("msg.bk.receipt.deposit", lang)) + "</div>" +
 
       // ── Signature and seal ──────────────────────────────────────────────
       '<div class="bk-rc-sign">' +
-        '<div class="bk-rc-thanks">' + esc(t("msg.bk.receipt.thanks")) + "</div>" +
+        '<div class="bk-rc-thanks">' + esc(tl("msg.bk.receipt.thanks", lang)) + "</div>" +
         '<div class="bk-rc-sign-block">' +
           '<img class="bk-rc-stamp" src="images/company-stamp.png" alt="" ' +
             'onerror="this.style.display=\'none\'">' +
           '<div class="bk-rc-sign-line"></div>' +
-          '<div class="bk-rc-sign-cap">' + esc(t("msg.bk.receipt.authorised")) + "</div>" +
+          '<div class="bk-rc-sign-cap">' + esc(tl("msg.bk.receipt.authorised", lang)) + "</div>" +
         "</div>" +
       "</div>" +
-      '<div class="bk-rc-legal">' + esc(t("msg.bk.receipt.legal")) + "</div>" +
+      '<div class="bk-rc-legal">' + esc(tl("msg.bk.receipt.legal", lang)) + "</div>" +
 
       // Everything the gateway knows, for staff. Appended after the document
       // proper rather than woven in, so the guest copy is exactly the pages
@@ -4297,9 +4311,32 @@
     document.body.classList.remove("bk-printing");
 
     let internal = true;
+
+    /* Each copy remembers its own language, because they are read by different
+       people.
+
+       The GUEST copy defaults to the language the guest actually booked in —
+       booking.html records it on the reservation, and it is auto-detected from
+       their device on a first visit — so handing over a readable document is
+       the default rather than something staff must remember to select.
+
+       The INTERNAL copy defaults to the console language, because the person
+       reading it is the one logged in.
+
+       Both are overridable: a guest may ask for English, and a Thai
+       receptionist may want to check what the Japanese copy actually says
+       before printing it. */
+    const consoleLang = I.getLang();
+    const guestLang = I.SUPPORTED.indexOf(b.lang) >= 0 ? b.lang : consoleLang;
+    const langFor = { internal: consoleLang, guest: guestLang };
+
     const overlay = document.createElement("div");
     overlay.className = "bk-receipt-overlay";
     const paint = () => {
+      const copy = internal ? "internal" : "guest";
+      const lang = langFor[copy];
+      // Every label in the toolbar stays in the CONSOLE's language — it is
+      // chrome for the member of staff, not part of the document.
       overlay.innerHTML =
         '<div class="bk-receipt-modal' + (internal ? " is-internal" : "") + '">' +
           '<div class="bk-receipt-bar">' +
@@ -4309,10 +4346,19 @@
               '<button class="bk-rc-tab' + (internal ? "" : " active") + '" id="bkRcGuest">' +
                 esc(t("msg.bk.receipt.guestCopy")) + "</button>" +
             "</div>" +
+            '<label class="bk-rc-lang">' +
+              '<span class="bk-rc-lang-cap">' + esc(t("msg.bk.receipt.language")) + "</span>" +
+              '<select id="bkRcLang">' +
+                I.SUPPORTED.map(function (l) {
+                  return '<option value="' + esc(l) + '"' + (l === lang ? " selected" : "") + ">" +
+                    esc(I.LANG_NAMES[l] || l) + "</option>";
+                }).join("") +
+              "</select>" +
+            "</label>" +
             '<button class="mda-action-btn" id="bkRcPrint">🖨 ' + esc(t("msg.bk.receipt.print")) + "</button>" +
             '<button class="mda-action-btn" id="bkRcClose">' + esc(t("msg.bk.receipt.close")) + "</button>" +
           "</div>" +
-          bkReceiptHTML(b, pay, siblings, internal) +
+          bkReceiptHTML(b, pay, siblings, internal, lang) +
         "</div>";
       wire();
     };
@@ -4356,6 +4402,12 @@
       });
       overlay.querySelector("#bkRcGuest").addEventListener("click", () => {
         if (internal) { internal = false; paint(); }
+      });
+      overlay.querySelector("#bkRcLang").addEventListener("change", (e) => {
+        // Remembered per copy, so switching to the guest copy and back does
+        // not lose the language either was set to.
+        langFor[internal ? "internal" : "guest"] = e.target.value;
+        paint();
       });
       overlay.querySelector("#bkRcPrint").addEventListener("click", () => window.print());
     }
@@ -5580,8 +5632,17 @@
     const refs = (c.bookings || []).map((b) => b.groupRef || b.ref).filter(Boolean);
     const uniqueRefs = refs.filter((v, i) => refs.indexOf(v) === i);
 
-    const flags = (c.flags || []).map((f) =>
-      '<div class="pay-flag pay-flag-' + esc(f.level) + '">' + esc(f.text) + "</div>").join("");
+    /* The server sends each flag with a machine-readable `code` as well as its
+       English prose. Translate by the code and keep the prose only as a
+       fallback for a code this console does not know yet — otherwise a Thai
+       member of staff reads English sentences on the one screen that tells
+       them money is missing. */
+    const flags = (c.flags || []).map((f) => {
+      const key = "msg.payments.flag." + (f.code || "");
+      const translated = f.code ? t(key) : "";
+      return '<div class="pay-flag pay-flag-' + esc(f.level) + '">' +
+        esc(translated && translated !== key ? translated : f.text) + "</div>";
+    }).join("");
 
     // Only offer the button where pressing it could change something. A
     // settled, fully-recorded charge has nothing to reconcile, and a button
@@ -5651,7 +5712,10 @@
       body = '<div class="pay-error">' + esc(paymentsLedgerError) + "</div>";
     } else if (!paymentsLedger || !paymentsLedger.available) {
       body = '<div class="msg-empty"><div class="me-ico">💳</div><div class="me-sub">' +
-        esc((paymentsLedger && paymentsLedger.reason) || t("msg.payments.unavailable")) + "</div></div>";
+        // Same rule as the flags: prefer our own translated sentence, and only
+        // fall back to the server's English if it said something we have no
+        // wording for.
+        esc(t("msg.payments.unavailable")) + "</div></div>";
     } else if (!paymentsLedger.charges.length) {
       body = '<div class="msg-empty"><div class="me-ico">💳</div>' +
         '<div class="me-title">' + esc(t("msg.empty.title")) + "</div>" +
@@ -5929,7 +5993,7 @@
     if (msgToAllSelected) {
       const tag = document.createElement("span");
       tag.className = "msg-to-tag everyone-tag";
-      tag.innerHTML = "🌐 Everyone (All Staff) ";
+      tag.innerHTML = esc(t("staff.compose.everyoneAll")) + " ";
       const rm = document.createElement("button");
       rm.type = "button"; rm.textContent = "✕";
       rm.addEventListener("click", () => { msgToAllSelected = false; renderToTags(); updateMsgLimit(); });
@@ -5985,8 +6049,8 @@
       item.className = "msg-to-dropdown-item";
       item.innerHTML =
         '<div class="mdi-avatar" style="background:linear-gradient(135deg,var(--gold),#e8a800);color:var(--teal-deep)">🌐</div>' +
-        '<span class="mdi-name">Everyone</span>' +
-        '<span class="mdi-role">All Staff</span>';
+        '<span class="mdi-name">' + esc(t("staff.compose.everyone")) + '</span>' +
+        '<span class="mdi-role">' + esc(t("staff.compose.allStaff")) + '</span>';
       item.addEventListener("click", () => {
         msgToAllSelected = true; msgToRecipients = [];
         document.getElementById("msgToInput").value = "";
@@ -6000,7 +6064,10 @@
       item.innerHTML =
         '<div class="mdi-avatar">' + makeAvatarHtml(u.name, u.id) + "</div>" +
         '<span class="mdi-name">' + esc(u.name) + "</span>" +
-        '<span class="mdi-role">' + esc(u.role) + "</span>";
+        // The raw store token ("admin"/"staff") was printed straight into
+        // the dropdown, so every language showed English role names even
+        // though staff.role.* is defined in all five.
+        '<span class="mdi-role">' + esc(t("staff.role." + u.role)) + "</span>";
       item.addEventListener("click", () => {
         if (!isAdmin() && msgToRecipients.length >= 10) {
           U.toast("Maximum 10 recipients for staff.", "error"); return;
@@ -6056,7 +6123,7 @@
       fromId: session.id, fromName: session.name, fromRole: session.role,
       subject, body, lang: I.getLang(),
       to: toAll ? "all" : toIds,
-      toNames: toAll ? "Everyone" : toNames,
+      toNames: toAll ? t("staff.compose.everyone") : toNames,
       readBy: [session.id],
     });
     closeCompose();

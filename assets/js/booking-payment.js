@@ -95,6 +95,7 @@
       'bk.pay.confirmReservation': 'Confirm reservation',
       'bk.pay.err.required': 'Please fill in your first name, email, and phone number.',
       'bk.pay.err.generic': 'Something went wrong. Please try again.',
+      'bk.pay.err.tooMany': "Too many attempts just now. Please wait a minute and try again, or call the hotel and we will take your booking by phone.",
       'bk.pay.err.network': 'Network error — please check your connection and try again.',
       'bk.pay.err.offline': "We can't reach our booking system right now. Please call us to book — +66 086 326 0664 or +66 038 448 111 — and we'll be happy to help.",
       'bk.pay.err.soldOut': 'Sorry, this room type just sold out for those dates.',
@@ -172,6 +173,7 @@
       'bk.pay.confirmReservation': 'ยืนยันการจอง',
       'bk.pay.err.required': 'กรุณากรอกชื่อ อีเมล และเบอร์โทรศัพท์ของท่าน',
       'bk.pay.err.generic': 'เกิดข้อผิดพลาด กรุณาลองใหม่',
+      'bk.pay.err.tooMany': "มีการพยายามหลายครั้งเกินไปในขณะนี้ กรุณารอสักครู่แล้วลองใหม่อีกครั้ง หรือโทรหาโรงแรมแล้วเราจะรับจองทางโทรศัพท์ให้ท่าน",
       'bk.pay.err.network': 'เกิดข้อผิดพลาดของเครือข่าย กรุณาตรวจสอบการเชื่อมต่อแล้วลองใหม่',
       'bk.pay.err.offline': 'ขณะนี้เราไม่สามารถเชื่อมต่อระบบการจองได้ กรุณาโทรจองโดยตรงที่ +66 086 326 0664 หรือ +66 038 448 111 เรายินดีให้บริการ',
       'bk.pay.err.soldOut': 'ขออภัย ห้องประเภทนี้เต็มสำหรับวันที่เลือกแล้ว',
@@ -249,6 +251,7 @@
       'bk.pay.confirmReservation': '予約を確定する',
       'bk.pay.err.required': 'お名前、メールアドレス、電話番号をご入力ください。',
       'bk.pay.err.generic': '問題が発生しました。再度お試しください。',
+      'bk.pay.err.tooMany': "短時間に試行が集中しました。しばらくお待ちのうえ、もう一度お試しください。お急ぎの場合はお電話にてご予約を承ります。",
       'bk.pay.err.network': 'ネットワークエラーです。接続をご確認のうえ再度お試しください。',
       'bk.pay.err.offline': 'ただいま予約システムに接続できません。お電話にてご予約ください（+66 086 326 0664 または +66 038 448 111）。喜んでご対応いたします。',
       'bk.pay.err.soldOut': '申し訳ございません、この客室タイプは選択された日程で満室になりました。',
@@ -326,6 +329,7 @@
       'bk.pay.confirmReservation': '确认预订',
       'bk.pay.err.required': '请填写您的名字、电子邮箱和电话号码。',
       'bk.pay.err.generic': '出现了一些问题，请重试。',
+      'bk.pay.err.tooMany': "刚才尝试次数过多。请稍候一分钟后再试，或致电酒店，我们将为您电话预订。",
       'bk.pay.err.network': '网络错误，请检查连接后重试。',
       'bk.pay.err.offline': '目前无法连接预订系统，请致电预订 —— +66 086 326 0664 或 +66 038 448 111 —— 我们很乐意为您服务。',
       'bk.pay.err.soldOut': '抱歉，该房型在所选日期已订满。',
@@ -403,6 +407,7 @@
       'bk.pay.confirmReservation': '確認預訂',
       'bk.pay.err.required': '請填寫您的名字、電子郵箱和電話號碼。',
       'bk.pay.err.generic': '出現了一些問題，請重試。',
+      'bk.pay.err.tooMany': "剛才嘗試次數過多。請稍候一分鐘後再試，或致電飯店，我們將為您電話訂房。",
       'bk.pay.err.network': '網路錯誤，請檢查連線後重試。',
       'bk.pay.err.offline': '目前無法連接預訂系統，請致電預訂 —— +66 086 326 0664 或 +66 038 448 111 —— 我們很樂意為您服務。',
       'bk.pay.err.soldOut': '抱歉，該房型在所選日期已訂滿。',
@@ -570,6 +575,22 @@
     });
   }
 
+  /* Show the guest a translated sentence; keep the server's for the console.
+
+     Every failure path used to read `r.error || TR('...')`, and api.js
+     normalises EVERY non-ok response to `error: data.error || ("HTTP " +
+     status)` — so `r.error` is always truthy and the translated fallback was
+     dead code. A Thai guest whose card was refused, or who hit a rate limit,
+     read an English sentence written for a developer. The backend does not
+     localise its errors and should not have to: it has no reader.
+
+     The gateway's own wording still goes to the console, where support can
+     find it. */
+  function serverError(r, key) {
+    if (r && r.error) { try { console.warn('[booking]', r.status || '', r.code || '', r.error); } catch (e) {} }
+    return TR(key);
+  }
+
   function tokenizeOmise(c) {
     return loadOmiseScript().then(function () {
       return new Promise(function (resolve) {
@@ -582,7 +603,11 @@
           security_code: c.cvc,
         }, function (statusCode, response) {
           if (response && response.object === 'error') {
-            resolve({ error: response.message || TR('bk.pay.err.cardDeclined') });
+            // Omise's message is English ("number is invalid", "expiration
+            // date cannot be in the past"). The sibling GB Prime Pay path
+            // already does the right thing and always uses TR().
+            try { console.warn('[omise] token error', response.code, response.message); } catch (e) {}
+            resolve({ error: TR('bk.pay.err.cardDeclined') });
           } else {
             resolve({ token: response.id });
           }
@@ -1360,7 +1385,7 @@
         } else if (r.status === 409) {
           showFormError(TR('bk.pay.err.soldOut'));
         } else if (r.status === 402) {
-          showFormError(r.error || TR('bk.pay.err.cardDeclined'));
+          showFormError(serverError(r, 'bk.pay.err.cardDeclined'));
         } else if (r.code === 'ONLINE_PAYMENT_REQUIRED') {
           /* The server refused pay-at-check-in because online payment is the
              rule. Almost always this means the page was built before the
@@ -1374,9 +1399,9 @@
           paymentConfig.payAtCheckinAllowed = false;
           state.paymentMethod = firstOnlineMethod();
           if (typeof onPaymentConfigLoaded === 'function') { try { onPaymentConfigLoaded(); } catch (e) {} }
-          showFormError(r.error || TR('bk.pay.err.onlineRequired'));
+          showFormError(serverError(r, 'bk.pay.err.onlineRequired'));
         } else {
-          showFormError(r.error || TR('bk.pay.err.generic'));
+          showFormError(serverError(r, r.status === 429 ? 'bk.pay.err.tooMany' : 'bk.pay.err.generic'));
         }
         return;
       }
@@ -1778,16 +1803,16 @@
       if (!r || r.error) {
         setGroupSubmitting(false);
         if (!r || r.offline || (r.status && r.status >= 500)) showFormError(TR('bk.pay.err.offline'));
-        else if (r.status === 409) showFormError(r.error || TR('bk.pay.err.soldOut'));
-        else if (r.status === 402) showFormError(r.error || TR('bk.pay.err.cardDeclined'));
+        else if (r.status === 409) showFormError(serverError(r, 'bk.pay.err.soldOut'));
+        else if (r.status === 402) showFormError(serverError(r, 'bk.pay.err.cardDeclined'));
         else if (r.code === 'ONLINE_PAYMENT_REQUIRED') {
           // Same recovery as the single-room path — see its comment.
           paymentConfig.payAtCheckinAllowed = false;
           state.paymentMethod = firstOnlineMethod();
           if (typeof onPaymentConfigLoaded === 'function') { try { onPaymentConfigLoaded(); } catch (e) {} }
-          showFormError(r.error || TR('bk.pay.err.onlineRequired'));
+          showFormError(serverError(r, 'bk.pay.err.onlineRequired'));
         }
-        else showFormError(r.error || TR('bk.pay.err.generic'));
+        else showFormError(serverError(r, r.status === 429 ? 'bk.pay.err.tooMany' : 'bk.pay.err.generic'));
         return;
       }
       // Normalise the single-room response into the group success shape so
@@ -2034,7 +2059,7 @@
         if (!r || r.offline || (r.status && r.status >= 500)) {
           showFormError(TR('bk.pay.err.offline'));
         } else {
-          showFormError(r.error || TR('bk.pay.err.generic'));
+          showFormError(serverError(r, r.status === 429 ? 'bk.pay.err.tooMany' : 'bk.pay.err.generic'));
         }
         return;
       }

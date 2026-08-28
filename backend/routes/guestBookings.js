@@ -99,14 +99,13 @@ function isOnlineProvider(provider) {
    A billing MISTAKE is deliberately still invited. Refusing refunds is a
    policy; refusing to correct a double charge is not one, and the offer costs
    nothing to make honestly. */
-function cancellationRefundLine(paidOnline, money) {
-  if (!paidOnline) {
-    return 'No payment was taken online for this booking, so there is nothing to refund.';
-  }
-  return `You paid ${money} online for this booking. As set out in our booking terms, ` +
-    'payments made online are non-refundable, so this amount is not returned. If you think ' +
-    'you were charged in error or charged twice, reply to this email with your confirmation ' +
-    'number and we will look into it. Our full terms are at https://jparkhotel.com/policies.html';
+function cancellationRefundLine(paidOnline, money, lang) {
+  // This is the sentence that tells a guest whether their money is coming
+  // back. It was English-only while every other guest email had been
+  // translated for months — so the one paragraph a cancelling guest actually
+  // reads was the one they might not be able to.
+  const L = EMAIL_I18N[lang] || EMAIL_I18N.en;
+  return paidOnline ? L.cancelPaidOnline(money) : L.cancelNoRefund;
 }
 
 // Accounting-friendly line for the front-desk/hotel notice. A genuine online
@@ -243,6 +242,22 @@ const EMAIL_I18N = {
     roomsSummary: (n) => `${n} rooms`,
     subtotal: 'Room total',
     grandTotal: 'Total (all rooms)',
+    cancelHeading: 'Your reservation has been cancelled',
+    cancelHeadingOne: 'One room of your booking has been cancelled',
+    cancelHeadingAll: (n) => `Your booking of ${n} rooms has been cancelled`,
+    cancelIntro: 'This is to confirm that your reservation at J Park Hotel, Chonburi has been cancelled.',
+    cancelIntroOne: 'This is to confirm that one room of your booking at J Park Hotel, Chonburi has been cancelled. Any other rooms in the same booking remain confirmed.',
+    cancelIntroAll: (n) => `This is to confirm that your entire booking at J Park Hotel, Chonburi (${n} rooms) has been cancelled.`,
+    cancelRoomOf: (room, i, n) => `${room} (Room ${i} of ${n})`,
+    cancelNoRefund: 'No payment was taken online for this booking, so there is nothing to refund.',
+    cancelPaidOnline: (money) => `You paid ${money} online for this booking. As set out in our booking terms, payments made online are non-refundable, so this amount is not returned. If you think you were charged in error or charged twice, reply to this email with your confirmation number and we will look into it. Our full terms are at https://jparkhotel.com/policies.html`,
+    cancelClosing: 'If this cancellation was made in error, or you would like to make a new reservation, please reply to this email or call us.',
+    dayuseHeading: 'Day-use request received',
+    dayuseIntro: 'Thank you — we have received your 3-hour day-use request. It is not confirmed yet: our team will contact you shortly to confirm availability.',
+    dayusePending: 'This is a request, not a confirmed booking. We will call or email you to confirm.',
+    dayuseDate: 'Date', dayuseTime: 'Preferred time',
+    dayuseTotal: 'Total (3-hour day-use)',
+    dayusePayable: 'Payable in person at check-in by cash, credit/debit card, or PromptPay QR at our front desk.',
     closing: 'We look forward to welcoming you. Reply to this email if you need anything before arrival.',
     spamNote: "Can't find this email later, or missing a reply from us? Please check your spam/junk folder — and consider adding us to your contacts.",
     heading: 'Your reservation is confirmed',
@@ -271,6 +286,22 @@ const EMAIL_I18N = {
     roomsSummary: (n) => `${n} ห้อง`,
     subtotal: 'ยอดรวมห้องพัก',
     grandTotal: 'ยอดรวมทั้งหมด',
+    cancelHeading: 'การจองของท่านถูกยกเลิกแล้ว',
+    cancelHeadingOne: 'ห้องพักหนึ่งห้องในการจองของท่านถูกยกเลิกแล้ว',
+    cancelHeadingAll: (n) => `การจอง ${n} ห้องของท่านถูกยกเลิกแล้ว`,
+    cancelIntro: 'ขอยืนยันว่าการจองของท่านที่โรงแรมเจ พาร์ค ชลบุรี ได้ถูกยกเลิกเรียบร้อยแล้ว',
+    cancelIntroOne: 'ขอยืนยันว่าห้องพักหนึ่งห้องในการจองของท่านที่โรงแรมเจ พาร์ค ชลบุรี ได้ถูกยกเลิกแล้ว ส่วนห้องอื่นในการจองเดียวกันยังคงยืนยันตามเดิม',
+    cancelIntroAll: (n) => `ขอยืนยันว่าการจองทั้งหมดของท่านที่โรงแรมเจ พาร์ค ชลบุรี (${n} ห้อง) ได้ถูกยกเลิกเรียบร้อยแล้ว`,
+    cancelRoomOf: (room, i, n) => `${room} (ห้องที่ ${i} จาก ${n})`,
+    cancelNoRefund: 'การจองนี้ไม่มีการชำระเงินออนไลน์ จึงไม่มียอดที่ต้องคืน',
+    cancelPaidOnline: (money) => `ท่านได้ชำระเงินออนไลน์ ${money} สำหรับการจองนี้ ตามเงื่อนไขการจองของเรา การชำระเงินออนไลน์ไม่สามารถขอคืนได้ จึงไม่มีการคืนยอดนี้ หากท่านคิดว่าถูกเรียกเก็บผิดพลาดหรือถูกเรียกเก็บซ้ำ กรุณาตอบกลับอีเมลฉบับนี้พร้อมหมายเลขการจอง แล้วเราจะตรวจสอบให้ ดูเงื่อนไขฉบับเต็มได้ที่ https://jparkhotel.com/policies.html`,
+    cancelClosing: 'หากการยกเลิกนี้เกิดจากความผิดพลาด หรือท่านต้องการจองใหม่ กรุณาตอบกลับอีเมลฉบับนี้หรือโทรหาเรา',
+    dayuseHeading: 'ได้รับคำขอใช้ห้องแบบรายวันแล้ว',
+    dayuseIntro: 'ขอบคุณค่ะ/ครับ เราได้รับคำขอใช้ห้องแบบ 3 ชั่วโมงของท่านแล้ว ขณะนี้ยังไม่ได้ยืนยัน ทีมงานจะติดต่อกลับเพื่อยืนยันห้องว่างโดยเร็ว',
+    dayusePending: 'นี่เป็นคำขอ ยังไม่ใช่การจองที่ยืนยันแล้ว เราจะโทรหรืออีเมลเพื่อยืนยันกับท่าน',
+    dayuseDate: 'วันที่', dayuseTime: 'เวลาที่ต้องการ',
+    dayuseTotal: 'ยอดรวม (ใช้ห้อง 3 ชั่วโมง)',
+    dayusePayable: 'ชำระที่เคาน์เตอร์เมื่อเข้าใช้ ด้วยเงินสด บัตรเครดิต/เดบิต หรือ QR พร้อมเพย์',
     closing: 'เรารอต้อนรับท่านด้วยความยินดี หากท่านต้องการความช่วยเหลือใด ๆ ก่อนเดินทางมาถึง กรุณาตอบกลับอีเมลฉบับนี้',
     spamNote: 'หากไม่พบอีเมลนี้ในภายหลัง หรือไม่ได้รับการตอบกลับจากเรา กรุณาตรวจสอบโฟลเดอร์สแปม/จดหมายขยะ และแนะนำให้เพิ่มอีเมลของเราไว้ในรายชื่อผู้ติดต่อ',
     heading: 'การจองของท่านได้รับการยืนยันแล้ว',
@@ -299,6 +330,22 @@ const EMAIL_I18N = {
     roomsSummary: (n) => `${n}室`,
     subtotal: '客室料金',
     grandTotal: '合計金額（全室）',
+    cancelHeading: 'ご予約はキャンセルされました',
+    cancelHeadingOne: 'ご予約のうち1室がキャンセルされました',
+    cancelHeadingAll: (n) => `${n}室のご予約がすべてキャンセルされました`,
+    cancelIntro: 'J Park Hotel チョンブリのご予約がキャンセルされましたことをご確認申し上げます。',
+    cancelIntroOne: 'J Park Hotel チョンブリのご予約のうち1室がキャンセルされましたことをご確認申し上げます。同じご予約の他のお部屋は引き続き確定しております。',
+    cancelIntroAll: (n) => `J Park Hotel チョンブリのご予約（${n}室）がすべてキャンセルされましたことをご確認申し上げます。`,
+    cancelRoomOf: (room, i, n) => `${room}（${n}室中${i}室目）`,
+    cancelNoRefund: 'このご予約ではオンラインでのお支払いはございませんので、返金の対象はございません。',
+    cancelPaidOnline: (money) => `このご予約について ${money} をオンラインでお支払いいただいております。ご予約条件のとおり、オンラインでのお支払いは返金対象外となり、この金額は返金されません。誤請求または二重請求と思われる場合は、確認番号を添えて本メールにご返信ください。確認いたします。規約全文は https://jparkhotel.com/policies.html をご覧ください。`,
+    cancelClosing: 'このキャンセルにお心当たりがない場合、または改めてご予約をご希望の場合は、本メールにご返信いただくかお電話ください。',
+    dayuseHeading: 'デイユースのお申し込みを受け付けました',
+    dayuseIntro: 'ありがとうございます。3時間のデイユースのお申し込みを受け付けました。まだ確定ではございません。空室状況を確認のうえ、担当より折り返しご連絡いたします。',
+    dayusePending: 'これはお申し込みであり、確定したご予約ではございません。お電話またはメールにてご確認のご連絡をいたします。',
+    dayuseDate: '日付', dayuseTime: 'ご希望の時間',
+    dayuseTotal: '合計（3時間デイユース）',
+    dayusePayable: '当日フロントにて、現金・クレジット/デビットカード、またはプロンプトペイQRでお支払いいただけます。',
     closing: 'ご到着を心よりお待ち申し上げております。ご到着前に何かご要望がございましたら、本メールにご返信ください。',
     spamNote: '後ほどこのメールが見つからない場合や、当ホテルからの返信が届かない場合は、迷惑メールフォルダをご確認いただき、当方のアドレスを連絡先にご登録いただけますようお願いいたします。',
     heading: 'ご予約確定のお知らせ',
@@ -327,6 +374,22 @@ const EMAIL_I18N = {
     roomsSummary: (n) => `${n} 间房`,
     subtotal: '房费',
     grandTotal: '总计（全部房间）',
+    cancelHeading: '您的预订已取消',
+    cancelHeadingOne: '您预订中的一间客房已取消',
+    cancelHeadingAll: (n) => `您 ${n} 间客房的预订已全部取消`,
+    cancelIntro: '兹确认，您在春武里 J Park 酒店的预订已取消。',
+    cancelIntroOne: '兹确认，您在春武里 J Park 酒店预订中的一间客房已取消。同一预订中的其他客房仍然有效。',
+    cancelIntroAll: (n) => `兹确认，您在春武里 J Park 酒店的整笔预订（${n} 间客房）已全部取消。`,
+    cancelRoomOf: (room, i, n) => `${room}（第 ${i} 间，共 ${n} 间）`,
+    cancelNoRefund: '此预订未通过网上付款，因此没有需要退还的款项。',
+    cancelPaidOnline: (money) => `您已为此预订在线支付 ${money}。根据我们的预订条款，在线付款不予退还，因此该款项不会退回。如您认为存在错误扣款或重复扣款，请回复本邮件并附上确认编号，我们将为您核查。完整条款见 https://jparkhotel.com/policies.html`,
+    cancelClosing: '如本次取消有误，或您希望重新预订，请回复本邮件或致电我们。',
+    dayuseHeading: '已收到钟点房申请',
+    dayuseIntro: '感谢您 — 我们已收到您 3 小时钟点房的申请。目前尚未确认，我们的团队将尽快与您联系确认房态。',
+    dayusePending: '这是一份申请，而非已确认的预订。我们会通过电话或邮件与您确认。',
+    dayuseDate: '日期', dayuseTime: '希望时段',
+    dayuseTotal: '合计（3 小时钟点房）',
+    dayusePayable: '可于当天在前台以现金、信用卡/借记卡或 PromptPay 二维码支付。',
     closing: '期待您的光临。如在抵达前需要任何协助，请直接回复此邮件。',
     spamNote: '稍后找不到这封邮件，或没有收到我们的回复？请检查您的垃圾邮件/垃圾箱文件夹，并建议将我们添加到您的联系人中。',
     heading: '您的预订已确认',
@@ -355,6 +418,22 @@ const EMAIL_I18N = {
     roomsSummary: (n) => `${n} 間房`,
     subtotal: '房費',
     grandTotal: '總計（全部房間）',
+    cancelHeading: '您的訂房已取消',
+    cancelHeadingOne: '您訂房中的一間客房已取消',
+    cancelHeadingAll: (n) => `您 ${n} 間客房的訂房已全部取消`,
+    cancelIntro: '茲確認，您在春武里 J Park 飯店的訂房已取消。',
+    cancelIntroOne: '茲確認，您在春武里 J Park 飯店訂房中的一間客房已取消。同一筆訂房中的其他客房仍然有效。',
+    cancelIntroAll: (n) => `茲確認，您在春武里 J Park 飯店的整筆訂房（${n} 間客房）已全部取消。`,
+    cancelRoomOf: (room, i, n) => `${room}（第 ${i} 間，共 ${n} 間）`,
+    cancelNoRefund: '此訂房未透過網路付款，因此沒有需要退還的款項。',
+    cancelPaidOnline: (money) => `您已為此訂房線上支付 ${money}。依據我們的訂房條款，線上付款不予退還，因此該款項不會退回。如您認為有錯誤扣款或重複扣款，請回覆本郵件並附上確認編號，我們將為您查核。完整條款請見 https://jparkhotel.com/policies.html`,
+    cancelClosing: '如本次取消有誤，或您希望重新訂房，請回覆本郵件或致電我們。',
+    dayuseHeading: '已收到鐘點房申請',
+    dayuseIntro: '感謝您 — 我們已收到您 3 小時鐘點房的申請。目前尚未確認，我們的團隊將盡快與您聯繫確認房況。',
+    dayusePending: '這是一份申請，而非已確認的訂房。我們會透過電話或郵件與您確認。',
+    dayuseDate: '日期', dayuseTime: '希望時段',
+    dayuseTotal: '合計（3 小時鐘點房）',
+    dayusePayable: '可於當天在櫃檯以現金、信用卡/簽帳卡或 PromptPay QR 支付。',
     closing: '期待您的光臨。如在抵達前需要任何協助，請直接回覆此郵件。',
     spamNote: '稍後找不到這封郵件，或沒有收到我們的回覆？請檢查您的垃圾郵件資料夾，並建議將我們加入您的聯絡人。',
     heading: '您的預訂已確認',
@@ -742,14 +821,13 @@ function cancellationEmail(bk) {
   // When this booking is one room of a multi-room group, make crystal-clear
   // that ONLY this room is cancelled and the guest's other rooms are unaffected
   // — and reference the group's confirmation number they actually hold.
+  const L = EMAIL_I18N[bk.lang] || EMAIL_I18N.en;
   const grouped = !!bk.group_ref;
   const confValue = grouped ? bk.group_ref : bk.ref;
   const roomValue = grouped && bk.group_index && bk.group_size
-    ? `${bk.room || '—'} (Room ${bk.group_index} of ${bk.group_size})`
+    ? L.cancelRoomOf(bk.room || '—', bk.group_index, bk.group_size)
     : (bk.room || '—');
-  const intro = grouped
-    ? 'This is to confirm that one room of your booking at J Park Hotel, Chonburi has been cancelled. Any other rooms in the same booking remain confirmed.'
-    : 'This is to confirm that your reservation at J Park Hotel, Chonburi has been cancelled.';
+  const intro = grouped ? L.cancelIntroOne : L.cancelIntro;
   // A room actually charged online (card or PromptPay) really did take real
   // money — unlike every other booking, which never collected anything
   // online — so the refund line must not claim there's nothing to refund.
@@ -757,20 +835,20 @@ function cancellationEmail(bk) {
   // shared function produces it for the text and HTML bodies alike.
   const wasPaidOnline = isOnlineProvider(bk.payment_provider) && bk.payment_status === 'paid';
   const money = bk.total != null ? formatMoney(bk.total, bk.currency) : 'the amount';
-  const refundLine = cancellationRefundLine(wasPaidOnline, money);
+  const refundLine = cancellationRefundLine(wasPaidOnline, money, bk.lang);
   const lines = [
-    `Dear ${bk.guest_name || 'Guest'},`,
+    L.greeting(bk.guest_name),
     '',
     intro,
     '',
-    `Confirmation: ${confValue}`,
-    `Room: ${roomValue}`,
-    `Check-in: ${bk.check_in}`,
-    `Check-out: ${bk.check_out}`,
+    `${L.confirmation}: ${confValue}`,
+    `${L.room}: ${roomValue}`,
+    `${L.checkin}: ${bk.check_in}`,
+    `${L.checkout}: ${bk.check_out}`,
     '',
     refundLine,
     '',
-    'If this cancellation was made in error, or you would like to make a new reservation, please reply to this email or call us.',
+    L.cancelClosing,
     '',
     'J Park Hotel, Chonburi',
   ];
@@ -782,18 +860,18 @@ function cancellationEmail(bk) {
       accent: '#b45309',
       footer: emailFooterHtml(),
       body:
-        T.heading(grouped ? 'One room of your booking has been cancelled' : 'Your reservation has been cancelled') +
-        T.paragraph(`Dear ${bk.guest_name || 'Guest'},`) +
+        T.heading(grouped ? L.cancelHeadingOne : L.cancelHeading) +
+        T.paragraph(L.greeting(bk.guest_name)) +
         T.paragraph(intro) +
-        T.refBlock('Confirmation', confValue) +
+        T.refBlock(L.confirmation, confValue) +
         T.table(
-          T.row('Room', roomValue) +
-          T.row('Check-in', formatPlainDate(bk.check_in)) +
-          T.row('Check-out', formatPlainDate(bk.check_out))
+          T.row(L.room, roomValue) +
+          T.row(L.checkin, formatPlainDate(bk.check_in)) +
+          T.row(L.checkout, formatPlainDate(bk.check_out))
         ) +
         T.notice(wasPaidOnline ? 'alert' : 'info', refundLine) +
         T.divider() +
-        T.paragraph('If this cancellation was made in error, or you would like to make a new reservation, please reply to this email or call us.'),
+        T.paragraph(L.cancelClosing),
     });
   return { text, html };
 }
@@ -804,34 +882,35 @@ function cancellationEmail(bk) {
 // cancelled, ordered by group_index.
 function groupCancellationEmail(rows) {
   const first = rows[0];
-  const roomLines = rows.map((r, i) => `  Room ${r.group_index || i + 1}: ${r.room || '—'}`);
+  const L = EMAIL_I18N[first.lang] || EMAIL_I18N.en;
+  const roomLines = rows.map((r, i) => `  ${L.roomLabel(r.group_index || i + 1)}: ${r.room || '—'}`);
   // Every room in a group shares one gateway charge, so checking the first row
   // is representative of the whole group's payment outcome.
   const wasPaidOnline = isOnlineProvider(first.payment_provider) && first.payment_status === 'paid';
   const grand = rows.reduce((s, r) => s + Number(r.total || 0), 0);
   const grandMoney = formatMoney(grand, first.currency);
-  const refundLine = cancellationRefundLine(wasPaidOnline, grandMoney);
+  const refundLine = cancellationRefundLine(wasPaidOnline, grandMoney, first.lang);
   const lines = [
-    `Dear ${first.guest_name || 'Guest'},`,
+    L.greeting(first.guest_name),
     '',
-    `This is to confirm that your entire booking at J Park Hotel, Chonburi (${rows.length} rooms) has been cancelled.`,
+    L.cancelIntroAll(rows.length),
     '',
-    `Confirmation: ${first.group_ref}`,
-    `Check-in: ${first.check_in}`,
-    `Check-out: ${first.check_out}`,
-    'Rooms cancelled:',
+    `${L.confirmation}: ${first.group_ref}`,
+    `${L.checkin}: ${first.check_in}`,
+    `${L.checkout}: ${first.check_out}`,
+    L.roomsSummary(rows.length) + ':',
     ...roomLines,
     '',
     refundLine,
     '',
-    'If this cancellation was made in error, or you would like to make a new reservation, please reply to this email or call us.',
+    L.cancelClosing,
     '',
     'J Park Hotel, Chonburi',
   ];
   const letterhead = emailLetterhead();
   const text = lines.join('\n') + letterhead.text;
   const roomRowsHtml = rows.map((r, i) =>
-    T.row(`Room ${r.group_index || i + 1}`, r.room || '—')
+    T.row(L.roomLabel(r.group_index || i + 1), r.room || '—')
   ).join('');
   const html =
     T.wrap({
@@ -839,18 +918,18 @@ function groupCancellationEmail(rows) {
       accent: '#b45309',
       footer: emailFooterHtml(),
       body:
-        T.heading('Your booking has been cancelled') +
-        T.paragraph(`Dear ${first.guest_name || 'Guest'},`) +
-        T.paragraph(`This is to confirm that your entire booking at J Park Hotel, Chonburi (${rows.length} rooms) has been cancelled.`) +
-        T.refBlock('Confirmation', first.group_ref) +
+        T.heading(L.cancelHeadingAll(rows.length)) +
+        T.paragraph(L.greeting(first.guest_name)) +
+        T.paragraph(L.cancelIntroAll(rows.length)) +
+        T.refBlock(L.confirmation, first.group_ref) +
         T.table(
-          T.row('Check-in', formatPlainDate(first.check_in)) +
-          T.row('Check-out', formatPlainDate(first.check_out)) +
+          T.row(L.checkin, formatPlainDate(first.check_in)) +
+          T.row(L.checkout, formatPlainDate(first.check_out)) +
           roomRowsHtml
         ) +
         T.notice(wasPaidOnline ? 'alert' : 'info', refundLine) +
         T.divider() +
-        T.paragraph('If this cancellation was made in error, or you would like to make a new reservation, please reply to this email or call us.'),
+        T.paragraph(L.cancelClosing),
     });
   return { text, html };
 }
@@ -2321,6 +2400,9 @@ module.exports.paymentConfirmedEmail = paymentConfirmedEmail;
 module.exports.groupPaymentConfirmedEmail = groupPaymentConfirmedEmail;
 module.exports.paymentConfirmedHotelNotice = paymentConfirmedHotelNotice;
 module.exports.groupPaymentConfirmedHotelNotice = groupPaymentConfirmedHotelNotice;
+// Exported so routes/payments.js can localise the day-use email from the
+// same table every other guest email uses.
+module.exports.EMAIL_I18N = EMAIL_I18N;
 module.exports.row2jsPublic = row2jsPublic;
 module.exports.sendPaymentConfirmedEmail = sendPaymentConfirmedEmail;
 module.exports.sendGroupPaymentConfirmedEmail = sendGroupPaymentConfirmedEmail;

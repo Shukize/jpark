@@ -1095,8 +1095,12 @@
     if (I) document.title = TR('bk.docTitle');
   }
 
-  // Re-render dynamic content whenever the language changes.
-  document.addEventListener('jpark:langchange', renderAll);
+  // Re-render dynamic content whenever the language changes — then put the
+  // sold-out state back, because renderAll() rebuilt the cards without it.
+  document.addEventListener('jpark:langchange', function () {
+    renderAll();
+    if (lastAvailability) paintAvailability(lastAvailability);
+  });
 
   // Initial paint
   renderAll();
@@ -1291,23 +1295,35 @@
   // Mark any room sold out for the searched dates (capacity filtering above
   // only rules out rooms too small for the party — this closes the gap for
   // rooms that fit but have zero physical units left for those nights).
+  /* The last availability answer, so it can be re-applied to freshly built
+     cards. renderRooms() clears the grid and rebuilds every card from
+     buildCard(), which always emits the sold-out badge hidden and the Book
+     Now button enabled — so ANY re-render silently un-sells-out the page.
+     Changing language does exactly that, and a guest who switched to Thai
+     after searching was shown rooms as bookable that the server had already
+     said were full. */
+  var lastAvailability = null;
+
+  function paintAvailability(result) {
+    if (!result || result.error) return; // fail open: never block booking on a hiccup
+    lastAvailability = result;
+    Array.prototype.forEach.call(gridEl.querySelectorAll('.rr-card'), function (card) {
+      var room = card.dataset.room;
+      var remaining = result[room];
+      var soldOut = remaining != null && remaining <= 0;
+      card.classList.toggle('rr-soldout', soldOut);
+      var badge = card.querySelector('.rr-soldout-badge');
+      if (badge) badge.hidden = !soldOut;
+      var bookBtn = card.querySelector('.rr-book-btn');
+      if (bookBtn) bookBtn.disabled = soldOut;
+    });
+  }
+
   function applyAvailability(checkIn, checkOut) {
     var API = window.JPark && window.JPark.api;
     if (!API) return;
     API.get('/api/v1/booking-availability?checkIn=' + encodeURIComponent(checkIn) + '&checkOut=' + encodeURIComponent(checkOut))
-      .then(function (result) {
-        if (!result || result.error) return; // fail open: don't block booking on a network hiccup
-        Array.prototype.forEach.call(gridEl.querySelectorAll('.rr-card'), function (card) {
-          var room = card.dataset.room;
-          var remaining = result[room];
-          var soldOut = remaining != null && remaining <= 0;
-          card.classList.toggle('rr-soldout', soldOut);
-          var badge = card.querySelector('.rr-soldout-badge');
-          if (badge) badge.hidden = !soldOut;
-          var bookBtn = card.querySelector('.rr-book-btn');
-          if (bookBtn) bookBtn.disabled = soldOut;
-        });
-      })
+      .then(paintAvailability)
       .catch(function () {});
   }
 

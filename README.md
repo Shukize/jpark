@@ -405,19 +405,16 @@ Start with Option 1 (email + Lambda) — it's low-friction and works universally
 `booking.html` is a full, streamlined booking flow, not just a rate browser:
 guest picks dates/room on the page → taps **Book Now** → enters guest details
 → chooses how to pay → gets an instant on-screen + emailed confirmation. The
-reservation is confirmed immediately regardless of payment choice (it holds
-the room-type inventory the same way any booking would). Payment is a
-**hybrid, per-booking choice**: the guest settles the balance in person at
-check-in by **cash, credit/debit card, or PromptPay QR** at the front desk
-(the default, and the only option until the hotel's merchant account is live —
-see `docs/PAYMENTS_SETUP.md`), or pays online now by **card or PromptPay QR**
-via the hotel's payment gateway. A **200 THB key-card deposit — cash, or (Thai guests
-only) a national ID card or driving license left instead — collected at
-check-in and refunded/returned at check-out**, is called out in the
-confirmation step (with its own required acknowledgement checkbox) and in
-every booking-confirmation email (OTA and direct alike); it's a separate,
-unrelated line item from the room balance, still owed in person even when
-the room total was paid online.
+reservation is confirmed immediately (it holds the room-type inventory the
+same way any booking would). **Payment is online: card or PromptPay QR.**
+Pay-at-check-in is no longer offered on the website — see *Online payment is
+the rule* below for the single, deliberate exception. A **200 THB key-card
+deposit — cash, or (Thai guests only) a national ID card or driving license
+left instead — collected at check-in and refunded/returned at check-out**, is
+called out at the moment of paying (with its own required acknowledgement
+checkbox) and in every booking-confirmation email (OTA and direct alike);
+it's a separate, unrelated line item from the room balance, **still owed in
+person, in cash, even though the room total was paid online**.
 
 - The server, never the browser, computes the authoritative price
   (`backend/lib/rateOverrides.js`, merging the static base rates in
@@ -553,10 +550,206 @@ transportation services"* are on
 (case-by-case review, never guaranteed), and Stripe Thailand is
 Visa/Mastercard only — no JCB, Amex or UnionPay.
 
-Until keys are set, the booking page shows pay-at-checkin only, with zero
-visible change to guests. The integration is covered offline by
-`node backend/test-payments.js` — 50 checks across both gateways, needing no
+Until keys are set, the booking page falls back to pay-at-checkin so a gateway
+outage never costs a direct booking. The integration is covered offline by
+`node backend/test-payments.js` — 125 checks across both gateways, needing no
 merchant account, database or network.
+
+### Online payment is the rule (since 2026-08-28)
+
+A booking made on this website is paid on this website, by **card or PromptPay
+QR**. "Pay at check-in" is no longer offered to guests.
+
+There is exactly **one** exception, and it is deliberate: if no gateway is
+configured or reachable (`payments.isConfigured()` false), the booking page
+re-offers pay-at-check-in rather than refusing every direct booking. An
+online-only rule that turns the booking form into a dead end the moment the
+acquirer has a bad afternoon is an outage with a policy painted on it.
+`ALLOW_PAY_AT_CHECKIN=true` re-opens it deliberately (a phone booking taken
+through the same form, a gateway migration) — an environment variable rather
+than an admin toggle, because it is a temporary operational escape hatch and
+not a setting somebody should be able to leave on by accident from a phone.
+
+Both halves are asserted in `backend/test-payments.js`: a live gateway refuses
+`pay_at_checkin` with a machine-readable `ONLINE_PAYMENT_REQUIRED` code (which
+the booking page uses to re-render in place rather than dead-ending a
+filled-in form), and an unconfigured gateway still accepts it.
+
+This deliberately does **not** reuse `site_content.require_prepayment`. That
+flag means something else and still does — "these dates are busy, so this
+booking is non-refundable" — and folding a permanent payment rule into a
+seasonal refund policy would make every booking non-refundable forever.
+
+Front-desk staff still record in-person payment (cash / card / PromptPay) for
+walk-ins and phone bookings; that is a different code path and is unchanged.
+The **200 THB key-card deposit is also unchanged**: still separate, still
+cash, still collected at check-in.
+
+### The payment record
+
+Until 2026-08-28 a charge told this system exactly one thing: whether it was
+paid. Everything else the gateway said — which card, whose bank, what the fee
+was, when the money actually moved, why a decline was a decline — was held in
+a local variable inside the adapter and then dropped.
+
+Now every charge is read once by `backend/lib/payments/detail.js`, normalised
+away from any one gateway's spelling, and written to the booking:
+
+| | |
+|---|---|
+| Money | amount, gateway fee, VAT on the fee, **net to the hotel**, refunded |
+| Card | brand, **last 4**, expiry, cardholder, issuing bank, country, credit/debit |
+| Outcome | charge status, 3-D Secure result, failure code + issuer's reason |
+| Timing | charge created, **guest paid at** |
+| Settlement | clears-the-hold date, **bank transfer id, sent/paid dates, destination account** |
+| Provenance | gateway charge id, transaction id, **live vs test** |
+
+Two conventions that are easy to get wrong:
+
+- **Money is stored in THB, not satang.** Omise's API talks in satang (1/100
+  THB); the division happens once, in the adapter, at the edge.
+- **The full card number does not exist here and never will.** Omise.js
+  tokenises in the guest's browser, so this server only ever sees a token and,
+  afterwards, the last four digits. Brand + last 4 + expiry + issuing bank is
+  the complete set any merchant is given; storing more would breach PCI-DSS
+  even if the gateway offered it. See `SNAPSHOT_ALLOWLIST` in `detail.js`.
+
+**Fee and net are only ever shown for a charge that actually settled.** The
+gateway quotes both on every charge object — they are what it *would* have
+kept — so a refused charge was briefly printing "Net to the hotel: THB 951.33"
+on the row whose entire purpose is to say the money did not arrive. An
+unsettled charge reads *Amount attempted*, not *Amount charged*.
+
+### Declines are recorded, and somebody is told
+
+A declined card leaves **no booking row**: the route charges before it inserts,
+so a refused card writes nothing to roll back. That is correct, and it meant
+that until now a real guest with a real name and a real email could be turned
+away by their bank with the only record being a percentage on the acquirer's
+dashboard.
+
+`payment_attempts` records every attempt, successful or not, and the hotel is
+emailed the guest's details and the issuer's reason so someone can call them
+back. The notice is throttled (one per guest per hour, plus a global ceiling)
+because a card-testing script can produce hundreds of declines a minute and an
+inbox buried under them is an inbox nobody reads.
+
+The webhook now also acts on **failure**. It used to call `settle()`, which
+only handles success, so a failed 3-D Secure or an expired PromptPay QR sat at
+`pending` — which reads on the booking board as "money is on its way" — until
+a sweep noticed hours later.
+
+### Receipts
+
+Every booking with a payment has a printable receipt in the staff console
+(**Payment record → Receipt**). It is set as stationery, not as a web page:
+the hotel's mark, the full contact block, a ruled table of what was bought,
+and a signature line with the company seal.
+
+**Two copies, one document.**
+
+- **Internal copy** (the default — it lives in the staff console) adds the
+  gateway's own breakdown: transaction amount, the fee split into its rate and
+  the VAT *on that fee*, and the net. The effective percentage is printed
+  beside the total because the hotel's own staff read "3.65% + VAT 7%" as a
+  10.65% deduction; it is not — the VAT applies to the fee, so ฿5,550 loses
+  ฿216.76, which is **3.91%**. Rates are derived from the amounts, never
+  hard-coded, since an acquirer's rate is negotiable.
+- **Guest copy** is the same document with that section removed.
+
+**Each copy has its own language.** The guest copy defaults to the language the
+guest actually booked in (recorded on the reservation, auto-detected from their
+device on a first visit), so handing over a readable document is the default
+rather than something staff must remember. The internal copy defaults to the
+console language. Both are overridable from the picker, and each remembers its
+own choice.
+
+Two things worth knowing if you touch this code:
+
+- `assets/js/staff.js` has a local `const t = (k) => I.t(k)` that **drops the
+  language argument**. Anything rendering for a reader who is not the logged-in
+  user must use `tl(key, lang)` instead, or it silently returns the console's
+  language.
+- `.bk-receipt-overlay` / `-modal` / `-bar` positioning lives in `app.css`
+  right next to the sheet it frames. Deleting that block once left only the
+  `@media print` copies behind — a grep still "found" the names — and the
+  overlay stopped being a modal, rendering at the foot of the page and stacking
+  one copy per click.
+
+A saved PDF is named for the guest and the moment they paid
+(`เขมทัต S 2026-08-28 15-50.pdf`). `document.title` is the only lever browsers
+give for that, and the unread-count badge rewrites the title every poll, so it
+leaves the title alone while a receipt is open.
+
+### Payments ledger (staff)
+
+**Messages → 💳 Payments** reads charges straight from the gateway and lines
+them up against this database, because the two halves of the truth live in
+different systems and everything that goes wrong with a payment lives in the
+gap between them:
+
+- paid at the gateway but the booking still says pending (a missed webhook —
+  Omise does not retry, and the front desk would charge the guest twice);
+- a charge with **no booking at all** (either a decline, which is correct, or
+  money taken against a reservation that failed to write);
+- a booking whose payment detail was never captured;
+- a failed charge nobody was told about, with the issuer's reason in plain
+  language.
+
+It also shows the gateway's four balance figures, so nobody has to log in to
+read them: **total**, **on hold** (captured, still clearing), **available to
+withdraw**, **reserve**.
+
+Open to **any signed-in staff member**, not administrators only — the people
+who take payments are the people who need to see whether one landed. The trade
+is deliberate and worth stating: any employee can see every guest's card
+summary and the hotel's own takings.
+
+Nothing here is polled. It reads the gateway freely (those calls are free and
+do not wake Postgres) but touches the database once per page, on demand. Neon
+bills compute time and any query wakes it for a full autosuspend window; a
+polling ledger would hold the database awake permanently, which is exactly the
+mistake that caused a real outage on this project.
+
+### Filling in an older booking
+
+A booking taken before these columns existed has a charge id and nothing else,
+so its receipt would print as "Paid by: card" and little more. Nobody at a desk
+should have to know a backfill exists, so the console notices: opening such a
+booking asks the gateway for that one charge and fills the record in, once.
+There is a manual ↻ beside the receipt button for when that call fails.
+
+`POST /payments/refresh/:id` is `requireAuth`, not `requireAdmin` — it asks
+about a single booking the member of staff already has open. For sweeping
+everything at once there is **Fill in missing details** in the ledger, or:
+
+```bash
+cd backend && npm run backfill:payments      # also: node backend/backfill-payments.js
+```
+
+Both are idempotent: writes go through `recordDetail()`, which `COALESCE`s and
+can only ever add, and a charge the gateway now reports as paid goes through
+the same atomic `settle()` the webhook uses, so a guest is never emailed twice.
+
+### Reports to the hotel
+
+Every payment, decline and failure emails `jparkhotel1@gmail.com` with the full
+record. A **daily summary** goes to the same inbox: what was taken, what it
+cost, what reaches the bank, which cards were refused and why, and any charge
+the gateway has that the booking board does not.
+
+It rides the existing 4×/day health workflow rather than running on its own
+timer, so it costs no extra Neon compute. It is called four times a day and
+**sends once** — the first call of each Bangkok day claims the date with an
+`INSERT ... ON CONFLICT DO NOTHING` before any work is done, so two overlapping
+runs cannot both send. Postgres arbitrates, not application-level locking.
+
+**Guest emails are sent in the guest's own language** — resolved from the
+booking's `lang`, which is the site language they were using (auto-detected
+from their device on a first visit). All five languages are present in
+`EMAIL_I18N`; English is only a fallback. Hotel-facing notices are deliberately
+English.
+
 
 ---
 

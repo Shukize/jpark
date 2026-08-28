@@ -54,8 +54,11 @@
   // (e.g. Thai month abbreviations + Buddhist year, not "Jul 2026") follows
   // whatever language the guest has selected, not a hardcoded en-GB format.
   var DATE_LOCALE = { th: "th-TH", en: "en-GB", ja: "ja-JP", "zh-Hans": "zh-CN", "zh-Hant": "zh-TW" };
-  function formatDate(iso) {
-    const lang = (window.JPark && window.JPark.i18n) ? window.JPark.i18n.getLang() : "en";
+  // `lang` overrides the site language. Only the receipt passes it — it may be
+  // rendering a guest's copy in a language the logged-in staff member is not
+  // using — and every other caller omits it and behaves exactly as before.
+  function formatDate(iso, lang) {
+    lang = lang || ((window.JPark && window.JPark.i18n) ? window.JPark.i18n.getLang() : "en");
     const locale = DATE_LOCALE[lang] || "en-GB";
     const d = new Date(iso + "T12:00:00");
     try {

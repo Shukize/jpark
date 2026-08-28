@@ -873,7 +873,11 @@
         </a>
       </div>
       <div class="dining-body">
-        <h3 data-i18n="dining.tsubakiName"><img class="tsubaki-logo" src="images/Tsubaki/299142779_1061028674597720_627657094659192438_n.jpg" alt="Tsubaki logo" loading="lazy" />Tsubaki · Japanese Restaurant</h3>
+        <!-- data-i18n sits on the SPAN, not the h3. applyLang() assigns
+                 el.textContent, which replaces every child — with the attribute
+                 on the heading it deleted the logo before first paint, in every
+                 language including English. -->
+              <h3><img class="tsubaki-logo" src="images/Tsubaki/299142779_1061028674597720_627657094659192438_n.jpg" alt="Tsubaki logo" loading="lazy" /><span data-i18n="dining.tsubakiName">Tsubaki · Japanese Restaurant</span></h3>
         <p data-i18n="dining.tsubakiDesc">Authentic Japanese cuisine — sushi, sashimi and warming donburi — in a serene setting.</p>
       </div>
     </article>

@@ -2707,3 +2707,21 @@ body.mobile-view .fac-card.large {
   body.bk-printing .bk-rc-sign { page-break-inside: avoid; }
   body.bk-printing .bk-rc-logo { width: 108px; }
 }
+
+/* Receipt language picker. Chrome for the member of staff, so it stays in the
+   console's language and never prints — the document beside it is what the
+   guest reads, and that is the thing whose language this changes. */
+.bk-rc-lang { display: flex; align-items: center; gap: 7px; margin-right: auto; }
+.bk-rc-lang-cap {
+  font-size: 0.66rem; letter-spacing: 0.12em; text-transform: uppercase; color: #77808a;
+}
+.bk-rc-lang select {
+  font: inherit; font-size: 0.82rem; padding: 5px 9px;
+  border: 1px solid #d8dede; border-radius: 8px; background: #fff; color: #1b1f24;
+}
+.bk-rc-toggle { margin-right: 14px; }
+@media print { body.bk-printing .bk-rc-lang { display: none !important; } }
+@media (max-width: 640px) {
+  .bk-receipt-bar { flex-wrap: wrap; }
+  .bk-rc-lang { margin-right: 0; width: 100%; }
+}

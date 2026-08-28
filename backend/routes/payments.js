@@ -79,6 +79,7 @@ const {
   emailLetterhead,
   escapeHtml: esc,
   SPAM_NOTE_TEXT,
+  EMAIL_I18N,
   SPAM_NOTE_HTML,
 } = require('./guestBookings');
 
@@ -1390,21 +1391,23 @@ router.post('/payments/diagnostics/register-webhook', diagnosticsAuth, async (_r
 // available — so this keeps sending its own bespoke pair of emails rather
 // than going through fireBookingEmails() (which only fires for 'confirmed').
 function dayUseGuestEmail(bk, preferredTime) {
+  // Localised from the same table every other guest email uses. This one was
+  // written later and never joined it, so a guest who browsed the site in
+  // Japanese and asked for a day-use room got an English letter back.
+  const L = EMAIL_I18N[bk.lang] || EMAIL_I18N.en;
   const money = bk.total != null ? `${bk.total} ${bk.currency || 'THB'}` : '—';
   const lines = [
-    `Dear ${bk.guest_name || 'Guest'},`,
+    L.greeting(bk.guest_name),
     '',
-    `Thank you for your day-use request at J Park Hotel, Chonburi (Ref: ${bk.ref}).`,
+    `${L.dayuseIntro} (${L.confirmation}: ${bk.ref})`,
     '',
-    `Room: ${bk.room || '—'}`,
-    `Date: ${bk.check_in}`,
-    `Preferred time: ${preferredTime || 'Not specified — we will contact you to confirm'}`,
-    ...(bk.special_requests ? [`Special requests: ${bk.special_requests}`] : []),
-    `Total (3-hour day-use): ${money}. Payable in person at check-in by cash, credit/debit card, or PromptPay QR.`,
+    `${L.room}: ${bk.room || '—'}`,
+    `${L.dayuseDate}: ${bk.check_in}`,
+    `${L.dayuseTime}: ${preferredTime || '—'}`,
+    ...(bk.special_requests ? [`${L.specialRequests}: ${bk.special_requests}`] : []),
+    `${L.dayuseTotal}: ${money}. ${L.dayusePayable}`,
     '',
-    'This request is PENDING until we confirm your exact time slot — no payment is needed online.',
-    '',
-    'We will contact you by phone or email shortly to confirm availability.',
+    L.dayusePending,
     '',
     SPAM_NOTE_TEXT,
     '',
@@ -1414,23 +1417,22 @@ function dayUseGuestEmail(bk, preferredTime) {
   const text = lines.join('\n') + letterhead.text;
   const html =
     T.wrap({
-      preheader: `Day-use request received · ${bk.ref}`,
+      preheader: `${L.dayuseHeading} · ${bk.ref}`,
       footer: T.footerBlock({ address: HOTEL_ADDRESS_LINE, phones: HOTEL_PHONE_LIST, email: HOTEL_EMAIL_ADDR, site: 'https://jparkhotel.com' }),
       body:
-        T.heading('Day-use request received') +
-        T.paragraph(`Dear ${bk.guest_name || 'Guest'},`) +
-        T.paragraph('Thank you for your day-use request at J Park Hotel, Chonburi.') +
-        T.refBlock('Reference', bk.ref) +
+        T.heading(L.dayuseHeading) +
+        T.paragraph(L.greeting(bk.guest_name)) +
+        T.paragraph(L.dayuseIntro) +
+        T.refBlock(L.confirmation, bk.ref) +
         T.table(
-          T.row('Room', bk.room || '—', { strong: true }) +
-          T.row('Date', bk.check_in) +
-          T.row('Preferred time', preferredTime || 'Not specified') +
-          (bk.special_requests ? T.row('Special requests', bk.special_requests) : '') +
-          T.row('Total', money, { strong: true })
+          T.row(L.room, bk.room || '—', { strong: true }) +
+          T.row(L.dayuseDate, bk.check_in) +
+          T.row(L.dayuseTime, preferredTime || '—') +
+          (bk.special_requests ? T.row(L.specialRequests, bk.special_requests) : '') +
+          T.row(L.dayuseTotal, money, { strong: true })
         ) +
-        T.notice('warn', 'This request is pending until we confirm your exact time slot.', { strong: true }) +
-        T.notice('due', 'Payable in person at check-in by cash, credit/debit card, or PromptPay QR at our front desk.') +
-        T.paragraph('We will contact you by phone or email shortly to confirm availability.') +
+        T.notice('warn', L.dayusePending, { strong: true }) +
+        T.notice('due', L.dayusePayable) +
         T.paragraph(SPAM_NOTE_TEXT, { small: true, muted: true }),
     });
   return { text, html };
