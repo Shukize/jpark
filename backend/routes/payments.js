@@ -1449,10 +1449,16 @@ function dayUseGuestEmail(bk, preferredTime) {
    cross-check between two dashboards. See lib/paymentsLedger.js for what it
    compares and why.
 
-   requireAdmin, NOT the shared ?key= that guards /payments/diagnostics. These
+   requireAuth, NOT the shared ?key= that guards /payments/diagnostics. These
    responses carry guest names, email addresses, card brands, last-4s and the
-   hotel's own fee and net takings; the diagnostics key is pasted into
-   browsers and CI logs by design, and is the wrong instrument for PII.
+   hotel's own fee and net takings, so they need a real signed-in person; the
+   diagnostics key is pasted into browsers and CI logs by design and is the
+   wrong instrument for PII.
+
+   Staff rather than administrators only, at the owner's explicit request: the
+   people who take payments at the desk are the people who need to see whether
+   one landed. It does mean any signed-in employee can see every guest's card
+   summary and the hotel's own takings — a deliberate trade, not an oversight.
 
    Its own rate bucket on top: each request can mean several outbound gateway
    calls, so a stuck browser tab must not be able to hammer the acquirer. */
@@ -1466,7 +1472,7 @@ function ledgerGuard(req, res) {
   return true;
 }
 
-router.get('/payments/ledger', requireAdmin, async (req, res) => {
+router.get('/payments/ledger', requireAuth, async (req, res) => {
   if (!ledgerGuard(req, res)) return;
   try {
     const [ledger, balance] = await Promise.all([
@@ -1491,7 +1497,7 @@ router.get('/payments/ledger', requireAdmin, async (req, res) => {
 
 /* Bring one charge into line with the gateway. The button beside a row that
    says "paid at the gateway, not recorded here". */
-router.post('/payments/ledger/reconcile', requireAdmin, async (req, res) => {
+router.post('/payments/ledger/reconcile', requireAuth, async (req, res) => {
   if (!ledgerGuard(req, res)) return;
   const chargeId = String((req.body && req.body.chargeId) || '').trim();
   if (!chargeId) return res.status(400).json({ error: 'chargeId is required' });
@@ -1507,7 +1513,7 @@ router.post('/payments/ledger/reconcile', requireAdmin, async (req, res) => {
 /* Fill in the payment detail for every booking that never got it — the
    one-off after deploying these columns, and the catch-up after any spell
    where the gateway was unreachable. */
-router.post('/payments/backfill', requireAdmin, async (req, res) => {
+router.post('/payments/backfill', requireAuth, async (req, res) => {
   if (!ledgerGuard(req, res)) return;
   try {
     const result = await paymentsLedger.runBackfill({ limit: (req.body && req.body.limit) || 50 });
@@ -1521,7 +1527,7 @@ router.post('/payments/backfill', requireAdmin, async (req, res) => {
 /* Work out which bank transfer paid each recent charge out — the "when does
    the hotel actually have the money" half, which cannot exist at charge time
    because the transfer does not exist yet. */
-router.post('/payments/settlement-refresh', requireAdmin, async (req, res) => {
+router.post('/payments/settlement-refresh', requireAuth, async (req, res) => {
   if (!ledgerGuard(req, res)) return;
   try {
     const result = await paymentsLedger.refreshSettlement({ limit: (req.body && req.body.limit) || 40 });

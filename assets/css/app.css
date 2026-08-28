@@ -2334,45 +2334,6 @@ body.mobile-view .fac-card.large {
   font-size: 0.84rem; font-weight: 600;
 }
 
-/* ── The printable receipt ───────────────────────────────────────────────── */
-.bk-receipt-overlay {
-  position: fixed; inset: 0; z-index: 1200;
-  background: rgba(20, 28, 30, 0.55);
-  display: flex; align-items: flex-start; justify-content: center;
-  padding: 4vh 16px; overflow: auto;
-}
-.bk-receipt-modal {
-  background: #fff; border-radius: 12px; max-width: 640px; width: 100%;
-  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.28);
-}
-.bk-receipt-bar {
-  display: flex; gap: 8px; justify-content: flex-end;
-  padding: 12px 16px; border-bottom: 1px solid #eceeee;
-}
-.bk-receipt-sheet { padding: 26px 30px 30px; color: #1f2426; }
-.bk-rc-head { text-align: center; margin-bottom: 20px; }
-.bk-rc-brand { font-family: Georgia, 'Times New Roman', serif; font-size: 1.32rem; color: #0c5b58; letter-spacing: 0.02em; }
-.bk-rc-title { font-size: 0.82rem; letter-spacing: 0.14em; text-transform: uppercase; color: #8a9294; margin-top: 5px; }
-.bk-rc-test {
-  background: #fff4e5; border: 1px solid #f0c07a; color: #8a5a00;
-  padding: 8px 11px; border-radius: 8px; font-size: 0.82rem; font-weight: 600; margin-bottom: 16px;
-}
-.bk-rc-section {
-  font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase;
-  color: #8a9294; margin: 20px 0 7px; border-bottom: 1px solid #eceeee; padding-bottom: 4px;
-}
-.bk-rc-meta, .bk-rc-rooms { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
-.bk-rc-meta th { text-align: left; font-weight: normal; color: #66716f; padding: 4px 14px 4px 0; white-space: nowrap; vertical-align: top; }
-.bk-rc-meta td { padding: 4px 0; overflow-wrap: anywhere; }
-.bk-rc-rooms td { padding: 6px 0; border-bottom: 1px solid #f2f4f4; }
-.bk-rc-amt { text-align: right; white-space: nowrap; }
-.bk-rc-total td { font-weight: 600; border-bottom: none; padding-top: 10px; }
-.bk-rc-note {
-  margin-top: 20px; background: #f2f7f6; border: 1px solid #cfe3e0;
-  border-radius: 8px; padding: 10px 12px; font-size: 0.8rem; color: #0f4a3e; line-height: 1.5;
-}
-.bk-rc-thanks { margin-top: 18px; text-align: center; font-size: 0.84rem; color: #66716f; }
-
 /* Printing a receipt.
 
    help.css also carries an @media print block for this page — it hides
@@ -2531,3 +2492,145 @@ body.mobile-view .fac-card.large {
 /* Receipt: the per-room secondary line (guests, breakfast, nights). */
 .bk-rc-sub-line { font-size: 0.76rem; color: #8a9294; margin-top: 2px; }
 .bk-rc-room-no { font-size: 0.78rem; color: #66716f; font-weight: normal; }
+
+/* ── The receipt, as a document ──────────────────────────────────────────
+   Set like stationery rather than like a screen: a real letterhead, generous
+   margins, a serif face for anything a guest reads as a heading, and
+   letterspaced small caps for labels so the eye goes to the values. The
+   navy is taken from the hotel's own mark so the page and the logo agree. */
+.bk-receipt-sheet {
+  --rc-ink: #1b1f24;
+  --rc-soft: #77808a;
+  --rc-navy: #1a237e;
+  --rc-gold: #b8912f;
+  --rc-hair: #e6e9ec;
+  padding: 46px 54px 40px;
+  color: var(--rc-ink);
+  background: #fff;
+  font-size: 0.88rem;
+  line-height: 1.55;
+}
+
+.bk-rc-head { text-align: center; }
+.bk-rc-logo { width: 128px; height: auto; margin: 0 auto 10px; display: block; }
+.bk-rc-contact { font-size: 0.74rem; line-height: 1.7; color: var(--rc-soft); }
+
+/* A hairline with a gold centre — the one flourish on the page. */
+.bk-rc-rule {
+  height: 3px; margin: 22px 0 0;
+  border-top: 1px solid var(--rc-hair);
+  border-bottom: 1px solid var(--rc-hair);
+  background: linear-gradient(90deg, transparent, var(--rc-gold) 22%, var(--rc-gold) 78%, transparent);
+  opacity: 0.55;
+}
+
+.bk-rc-title {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.18rem; font-weight: normal;
+  letter-spacing: 0.34em; text-transform: uppercase;
+  text-align: center; color: var(--rc-navy);
+  margin: 22px 0 26px; padding-left: 0.34em;
+}
+
+.bk-rc-test {
+  background: #fff4e5; border: 1px solid #f0c07a; color: #8a5a00;
+  padding: 9px 12px; border-radius: 6px; font-size: 0.8rem;
+  font-weight: 600; margin-bottom: 18px; text-align: center;
+}
+
+/* Guest on the left, the document's own particulars on the right — the
+   arrangement every invoice uses, because it is the one people can read
+   without being taught. */
+.bk-rc-parties {
+  display: flex; gap: 32px; justify-content: space-between;
+  margin-bottom: 26px; flex-wrap: wrap;
+}
+.bk-rc-party { flex: 1 1 240px; min-width: 0; }
+.bk-rc-party-right { flex: 0 1 300px; }
+.bk-rc-label {
+  font-size: 0.64rem; letter-spacing: 0.16em; text-transform: uppercase;
+  color: var(--rc-soft); margin-bottom: 5px;
+}
+.bk-rc-party-name { font-weight: 600; font-size: 0.95rem; margin-bottom: 1px; }
+.bk-rc-party > div { overflow-wrap: anywhere; }
+
+.bk-rc-meta { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+.bk-rc-meta th {
+  text-align: left; font-weight: normal; color: var(--rc-soft);
+  padding: 2px 14px 2px 0; white-space: nowrap; vertical-align: top;
+  font-size: 0.72rem; letter-spacing: 0.04em;
+}
+.bk-rc-meta td { padding: 2px 0; overflow-wrap: anywhere; vertical-align: top; }
+.bk-rc-meta-wide th { width: 190px; }
+
+.bk-rc-rooms { width: 100%; border-collapse: collapse; margin-bottom: 24px; }
+.bk-rc-rooms thead th {
+  font-size: 0.62rem; letter-spacing: 0.16em; text-transform: uppercase;
+  color: var(--rc-soft); font-weight: normal; text-align: left;
+  padding: 0 0 7px; border-bottom: 1px solid var(--rc-ink);
+}
+.bk-rc-rooms tbody td { padding: 11px 0; border-bottom: 1px solid var(--rc-hair); vertical-align: top; }
+.bk-rc-room { font-weight: 600; }
+.bk-rc-room-no { font-size: 0.78rem; color: var(--rc-soft); font-weight: normal; }
+.bk-rc-sub-line { font-size: 0.74rem; color: var(--rc-soft); margin-top: 3px; }
+.bk-rc-amt { text-align: right; white-space: nowrap; }
+.bk-rc-total td {
+  padding-top: 13px; font-weight: 700; font-size: 0.98rem;
+  border-bottom: none; border-top: 2px solid var(--rc-ink);
+}
+
+.bk-rc-section {
+  font-size: 0.62rem; letter-spacing: 0.16em; text-transform: uppercase;
+  color: var(--rc-soft); margin: 24px 0 8px;
+  border-bottom: 1px solid var(--rc-hair); padding-bottom: 5px;
+}
+
+.bk-rc-note {
+  margin-top: 24px; background: #f6f9f8; border-left: 3px solid var(--rc-gold);
+  padding: 11px 14px; font-size: 0.78rem; color: #4a5456; line-height: 1.55;
+}
+
+/* Signature and seal. The stamp is set to overlap the rule the way a real
+   one does when a person presses it over a signature — square-on and
+   centred would read as a watermark, not as something someone did. */
+.bk-rc-sign {
+  display: flex; align-items: flex-end; justify-content: space-between;
+  gap: 30px; margin-top: 34px; flex-wrap: wrap;
+}
+.bk-rc-thanks {
+  font-family: Georgia, "Times New Roman", serif; font-style: italic;
+  color: var(--rc-soft); font-size: 0.92rem;
+}
+.bk-rc-sign-block { position: relative; text-align: center; min-width: 210px; }
+.bk-rc-stamp {
+  position: absolute; right: 4px; bottom: 14px;
+  width: 92px; height: auto; opacity: 0.88;
+  transform: rotate(-11deg); pointer-events: none;
+}
+.bk-rc-sign-line { border-bottom: 1px solid var(--rc-ink); height: 46px; }
+.bk-rc-sign-cap {
+  font-size: 0.66rem; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--rc-soft); margin-top: 6px;
+}
+
+.bk-rc-legal {
+  margin-top: 26px; padding-top: 12px; border-top: 1px solid var(--rc-hair);
+  font-size: 0.68rem; color: #9aa2a3; text-align: center; line-height: 1.6;
+}
+
+@media (max-width: 640px) {
+  .bk-receipt-sheet { padding: 28px 20px 26px; }
+  .bk-rc-title { font-size: 1rem; letter-spacing: 0.2em; }
+  .bk-rc-parties { flex-direction: column; gap: 18px; }
+  .bk-rc-sign { flex-direction: column; align-items: stretch; }
+}
+
+@media print {
+  /* Ink-heavy backgrounds are a screen affordance; on paper they cost toner
+     and read as smudges. Keep the rules, drop the fills. */
+  body.bk-printing .bk-receipt-sheet { padding: 0 !important; font-size: 11pt; }
+  body.bk-printing .bk-rc-note { background: none !important; }
+  body.bk-printing .bk-rc-rooms tbody tr,
+  body.bk-printing .bk-rc-sign { page-break-inside: avoid; }
+  body.bk-printing .bk-rc-logo { width: 108px; }
+}

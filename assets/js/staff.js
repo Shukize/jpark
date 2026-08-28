@@ -4070,21 +4070,38 @@
     "</div>";
   }
 
+  /* ── The receipt ─────────────────────────────────────────────────────────
+     A hotel receipt is the last piece of paper a guest takes home, and for
+     the hotel's own accounts it is a record somebody may have to produce
+     years later. It is laid out as a document rather than as a screen: the
+     letterhead and the seal are the parts that make it read as issued BY a
+     business rather than printed FROM a website.
+
+     The hotel's address here is the one the website, the privacy policy and
+     every system email already use, so a guest comparing their receipt
+     against the site sees one company. Kept as a single constant for that
+     reason — three copies of an address is three chances to disagree. */
+  const RECEIPT_HOTEL = {
+    address: "88/88 Thanon Sukprayun, Na Pa, Mueang Chonburi District, Chon Buri 20000, Thailand",
+    phones: ["+66 38 448 111", "+66 86 326 0664"],
+    email: "jparkhotel1@gmail.com",
+    site: "jparkhotel.com",
+  };
+
   function bkReceiptHTML(b, pay, siblings, internal) {
     const cur = (pay && pay.currency) || b.currency || "THB";
     const rows = siblings && siblings.length > 1 ? siblings : [b];
     const grand = rows.reduce((s, r) => s + Number(r.total || 0), 0);
     const card = (pay && pay.card) || {};
-    const settle = (pay && pay.settlement) || null;
 
     const line = (k, v) => (v == null || v === "" ? "" :
       '<tr><th>' + esc(k) + "</th><td>" + esc(v) + "</td></tr>");
 
-    /* One line per room, carrying what a guest checks a hotel receipt for:
-       which room, which nights, how many people, and whether breakfast was in
-       the price. The old line showed room and dates only, which is thin
-       enough that a guest cannot tell a room-only rate from one with
-       breakfast — the single most common question at a front desk. */
+    /* One line per room, carrying what a guest actually checks a hotel
+       receipt for: which room, which nights, how many people, and whether
+       breakfast was in the price. Without that last one a guest cannot tell a
+       room-only rate from one including breakfast — the most common question
+       asked of a receipt at this desk. */
     const roomLines = rows.map((r) => {
       const nights = r.nights ? t("msg.bk.receipt.nights").replace("{n}", String(r.nights)) : "";
       const guests = [
@@ -4095,61 +4112,112 @@
         r.breakfast ? t("msg.bk.receipt.withBreakfast") : t("msg.bk.receipt.roomOnly"),
         r.extraBed ? t("msg.bk.extraBed") : "",
       ].filter(Boolean).join(" · ");
-      return '<tr><td>' +
-          "<b>" + esc(r.room || "") + "</b>" +
+      return "<tr>" +
+        "<td>" +
+          '<span class="bk-rc-room">' + esc(r.room || "") + "</span>" +
           (r.roomNumber ? ' <span class="bk-rc-room-no">' + esc(t("msg.bk.roomNumber")) + " " + esc(r.roomNumber) + "</span>" : "") +
           '<div class="bk-rc-sub-line">' + esc([guests, extras].filter(Boolean).join(" · ")) + "</div>" +
         "</td>" +
         "<td>" + esc(fmtBookingDate(r.checkIn) + " → " + fmtBookingDate(r.checkOut)) +
           (nights ? '<div class="bk-rc-sub-line">' + esc(nights) + "</div>" : "") +
         "</td>" +
-        '<td class="bk-rc-amt">' + esc(bkPayMoney(r.total, cur)) + "</td></tr>";
+        '<td class="bk-rc-amt">' + esc(bkPayMoney(r.total, cur)) + "</td>" +
+      "</tr>";
     }).join("");
 
+    const paidLabel = bkPayCardLabel(card) ||
+      (pay && pay.method === "promptpay" ? t("msg.bk.pay.promptpay") : (pay && pay.method) || "");
+
+    /* The receipt's own number. Derived from the confirmation reference
+       rather than minted fresh, so reprinting the same booking gives the same
+       document — a receipt whose number changes each time it is printed is
+       not a receipt. */
+    const receiptNo = "R-" + String(b.groupRef || b.ref || "").replace(/^JP-/, "");
+
     return '<div class="bk-receipt-sheet">' +
+
+      // ── Letterhead ──────────────────────────────────────────────────────
       '<div class="bk-rc-head">' +
-        '<div class="bk-rc-brand">' + esc(t("msg.bk.receipt.hotel")) + "</div>" +
-        '<div class="bk-rc-title">' + esc(t("msg.bk.receipt.title")) + "</div>" +
+        '<img class="bk-rc-logo" src="images/logo-full.png" alt="J Park Hotel" ' +
+          'onerror="this.style.display=\'none\'">' +
+        '<div class="bk-rc-contact">' +
+          "<div>" + esc(RECEIPT_HOTEL.address) + "</div>" +
+          "<div>" + esc(t("msg.bk.receipt.tel")) + " " + esc(RECEIPT_HOTEL.phones.join(" · ")) +
+            "  ·  " + esc(RECEIPT_HOTEL.email) + "  ·  " + esc(RECEIPT_HOTEL.site) + "</div>" +
+        "</div>" +
       "</div>" +
+      '<div class="bk-rc-rule"></div>' +
+      '<h1 class="bk-rc-title">' + esc(t("msg.bk.receipt.title")) + "</h1>" +
+
       (pay && pay.livemode === false
         ? '<div class="bk-rc-test">' + esc(t("msg.bk.pay.testMode")) + "</div>" : "") +
-      '<table class="bk-rc-meta">' +
-        line(t("msg.bk.receipt.for"), [b.guestName, b.guestLastName].filter(Boolean).join(" ")) +
-        line(t("msg.bk.email"), b.guestEmail) +
-        line(t("msg.bk.phone"), b.guestPhone) +
-        line(t("msg.bk.ref"), b.groupRef || b.ref) +
-        line(t("msg.bk.receipt.issued"), bkPayTime(pay && pay.paidAt ? pay.paidAt : b.createdAt, false)) +
-        // Who printed it. A receipt nobody signed is a receipt nobody stands
-        // behind, and this is the one field a printed copy cannot recover.
-        line(t("msg.bk.receipt.issuedBy"), session ? session.name : "") +
+
+      // ── Guest, and the document's own particulars, side by side ─────────
+      '<div class="bk-rc-parties">' +
+        '<div class="bk-rc-party">' +
+          '<div class="bk-rc-label">' + esc(t("msg.bk.receipt.for")) + "</div>" +
+          '<div class="bk-rc-party-name">' + esc([b.guestName, b.guestLastName].filter(Boolean).join(" ")) + "</div>" +
+          (b.guestEmail ? "<div>" + esc(b.guestEmail) + "</div>" : "") +
+          (b.guestPhone ? "<div>" + esc(b.guestPhone) + "</div>" : "") +
+        "</div>" +
+        '<div class="bk-rc-party bk-rc-party-right">' +
+          '<table class="bk-rc-meta">' +
+            line(t("msg.bk.receipt.no"), receiptNo) +
+            line(t("msg.bk.ref"), b.groupRef || b.ref) +
+            line(t("msg.bk.receipt.issued"), bkPayTime(pay && pay.paidAt ? pay.paidAt : b.createdAt, false)) +
+            line(t("msg.bk.receipt.issuedBy"), session ? session.name : "") +
+          "</table>" +
+        "</div>" +
+      "</div>" +
+
+      // ── What was bought ─────────────────────────────────────────────────
+      '<table class="bk-rc-rooms">' +
+        "<thead><tr>" +
+          "<th>" + esc(t("msg.bk.receipt.rooms")) + "</th>" +
+          "<th>" + esc(t("msg.bk.receipt.stay")) + "</th>" +
+          '<th class="bk-rc-amt">' + esc(t("msg.bk.total")) + "</th>" +
+        "</tr></thead>" +
+        "<tbody>" + roomLines + "</tbody>" +
+        '<tfoot><tr class="bk-rc-total">' +
+          '<td colspan="2">' + esc(t("msg.bk.receipt.totalPaid")) + "</td>" +
+          '<td class="bk-rc-amt">' + esc(bkPayMoney(grand, cur)) + "</td>" +
+        "</tr></tfoot>" +
       "</table>" +
-      '<div class="bk-rc-section">' + esc(t("msg.bk.receipt.rooms")) + "</div>" +
-      '<table class="bk-rc-rooms">' + roomLines +
-        '<tr class="bk-rc-total"><td colspan="2">' + esc(t("msg.bk.total")) + "</td>" +
-        '<td class="bk-rc-amt">' + esc(bkPayMoney(grand, cur)) + "</td></tr>" +
-      "</table>" +
+
+      // ── How it was paid ─────────────────────────────────────────────────
       (pay
         ? '<div class="bk-rc-section">' + esc(t("msg.bk.pay.title")) + "</div>" +
-          '<table class="bk-rc-meta">' +
-            line(t("msg.bk.pay.paidBy"), bkPayCardLabel(card) ||
-              (pay.method === "promptpay" ? t("msg.bk.pay.promptpay") : pay.method)) +
+          '<table class="bk-rc-meta bk-rc-meta-wide">' +
+            line(t("msg.bk.pay.paidBy"), paidLabel) +
             line(t("msg.bk.pay.cardholder"), card.name) +
             line(t("msg.bk.pay.bank"), card.bank) +
             line(t("msg.bk.pay.amountCharged"), bkPayMoney(pay.amount, cur)) +
             line(t("msg.bk.pay.guestPaidAt"), bkPayTime(pay.paidAt, true)) +
             line(t("msg.bk.pay.chargeId"), pay.chargeId) +
-            (settle ? line(t("msg.bk.pay.bankPaidAt"), bkPayTime(settle.paidAt)) : "") +
           "</table>"
         : "") +
+
       // The key-card deposit is separate from the room charge and is still
-      // cash at the desk, however the room itself was paid for. Saying it on
-      // the receipt is what stops a guest who prepaid online arriving
-      // believing there is nothing left to hand over.
+      // cash at the desk, however the room itself was paid for. On the receipt
+      // it is what stops a guest who prepaid online arriving believing there
+      // is nothing left to hand over.
       '<div class="bk-rc-note">' + esc(t("msg.bk.receipt.deposit")) + "</div>" +
-      '<div class="bk-rc-thanks">' + esc(t("msg.bk.receipt.thanks")) + "</div>" +
-      // Everything the gateway knows, for staff. Appended AFTER the thanks
-      // line rather than woven in, so the guest copy is exactly the document
-      // above it with this section removed — not a different layout.
+
+      // ── Signature and seal ──────────────────────────────────────────────
+      '<div class="bk-rc-sign">' +
+        '<div class="bk-rc-thanks">' + esc(t("msg.bk.receipt.thanks")) + "</div>" +
+        '<div class="bk-rc-sign-block">' +
+          '<img class="bk-rc-stamp" src="images/company-stamp.png" alt="" ' +
+            'onerror="this.style.display=\'none\'">' +
+          '<div class="bk-rc-sign-line"></div>' +
+          '<div class="bk-rc-sign-cap">' + esc(t("msg.bk.receipt.authorised")) + "</div>" +
+        "</div>" +
+      "</div>" +
+      '<div class="bk-rc-legal">' + esc(t("msg.bk.receipt.legal")) + "</div>" +
+
+      // Everything the gateway knows, for staff. Appended after the document
+      // proper rather than woven in, so the guest copy is exactly the pages
+      // above with this section removed — not a different layout.
       (internal ? bkReceiptInternalHTML(b, pay, grand, cur) : "") +
     "</div>";
   }
@@ -5480,9 +5548,10 @@
   function renderPaymentsLedger() {
     const listArea = document.getElementById("msgListArea");
     if (!listArea) return;
-    // Same admin gate as the password-reset view: the list carries guest
-    // names, email addresses, card details and the hotel's own takings.
-    if (!isAdmin()) { listArea.innerHTML = ""; return; }
+    // Open to every signed-in member of staff, not just administrators — the
+    // people who take payments at the desk are the people who need to see
+    // whether one landed. The server agrees (requireAuth on these routes), so
+    // this is not a client-side gate doing security work.
 
     const bar =
       '<div class="msg-list-header">' + esc(t("msg.payments")) +
