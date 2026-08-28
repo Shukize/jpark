@@ -29,6 +29,7 @@
    ============================================================ */
 
 const crypto = require('crypto');
+const D = require('./detail');
 
 /* Omise's API host is api.omise.**co**, not .com.
 
@@ -136,7 +137,7 @@ async function chargeCard({ amountTHB, cardToken, description, metadata, returnU
     return_uri: returnUrl || undefined,
   });
   if (charge.status === 'successful') {
-    return { ok: true, paid: true, chargeRef: charge.id, providerRef: charge.id };
+    return { ok: true, paid: true, chargeRef: charge.id, providerRef: charge.id, detail: describeCharge(charge) };
   }
   if (charge.status === 'pending' && charge.authorize_uri) {
     return {
@@ -145,9 +146,18 @@ async function chargeCard({ amountTHB, cardToken, description, metadata, returnU
       chargeRef: charge.id,
       providerRef: charge.id,
       redirect: { url: charge.authorize_uri, method: 'GET', fields: {} },
+      detail: describeCharge(charge),
     };
   }
-  return { ok: false, status: 402, code: charge.failure_code || null, declined: true };
+  // A decline carries the full detail record too. The guest is still shown
+  // only a kind sentence (lib/payments/index.js decides that), but the hotel
+  // now keeps the card, the bank and the issuer's own reason — the difference
+  // between "3 payments failed this week" and "these three guests were
+  // refused by their banks, here is who to call".
+  return {
+    ok: false, status: 402, code: charge.failure_code || null, declined: true,
+    detail: describeCharge(charge),
+  };
 }
 
 // PromptPay is a two-step flow: create a "source" (payment intent), then a
@@ -177,7 +187,200 @@ async function chargePromptPay({ amountTHB, description, metadata }) {
     providerRef: charge.id,
     qrImage,
     expiresAt: charge.expires_at || null,
+    detail: describeCharge(charge),
   };
+}
+
+/* ── Reading everything a charge actually says ───────────────────────────
+   The functions above used to return four fields off a response that carries
+   forty. describeCharge() is where the rest is read, once, and translated
+   into the provider-neutral record documented in ./detail.js.
+
+   Omise's field names are worth stating explicitly, because three of them are
+   near-misses for the obvious guess, and a wrong guess fails silently as an
+   empty column rather than as an error:
+
+     charge.card.last_digits        NOT last4
+     charge.card.financing          NOT funding      ('credit'|'debit'|'prepaid')
+     charge.card.expiration_month   NOT exp_month
+     charge.transaction             the ledger entry id (trxn_...), which is the
+                                    key linking a charge to the transfer that
+                                    eventually pays it into the bank
+     charge.fee / fee_vat / net     satang, like amount. Omise quotes its fee
+                                    net of VAT with the VAT separate, so
+                                    amount - fee - fee_vat = net
+
+   3-D Secure is inferred rather than read: Omise exposes no single field for
+   it. A charge that never had an authorize_uri was never challenged; one that
+   has an authorize_uri and is still pending is mid-challenge; one that went on
+   to succeed passed it. That is the difference between "the guest walked away
+   from the bank's verification screen" and "the bank said no" — otherwise
+   invisible, and exactly what staff need in order to know whether it is worth
+   calling the guest back. */
+function describeCharge(charge) {
+  if (!charge || typeof charge !== 'object') return null;
+
+  const card = charge.card && typeof charge.card === 'object' ? charge.card : null;
+  const status = String(charge.status || '');
+  const hadChallenge = Boolean(charge.authorize_uri);
+
+  let threeDS = null;
+  if (card) {
+    if (!hadChallenge) threeDS = 'not_required';
+    else if (status === 'successful') threeDS = 'passed';
+    else if (status === 'pending') threeDS = 'pending';
+    else threeDS = 'failed';
+  }
+
+  // Omise returns the country lowercase ('th'); it is an ISO-3166 alpha-2 code
+  // and reads as one everywhere else, so it is upper-cased once, here.
+  const country = card && card.country ? String(card.country).toUpperCase().slice(0, 2) : null;
+
+  const flat = {
+    object: charge.object, id: charge.id, status: charge.status,
+    livemode: charge.livemode, currency: String(charge.currency || '').toUpperCase(),
+    amount: D.fromMinorUnit(charge.amount),
+    fee: D.fromMinorUnit(charge.fee),
+    fee_vat: D.fromMinorUnit(charge.fee_vat),
+    net: D.fromMinorUnit(charge.net),
+    funding_amount: D.fromMinorUnit(charge.funding_amount),
+    refunded_amount: D.fromMinorUnit(charge.refunded_amount),
+    paid: charge.paid, paid_at: charge.paid_at, created_at: charge.created_at,
+    expires_at: charge.expires_at,
+    authorized: charge.authorized, captured: charge.captured,
+    reversed: charge.reversed, disputed: charge.disputed,
+    transaction: typeof charge.transaction === 'string' ? charge.transaction
+      : (charge.transaction && charge.transaction.id) || null,
+    description: charge.description,
+    failure_code: charge.failure_code, failure_message: charge.failure_message,
+    source_type: (charge.source && charge.source.type) || null,
+    card_brand: card && card.brand, card_last_digits: card && card.last_digits,
+    card_bank: card && card.bank, card_country: country,
+    card_financing: card && card.financing, card_name: card && card.name,
+    card_expiration_month: card && card.expiration_month,
+    card_expiration_year: card && card.expiration_year,
+  };
+
+  return {
+    provider: 'omise',
+    chargeId: charge.id || null,
+    transactionId: flat.transaction,
+    status: charge.status || null,
+    state: chargeState(charge.status),
+    livemode: typeof charge.livemode === 'boolean' ? charge.livemode : null,
+    method: card ? 'card' : (flat.source_type || null),
+    amount: flat.amount,
+    currency: flat.currency || null,
+    fee: flat.fee,
+    feeVat: flat.fee_vat,
+    net: flat.net,
+    refundedAmount: flat.refunded_amount,
+    paidAt: charge.paid_at || null,
+    createdAt: charge.created_at || null,
+    expiresAt: charge.expires_at || null,
+    card: card ? {
+      brand: card.brand || null,
+      last4: card.last_digits || null,
+      expiry: D.formatExpiry(card.expiration_month, card.expiration_year),
+      name: card.name || null,
+      bank: card.bank || null,
+      country,
+      funding: card.financing || null,
+    } : null,
+    threeDS,
+    failure: (charge.failure_code || charge.failure_message) ? {
+      code: charge.failure_code || null,
+      message: charge.failure_message || null,
+      text: D.describeFailure(charge.failure_code, charge.failure_message),
+    } : null,
+    settlement: null, // resolved separately — see resolveSettlement() below
+    snapshot: D.snapshotOf(flat),
+  };
+}
+
+/* ── Following the money after the charge ────────────────────────────────
+   "The guest paid" and "the hotel has the money" are different days, and the
+   gap between them is the question an owner most often asks a payment
+   dashboard. Omise models it in three objects:
+
+     charge.transaction           the ledger entry the charge created (trxn_...)
+     transaction.transferable_at  when that entry stops being "on hold" and
+                                  becomes withdrawable — the settlement window
+     transfer                     the payout that actually moves cleared money
+                                  into the hotel's bank account, listing the
+                                  transactions it covers, with sent_at/paid_at
+                                  and the destination account
+
+   So the chain is charge -> transaction -> transfer -> bank. Nothing here
+   invents it; these are three plain GETs. */
+async function listCharges({ limit = 50, offset = 0, from, to, order = 'reverse_chronological' } = {}) {
+  const q = new URLSearchParams();
+  q.set('limit', String(Math.min(Math.max(Number(limit) || 50, 1), 100)));
+  q.set('offset', String(Math.max(Number(offset) || 0, 0)));
+  q.set('order', order === 'chronological' ? 'chronological' : 'reverse_chronological');
+  if (from) q.set('from', from);
+  if (to) q.set('to', to);
+  return omiseRequest('GET', '/charges?' + q.toString());
+}
+
+/* The dashboard's headline numbers. `on_hold` is absent on some API versions,
+   so callers derive it as total - transferable - reserve when it is missing
+   rather than reporting a blank where the owner expects a figure. */
+async function balance() {
+  return omiseRequest('GET', '/balance');
+}
+
+async function listTransfers({ limit = 30, offset = 0 } = {}) {
+  const q = new URLSearchParams();
+  q.set('limit', String(Math.min(Math.max(Number(limit) || 30, 1), 100)));
+  q.set('offset', String(Math.max(Number(offset) || 0, 0)));
+  q.set('order', 'reverse_chronological');
+  return omiseRequest('GET', '/transfers?' + q.toString());
+}
+
+async function retrieveTransaction(id) {
+  return omiseRequest('GET', '/transactions/' + encodeURIComponent(id));
+}
+
+/* Where one charge's money is, right now.
+
+   Omise has no "which transfer paid transaction X" lookup, so the transfer is
+   found by scanning a transfer list the CALLER has already fetched. That is
+   the whole reason `transfers` is a parameter rather than something this
+   function fetches: a ledger resolving forty charges makes one transfer call,
+   not forty.
+
+   Returns null when the charge has no transaction at all — nothing has
+   settled — so "not settled yet" stays distinguishable from "settled to
+   nothing". */
+function resolveSettlement(transactionId, transaction, transfers) {
+  if (!transactionId) return null;
+  const out = {
+    transactionId,
+    transferableAt: (transaction && transaction.transferable_at) || null,
+    transferId: null, sentAt: null, paidAt: null, bank: null, last4: null,
+    state: 'on_hold',
+  };
+  const list = Array.isArray(transfers) ? transfers : [];
+  const hit = list.find((t) => {
+    const txns = (t && t.transactions && (t.transactions.data || t.transactions)) || [];
+    return Array.isArray(txns) && txns.some((x) => (typeof x === 'string' ? x : x && x.id) === transactionId);
+  });
+  if (hit) {
+    const acct = hit.bank_account || {};
+    out.transferId = hit.id || null;
+    out.sentAt = hit.sent_at || null;
+    out.paidAt = hit.paid_at || null;
+    out.bank = acct.bank_code || acct.brand || acct.name || null;
+    out.last4 = acct.last_digits || null;
+    out.state = hit.paid ? 'paid_out' : (hit.sent ? 'sent' : 'scheduled');
+  } else if (out.transferableAt && new Date(out.transferableAt).getTime() <= Date.now()) {
+    // Cleared the hold but no payout covers it yet — money the hotel could
+    // withdraw today. Worth distinguishing: it is the state that means
+    // "press Transfer in the dashboard", not "wait".
+    out.state = 'transferable';
+  }
+  return out;
 }
 
 /* Maps Omise's charge.status onto the small vocabulary the reconciler needs.
@@ -205,7 +408,7 @@ function chargeState(status) {
 async function verify(chargeRef) {
   const charge = await omiseRequest('GET', `/charges/${encodeURIComponent(chargeRef)}`);
   const state = chargeState(charge && charge.status);
-  return { paid: state === 'paid', state, raw: charge };
+  return { paid: state === 'paid', state, raw: charge, detail: describeCharge(charge) };
 }
 
 /* Webhook signature verification.
@@ -319,6 +522,12 @@ module.exports = {
   mode,
   account,
   setWebhookUri,
+  describeCharge,
+  listCharges,
+  balance,
+  listTransfers,
+  retrieveTransaction,
+  resolveSettlement,
   // Exported for the test suite, which asserts the status -> state mapping
   // directly rather than round-tripping every Omise status through a charge.
   chargeState,

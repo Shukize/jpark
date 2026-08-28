@@ -15,6 +15,10 @@ const db = require('../db');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const { sendEmail } = require('../mailer');
 const T = require('../lib/emailTemplate');
+const PD = require('../lib/payments/detail');
+// Rebuild a payment record from a stored booking row, so an email sent
+// hours after the charge is as complete as one sent inline.
+const detailFromRow = (row) => PD.fromColumns(row);
 const { makeLimiter } = require('../lib/rateLimit');
 const { countOverlappingPool } = require('../lib/availability');
 const roomRates = require('../lib/roomRates');
@@ -937,23 +941,264 @@ function groupPaymentConfirmedEmail(rows) {
   return { text, html };
 }
 
+/* ── The payment detail block, shared by every hotel-facing email ────────
+   One builder, so the "payment confirmed" notice, the group notice, the
+   failed-payment notice and the daily report cannot drift into describing the
+   same charge three different ways.
+
+   English only, deliberately: these go to the hotel's own inbox, not to a
+   guest. Every guest-facing template stays in its five languages, untouched.
+
+   Nothing here pre-escapes. T.row/T.notice/T.paragraph all run their
+   arguments through render(), which escapes unless handed T.raw() — so
+   escaping here would double-escape and print &amp;#39; at a front desk. That
+   matters more than usual on one field: card.name is the cardholder name as
+   typed by whoever used the card, which makes it the only value in a payment
+   record chosen by a stranger. */
+function paymentDetailFields(detail, bk) {
+  if (!detail) return [];
+  const money = (v) => (v == null ? null : formatMoney(v, detail.currency || (bk && bk.currency) || 'THB'));
+  const card = detail.card || {};
+  const settle = detail.settlement || {};
+  const fields = [];
+  const add = (label, value) => { if (value != null && value !== '') fields.push([label, String(value)]); };
+
+  add('Amount charged', money(detail.amount));
+  add('Gateway fee', detail.fee == null ? null
+    : money(detail.fee) + (detail.feeVat != null ? ` (+ ${money(detail.feeVat)} VAT)` : ''));
+  // The number that will actually appear on the hotel's bank statement — the
+  // most useful line here, and the one nothing in this system could answer
+  // before.
+  add('Net to the hotel', money(detail.net));
+  add('Refunded', detail.refundedAmount ? money(detail.refundedAmount) : null);
+
+  add('Paid by', card.last4
+    ? `${card.brand || 'Card'} •••• ${card.last4}`
+    : (detail.method === 'promptpay' ? 'PromptPay QR' : detail.method));
+  add('Card expiry', card.expiry);
+  add('Cardholder', card.name);
+  add('Issuing bank', card.bank ? card.bank + (card.country ? ` (${card.country})` : '') : null);
+  add('Card type', card.funding);
+  add('3-D Secure', detail.threeDS === 'not_required' ? 'Not required by the bank'
+    : detail.threeDS === 'passed' ? 'Passed'
+    : detail.threeDS === 'pending' ? 'Started but not completed'
+    : detail.threeDS === 'failed' ? 'Not completed' : null);
+
+  // When the guest paid, and — separately — when the hotel actually gets it.
+  add('Guest paid at', PD.formatBangkok(detail.paidAt, { seconds: true }));
+  add('Clears the hold', PD.formatBangkok(settle.transferableAt));
+  add('Paid into the bank', PD.formatBangkok(settle.paidAt));
+  if (settle.transferId) {
+    add('Bank transfer', settle.bank
+      ? `${settle.transferId} → ${settle.bank}${settle.last4 ? ' ••••' + settle.last4 : ''}`
+      : settle.transferId);
+  }
+
+  add('Gateway charge id', detail.chargeId);
+  add('Gateway transaction id', detail.transactionId);
+  if (detail.failure) add('Failure reason', detail.failure.text || detail.failure.message || detail.failure.code);
+  return fields;
+}
+
+function paymentDetailLines(detail, bk) {
+  return paymentDetailFields(detail, bk).map(([k, v]) => `${k}: ${v}`);
+}
+
+function paymentDetailRows(detail, bk) {
+  return paymentDetailFields(detail, bk).map(([k, v]) => T.row(k, v)).join('');
+}
+
+/* An unmissable warning when the gateway is running on TEST keys.
+
+   A test charge is identical to a real one in every field a person looks at —
+   same amount, same card, same "paid" banner, same confirmation email — and
+   the only thing separating them is a boolean nobody would think to check.
+   Unsaid, the hotel's own accounts would count play money as income. */
+function testModeNoticeText(detail) {
+  if (!detail || detail.livemode !== false) return null;
+  return 'TEST MODE — no money moved. This charge was made against the payment gateway’s test keys.';
+}
+
+function testModeNoticeHtml(detail) {
+  const t = testModeNoticeText(detail);
+  return t ? T.notice('alert', t, { strong: true }) : '';
+}
+
+/* ── When a card is refused ──────────────────────────────────────────────
+   Nothing in this system used to say this out loud. A declined charge rolls
+   back its transaction, returns a kind sentence to the guest, and leaves. The
+   hotel found out by logging into the acquirer's dashboard and reading a
+   percentage.
+
+   But a guest whose card was refused is a guest who WANTED to book. Somebody
+   should be able to call them back — which means knowing it happened, who
+   they are, and what the bank actually said. */
+function paymentDeclinedHotelNotice(a) {
+  const failure = a.failure || {};
+  const detail = a.detail || null;
+  const card = (detail && detail.card) || {};
+  const cardLine = card.last4
+    ? `${card.brand || 'Card'} •••• ${card.last4}`
+    : (a.method === 'promptpay' ? 'PromptPay' : 'Card');
+  const money = a.amount != null ? formatMoney(a.amount, 'THB') : '—';
+  const reason = failure.text || failure.message || failure.code || 'The gateway gave no reason.';
+
+  const rows = [
+    ['Guest', [a.guestName, a.guestEmail, a.guestPhone].filter(Boolean).join(' · ') || '—'],
+    // The room TYPE, not a room number — no room is assigned at booking time.
+    ['Room type', a.room || '—'],
+    ['Dates', a.checkIn && a.checkOut ? `${a.checkIn} → ${a.checkOut}` : '—'],
+    ['Amount attempted', money],
+    ['Paid by', cardLine],
+    ['Issuing bank', card.bank ? card.bank + (card.country ? ` (${card.country})` : '') : '—'],
+    ['Reason', reason],
+    ['Gateway code', failure.code || '—'],
+    ['Reference offered', a.bookingRef || '—'],
+  ];
+
+  const lines = [
+    'A guest tried to pay and their bank refused the payment.',
+    '',
+    'NO BOOKING WAS CREATED. The room is still available, and the guest has not been charged.',
+    '',
+    ...rows.map(([k, v]) => `${k}: ${v}`),
+    '',
+    'If you can reach them: most declines of this kind are fixed by the guest',
+    'switching on online or overseas payments in their banking app, or by using',
+    'a different card. You can also take the booking over the phone.',
+  ];
+  const letterhead = emailLetterhead();
+  const text = lines.join('\n') + letterhead.text;
+  const html = T.wrap({
+    preheader: `Card declined · ${money} · ${a.guestName || 'guest'}`,
+    accent: T.BRAND.gold,
+    footer: emailFooterHtml(),
+    body:
+      T.heading('A guest’s card was declined') +
+      T.notice('alert', reason, { strong: true }) +
+      testModeNoticeHtml(detail) +
+      T.paragraph(T.raw('<strong>No booking was created.</strong> The room is still available, and the guest has not been charged.')) +
+      T.table(rows.map(([k, v]) => T.row(k, v)).join('')) +
+      T.paragraph('Most declines of this kind are fixed by the guest switching on online or overseas payments in their banking app, or by trying a different card. You can also take the booking over the phone.', { small: true, muted: true }),
+  });
+  return { text, html };
+}
+
+/* A card-testing script can produce hundreds of declines a minute, and an
+   inbox buried under them is an inbox nobody reads — including for the one
+   real guest whose payment failed. One notice per guest per hour, plus a
+   global ceiling.
+
+   A ceiling rather than a queue, on purpose: nobody wants the backlog later. */
+const declineNoticeLimiter = makeLimiter(1, 60 * 60 * 1000);
+const declineNoticeGlobalLimiter = makeLimiter(12, 60 * 60 * 1000);
+
+function sendDeclinedAttemptNotice(a) {
+  try {
+    // A gateway that could not be reached is an outage, not a guest whose card
+    // failed. Staff can do nothing about it, and it is already logged.
+    if (a && a.failure && a.failure.code === 'gateway_unreachable') return;
+    const key = String((a && (a.guestEmail || a.bookingRef)) || 'unknown').toLowerCase();
+    if (declineNoticeLimiter(key)) return;
+    if (declineNoticeGlobalLimiter('all')) return;
+    const to = hotelRecipients();
+    if (!to.length) return;
+    const { text, html } = paymentDeclinedHotelNotice(a || {});
+    sendEmail({
+      to,
+      subject: `Card declined — ${(a && a.guestName) || 'guest'} (${(a && a.bookingRef) || 'no ref'})`,
+      text,
+      html,
+    }).catch((err) => console.error('[guest-bookings] declined-attempt notice error', err));
+  } catch (e) {
+    console.error('[guest-bookings] declined-attempt notice failed', e);
+  }
+}
+
+/* The other half of that gap: a payment that WAS in flight and then didn't
+   make it — an abandoned 3-D Secure challenge, a PromptPay QR that expired.
+
+   Unlike a decline, the booking exists here: it was written the moment the
+   charge was accepted as pending, so the room is held and the guest is
+   expected to arrive. They simply have not paid, and the front desk needs to
+   know to collect on arrival rather than waving them through as prepaid. */
+function paymentFailedHotelNotice(bk, detail) {
+  const money = bk.total != null ? formatMoney(bk.total, bk.currency) : '—';
+  const failure = (detail && detail.failure) || {};
+  const reason = failure.text || failure.message || 'The payment did not complete.';
+  const rows = [
+    ['Guest', bk.guest_name || '—'],
+    ['Booking', bk.ref || '—'],
+    ['Room type', bk.room || '—'],
+    ['Dates', bk.check_in && bk.check_out
+      ? `${String(bk.check_in).slice(0, 10)} → ${String(bk.check_out).slice(0, 10)}` : '—'],
+    ['Amount outstanding', money],
+    ['Reason', reason],
+    ['Gateway charge id', bk.payment_charge_id || '—'],
+  ];
+  const lines = [
+    `The online payment for booking ${bk.ref} did not complete.`,
+    '',
+    'THE RESERVATION STILL STANDS — the room is held and the guest is expected.',
+    'Collect payment at check-in.',
+    '',
+    ...rows.map(([k, v]) => `${k}: ${v}`),
+  ];
+  const letterhead = emailLetterhead();
+  const text = lines.join('\n') + letterhead.text;
+  const html = T.wrap({
+    preheader: `Payment not completed · ${money} · ${bk.ref}`,
+    accent: T.BRAND.gold,
+    footer: emailFooterHtml(),
+    body:
+      T.heading(`Payment not completed — ${bk.ref}`) +
+      T.notice('warn', reason, { strong: true }) +
+      T.paragraph(T.raw('<strong>The reservation still stands.</strong> The room is held and the guest is expected — collect payment at check-in.')) +
+      T.table(rows.map(([k, v]) => T.row(k, v)).join('')),
+  });
+  return { text, html };
+}
+
+function sendPaymentFailedEmail(bk, detail) {
+  const to = hotelRecipients();
+  if (!to.length) return;
+  const { text, html } = paymentFailedHotelNotice(bk, detail);
+  sendEmail({
+    to,
+    subject: `Payment not completed — ${bk.ref}`,
+    text,
+    html,
+  }).catch((err) => console.error('[guest-bookings] payment-failed notice error', err));
+}
+
 // Front-desk follow-up (English, like hotelNotice()) — the accounting
 // paper-trail piece: the original booking notice showed this as "awaiting
 // PromptPay confirmation," so staff need a second, distinctly-subjected
 // email once it actually resolves, rather than having to notice a status
 // change themselves.
-function paymentConfirmedHotelNotice(bk) {
+function paymentConfirmedHotelNotice(bk, detail) {
   const money = bk.total != null ? formatMoney(bk.total, bk.currency) : '—';
   const method = bk.payment_method === 'card' ? 'Card' : bk.payment_method === 'promptpay' ? 'PromptPay' : (bk.payment_provider || 'Online');
+  // The full gateway answer, if we have it. `detail` is passed in by the
+  // caller that just spoke to the gateway; a caller that only has a row
+  // rebuilds it from the stored snapshot, so an email sent hours later by the
+  // reconciler is as complete as one sent inline.
+  const d = detail || detailFromRow(bk);
+  const testWarning = testModeNoticeText(d);
+  const detailLines = paymentDetailLines(d, bk);
   const lines = [
     `Payment confirmed for booking ${bk.ref}.`,
+    ...(testWarning ? ['', testWarning] : []),
     '',
     `Guest: ${bk.guest_name || '—'}`,
-    `Amount: ${money}`,
+    `Room type: ${bk.room || '—'}`,
+    `Dates: ${bk.check_in ? String(bk.check_in).slice(0, 10) : '—'} → ${bk.check_out ? String(bk.check_out).slice(0, 10) : '—'}`,
+    `Booking total: ${money}`,
     `Method: ${method} (online)`,
-    `Gateway ref: ${bk.payment_charge_id || '—'}`,
+    ...(detailLines.length ? ['', '— Payment record —', ...detailLines] : [`Gateway ref: ${bk.payment_charge_id || '—'}`]),
     '',
-    'This booking now shows as paid in the Guest Booking inbox of the staff console.',
+    'This booking now shows as paid in the Guest Booking inbox of the staff console,',
+    'where the full payment record and a printable receipt are available.',
   ];
   const letterhead = emailLetterhead();
   const text = lines.join('\n') + letterhead.text;
@@ -964,20 +1209,24 @@ function paymentConfirmedHotelNotice(bk) {
       footer: emailFooterHtml(),
       body:
         T.heading(`Payment confirmed — ${bk.ref}`) +
+        testModeNoticeHtml(d) +
         T.notice('paid', `${money} received online.`, { strong: true }) +
         T.table(
           T.row('Guest', bk.guest_name || '—', { strong: true }) +
-          T.row('Amount', money, { strong: true }) +
+          T.row('Room type', bk.room || '—') +
+          T.row('Dates', `${bk.check_in ? String(bk.check_in).slice(0, 10) : '—'} → ${bk.check_out ? String(bk.check_out).slice(0, 10) : '—'}`) +
+          T.row('Booking total', money, { strong: true }) +
           T.row('Method', `${method} (online)`) +
-          T.row('Gateway ref', bk.payment_charge_id || '—')
+          (paymentDetailRows(d, bk) || T.row('Gateway ref', bk.payment_charge_id || '—'))
         ) +
-        T.paragraph('This booking now shows as paid in the Guest Booking inbox of the staff console.', { small: true, muted: true }),
+        T.paragraph('This booking now shows as paid in the Guest Booking inbox of the staff console, where the full payment record and a printable receipt are available.', { small: true, muted: true }),
     });
   return { text, html };
 }
 
-function groupPaymentConfirmedHotelNotice(rows) {
+function groupPaymentConfirmedHotelNotice(rows, detail) {
   const first = rows[0];
+  const d = detail || detailFromRow(first);
   const n = rows.length;
   const grand = rows.reduce((s, r) => s + Number(r.total || 0), 0);
   const method = first.payment_method === 'card' ? 'Card' : first.payment_method === 'promptpay' ? 'PromptPay' : (first.payment_provider || 'Online');
@@ -987,9 +1236,12 @@ function groupPaymentConfirmedHotelNotice(rows) {
     `Guest: ${first.guest_name || '—'}`,
     `Amount: ${formatMoney(grand, first.currency)}`,
     `Method: ${method} (online)`,
-    `Gateway ref: ${first.payment_charge_id || '—'}`,
+    ...(paymentDetailLines(d, first).length
+      ? ['', '— Payment record —', ...paymentDetailLines(d, first)]
+      : [`Gateway ref: ${first.payment_charge_id || '—'}`]),
     '',
-    'This booking now shows as paid in the Guest Booking inbox of the staff console.',
+    'This booking now shows as paid in the Guest Booking inbox of the staff console,',
+    'where the full payment record and a printable receipt are available.',
   ];
   const letterhead = emailLetterhead();
   const text = lines.join('\n') + letterhead.text;
@@ -1005,14 +1257,17 @@ function groupPaymentConfirmedHotelNotice(rows) {
           T.row('Guest', first.guest_name || '—', { strong: true }) +
           T.row('Amount', formatMoney(grand, first.currency), { strong: true }) +
           T.row('Method', `${method} (online)`) +
-          T.row('Gateway ref', first.payment_charge_id || '—')
+          // One charge covers the whole group, so the payment record is shown
+          // once against the grand total — never per room, which would read as
+          // the guest having paid N times.
+          (paymentDetailRows(d, first) || T.row('Gateway ref', first.payment_charge_id || '—'))
         ) +
-        T.paragraph('This booking now shows as paid in the Guest Booking inbox of the staff console.', { small: true, muted: true }),
+        T.paragraph('This booking now shows as paid in the Guest Booking inbox of the staff console, where the full payment record and a printable receipt are available.', { small: true, muted: true }),
     });
   return { text, html };
 }
 
-async function sendPaymentConfirmedEmail(bk) {
+async function sendPaymentConfirmedEmail(bk, detail) {
   if (bk.guest_email) {
     const { text, html } = paymentConfirmedEmail(bk);
     sendEmail({
@@ -1026,7 +1281,7 @@ async function sendPaymentConfirmedEmail(bk) {
   }
   const to = hotelRecipients();
   if (to.length) {
-    const { text, html } = paymentConfirmedHotelNotice(bk);
+    const { text, html } = paymentConfirmedHotelNotice(bk, detail);
     sendEmail({
       to,
       subject: `✓ Payment confirmed — ${bk.ref}`,
@@ -1036,7 +1291,7 @@ async function sendPaymentConfirmedEmail(bk) {
   }
 }
 
-async function sendGroupPaymentConfirmedEmail(rows) {
+async function sendGroupPaymentConfirmedEmail(rows, detail) {
   const first = rows[0];
   if (first.guest_email) {
     const { text, html } = groupPaymentConfirmedEmail(rows);
@@ -1050,7 +1305,7 @@ async function sendGroupPaymentConfirmedEmail(rows) {
   }
   const to = hotelRecipients();
   if (to.length) {
-    const { text, html } = groupPaymentConfirmedHotelNotice(rows);
+    const { text, html } = groupPaymentConfirmedHotelNotice(rows, detail);
     sendEmail({
       to,
       subject: `✓ Payment confirmed — ${first.group_ref} (${rows.length} rooms)`,
@@ -1167,6 +1422,21 @@ function row2js(r) {
     paymentMethod: r.payment_method,
     paymentStatus: r.payment_status,
     paymentChargeId: r.payment_charge_id,
+    /* The full gateway record — card, fee, net, settlement, failure reason.
+
+       NULL on every row that came from the polled LIST, and that is
+       deliberate, not an oversight: LIST_COLUMNS below does not select these
+       columns, so `payment` is only ever populated when a single booking is
+       fetched on its own (GET /:id) or by the payments ledger. Twenty-odd
+       extra columns multiplied by the whole booking history, on a list the
+       staff console polls every ten seconds and then writes to localStorage,
+       is the exact shape of the egress that took this API down on
+       2026-07-13 — and it would push the console's localStorage toward its
+       quota besides.
+
+       So: the board shows the status it always did, and the detail arrives
+       when somebody opens the booking. */
+    payment: PD.fromColumns(r),
     cancelledAt: r.cancelled_at ? new Date(r.cancelled_at).getTime() : null,
     cancelledById: r.cancelled_by_id,
     cancelledByName: r.cancelled_by_name,
@@ -1182,6 +1452,23 @@ function row2js(r) {
   };
 }
 
+/* A booking as a GUEST may see it.
+
+   row2js is written for the staff console, and now carries the whole payment
+   record — issuing bank, cardholder name, the hotel's fee and net takings.
+   None of that belongs in the body of a PUBLIC, unauthenticated endpoint, and
+   three of them return a booking straight to the browser that just made it
+   (POST /reservations, POST /reservations/group, POST /dayuse-booking).
+
+   A guest may legitimately be told THAT their payment succeeded — that is
+   what the confirmation screen is for — so the status fields stay. What goes
+   is the merchant's side of the transaction. */
+function row2jsPublic(r) {
+  const out = row2js(r);
+  delete out.payment;
+  return out;
+}
+
 /* The staff console polls the booking list every few seconds, so the list
    response must stay lean. `confirmation` (the full raw OTA / guest-confirmation
    email — up to many KB per booking, and it grows with every booking ever made)
@@ -1190,6 +1477,12 @@ function row2js(r) {
    silently ran the Neon free-tier network-transfer allowance up to ~6 GB and
    took the whole API down on 2026-07-13. Keep this list in sync with row2js:
    it is every column row2js reads EXCEPT `confirmation`. */
+/* NOTE FOR THE NEXT PERSON ADDING A COLUMN: this list is deliberately NOT
+   "every column row2js reads" any more. It is every column row2js reads
+   EXCEPT `confirmation` (the raw OTA email) AND except the payment_* detail
+   block — both of which are fetched on demand instead. Adding a payment_*
+   column here would silently multiply every poll by the whole booking
+   history. See the comment on `payment:` in row2js above. */
 const LIST_COLUMNS = [
   'id', 'ref', 'channel', 'channel_name', 'channel_email',
   'guest_name', 'guest_last_name', 'guest_email', 'guest_phone',
@@ -2028,5 +2321,15 @@ module.exports.paymentConfirmedEmail = paymentConfirmedEmail;
 module.exports.groupPaymentConfirmedEmail = groupPaymentConfirmedEmail;
 module.exports.paymentConfirmedHotelNotice = paymentConfirmedHotelNotice;
 module.exports.groupPaymentConfirmedHotelNotice = groupPaymentConfirmedHotelNotice;
+module.exports.row2jsPublic = row2jsPublic;
 module.exports.sendPaymentConfirmedEmail = sendPaymentConfirmedEmail;
 module.exports.sendGroupPaymentConfirmedEmail = sendGroupPaymentConfirmedEmail;
+module.exports.sendDeclinedAttemptNotice = sendDeclinedAttemptNotice;
+module.exports.sendPaymentFailedEmail = sendPaymentFailedEmail;
+module.exports.paymentDeclinedHotelNotice = paymentDeclinedHotelNotice;
+module.exports.paymentFailedHotelNotice = paymentFailedHotelNotice;
+module.exports.paymentDetailLines = paymentDetailLines;
+module.exports.paymentDetailRows = paymentDetailRows;
+module.exports.testModeNoticeText = testModeNoticeText;
+module.exports.testModeNoticeHtml = testModeNoticeHtml;
+module.exports.detailFromRow = detailFromRow;

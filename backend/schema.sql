@@ -186,6 +186,98 @@ ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS payment_method    VARCHAR(20
 ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS payment_status    VARCHAR(20) NOT NULL DEFAULT 'n/a';
 ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS payment_charge_id VARCHAR(100);
 
+/* ── The full gateway answer ─────────────────────────────────────────────
+   The four columns above record THAT a payment happened. These record WHAT
+   happened — the detail a front desk needs to answer "which card was this?",
+   an accountant needs to reconcile a bank statement, and a guest needs on a
+   receipt.
+
+   All of it already exists on the charge object the adapter holds in a local
+   variable; until now it was read for a status and thrown away. Every column
+   here is NULLABLE with NO DEFAULT on purpose: every historical booking,
+   every OTA / manual / day-use row and every pay-at-check-in row must keep
+   reading as NULL rather than as a zeroed-out payment.
+
+   These are ALTER TABLE ... ADD COLUMN IF NOT EXISTS, never a CREATE TABLE
+   column list. CREATE TABLE IF NOT EXISTS silently does nothing on a table
+   that already exists, so a column added inside one never appears on a live
+   database — the exact drift that broke every guest request for weeks
+   (2026-07-23).
+
+   Money is stored in THB, not Omise's satang: the adapter divides by 100
+   once, at the edge, so nothing downstream has to remember the unit. */
+ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS payment_amount          NUMERIC(10,2);
+ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS payment_currency        VARCHAR(10);
+ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS payment_fee             NUMERIC(10,2);
+ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS payment_fee_vat         NUMERIC(10,2);
+ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS payment_net             NUMERIC(10,2);
+ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS payment_refunded_amount NUMERIC(10,2);
+ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS payment_paid_at         TIMESTAMPTZ;
+ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS payment_transaction_id  VARCHAR(100);
+
+-- Card facts. `payment_card_last4` is the MOST of a card number that exists
+-- anywhere in this system: Omise.js tokenises in the guest's browser, so the
+-- full number never reaches this server and storing it would breach PCI-DSS
+-- even if it did. Brand + last 4 + expiry + issuing bank is the complete set
+-- a merchant is ever given.
+ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS payment_card_brand   VARCHAR(30);
+ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS payment_card_last4   VARCHAR(4);
+ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS payment_card_expiry  VARCHAR(7);
+ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS payment_card_bank    VARCHAR(120);
+ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS payment_card_country VARCHAR(2);
+ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS payment_card_funding VARCHAR(20);
+
+-- 'not_required' | 'pending' | 'passed' | 'failed'. A 3-D Secure challenge the
+-- guest abandoned is the difference between "the bank said no" and "the guest
+-- walked away", and only this tells them apart.
+ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS payment_3ds VARCHAR(20);
+
+-- Verbatim from the gateway, never rewritten. The guest is shown a kind
+-- sentence; staff need the real code to talk to the acquirer.
+ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS payment_failure_code    VARCHAR(50);
+ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS payment_failure_message TEXT;
+
+-- TRUE = real money. A test-key charge is indistinguishable from a live one
+-- in every other column, so without this a test booking reads as income.
+ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS payment_livemode BOOLEAN;
+
+/* ── Settlement: when the money actually reaches the bank ────────────────
+   "The guest paid" and "the hotel has the money" are different days. Omise
+   captures a charge immediately (payment_paid_at) but holds the funds through
+   a settlement window before they become withdrawable
+   (payment_transferable_at), and only then does a transfer move them to the
+   hotel's bank account (payment_transfer_paid_at).
+
+   Kept as columns rather than being re-derived from the gateway on every view
+   because settlement is what an owner reconciles a bank statement against,
+   and the answer must survive the gateway being unreachable. Populated by the
+   settlement refresh in lib/paymentsLedger.js, not at charge time — none of
+   it exists yet when the guest pays. */
+ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS payment_transferable_at    TIMESTAMPTZ;
+ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS payment_transfer_id        VARCHAR(100);
+ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS payment_transfer_sent_at   TIMESTAMPTZ;
+ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS payment_transfer_paid_at   TIMESTAMPTZ;
+ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS payment_transfer_bank      VARCHAR(120);
+ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS payment_transfer_last4     VARCHAR(8);
+
+-- The whole sanitised charge object, for the receipt and for anything the
+-- columns above did not anticipate. NULL means "never captured", which is
+-- exactly what the backfill scans for — so it must have no DEFAULT.
+ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS payment_detail    JSONB;
+ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS payment_detail_at TIMESTAMPTZ;
+
+-- Only the rows the backfill has to visit. A plain scan of the whole booking
+-- history on every run is the shape of egress that took the API down once.
+CREATE INDEX IF NOT EXISTS idx_guest_bookings_payment_detail_missing
+  ON guest_bookings (payment_charge_id)
+  WHERE payment_charge_id IS NOT NULL AND payment_detail IS NULL;
+
+-- Paid rows whose settlement has not been resolved yet — the working set for
+-- the settlement refresh.
+CREATE INDEX IF NOT EXISTS idx_guest_bookings_payment_unsettled
+  ON guest_bookings (payment_paid_at)
+  WHERE payment_status = 'paid' AND payment_transfer_paid_at IS NULL;
+
 -- Set TRUE when a booking was taken while "require prepayment" was on (busy /
 -- holiday periods — see site_content.require_prepayment and routes/bookingPolicy.js).
 -- Such a booking is prepaid online and non-refundable on no-show. There is no
@@ -665,3 +757,73 @@ CREATE TABLE IF NOT EXISTS email_log (
 );
 
 CREATE INDEX IF NOT EXISTS idx_email_log_booking ON email_log (booking_id, created_at DESC);
+
+/* ============================================================
+   Payment attempts — every time a guest tried to pay, including the
+   times it did not work.
+
+   A DECLINED CHARGE LEAVES NO BOOKING ROW. routes/payments.js charges
+   before it inserts, precisely so a card that fails writes nothing to roll
+   back — which is correct, and which also means that until this table
+   existed there was nowhere on this server recording that a real guest,
+   with a real name and a real email, tried to give the hotel money and was
+   turned away by their bank. The only trace was in the acquirer's own
+   dashboard, as a percentage.
+
+   That is a lost booking somebody could phone back. It is also the answer
+   to "why does the dashboard say 100% rejected by issuer" — a question
+   that, on 2026-08-28, turned out to be a test card number used against
+   live keys, and which took a login to the gateway to answer.
+
+   One row per attempt, successful or not. Never joined to for anything a
+   guest sees; read by the staff Payments ledger and the hotel's daily
+   report.
+   ============================================================ */
+CREATE TABLE IF NOT EXISTS payment_attempts (
+  id SERIAL PRIMARY KEY
+);
+
+/* Every column after the primary key is added by ALTER, not inside the
+   CREATE above. CREATE TABLE IF NOT EXISTS is a no-op on a table that
+   already exists, so anything added to its column list later would never
+   reach a live database — silently, with the code around it assuming the
+   column is there. Adding them this way means the next column added to
+   this table is correct by construction. */
+ALTER TABLE payment_attempts ADD COLUMN IF NOT EXISTS charge_id       VARCHAR(100);
+ALTER TABLE payment_attempts ADD COLUMN IF NOT EXISTS provider        VARCHAR(20);
+ALTER TABLE payment_attempts ADD COLUMN IF NOT EXISTS method          VARCHAR(20);
+ALTER TABLE payment_attempts ADD COLUMN IF NOT EXISTS outcome         VARCHAR(20);
+ALTER TABLE payment_attempts ADD COLUMN IF NOT EXISTS booking_ref     VARCHAR(50);
+ALTER TABLE payment_attempts ADD COLUMN IF NOT EXISTS group_ref       TEXT;
+ALTER TABLE payment_attempts ADD COLUMN IF NOT EXISTS booking_id      TEXT REFERENCES guest_bookings(id) ON DELETE SET NULL;
+ALTER TABLE payment_attempts ADD COLUMN IF NOT EXISTS guest_name      VARCHAR(100);
+ALTER TABLE payment_attempts ADD COLUMN IF NOT EXISTS guest_email     VARCHAR(150);
+ALTER TABLE payment_attempts ADD COLUMN IF NOT EXISTS guest_phone     VARCHAR(50);
+ALTER TABLE payment_attempts ADD COLUMN IF NOT EXISTS room            VARCHAR(120);
+ALTER TABLE payment_attempts ADD COLUMN IF NOT EXISTS check_in        DATE;
+ALTER TABLE payment_attempts ADD COLUMN IF NOT EXISTS check_out       DATE;
+ALTER TABLE payment_attempts ADD COLUMN IF NOT EXISTS amount          NUMERIC(10,2);
+ALTER TABLE payment_attempts ADD COLUMN IF NOT EXISTS currency        VARCHAR(10);
+ALTER TABLE payment_attempts ADD COLUMN IF NOT EXISTS failure_code    VARCHAR(50);
+ALTER TABLE payment_attempts ADD COLUMN IF NOT EXISTS failure_message TEXT;
+ALTER TABLE payment_attempts ADD COLUMN IF NOT EXISTS card_brand      VARCHAR(30);
+ALTER TABLE payment_attempts ADD COLUMN IF NOT EXISTS card_last4      VARCHAR(4);
+ALTER TABLE payment_attempts ADD COLUMN IF NOT EXISTS card_bank       VARCHAR(120);
+ALTER TABLE payment_attempts ADD COLUMN IF NOT EXISTS card_country    VARCHAR(2);
+ALTER TABLE payment_attempts ADD COLUMN IF NOT EXISTS livemode        BOOLEAN;
+ALTER TABLE payment_attempts ADD COLUMN IF NOT EXISTS detail          JSONB;
+ALTER TABLE payment_attempts ADD COLUMN IF NOT EXISTS created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
+CREATE INDEX IF NOT EXISTS idx_payment_attempts_created ON payment_attempts (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_payment_attempts_charge  ON payment_attempts (charge_id);
+
+/* One row per day the hotel's payments report was sent, so a schedule that
+   fires four times a day sends it once. Claimed by an INSERT ... ON CONFLICT
+   DO NOTHING before any work is done, so two overlapping runs cannot both
+   win — Postgres arbitrates, not application-level locking (the same shape
+   the payment reconciler uses to make a webhook and a sweep safe together). */
+CREATE TABLE IF NOT EXISTS payment_report_log (
+  report_date DATE PRIMARY KEY
+);
+ALTER TABLE payment_report_log ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+ALTER TABLE payment_report_log ADD COLUMN IF NOT EXISTS summary    JSONB;

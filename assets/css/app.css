@@ -2283,3 +2283,187 @@ body.mobile-view .fac-card.large {
 }
 .pm-forgot-link:hover { color: var(--teal-deep); }
 .pm-save { padding: 10px 22px !important; font-size: 0.88rem !important; }
+
+/* ── The payment record on a booking ─────────────────────────────────────
+   Sits between the booking's own details and the front-desk controls: what
+   was paid, on what card, what the hotel actually receives, and where the
+   money is on its way to the bank. */
+.bk-pay-block {
+  margin: 14px 0 4px;
+  border: 1px solid var(--hairline, #e4e8e8);
+  border-radius: 10px;
+  padding: 12px 14px;
+  background: #fbfcfc;
+}
+.bk-pay-empty { color: #6a7476; font-size: 0.86rem; }
+.bk-pay-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  font-weight: 600; color: #0c5b58; font-size: 0.92rem;
+  margin: 0 0 10px; flex-wrap: wrap;
+}
+.bk-pay-receipt-btn { margin: 0; }
+.bk-pay-rows { display: grid; grid-template-columns: max-content 1fr; gap: 5px 16px; }
+.bk-pay-row { display: contents; }
+.bk-pay-k { color: #66716f; font-size: 0.8rem; white-space: nowrap; }
+.bk-pay-v { font-size: 0.86rem; color: #1f2426; overflow-wrap: anywhere; }
+.bk-pay-strong .bk-pay-v { font-weight: 600; }
+
+/* Where the money is. Given its own panel because "the guest paid" and "the
+   hotel has the money" are different days, and running them together in one
+   list is how a settled charge gets mistaken for a withdrawable one. */
+.bk-pay-settle {
+  margin: 12px -14px -12px;
+  padding: 10px 14px 12px;
+  border-top: 1px solid var(--hairline, #e4e8e8);
+  border-radius: 0 0 10px 10px;
+  background: #f2f7f6;
+  display: grid; grid-template-columns: max-content 1fr; gap: 5px 16px;
+}
+.bk-pay-settle-head { grid-column: 1 / -1; font-size: 0.82rem; color: #0f4a3e; margin-bottom: 2px; }
+.bk-pay-settle-paid_out { background: #e9f6ec; }
+.bk-pay-settle-transferable { background: #eef6f4; }
+
+.bk-pay-fail {
+  background: #fdecea; border: 1px solid #f0b7b1; color: #8a2a1a;
+  border-radius: 8px; padding: 9px 11px; margin: 0 0 10px;
+  font-size: 0.84rem; line-height: 1.45;
+}
+.bk-pay-test {
+  background: #fff4e5; border: 1px solid #f0c07a; color: #8a5a00;
+  border-radius: 8px; padding: 9px 11px; margin: 0 0 10px;
+  font-size: 0.84rem; font-weight: 600;
+}
+
+/* ── The printable receipt ───────────────────────────────────────────────── */
+.bk-receipt-overlay {
+  position: fixed; inset: 0; z-index: 1200;
+  background: rgba(20, 28, 30, 0.55);
+  display: flex; align-items: flex-start; justify-content: center;
+  padding: 4vh 16px; overflow: auto;
+}
+.bk-receipt-modal {
+  background: #fff; border-radius: 12px; max-width: 640px; width: 100%;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.28);
+}
+.bk-receipt-bar {
+  display: flex; gap: 8px; justify-content: flex-end;
+  padding: 12px 16px; border-bottom: 1px solid #eceeee;
+}
+.bk-receipt-sheet { padding: 26px 30px 30px; color: #1f2426; }
+.bk-rc-head { text-align: center; margin-bottom: 20px; }
+.bk-rc-brand { font-family: Georgia, 'Times New Roman', serif; font-size: 1.32rem; color: #0c5b58; letter-spacing: 0.02em; }
+.bk-rc-title { font-size: 0.82rem; letter-spacing: 0.14em; text-transform: uppercase; color: #8a9294; margin-top: 5px; }
+.bk-rc-test {
+  background: #fff4e5; border: 1px solid #f0c07a; color: #8a5a00;
+  padding: 8px 11px; border-radius: 8px; font-size: 0.82rem; font-weight: 600; margin-bottom: 16px;
+}
+.bk-rc-section {
+  font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase;
+  color: #8a9294; margin: 20px 0 7px; border-bottom: 1px solid #eceeee; padding-bottom: 4px;
+}
+.bk-rc-meta, .bk-rc-rooms { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
+.bk-rc-meta th { text-align: left; font-weight: normal; color: #66716f; padding: 4px 14px 4px 0; white-space: nowrap; vertical-align: top; }
+.bk-rc-meta td { padding: 4px 0; overflow-wrap: anywhere; }
+.bk-rc-rooms td { padding: 6px 0; border-bottom: 1px solid #f2f4f4; }
+.bk-rc-amt { text-align: right; white-space: nowrap; }
+.bk-rc-total td { font-weight: 600; border-bottom: none; padding-top: 10px; }
+.bk-rc-note {
+  margin-top: 20px; background: #f2f7f6; border: 1px solid #cfe3e0;
+  border-radius: 8px; padding: 10px 12px; font-size: 0.8rem; color: #0f4a3e; line-height: 1.5;
+}
+.bk-rc-thanks { margin-top: 18px; text-align: center; font-size: 0.84rem; color: #66716f; }
+
+/* Printing a receipt.
+
+   help.css also carries an @media print block for this page — it hides
+   .dash-panel and force-shows #panel-help, so ANY print from the staff console
+   comes out with the whole staff handbook attached. These rules are scoped
+   under body.bk-printing (which openBkReceipt adds only while printing a
+   receipt), giving them a higher specificity than help.css's single-class
+   selectors at equal !important, so the receipt wins without disturbing an
+   ordinary print of the handbook. */
+@media print {
+  body.bk-printing .dash,
+  body.bk-printing .dash-side,
+  body.bk-printing .dash-main,
+  body.bk-printing #panel-help,
+  body.bk-printing .help-shell { display: none !important; }
+  body.bk-printing .bk-receipt-overlay {
+    display: block !important; position: static !important;
+    background: none !important; padding: 0 !important; overflow: visible !important;
+  }
+  body.bk-printing .bk-receipt-modal {
+    box-shadow: none !important; max-width: none !important; border-radius: 0 !important;
+  }
+  body.bk-printing .bk-receipt-bar { display: none !important; }
+  body.bk-printing .bk-receipt-sheet { padding: 0 !important; }
+}
+
+@media (max-width: 640px) {
+  .bk-pay-rows, .bk-pay-settle { grid-template-columns: 1fr; gap: 2px; }
+  .bk-pay-k { margin-top: 6px; }
+  .bk-receipt-sheet { padding: 20px 18px 24px; }
+}
+
+/* ── Payments ledger (admin) ─────────────────────────────────────────────── */
+.pay-actions { float: right; display: flex; gap: 6px; flex-wrap: wrap; }
+.pay-testbanner {
+  background: #fff4e5; border: 1px solid #f0c07a; color: #8a5a00;
+  padding: 10px 13px; margin: 12px 14px; border-radius: 8px;
+  font-size: 0.84rem; font-weight: 600;
+}
+.pay-error {
+  background: #fdecea; border: 1px solid #f0b7b1; color: #8a2a1a;
+  padding: 12px 14px; margin: 12px 14px; border-radius: 8px; font-size: 0.86rem;
+}
+.pay-balance {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px;
+  background: #e4e8e8; border: 1px solid #e4e8e8; border-radius: 10px;
+  overflow: hidden; margin: 12px 14px 16px;
+}
+.pay-bal-cell { background: #fff; padding: 11px 13px; }
+.pay-bal-k { font-size: 0.7rem; letter-spacing: 0.06em; text-transform: uppercase; color: #8a9294; }
+.pay-bal-v { font-size: 0.98rem; font-weight: 600; color: #1f2426; margin-top: 3px; }
+/* The two an owner acts on: one means wait, the other means it can be moved. */
+.pay-bal-hold .pay-bal-v { color: #8a5a00; }
+.pay-bal-free .pay-bal-v { color: #1a7f37; }
+
+.pay-row {
+  border-bottom: 1px solid #eff1f1; padding: 12px 14px;
+  border-left: 3px solid transparent;
+}
+.pay-row:hover { background: #fafbfb; }
+.pay-state-paid { border-left-color: #1a7f37; }
+.pay-state-pending { border-left-color: #b8912f; }
+.pay-state-failed, .pay-state-expired { border-left-color: #b3382a; }
+
+.pay-row-top { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.pay-state {
+  font-size: 0.68rem; letter-spacing: 0.08em; text-transform: uppercase;
+  padding: 2px 8px; border-radius: 999px; background: #eef2f2; color: #4a5456;
+}
+.pay-state-paid .pay-state { background: #e9f6ec; color: #1a7f37; }
+.pay-state-pending .pay-state { background: #fff4e5; color: #8a5a00; }
+.pay-state-failed .pay-state, .pay-state-expired .pay-state { background: #fdecea; color: #8a2a1a; }
+.pay-amt { font-weight: 600; font-size: 0.98rem; }
+.pay-when { color: #8a9294; font-size: 0.78rem; margin-left: auto; }
+.pay-row-mid { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 4px; font-size: 0.83rem; color: #4a5456; }
+.pay-ref { color: #0c5b58; }
+.pay-card { color: #66716f; }
+.pay-row-net { margin-top: 3px; font-size: 0.78rem; color: #66716f; }
+.pay-flag {
+  margin-top: 7px; padding: 7px 10px; border-radius: 7px;
+  font-size: 0.8rem; line-height: 1.45;
+}
+.pay-flag-alert { background: #fdecea; border: 1px solid #f0b7b1; color: #8a2a1a; font-weight: 600; }
+.pay-flag-warn  { background: #fff4e5; border: 1px solid #f0c07a; color: #8a5a00; }
+.pay-flag-info  { background: #f4f6f6; border: 1px solid #e0e5e5; color: #41494b; }
+.pay-row-foot { display: flex; align-items: center; gap: 10px; margin-top: 8px; flex-wrap: wrap; }
+.pay-id { font-size: 0.72rem; color: #9aa2a3; background: #f5f7f7; padding: 2px 6px; border-radius: 5px; }
+.pay-reconcile-btn { margin-left: auto; }
+
+@media (max-width: 720px) {
+  .pay-balance { grid-template-columns: repeat(2, 1fr); }
+  .pay-when { margin-left: 0; width: 100%; }
+  .pay-actions { float: none; margin-top: 8px; }
+}

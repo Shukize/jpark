@@ -45,7 +45,10 @@ const express = require('express');
 const crypto = require('crypto');
 const db = require('../db');
 const payments = require('../lib/payments');
+const paymentDetail = require('../lib/payments/detail');
 const reconciler = require('../paymentReconciler');
+const paymentsLedger = require('../lib/paymentsLedger');
+const paymentReport = require('../lib/paymentReport');
 const T = require('../lib/emailTemplate');
 // Mirrors the constants in routes/guestBookings.js; the day-use request is
 // the only guest email built here rather than there.
@@ -60,10 +63,15 @@ const { makeLimiter } = require('../lib/rateLimit');
 const { sendEmail } = require('../mailer');
 const {
   row2js,
+  row2jsPublic,
   fireBookingEmails,
   fireGroupBookingEmails,
   sendPaymentConfirmedEmail,
   sendGroupPaymentConfirmedEmail,
+  // Tells the hotel a guest's card was refused. Nothing said this out loud
+  // before: a decline rolled back its transaction and left, and the only
+  // record was a percentage on the acquirer's dashboard.
+  sendDeclinedAttemptNotice: fireDeclinedAttemptNotice,
   computeNights,
   hotelNotice,
   confirmationEmail,
@@ -285,9 +293,20 @@ async function insertBookingRow(client, p) {
         room, check_in, check_out, nights, adults, children, total, currency, status, lang,
         payment_provider, payment_method, payment_status, payment_charge_id,
         smoking_preference, breakfast, child_ages,
-        special_requests, group_ref, group_index, group_size, extra_bed, non_refundable)
+        special_requests, group_ref, group_index, group_size, extra_bed, non_refundable,
+        -- Everything the gateway said about the payment. Appended at the END
+        -- of the list on purpose: inserting a column mid-list silently shifts
+        -- every positional parameter after it, which is exactly how the test
+        -- stub's group_ref came to be read one slot late.
+        payment_amount, payment_currency, payment_fee, payment_fee_vat, payment_net,
+        payment_refunded_amount, payment_paid_at, payment_transaction_id,
+        payment_card_brand, payment_card_last4, payment_card_expiry,
+        payment_card_bank, payment_card_country, payment_card_funding,
+        payment_3ds, payment_failure_code, payment_failure_message,
+        payment_livemode, payment_detail, payment_detail_at)
      VALUES ($1,'direct','Direct (Website)',$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'THB','confirmed',$13,
-             $14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26)
+             $14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,
+             $27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39,$40,$41,$42,$43,$44,$45,$46)
      RETURNING *`,
     [
       p.ref, p.guestName, p.guestLastName, p.guestEmail, p.guestPhone || null,
@@ -298,9 +317,83 @@ async function insertBookingRow(client, p) {
       p.smoking, p.breakfast, JSON.stringify(p.childAges),
       p.specialRequests, p.groupRef || null, p.groupIndex || null, p.groupSize || null,
       Boolean(p.extraBed), Boolean(p.nonRefundable),
+      // One flattening function shared with the reconciler and the backfill,
+      // so the four places a payment can be written can never disagree about
+      // what a payment record contains.
+      ...(function () {
+        const c = paymentDetail.toColumns(p.paymentDetail);
+        return [
+          c.payment_amount, c.payment_currency, c.payment_fee, c.payment_fee_vat, c.payment_net,
+          c.payment_refunded_amount, c.payment_paid_at, c.payment_transaction_id,
+          c.payment_card_brand, c.payment_card_last4, c.payment_card_expiry,
+          c.payment_card_bank, c.payment_card_country, c.payment_card_funding,
+          c.payment_3ds, c.payment_failure_code, c.payment_failure_message,
+          c.payment_livemode, c.payment_detail, c.payment_detail_at,
+        ];
+      }()),
     ]
   );
   return rows[0];
+}
+
+/* ── Recording a payment ATTEMPT, including the ones that failed ─────────
+   A declined charge deliberately leaves no booking row: the route charges
+   before it inserts, so a card the bank refuses writes nothing that would
+   have to be rolled back. That is correct, and it means the decline itself
+   had nowhere to live — a guest with a real name and a real email tried to
+   give the hotel money, was turned away by their bank, and the only trace was
+   a percentage in the acquirer's dashboard.
+
+   That is a lost booking somebody could phone back.
+
+   Two rules this function must obey, both learned from the surrounding code:
+
+   1. IT USES THE POOL, NEVER THE CALLER'S CLIENT. Every decline call site sits
+      immediately after `await client.query('ROLLBACK')` with `client.release()`
+      already queued in a `finally`. A query on that client would either write
+      into a dead transaction or throw into the outer catch and turn a clean
+      402 into a 500 — converting "your card was declined" into "the hotel's
+      website is broken".
+
+   2. IT IS NEVER AWAITED INTO THE RESPONSE PATH. Bookkeeping must not be able
+      to delay, or fail, the answer a guest is waiting for. Fire, catch, log. */
+function recordAttempt(a) {
+  const d = a.detail || null;
+  const card = (d && d.card) || {};
+  const failure = a.failure || (d && d.failure) || {};
+  db.query(
+    `INSERT INTO payment_attempts
+       (charge_id, provider, method, outcome, booking_ref, group_ref, booking_id,
+        guest_name, guest_email, guest_phone, room, check_in, check_out,
+        amount, currency, failure_code, failure_message,
+        card_brand, card_last4, card_bank, card_country, livemode, detail)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)`,
+    [
+      a.chargeId || (d && d.chargeId) || null,
+      a.provider || (d && d.provider) || null,
+      a.method || null,
+      a.outcome || null,
+      a.bookingRef || null,
+      a.groupRef || null,
+      a.bookingId || null,
+      a.guestName || null,
+      a.guestEmail || null,
+      a.guestPhone || null,
+      a.room || null,
+      a.checkIn || null,
+      a.checkOut || null,
+      a.amount != null ? a.amount : (d && d.amount),
+      a.currency || (d && d.currency) || 'THB',
+      failure.code || null,
+      failure.message || null,
+      card.brand || null,
+      card.last4 || null,
+      card.bank || null,
+      card.country || null,
+      d ? d.livemode : null,
+      d && d.snapshot ? JSON.stringify(d.snapshot) : null,
+    ]
+  ).catch((e) => console.error('[payments] could not record payment attempt', (e && e.message) || e));
 }
 
 // ── Online payment (card + PromptPay, via lib/payments) ─────────────────────
@@ -327,12 +420,55 @@ async function isPrepayRequired() {
   }
 }
 
+/* ── Online payment is the rule, not an option ───────────────────────────
+   A booking made on this website is paid on this website, by card or
+   PromptPay. "Pay at check-in" is no longer offered.
+
+   ONE exception, and it is a deliberate one: if no gateway is configured — no
+   keys, a suspended merchant account, a provider outage that leaves
+   isConfigured() false — the site falls back to pay-at-check-in rather than
+   refusing every direct booking. An online-only rule that turns the booking
+   form into a dead end the moment the acquirer has a bad afternoon is not a
+   policy, it is an outage with a policy painted on it. The front desk can
+   always take money; the website cannot always reach a gateway.
+
+   ALLOW_PAY_AT_CHECKIN=true re-opens it deliberately (a phone booking taken
+   through the same form, a gateway migration), and is deliberately an
+   environment variable rather than an admin toggle: it is a temporary
+   operational escape hatch, not a setting somebody should be able to leave on
+   by accident from a phone.
+
+   This deliberately does NOT reuse site_content.require_prepayment. That flag
+   means something else and still does: "these dates are non-refundable
+   because they are busy", which stamps non_refundable on the booking and
+   changes the guest-facing copy. Folding a permanent payment rule into a
+   seasonal refund policy would make every booking non-refundable forever. */
+function payAtCheckinAllowed() {
+  if (!payments.isConfigured()) return true; // no gateway — never dead-end a guest
+  return String(process.env.ALLOW_PAY_AT_CHECKIN || '').trim().toLowerCase() === 'true';
+}
+
 function resolvePaymentChoice(b, prepayRequired) {
   const raw = b.paymentMethod;
   if (!raw || raw === 'pay_at_checkin') {
+    // The online-only rule, checked BEFORE the seasonal prepay flag: it is the
+    // broader of the two, and its message is the one a guest needs.
+    if (!payAtCheckinAllowed()) {
+      return {
+        error: 'Bookings made on our website are paid online, by card or PromptPay. ' +
+          'If you would rather pay in person, please call the hotel and we will take your booking by phone.',
+        // A machine-readable code so the booking page can recover — reload the
+        // payment config and re-render with a valid method — instead of
+        // dead-ending a guest on a fully filled form.
+        code: 'ONLINE_PAYMENT_REQUIRED',
+      };
+    }
     // Busy/holiday policy: no pay-at-check-in — the guest must pay online now.
     if (prepayRequired) {
-      return { error: 'Prepayment is required for these dates. Please pay online by card or PromptPay.' };
+      return {
+        error: 'Prepayment is required for these dates. Please pay online by card or PromptPay.',
+        code: 'ONLINE_PAYMENT_REQUIRED',
+      };
     }
     return { method: 'pay_at_checkin' };
   }
@@ -379,6 +515,11 @@ router.get('/payments/config', async (_req, res) => {
   // are live.
   res.json(Object.assign(payments.publicConfig(), {
     prepayRequired: await isPrepayRequired(),
+    // FALSE in normal operation: bookings made here are paid here. It only
+    // goes true when no gateway is reachable (so the site must not dead-end a
+    // guest) or when ALLOW_PAY_AT_CHECKIN is deliberately set. The booking
+    // page renders the pay-at-check-in option only when this says it may.
+    payAtCheckinAllowed: payAtCheckinAllowed(),
   }));
 });
 
@@ -516,7 +657,9 @@ router.post('/reservations', async (req, res) => {
 
   const prepayRequired = await isPrepayRequired();
   const paymentChoice = resolvePaymentChoice(b, prepayRequired);
-  if (paymentChoice.error) return res.status(400).json({ error: paymentChoice.error });
+  if (paymentChoice.error) {
+    return res.status(400).json({ error: paymentChoice.error, code: paymentChoice.code });
+  }
   if (paymentChoice.method !== 'pay_at_checkin' && paymentAttemptLimited(req.ip || 'unknown')) {
     return res.status(429).json({ error: 'Too many payment attempts. Please try again later.' });
   }
@@ -567,12 +710,47 @@ router.post('/reservations', async (req, res) => {
         bookingRef: ref,
         guest: { name: `${guestName} ${guestLastName || ''}`.trim(), email: guest.email, phone: guest.phone },
         description: `J Park Hotel — ${v.room} (${v.variantLabel}) ${checkIn} to ${checkOut}`,
-        metadata: { room: v.room, variantLabel: v.variantLabel, checkIn, checkOut },
+        // `bookingRef` is what makes a charge in the gateway's dashboard
+        // traceable back to a reservation. It was being passed to
+        // payments.charge() and then dropped — omise.chargeCard() never
+        // destructured it — so every single-room charge reached Omise with no
+        // reference at all, and the group path was the only one that carried
+        // one. A declined charge is exactly when that matters most: there is
+        // no booking row to match it against, so without the ref in metadata
+        // there is nothing to match it BY.
+        metadata: { bookingRef: ref, room: v.room, variantLabel: v.variantLabel, checkIn, checkOut },
       });
+      const attemptBase = {
+        provider: result.provider || (payments.active() && payments.active().id),
+        method: paymentChoice.method,
+        bookingRef: ref,
+        guestName: `${guestName} ${guestLastName || ''}`.trim(),
+        guestEmail: guest.email,
+        guestPhone: guest.phone,
+        // `room` here is the room TYPE ("Studio Single"), never a room
+        // number — no room has been assigned at booking time, and the two are
+        // different columns for exactly that reason.
+        room: v.room,
+        checkIn,
+        checkOut,
+        amount: v.total,
+        detail: result.detail || null,
+      };
       if (!result.ok) {
         await client.query('ROLLBACK');
+        // Recorded on the POOL, after the rollback, never awaited — see
+        // recordAttempt(). This is the only record that this guest tried.
+        recordAttempt(Object.assign({}, attemptBase, {
+          outcome: result.status === 402 ? 'declined' : 'error',
+          failure: result.failure || null,
+        }));
+        fireDeclinedAttemptNotice(Object.assign({}, attemptBase, { failure: result.failure || null }));
         return res.status(result.status).json({ error: result.error });
       }
+      recordAttempt(Object.assign({}, attemptBase, {
+        outcome: result.paid ? 'paid' : 'pending',
+        chargeId: result.chargeRef,
+      }));
       onlinePayment = result;
     }
 
@@ -586,6 +764,7 @@ router.post('/reservations', async (req, res) => {
       paymentMethod: onlinePayment ? paymentChoice.method : undefined,
       paymentStatus: onlinePayment ? (onlinePayment.paid ? 'paid' : 'pending') : undefined,
       paymentChargeId: onlinePayment ? onlinePayment.chargeRef : undefined,
+      paymentDetail: onlinePayment ? onlinePayment.detail : undefined,
     });
     await client.query('COMMIT');
 
@@ -601,7 +780,7 @@ router.post('/reservations', async (req, res) => {
 
     res.status(201).json({
       status: 'confirmed',
-      booking: row2js(saved),
+      booking: row2jsPublic(saved),
       payment: paymentResponse(paymentChoice.method, onlinePayment),
     });
   } catch (e) {
@@ -653,7 +832,9 @@ router.post('/reservations/group', async (req, res) => {
 
   const prepayRequired = await isPrepayRequired();
   const paymentChoice = resolvePaymentChoice(b, prepayRequired);
-  if (paymentChoice.error) return res.status(400).json({ error: paymentChoice.error });
+  if (paymentChoice.error) {
+    return res.status(400).json({ error: paymentChoice.error, code: paymentChoice.code });
+  }
   if (paymentChoice.method !== 'pay_at_checkin' && paymentAttemptLimited(req.ip || 'unknown')) {
     return res.status(429).json({ error: 'Too many payment attempts. Please try again later.' });
   }
@@ -742,6 +923,12 @@ router.post('/reservations/group', async (req, res) => {
         paymentMethod: onlinePayment ? paymentChoice.method : undefined,
         paymentStatus: onlinePayment ? (onlinePayment.paid ? 'paid' : 'pending') : undefined,
         paymentChargeId: onlinePayment ? onlinePayment.chargeRef : undefined,
+        // Every room of a group shares ONE charge, so every room carries the
+        // same detail record. The money is not multiplied by writing it to
+        // each row — each row's own `total` is its share, and any report that
+        // sums a group's payment_amount must group by payment_charge_id. The
+        // ledger and the daily report both do.
+        paymentDetail: onlinePayment ? onlinePayment.detail : undefined,
       });
       savedRows.push(saved);
     }
@@ -763,7 +950,7 @@ router.post('/reservations/group', async (req, res) => {
       grandTotal,
       currency: 'THB',
       rooms: savedRows.map((r) => ({ ref: r.ref, room: r.room, total: Number(r.total || 0) })),
-      bookings: savedRows.map(row2js),
+      bookings: savedRows.map(row2jsPublic),
       payment: paymentResponse(paymentChoice.method, onlinePayment),
     });
   } catch (e) {
@@ -885,11 +1072,18 @@ router.post('/payments/webhook', express.urlencoded({ extended: false, limit: '6
 
   try {
     // Never trust the notification body's own claimed status — re-ask the
-    // gateway and act only on that answer. settle() re-verifies, performs the
-    // atomic flip and sends the confirmation email; it is the same function
-    // the reconciler calls, so a webhook and a reconciliation check can race
-    // safely and only one of them will ever record the payment.
-    await reconciler.settle(chargeRef);
+    // gateway and act only on that answer. checkOnce() re-verifies, then
+    // routes the answer: a paid charge through the same atomic settle() the
+    // reconciler uses (so a webhook and a reconciliation check can race safely
+    // and only one of them ever records the payment or sends the email), and a
+    // FAILED or EXPIRED one through markUnpaid().
+    //
+    // This used to call settle() directly, which acted only on success — so a
+    // charge the bank refused, or a PromptPay QR that expired, stayed at
+    // 'pending' until a sweep noticed hours later. On the booking board
+    // 'pending' reads as "money is on its way", which is the one thing it is
+    // not.
+    await reconciler.checkOnce(chargeRef);
     res.status(200).json({ ok: true });
   } catch (e) {
     console.error('[payments] webhook', e);
@@ -1249,6 +1443,121 @@ function dayUseGuestEmail(bk, preferredTime) {
    the overlap/inventory guard: check_in and check_out are stored equal,
    which countOverlapping()'s strict `check_in < check_out` condition never
    matches, so day-use rows never block or get blocked by anything. */
+/* ── The payments ledger (admin only) ────────────────────────────────────
+   Reads charges straight from the gateway and lines them up against this
+   database, so "was there a payment today?" is a screen rather than a
+   cross-check between two dashboards. See lib/paymentsLedger.js for what it
+   compares and why.
+
+   requireAdmin, NOT the shared ?key= that guards /payments/diagnostics. These
+   responses carry guest names, email addresses, card brands, last-4s and the
+   hotel's own fee and net takings; the diagnostics key is pasted into
+   browsers and CI logs by design, and is the wrong instrument for PII.
+
+   Its own rate bucket on top: each request can mean several outbound gateway
+   calls, so a stuck browser tab must not be able to hammer the acquirer. */
+const ledgerLimited = makeLimiter(60, 10 * 60 * 1000);
+
+function ledgerGuard(req, res) {
+  if (ledgerLimited(req.ip || 'unknown')) {
+    res.status(429).json({ error: 'Too many requests. Please wait a moment.' });
+    return false;
+  }
+  return true;
+}
+
+router.get('/payments/ledger', requireAdmin, async (req, res) => {
+  if (!ledgerGuard(req, res)) return;
+  try {
+    const [ledger, balance] = await Promise.all([
+      paymentsLedger.buildLedger({
+        from: req.query.from || undefined,
+        to: req.query.to || undefined,
+        limit: req.query.limit,
+        offset: Number(req.query.offset) || 0,
+      }),
+      // The balance is a nicety beside the charge list; a failure to read it
+      // must not empty the screen the owner actually came for.
+      paymentsLedger.accountBalance().catch(() => null),
+    ]);
+    res.json(Object.assign({}, ledger, { balance }));
+  } catch (e) {
+    console.error('[payments] ledger', e);
+    res.status(502).json({
+      error: 'Could not read the payment gateway. It may be temporarily unavailable — nothing has been changed.',
+    });
+  }
+});
+
+/* Bring one charge into line with the gateway. The button beside a row that
+   says "paid at the gateway, not recorded here". */
+router.post('/payments/ledger/reconcile', requireAdmin, async (req, res) => {
+  if (!ledgerGuard(req, res)) return;
+  const chargeId = String((req.body && req.body.chargeId) || '').trim();
+  if (!chargeId) return res.status(400).json({ error: 'chargeId is required' });
+  try {
+    const result = await paymentsLedger.reconcileCharge(chargeId);
+    res.status(result.ok ? 200 : 502).json(result);
+  } catch (e) {
+    console.error('[payments] reconcile one', e);
+    res.status(500).json({ error: 'Could not reconcile that charge.' });
+  }
+});
+
+/* Fill in the payment detail for every booking that never got it — the
+   one-off after deploying these columns, and the catch-up after any spell
+   where the gateway was unreachable. */
+router.post('/payments/backfill', requireAdmin, async (req, res) => {
+  if (!ledgerGuard(req, res)) return;
+  try {
+    const result = await paymentsLedger.runBackfill({ limit: (req.body && req.body.limit) || 50 });
+    res.status(result.ok ? 200 : 400).json(result);
+  } catch (e) {
+    console.error('[payments] backfill', e);
+    res.status(500).json({ error: 'Backfill failed.' });
+  }
+});
+
+/* Work out which bank transfer paid each recent charge out — the "when does
+   the hotel actually have the money" half, which cannot exist at charge time
+   because the transfer does not exist yet. */
+router.post('/payments/settlement-refresh', requireAdmin, async (req, res) => {
+  if (!ledgerGuard(req, res)) return;
+  try {
+    const result = await paymentsLedger.refreshSettlement({ limit: (req.body && req.body.limit) || 40 });
+    res.status(result.ok ? 200 : 400).json(result);
+  } catch (e) {
+    console.error('[payments] settlement refresh', e);
+    res.status(500).json({ error: 'Settlement refresh failed.' });
+  }
+});
+
+/* The daily payments report to the hotel's inbox.
+
+   Called by the existing 4x/day health workflow, which already wakes Neon at
+   those moments — so this adds no database compute of its own. It is called
+   four times and sends ONCE: the first call of each Bangkok day claims the
+   date with an INSERT ... ON CONFLICT DO NOTHING before any work is done, so
+   two overlapping runs cannot both send.
+
+   Guarded like the reconcile backstop beside it — the shared ?key= or an
+   admin session — rather than by requireAdmin alone, because a scheduled
+   workflow has no session to present. Unlike the ledger, the report's own
+   response body carries only counts, not guest PII; the detail goes to the
+   hotel's inbox, which is where it belongs. */
+router.post('/payments/daily-report', diagnosticsAuth, async (req, res) => {
+  try {
+    const result = await paymentReport.sendDailyReport({
+      force: String((req.query && req.query.force) || '') === 'true',
+      date: (req.query && req.query.date) || undefined,
+    });
+    res.json(result);
+  } catch (e) {
+    console.error('[payments] daily report', e);
+    res.status(500).json({ error: 'Could not send the payments report.' });
+  }
+});
+
 router.post('/payments/dayuse-booking', async (req, res) => {
   const ip = req.ip || 'unknown';
   if (bookingRateLimited(req)) {
@@ -1261,6 +1570,13 @@ router.post('/payments/dayuse-booking', async (req, res) => {
   const preferredTime = typeof b.preferredTime === 'string' ? b.preferredTime.trim().slice(0, 200) : '';
   const specialRequests = typeof guest.note === 'string' && guest.note.trim()
     ? guest.note.trim().slice(0, 1000) : null;
+  /* Day use is deliberately OUTSIDE the online-only rule.
+
+     It is a request, not a reservation: the row is written as 'pending' for
+     staff to confirm by phone, nothing is charged, and there is no gateway
+     call anywhere in this route. Routing it through resolvePaymentChoice
+     would reject every day-use enquiry the moment online-only came into
+     force, for a flow that never took money online in the first place. */
   const method = 'pay_at_checkin';
 
   if (!room || !date) {
@@ -1316,7 +1632,7 @@ router.post('/payments/dayuse-booking', async (req, res) => {
         .catch((err) => console.error('[payments] dayuse guest email error', err));
     }
 
-    res.status(201).json({ status: 'pending', booking: row2js(saved) });
+    res.status(201).json({ status: 'pending', booking: row2jsPublic(saved) });
   } catch (e) {
     console.error('[payments] dayuse-booking', e);
     res.status(500).json({ error: 'Database error' });

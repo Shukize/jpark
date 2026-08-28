@@ -51,9 +51,11 @@
 
 const db = require('./db');
 const payments = require('./lib/payments');
+const PD = require('./lib/payments/detail');
 const {
   sendPaymentConfirmedEmail,
   sendGroupPaymentConfirmedEmail,
+  sendPaymentFailedEmail,
 } = require('./routes/guestBookings');
 
 /* When to re-ask Omise about a charge nobody has confirmed yet, in minutes
@@ -123,19 +125,38 @@ async function settle(chargeRef, verified) {
   // first one to arrive matches any rows, so only it sends the email. For a
   // group booking every room shares one payment_charge_id, so one statement
   // flips the whole reservation.
+  //
+  // The payment DETAIL is folded into this same statement rather than written
+  // by a follow-up UPDATE. Two reasons, both load-bearing: a second statement
+  // could fail on its own and leave a booking marked paid with no record of
+  // what paid it, and a second statement would be a second Neon round trip on
+  // a path that runs for every payment.
+  //
+  // Every detail assignment is COALESCE($n, column), so a thinner later answer
+  // about the same charge can never blank a richer earlier one — a webhook
+  // re-delivery, a settlement refresh that knows about transfers but not
+  // cards, or a manual re-run all add without erasing.
+  const detail = (verified && verified.detail) || (result && result.detail) || null;
+  const set = PD.updateSet(detail, 2);
   const { rows } = await db.query(
-    `UPDATE guest_bookings SET payment_status = 'paid'
+    `UPDATE guest_bookings SET payment_status = 'paid'${set.clause ? ', ' + set.clause : ''}
      WHERE payment_charge_id = $1 AND payment_status != 'paid'
      RETURNING *`,
-    [chargeRef]
+    [chargeRef, ...set.values]
   );
-  if (!rows.length) return { settled: false, state: 'paid', rows: 0 };
+  if (!rows.length) {
+    // Somebody else already recorded this payment. The flip is theirs, but
+    // the DETAIL may still be missing — this is the ordinary case where a
+    // webhook wins the race and a later verify carries the richer object.
+    if (detail) await recordDetail(chargeRef, detail);
+    return { settled: false, state: 'paid', rows: 0 };
+  }
 
   if (rows[0].group_ref) {
     const sorted = rows.slice().sort((a, b) => (a.group_index || 0) - (b.group_index || 0));
-    sendGroupPaymentConfirmedEmail(sorted).catch((err) => console.error('[reconcile] group email', err));
+    sendGroupPaymentConfirmedEmail(sorted, detail).catch((err) => console.error('[reconcile] group email', err));
   } else {
-    sendPaymentConfirmedEmail(rows[0]).catch((err) => console.error('[reconcile] email', err));
+    sendPaymentConfirmedEmail(rows[0], detail).catch((err) => console.error('[reconcile] email', err));
   }
   return { settled: true, state: 'paid', rows: rows.length };
 }
@@ -147,17 +168,55 @@ async function settle(chargeRef, verified) {
    way" when it never is. The RESERVATION is untouched and stays confirmed —
    only the payment leg is closed out, so the front desk knows to collect at
    check-in instead of waiting. Never overwrites a row already marked paid. */
-async function markUnpaid(chargeRef, state) {
+async function markUnpaid(chargeRef, state, detail) {
+  const set = PD.updateSet(detail, 2);
   const { rows } = await db.query(
-    `UPDATE guest_bookings SET payment_status = 'failed'
+    `UPDATE guest_bookings SET payment_status = 'failed'${set.clause ? ', ' + set.clause : ''}
      WHERE payment_charge_id = $1 AND payment_status = 'pending'
-     RETURNING id, ref`,
-    [chargeRef]
+     RETURNING *`,
+    [chargeRef, ...set.values]
   );
   if (rows.length) {
     log(`charge ${chargeRef} ${state} — ${rows.length} row(s) marked unpaid; guest pays at check-in`);
+    // The front desk is the only party who can act on this, and until now
+    // nobody told them: the booking simply stopped saying "payment on its
+    // way" and started saying nothing. A guest arriving against an expired
+    // QR would have been waved through as prepaid.
+    //
+    // One notice per reservation, not per room: a group's rooms all share
+    // this charge and all flip together in the statement above.
+    try {
+      sendPaymentFailedEmail(rows[0], detail || null);
+    } catch (e) {
+      console.error('[reconcile] payment-failed notice', e);
+    }
   }
   return rows.length;
+}
+
+/* Record what the gateway said about a charge, without touching its status.
+
+   Used where the money question is already settled but the RECORD is not: a
+   webhook that won the race and wrote only a status, a booking made before
+   any of these columns existed, and the settlement refresh, which learns
+   weeks later which bank transfer actually paid a charge out.
+
+   COALESCE throughout (see updateSet), so this can only ever add. */
+async function recordDetail(chargeRef, detail) {
+  if (!chargeRef || !PD.hasDetail(detail)) return 0;
+  const set = PD.updateSet(detail, 2);
+  if (!set.clause) return 0;
+  try {
+    const { rowCount } = await db.query(
+      `UPDATE guest_bookings SET ${set.clause} WHERE payment_charge_id = $1`,
+      [chargeRef, ...set.values]
+    );
+    return rowCount || 0;
+  } catch (e) {
+    // Bookkeeping must never break the path that recognises money.
+    console.error('[reconcile] could not record payment detail for', chargeRef, (e && e.message) || e);
+    return 0;
+  }
 }
 
 /* One reconciliation attempt. Returns true when the charge has reached a
@@ -181,9 +240,14 @@ async function checkOnce(chargeRef) {
   }
 
   if (result.state === 'expired' || result.state === 'failed') {
-    await markUnpaid(chargeRef, result.state);
+    await markUnpaid(chargeRef, result.state, result.detail || null);
     return true;
   }
+  // Still moving. Record whatever the gateway already knows — a pending
+  // PromptPay charge has no card and no fee, but a pending 3-D Secure card
+  // charge has both, and holding that until it settles means a guest mid-
+  // challenge shows as a blank payment on the booking board.
+  if (result.detail) await recordDetail(chargeRef, result.detail);
   return false; // still pending, or unknown — keep watching
 }
 
@@ -261,7 +325,7 @@ async function sweep({ maxAgeHours = SWEEP_MAX_AGE_HOURS, reason = 'manual' } = 
           log(`RECOVERED ${ref} — paid at the gateway, never confirmed here (${outcome.rows} row(s))`);
         }
       } else if (before.state === 'expired' || before.state === 'failed') {
-        if (await markUnpaid(ref, before.state)) closed += 1;
+        if (await markUnpaid(ref, before.state, before.detail || null)) closed += 1;
       } else {
         // Genuinely still in flight — hand it back to the timer chain so it
         // keeps being watched without waiting for the next sweep.
@@ -288,4 +352,10 @@ function start() {
   if (typeof timer.unref === 'function') timer.unref();
 }
 
-module.exports = { settle, watch, sweep, start, WATCH_SCHEDULE_MINUTES };
+module.exports = {
+  settle, watch, sweep, start, WATCH_SCHEDULE_MINUTES,
+  // checkOnce is exported so the webhook can close out a FAILED charge
+  // in seconds instead of waiting for a sweep, and so the ledger can
+  // re-ask about one charge on demand.
+  checkOnce, markUnpaid, recordDetail,
+};

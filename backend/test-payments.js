@@ -75,6 +75,67 @@ const gateway = http.createServer((req, res) => {
 // ── Mock Omise ────────────────────────────────────────────────────────────
 const omiseSeen = { charge: null, source: null, lookups: [] };
 const omisePaid = new Set();
+
+/* A REAL Omise charge, not the three-field stub this mock used to answer with.
+
+   The stub returned `{ object, id, status }`, which was enough to test the
+   status machinery and nothing else — so every field the hotel actually needs
+   off a charge (which card, whose bank, what fee, when it settled) could be
+   read wrongly by the adapter and the suite would still be green. Card fields
+   in particular are easy to guess wrong: Omise says `last_digits`, not
+   `last4`, and `financing`, not `funding`.
+
+   Money is in SATANG here, exactly as the real API sends it — this is what
+   proves the adapter divides by 100 rather than reporting a 555,000 THB
+   charge. The fee is Omise's real Thai card rate (3.65% + 7% VAT), which is
+   what makes `amount - fee - fee_vat === net` a meaningful assertion. */
+function omiseCharge(id, status, req) {
+  const amount = (req && req.amount) || 100000;
+  const fee = Math.round(amount * 0.0365);
+  const feeVat = Math.round(fee * 0.07);
+  const isCard = !(req && req.source);
+  return {
+    object: 'charge',
+    id,
+    status,
+    livemode: false,
+    amount,
+    currency: 'thb',
+    fee,
+    fee_vat: feeVat,
+    net: amount - fee - feeVat,
+    refunded_amount: 0,
+    paid: status === 'successful',
+    paid_at: status === 'successful' ? '2026-08-28T08:50:24Z' : null,
+    created_at: '2026-08-28T08:50:20Z',
+    transaction: status === 'successful' ? 'trxn_test_' + id.slice(-4) : null,
+    description: (req && req.description) || null,
+    metadata: (req && req.metadata) || {},
+    authorized: status !== 'failed',
+    captured: status === 'successful',
+    failure_code: null,
+    failure_message: null,
+    card: isCard ? {
+      object: 'card',
+      brand: 'Visa',
+      last_digits: '4242',
+      first_digits: null,
+      name: 'SOMCHAI J',
+      expiration_month: 9,
+      expiration_year: 2029,
+      bank: 'Kasikornbank Public Company Limited',
+      country: 'th',
+      financing: 'credit',
+      fingerprint: 'fp_test_abc123',
+      security_code_check: true,
+    } : null,
+    source: isCard ? null : {
+      object: 'source',
+      type: 'promptpay',
+      scannable_code: { image: { download_uri: 'https://api.omise.co/qr/' + id + '.png' } },
+    },
+  };
+}
 // Mutable so the register-webhook test can observe the PATCH taking effect.
 const omiseAccount = { webhook_uri: null };
 let chargeSeq = 0;
@@ -100,16 +161,28 @@ const omiseApi = http.createServer((req, res) => {
           source: { scannable_code: { image: { download_uri: 'https://api.omise.co/qr/' + id + '.png' } } },
         });
       }
-      if (b.card === 'tokn_decline') return json({ object: 'charge', id, status: 'failed', failure_code: 'insufficient_fund' });
-      if (b.card === 'tokn_3ds') return json({ object: 'charge', id, status: 'pending', authorize_uri: 'https://api.omise.co/authorize/' + id });
+      if (b.card === 'tokn_decline') {
+        return json(Object.assign(omiseCharge(id, 'failed', b), {
+          failure_code: 'insufficient_fund',
+          failure_message: 'Insufficient funds in the account',
+          paid: false, paid_at: null, transaction: null,
+        }));
+      }
+      if (b.card === 'tokn_3ds') {
+        return json(Object.assign(omiseCharge(id, 'pending', b), {
+          authorize_uri: 'https://api.omise.co/authorize/' + id,
+          paid: false, paid_at: null, transaction: null,
+        }));
+      }
       omisePaid.add(id);
-      return json({ object: 'charge', id, status: 'successful' });
+      return json(omiseCharge(id, 'successful', b));
     }
     if (req.method === 'GET' && req.url.startsWith('/charges/')) {
       const id = decodeURIComponent(req.url.slice('/charges/'.length));
       omiseSeen.lookups.push(id);
       if (!/^chrg_/.test(id)) return json({ object: 'error', code: 'not_found' }, 404);
-      return json({ object: 'charge', id, status: omisePaid.has(id) ? 'successful' : 'pending' });
+      const paid = omisePaid.has(id);
+      return json(omiseCharge(id, paid ? 'successful' : 'pending', omiseSeen.charge || {}));
     }
     // Account API — what the go-live diagnostics reads. `webhook_uri: null`
     // is the interesting default: it is the real state of a fresh merchant
@@ -135,6 +208,10 @@ const omiseApi = http.createServer((req, res) => {
 
 // ── Stubbed database ──────────────────────────────────────────────────────
 const inserted = [];
+// Every recorded payment attempt, successful or declined. Separate from
+// `inserted` because a declined charge deliberately writes NO booking row —
+// the attempt is the only record that a guest tried at all.
+const attempts = [];
 let idSeq = 100;
 
 /* Booking ids here must have the SAME SHAPE as production ids, and this is
@@ -157,6 +234,21 @@ function fakeQuery(sql, params) {
   if (/require_prepayment/.test(s)) return { rows: [{ require_prepayment: false }] };
   if (/pg_advisory_xact_lock|^\s*(BEGIN|COMMIT|ROLLBACK)/i.test(s)) return { rows: [] };
   if (/count\(\*\)|COUNT\(\*\)/i.test(s)) return { rows: [{ count: '0' }] };
+  if (/INSERT INTO payment_attempts/i.test(s)) {
+    const row = {
+      id: attempts.length + 1,
+      charge_id: params[0], provider: params[1], method: params[2], outcome: params[3],
+      booking_ref: params[4], group_ref: params[5], booking_id: params[6],
+      guest_name: params[7], guest_email: params[8], guest_phone: params[9],
+      room: params[10], check_in: params[11], check_out: params[12],
+      amount: params[13], currency: params[14],
+      failure_code: params[15], failure_message: params[16],
+      card_brand: params[17], card_last4: params[18], card_bank: params[19],
+      card_country: params[20], livemode: params[21], detail: params[22],
+    };
+    attempts.push(row);
+    return { rows: [row] };
+  }
   if (/INSERT INTO guest_bookings/i.test(s)) {
     const row = {
       id: fakeUuid(), ref: params[0], guest_name: params[1], guest_last_name: params[2],
@@ -166,7 +258,18 @@ function fakeQuery(sql, params) {
       status: 'confirmed', lang: params[12],
       payment_provider: params[13], payment_method: params[14],
       payment_status: params[15], payment_charge_id: params[16],
-      group_ref: params[22] || null, group_index: params[23] || null,
+      // insertBookingRow()'s params are, in order: ref, guestName,
+      // guestLastName, guestEmail, guestPhone, room, checkIn, checkOut,
+      // nights, adults, children, total, lang, paymentProvider,
+      // paymentMethod, paymentStatus, paymentChargeId, smoking, breakfast,
+      // childAges, specialRequests, groupRef, groupIndex, groupSize,
+      // extraBed, nonRefundable — so the group columns are 21/22/23.
+      // These read 22/23 for a while, which shifted every group row's
+      // group_ref onto its group_index: a stub that silently disagrees
+      // with the real column order tests the stub, not the code.
+      group_ref: params[21] || null, group_index: params[22] || null,
+      group_size: params[23] || null,
+      payment_detail: params[26] || null,
     };
     inserted.push(row);
     return { rows: [row] };
@@ -444,6 +547,12 @@ const fakeDb = {
   check('non-charge omise event ignored without an API lookup',
     nonCharge.status === 200 && omiseSeen.lookups.length === before, 'lookups grew by ' + (omiseSeen.lookups.length - before));
 
+  // Captured BEFORE the request, not after it. This read `inserted.length`
+  // once the POST had already resolved and then asserted the count equalled
+  // itself, so it passed no matter what the route did — the one assertion
+  // standing between a declined card and a phantom booking was vacuous.
+  const countBefore = inserted.length;
+  const attemptsBefore = attempts.length;
   const oDecline = await realFetch(base + '/reservations', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -452,9 +561,35 @@ const fakeDb = {
       guest: { firstName: 'Dee', lastName: 'Ma', email: 'dee@example.com', phone: '0866666666' },
     }),
   });
-  const countBefore = inserted.length;
+  const oDeclineJson = await oDecline.json();
   check('declined omise card -> 402', oDecline.status === 402, String(oDecline.status));
   check('declined card leaves NO booking row behind', inserted.length === countBefore);
+
+  // The decline is now RECORDED, because a booking row deliberately is not.
+  // Without this the only trace of a guest whose bank refused them is a
+  // percentage in the acquirer's dashboard.
+  const declineAttempt = attempts[attempts.length - 1];
+  check('declined card is recorded as a payment attempt', attempts.length === attemptsBefore + 1,
+    'attempts grew by ' + (attempts.length - attemptsBefore));
+  check('the recorded attempt keeps the gateway failure code verbatim',
+    !!declineAttempt && declineAttempt.failure_code === 'insufficient_fund',
+    declineAttempt && declineAttempt.failure_code);
+  check('the recorded attempt keeps the issuer message',
+    !!declineAttempt && /funds/i.test(declineAttempt.failure_message || ''),
+    declineAttempt && declineAttempt.failure_message);
+  check('the recorded attempt names the guest so staff can call back',
+    !!declineAttempt && declineAttempt.guest_email === 'dee@example.com',
+    declineAttempt && declineAttempt.guest_email);
+  check('the recorded attempt carries the amount that was refused',
+    !!declineAttempt && Number(declineAttempt.amount) > 0,
+    declineAttempt && String(declineAttempt.amount));
+
+  // The GUEST is told a kind sentence and nothing else. A raw acquirer code
+  // in a public 402 body is an oracle for card testing.
+  check('the declined guest response carries no gateway internals',
+    Object.keys(oDeclineJson).join(',') === 'error' &&
+    !/insufficient_fund/.test(JSON.stringify(oDeclineJson)),
+    JSON.stringify(oDeclineJson));
 
   const oQr = await realFetch(base + '/reservations', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -563,6 +698,65 @@ const fakeDb = {
   });
   check('route rejects a badly signed webhook with 401', badSigResp.status === 401, String(badSigResp.status));
   delete process.env.OMISE_WEBHOOK_SIGNING_SECRET;
+
+  /* ── Online payment is the rule ────────────────────────────────────────
+     Bookings made on the website are paid on the website. The one exception
+     is a gateway that cannot be reached at all, which must fall back rather
+     than turning the booking form into a dead end — so both halves are
+     asserted here, because only testing the rule would let a regression in
+     the fallback go unnoticed until the acquirer had a bad afternoon. */
+  const payAtDeskBody = {
+    room: roomKey, variantLabel: variant, checkIn: '2026-12-20', checkOut: '2026-12-21',
+    adults: 1, children: 0, breakfast: false, paymentMethod: 'pay_at_checkin',
+    guest: { firstName: 'Ola', lastName: 'Ng', email: 'ola@example.com', phone: '0844444444' },
+  };
+  const refusedAtDesk = await realFetch(base + '/reservations', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payAtDeskBody),
+  });
+  const refusedJson = await refusedAtDesk.json();
+  check('a live gateway refuses pay-at-check-in', refusedAtDesk.status === 400, String(refusedAtDesk.status));
+  check('the refusal carries a code the booking page can recover from',
+    refusedJson.code === 'ONLINE_PAYMENT_REQUIRED', JSON.stringify(refusedJson));
+  check('the refusal tells the guest how to book anyway',
+    /call the hotel/i.test(refusedJson.error || ''), refusedJson.error);
+
+  // Omitting paymentMethod entirely is the same request as asking to pay at
+  // the desk, and must be answered the same way rather than defaulting.
+  const noMethod = await realFetch(base + '/reservations', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(Object.assign({}, payAtDeskBody, { paymentMethod: undefined, checkIn: '2026-12-22', checkOut: '2026-12-23' })),
+  });
+  check('omitting paymentMethod is refused too, not defaulted', noMethod.status === 400, String(noMethod.status));
+
+  const cfgOnline = await realFetch(base + '/payments/config').then((r) => r.json());
+  check('config tells the page pay-at-check-in is off', cfgOnline.payAtCheckinAllowed === false,
+    JSON.stringify(cfgOnline));
+
+  // The escape hatch, for a phone booking taken through the same form.
+  process.env.ALLOW_PAY_AT_CHECKIN = 'true';
+  const allowed = await realFetch(base + '/reservations', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(Object.assign({}, payAtDeskBody, { checkIn: '2026-12-24', checkOut: '2026-12-25' })),
+  });
+  check('ALLOW_PAY_AT_CHECKIN re-opens it deliberately', allowed.status === 201, String(allowed.status));
+  delete process.env.ALLOW_PAY_AT_CHECKIN;
+
+  /* THE FALLBACK. With no gateway keys at all there is no way to pay online,
+     so refusing pay-at-check-in would refuse every direct booking on the site
+     — silently, at the last step of the funnel. */
+  const savedKey = process.env.OMISE_SECRET_KEY;
+  delete process.env.OMISE_SECRET_KEY;
+  const gatewayDown = await realFetch(base + '/reservations', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(Object.assign({}, payAtDeskBody, { checkIn: '2026-12-26', checkOut: '2026-12-27' })),
+  });
+  check('no gateway -> pay-at-check-in still works (never dead-end a guest)',
+    gatewayDown.status === 201, String(gatewayDown.status));
+  const cfgDown = await realFetch(base + '/payments/config').then((r) => r.json());
+  check('config re-opens pay-at-check-in while the gateway is unreachable',
+    cfgDown.payAtCheckinAllowed === true, JSON.stringify(cfgDown));
+  process.env.OMISE_SECRET_KEY = savedKey;
 
   // ── 6. Charge-state vocabulary + test/live mode ─────────────────────────
   check('successful -> paid', omiseAdapter.chargeState('successful') === 'paid');

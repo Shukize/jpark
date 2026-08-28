@@ -1165,3 +1165,30 @@ body.bk-pay-open { position: fixed; left: 0; right: 0; overflow: hidden; }
   .bkp-cart-bar-info { font-size: 0.88rem; }
   .bkp-cart-review { padding: 10px 14px; }
 }
+
+/* The standing online-only rule, shown where the guest chooses how to pay.
+   Distinct from .bkp-prepay-note (red), which marks the seasonal
+   non-refundable rule — these are different rules with different
+   consequences and must not read as the same warning. */
+.bkp-online-only-note {
+  background: #f2f7f6;
+  border: 1px solid #cfe3e0;
+  border-radius: 8px;
+  padding: 9px 12px;
+  margin: 0 0 8px;
+  color: #0f4a3e;
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+/* The key-card deposit is not part of what is being paid online. */
+.bkp-deposit-cash-note {
+  margin: 8px 0 0;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: #6a6256;
+  background: #fdf8ee;
+  border: 1px solid #ecdcbc;
+  border-radius: 8px;
+  padding: 8px 11px;
+}

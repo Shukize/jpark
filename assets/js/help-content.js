@@ -152,7 +152,10 @@ window.JPARK_HELP = (function () {
           { t: "Start with Needs action", d: "The tabs across the top show how many bookings are in each. Needs action is your worklist: a room still to be assigned for someone arriving today or tomorrow, a payment not recorded once the guest is due, an online payment the guest never finished, or a day-use request waiting to be confirmed. Soonest arrival is listed first." },
           { t: "Open a booking", d: "Click a row to see the guest's name and contact details, dates, room, price and how they are paying." },
           { t: "Assign the room number at check-in", d: "Type the real room number (e.g. 204) and save. Do this every time — it's how the guest reaches Guest Services, and how their requests show which room to walk to." },
-          { t: "Record the payment", d: "Guests who chose pay at check-in show “Awaiting payment”. When they pay at the desk, click Mark payment received." },
+          { t: "Record the payment", d: "Bookings made on the website are now paid online before they reach you, and arrive marked “Paid” — there is nothing to collect except the 200 THB key-card deposit, which is still cash at the desk. You still record payment by hand for walk-ins and for anyone the front desk books directly: choose Cash, Card or PromptPay (in person) and click Mark payment received." },
+          { t: "See exactly what was paid", d: "Open a booking and look at Payment record. It shows the amount charged, the card (brand and last four digits), the cardholder, the issuing bank, when the guest paid, and — under Where the money is — whether it has reached the hotel’s bank account yet or is still clearing." },
+          { t: "Give a guest a receipt", d: "Click Receipt in the Payment record box, then Print. It prints the stay, the amount, the card and the payment time, and says that the key-card deposit is separate." },
+          { t: "“Paid & room assigned”", d: "This tab holds every booking that is fully settled AND has a real room number against it — the ones with nothing left to do. If a booking is not in here, something is still outstanding." },
           { t: "Resend the confirmation", d: "Click Resend confirmation. You can correct the wording or a wrong price before it goes out." },
           { t: "Special requests", d: "Add or edit something the guest asked for, then resend the confirmation so it shows on their copy." },
           { t: "Cancel a booking", d: "Click Cancel booking and give a reason — the reason is staff-only and the guest never sees it. They get a cancellation email. Reopen puts the booking back if those dates are still free." },
@@ -270,6 +273,20 @@ window.JPARK_HELP = (function () {
           { t: "Require prepayment", d: "Switch it on for holidays and peak periods: guests can no longer choose “pay at check-in”, so every new booking pays online and becomes non-refundable. Switch it off when the hotel is quiet." },
           { t: "Check the note underneath", d: "If online card / PromptPay payment isn't switched on for the hotel yet, the page tells you — and the prepayment switch has no effect until it is." }
         ]
+      },
+      {
+        id: "payments", ico: "\ud83d\udcb3", admin: true, title: "Payments",
+        intro: "Messages \u2192 \ud83d\udcb3 Payments. Every charge at the payment company, side by side with our own bookings \u2014 so you never have to open their website and compare by eye.",
+        steps: [
+          { t: "Read the four figures at the top", d: "Total balance is everything the payment company holds for us. On hold is money a guest has paid that is still clearing \u2014 real, but not yet ours to move. Available to withdraw is what can be transferred to the bank today. Reserve is held back against disputes." },
+          { t: "Read a charge", d: "Each row shows PAID, IN FLIGHT or FAILED, the amount, when the guest paid, who they are, the card, what reaches the hotel after fees, and where that money is now." },
+          { t: "A failed charge tells you why", d: "The most common reason is a card the guest has not switched on for online or overseas payments \u2014 they can usually turn that on in their banking app. Their booking was NOT created and they were not charged, so it is worth calling them." },
+          { t: "Reconcile", d: "If a row says the payment company has the money but our booking does not show it, click Reconcile. It re-checks with them and puts our records right, including sending the guest their confirmation." },
+          { t: "Fill in missing details", d: "Fills in card and fee details for older bookings that were taken before we started recording them." },
+          { t: "Update settlement", d: "Checks which bank transfer paid each charge out, and when the money landed." }
+        ],
+        tips: ["A charge made today may not appear in the payment company\u2019s own \u201clast 7 days\u201d summary, because that range can end yesterday. This page always shows the newest first."],
+        warn: "If a row is marked TEST MODE, no real money moved. Never count it as income."
       },
       {
         id: "logs", ico: "🛡️", admin: true, title: "Account logs & security",
@@ -414,7 +431,10 @@ window.JPARK_HELP = (function () {
           { t: "เริ่มที่แท็บ “ต้องจัดการ”", d: "แท็บด้านบนจะบอกจำนวนการจองในแต่ละกลุ่ม แท็บ “ต้องจัดการ” คือรายการงานของคุณ ได้แก่ ยังไม่ได้จัดห้องให้แขกที่เข้าพักวันนี้หรือพรุ่งนี้ ยังไม่ได้บันทึกการชำระเงินเมื่อถึงกำหนดเข้าพัก การจ่ายเงินออนไลน์ที่แขกทำไม่สำเร็จ หรือคำขอใช้ห้องแบบรายวันที่รอการยืนยัน โดยเรียงผู้ที่จะมาถึงเร็วที่สุดไว้บนสุด" },
           { t: "เปิดดูการจอง", d: "กดที่รายการ จะเห็นชื่อและช่องทางติดต่อผู้เข้าพัก วันที่เข้าพัก ห้อง ราคา และวิธีชำระเงิน" },
           { t: "กำหนดห้องพักตอนเช็กอิน", d: "พิมพ์เลขห้องจริง เช่น 204 แล้วบันทึก ต้องทำทุกครั้ง เพราะเป็นสิ่งที่ทำให้ผู้เข้าพักใช้บริการผ่านมือถือได้ และทำให้คำขอของเขาแสดงว่าต้องไปห้องไหน" },
-          { t: "บันทึกการชำระเงิน", d: "ผู้เข้าพักที่เลือก “จ่ายตอนเช็กอิน” จะขึ้นว่า “รอชำระเงิน” เมื่อเขาจ่ายที่เคาน์เตอร์แล้ว ให้กด “บันทึกว่าชำระเงินแล้ว”" },
+          { t: "บันทึกการชำระเงิน", d: "การจองผ่านเว็บไซต์ตอนนี้ชำระเงินออนไลน์มาก่อนแล้ว จึงมาถึงเราในสถานะ “ชำระแล้ว” ไม่ต้องเก็บเงินอีก นอกจากเงินมัดจำบัตรคีย์การ์ด 200 บาท ซึ่งยังคงเก็บเป็นเงินสดที่เคาน์เตอร์ ส่วนแขก walk-in หรือคนที่เคาน์เตอร์จองให้เอง ยังต้องบันทึกเอง โดยเลือก เงินสด บัตร หรือ PromptPay (ชำระที่โรงแรม) แล้วกด “บันทึกว่าชำระเงินแล้ว”" },
+          { t: "ดูรายละเอียดการชำระเงิน", d: "เปิดการจองแล้วดูที่ “บันทึกการชำระเงิน” จะเห็นยอดที่เรียกเก็บ บัตรที่ใช้ (ยี่ห้อและเลขท้าย 4 ตัว) ชื่อผู้ถือบัตร ธนาคารผู้ออกบัตร เวลาที่ชำระ และใต้หัวข้อ “สถานะเงิน” จะบอกว่าเงินเข้าบัญชีธนาคารของโรงแรมแล้วหรือยังอยู่ระหว่างเคลียร์" },
+          { t: "ออกใบเสร็จให้ผู้เข้าพัก", d: "กด “ใบเสร็จ” ในกล่องบันทึกการชำระเงิน แล้วกด “พิมพ” ใบเสร็จจะแสดงการเข้าพัก ยอดเงิน บัตรที่ใช้ เวลาชำระ และระบุว่าเงินมัดจำคีย์การ์ดเก็บแยกต่างหาก" },
+          { t: "แท็บ “ชำระแล้ว & จัดห้องแล้ว”", d: "รวมการจองที่ชำระเงินครบแล้ว และมีเลขห้องจริงแล้ว คือรายการที่ไม่เหลืออะไรต้องทำแล้ว ถ้าการจองไหนไม่อยู่ในแท็บนี้ แสดงว่ายังมีงานค้าง" },
           { t: "ส่งอีเมลยืนยันอีกครั้ง", d: "กด “ส่งอีเมลยืนยันอีกครั้ง” แก้ข้อความหรือแก้ราคาที่ผิดได้ก่อนส่งออกไป" },
           { t: "คำขอพิเศษ", d: "เพิ่มหรือแก้ไขสิ่งที่ผู้เข้าพักขอไว้ แล้วส่งอีเมลยืนยันอีกครั้งเพื่อให้เขาเห็นในใบของเขา" },
           { t: "ยกเลิกการจอง", d: "กด “ยกเลิกการจอง” แล้วใส่เหตุผล เหตุผลนี้เห็นเฉพาะพนักงาน ผู้เข้าพักไม่เห็น เขาจะได้รับอีเมลแจ้งยกเลิก และถ้าวันนั้นยังว่างอยู่ ก็กด “เปิดการจองอีกครั้ง” ได้" },
@@ -532,6 +552,20 @@ window.JPARK_HELP = (function () {
           { t: "บังคับชำระเงินล่วงหน้า", d: "เปิดในช่วงวันหยุดยาวหรือช่วงคนเยอะ ผู้เข้าพักจะเลือก “จ่ายตอนเช็กอิน” ไม่ได้อีก ทุกการจองใหม่ต้องจ่ายออนไลน์และคืนเงินไม่ได้ พอโรงแรมเงียบแล้วให้ปิดสวิตช์" },
           { t: "อ่านหมายเหตุด้านล่าง", d: "ถ้าโรงแรมยังไม่ได้เปิดใช้การชำระเงินออนไลน์ด้วยบัตร/พร้อมเพย์ หน้านี้จะแจ้งไว้ และสวิตช์ชำระเงินล่วงหน้าจะยังไม่มีผลจนกว่าจะเปิดใช้งาน" }
         ]
+      },
+      {
+        id: "payments", ico: "\ud83d\udcb3", admin: true, title: "\u0e01\u0e32\u0e23\u0e0a\u0e33\u0e23\u0e30\u0e40\u0e07\u0e34\u0e19",
+        intro: "\u0e44\u0e1b\u0e17\u0e35\u0e48 \u0e02\u0e49\u0e2d\u0e04\u0e27\u0e32\u0e21 \u2192 \ud83d\udcb3 \u0e01\u0e32\u0e23\u0e0a\u0e33\u0e23\u0e30\u0e40\u0e07\u0e34\u0e19 \u0e2b\u0e19\u0e49\u0e32\u0e19\u0e35\u0e49\u0e23\u0e27\u0e21\u0e17\u0e38\u0e01\u0e23\u0e32\u0e22\u0e01\u0e32\u0e23\u0e17\u0e35\u0e48\u0e1a\u0e23\u0e34\u0e29\u0e31\u0e17\u0e23\u0e31\u0e1a\u0e0a\u0e33\u0e23\u0e30\u0e40\u0e07\u0e34\u0e19\u0e21\u0e35 \u0e40\u0e17\u0e35\u0e22\u0e1a\u0e01\u0e31\u0e1a\u0e01\u0e32\u0e23\u0e08\u0e2d\u0e07\u0e02\u0e2d\u0e07\u0e40\u0e23\u0e32 \u0e08\u0e36\u0e07\u0e44\u0e21\u0e48\u0e15\u0e49\u0e2d\u0e07\u0e40\u0e1b\u0e34\u0e14\u0e40\u0e27\u0e47\u0e1a\u0e02\u0e2d\u0e07\u0e40\u0e02\u0e32\u0e21\u0e32\u0e19\u0e31\u0e48\u0e07\u0e40\u0e17\u0e35\u0e22\u0e1a\u0e17\u0e35\u0e25\u0e30\u0e1a\u0e23\u0e23\u0e17\u0e31\u0e14",
+        steps: [
+          { t: "\u0e14\u0e39\u0e15\u0e31\u0e27\u0e40\u0e25\u0e02\u0e2a\u0e35\u0e48\u0e0a\u0e48\u0e2d\u0e07\u0e14\u0e49\u0e32\u0e19\u0e1a\u0e19", d: "\u201c\u0e22\u0e2d\u0e14\u0e04\u0e07\u0e40\u0e2b\u0e25\u0e37\u0e2d\u0e17\u0e31\u0e49\u0e07\u0e2b\u0e21\u0e14\u201d \u0e04\u0e37\u0e2d\u0e40\u0e07\u0e34\u0e19\u0e17\u0e31\u0e49\u0e07\u0e2b\u0e21\u0e14\u0e17\u0e35\u0e48\u0e1a\u0e23\u0e34\u0e29\u0e31\u0e17\u0e16\u0e37\u0e2d\u0e44\u0e27\u0e49\u0e43\u0e2b\u0e49\u0e40\u0e23\u0e32 \u201c\u0e1e\u0e31\u0e01\u0e40\u0e07\u0e34\u0e19\u0e44\u0e27\u0e49\u201d \u0e04\u0e37\u0e2d\u0e40\u0e07\u0e34\u0e19\u0e17\u0e35\u0e48\u0e41\u0e02\u0e01\u0e08\u0e48\u0e32\u0e22\u0e41\u0e25\u0e49\u0e27\u0e41\u0e15\u0e48\u0e22\u0e31\u0e07\u0e2d\u0e22\u0e39\u0e48\u0e23\u0e30\u0e2b\u0e27\u0e48\u0e32\u0e07\u0e40\u0e04\u0e25\u0e35\u0e22\u0e23\u0e4c \u201c\u0e16\u0e2d\u0e19\u0e44\u0e14\u0e49\u201d \u0e04\u0e37\u0e2d\u0e40\u0e07\u0e34\u0e19\u0e17\u0e35\u0e48\u0e42\u0e2d\u0e19\u0e40\u0e02\u0e49\u0e32\u0e18\u0e19\u0e32\u0e04\u0e32\u0e23\u0e44\u0e14\u0e49\u0e27\u0e31\u0e19\u0e19\u0e35\u0e49 \u0e2a\u0e48\u0e27\u0e19 \u201c\u0e40\u0e07\u0e34\u0e19\u0e2a\u0e33\u0e23\u0e2d\u0e07\u201d \u0e04\u0e37\u0e2d\u0e2a\u0e48\u0e27\u0e19\u0e17\u0e35\u0e48\u0e01\u0e31\u0e19\u0e44\u0e27\u0e49\u0e40\u0e1c\u0e37\u0e48\u0e2d\u0e01\u0e23\u0e13\u0e35\u0e21\u0e35\u0e02\u0e49\u0e2d\u0e42\u0e15\u0e49\u0e41\u0e22\u0e49\u0e07" },
+          { t: "\u0e2d\u0e48\u0e32\u0e19\u0e41\u0e15\u0e48\u0e25\u0e30\u0e23\u0e32\u0e22\u0e01\u0e32\u0e23", d: "\u0e41\u0e15\u0e48\u0e25\u0e30\u0e41\u0e16\u0e27\u0e08\u0e30\u0e1a\u0e2d\u0e01\u0e2a\u0e16\u0e32\u0e19\u0e30 \u0e0a\u0e33\u0e23\u0e30\u0e41\u0e25\u0e49\u0e27 / \u0e23\u0e30\u0e2b\u0e27\u0e48\u0e32\u0e07\u0e14\u0e33\u0e40\u0e19\u0e34\u0e19\u0e01\u0e32\u0e23 / \u0e44\u0e21\u0e48\u0e2a\u0e33\u0e40\u0e23\u0e47\u0e08 \u0e1e\u0e23\u0e49\u0e2d\u0e21\u0e22\u0e2d\u0e14\u0e40\u0e07\u0e34\u0e19 \u0e40\u0e27\u0e25\u0e32\u0e17\u0e35\u0e48\u0e41\u0e02\u0e01\u0e08\u0e48\u0e32\u0e22 \u0e0a\u0e37\u0e48\u0e2d\u0e41\u0e02\u0e01 \u0e1a\u0e31\u0e15\u0e23\u0e17\u0e35\u0e48\u0e43\u0e0a\u0e49 \u0e22\u0e2d\u0e14\u0e17\u0e35\u0e48\u0e42\u0e23\u0e07\u0e41\u0e23\u0e21\u0e44\u0e14\u0e49\u0e2b\u0e25\u0e31\u0e07\u0e2b\u0e31\u0e01\u0e04\u0e48\u0e32\u0e18\u0e23\u0e23\u0e21\u0e40\u0e19\u0e35\u0e22\u0e21 \u0e41\u0e25\u0e30\u0e02\u0e13\u0e30\u0e19\u0e35\u0e49\u0e40\u0e07\u0e34\u0e19\u0e2d\u0e22\u0e39\u0e48\u0e15\u0e23\u0e07\u0e44\u0e2b\u0e19" },
+          { t: "\u0e23\u0e32\u0e22\u0e01\u0e32\u0e23\u0e17\u0e35\u0e48\u0e44\u0e21\u0e48\u0e2a\u0e33\u0e40\u0e23\u0e47\u0e08\u0e08\u0e30\u0e1a\u0e2d\u0e01\u0e2a\u0e32\u0e40\u0e2b\u0e15\u0e38", d: "\u0e2a\u0e32\u0e40\u0e2b\u0e15\u0e38\u0e17\u0e35\u0e48\u0e1e\u0e1a\u0e1a\u0e48\u0e2d\u0e22\u0e17\u0e35\u0e48\u0e2a\u0e38\u0e14\u0e04\u0e37\u0e2d\u0e1a\u0e31\u0e15\u0e23\u0e17\u0e35\u0e48\u0e22\u0e31\u0e07\u0e44\u0e21\u0e48\u0e44\u0e14\u0e49\u0e40\u0e1b\u0e34\u0e14\u0e43\u0e0a\u0e49\u0e07\u0e32\u0e19\u0e0a\u0e33\u0e23\u0e30\u0e2d\u0e2d\u0e19\u0e44\u0e25\u0e19\u0e4c\u0e2b\u0e23\u0e37\u0e2d\u0e15\u0e48\u0e32\u0e07\u0e1b\u0e23\u0e30\u0e40\u0e17\u0e28 \u0e0b\u0e36\u0e48\u0e07\u0e41\u0e02\u0e01\u0e40\u0e1b\u0e34\u0e14\u0e40\u0e2d\u0e07\u0e44\u0e14\u0e49\u0e43\u0e19\u0e41\u0e2d\u0e1b\u0e18\u0e19\u0e32\u0e04\u0e32\u0e23 \u0e01\u0e32\u0e23\u0e08\u0e2d\u0e07\u0e02\u0e2d\u0e07\u0e40\u0e02\u0e32\u0e22\u0e31\u0e07\u0e44\u0e21\u0e48\u0e40\u0e01\u0e34\u0e14\u0e02\u0e36\u0e49\u0e19 \u0e41\u0e25\u0e30\u0e40\u0e02\u0e32\u0e22\u0e31\u0e07\u0e44\u0e21\u0e48\u0e16\u0e39\u0e01\u0e40\u0e01\u0e47\u0e1a\u0e40\u0e07\u0e34\u0e19 \u0e08\u0e36\u0e07\u0e04\u0e27\u0e23\u0e42\u0e17\u0e23\u0e01\u0e25\u0e31\u0e1a\u0e2b\u0e32" },
+          { t: "\u0e01\u0e14 \u201c\u0e01\u0e23\u0e30\u0e17\u0e1a\u0e22\u0e2d\u0e14\u201d", d: "\u0e16\u0e49\u0e32\u0e41\u0e16\u0e27\u0e44\u0e2b\u0e19\u0e1a\u0e2d\u0e01\u0e27\u0e48\u0e32\u0e1a\u0e23\u0e34\u0e29\u0e31\u0e17\u0e23\u0e31\u0e1a\u0e40\u0e07\u0e34\u0e19\u0e44\u0e14\u0e49\u0e41\u0e25\u0e49\u0e27 \u0e41\u0e15\u0e48\u0e01\u0e32\u0e23\u0e08\u0e2d\u0e07\u0e02\u0e2d\u0e07\u0e40\u0e23\u0e32\u0e22\u0e31\u0e07\u0e44\u0e21\u0e48\u0e02\u0e36\u0e49\u0e19 \u0e43\u0e2b\u0e49\u0e01\u0e14 \u201c\u0e01\u0e23\u0e30\u0e17\u0e1a\u0e22\u0e2d\u0e14\u201d \u0e23\u0e30\u0e1a\u0e1a\u0e08\u0e30\u0e15\u0e23\u0e27\u0e08\u0e0b\u0e49\u0e33\u0e01\u0e31\u0e1a\u0e1a\u0e23\u0e34\u0e29\u0e31\u0e17\u0e41\u0e25\u0e49\u0e27\u0e41\u0e01\u0e49\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e43\u0e2b\u0e49\u0e16\u0e39\u0e01 \u0e23\u0e27\u0e21\u0e16\u0e36\u0e07\u0e2a\u0e48\u0e07\u0e2d\u0e35\u0e40\u0e21\u0e25\u0e22\u0e37\u0e19\u0e22\u0e31\u0e19\u0e43\u0e2b\u0e49\u0e41\u0e02\u0e01" },
+          { t: "\u0e40\u0e15\u0e34\u0e21\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e17\u0e35\u0e48\u0e02\u0e32\u0e14", d: "\u0e40\u0e15\u0e34\u0e21\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25\u0e1a\u0e31\u0e15\u0e23\u0e41\u0e25\u0e30\u0e04\u0e48\u0e32\u0e18\u0e23\u0e23\u0e21\u0e40\u0e19\u0e35\u0e22\u0e21\u0e43\u0e2b\u0e49\u0e01\u0e32\u0e23\u0e08\u0e2d\u0e07\u0e40\u0e01\u0e48\u0e32\u0e17\u0e35\u0e48\u0e17\u0e33\u0e01\u0e48\u0e2d\u0e19\u0e23\u0e30\u0e1a\u0e1a\u0e08\u0e30\u0e40\u0e23\u0e34\u0e48\u0e21\u0e40\u0e01\u0e47\u0e1a" },
+          { t: "\u0e2d\u0e31\u0e1b\u0e40\u0e14\u0e15\u0e01\u0e32\u0e23\u0e42\u0e2d\u0e19\u0e40\u0e07\u0e34\u0e19", d: "\u0e15\u0e23\u0e27\u0e08\u0e27\u0e48\u0e32\u0e40\u0e07\u0e34\u0e19\u0e41\u0e15\u0e48\u0e25\u0e30\u0e23\u0e32\u0e22\u0e01\u0e32\u0e23\u0e16\u0e39\u0e01\u0e42\u0e2d\u0e19\u0e40\u0e02\u0e49\u0e32\u0e18\u0e19\u0e32\u0e04\u0e32\u0e23\u0e14\u0e49\u0e27\u0e22\u0e23\u0e2d\u0e1a\u0e44\u0e2b\u0e19 \u0e41\u0e25\u0e30\u0e40\u0e07\u0e34\u0e19\u0e40\u0e02\u0e49\u0e32\u0e40\u0e21\u0e37\u0e48\u0e2d\u0e44\u0e2b\u0e23\u0e48" }
+        ],
+        tips: ["\u0e23\u0e32\u0e22\u0e01\u0e32\u0e23\u0e02\u0e2d\u0e07\u0e27\u0e31\u0e19\u0e19\u0e35\u0e49\u0e2d\u0e32\u0e08\u0e44\u0e21\u0e48\u0e02\u0e36\u0e49\u0e19\u0e43\u0e19\u0e2a\u0e23\u0e38\u0e1b \u201c7 \u0e27\u0e31\u0e19\u0e25\u0e48\u0e32\u0e2a\u0e38\u0e14\u201d \u0e02\u0e2d\u0e07\u0e1a\u0e23\u0e34\u0e29\u0e31\u0e17\u0e23\u0e31\u0e1a\u0e0a\u0e33\u0e23\u0e30\u0e40\u0e07\u0e34\u0e19 \u0e40\u0e1e\u0e23\u0e32\u0e30\u0e0a\u0e48\u0e27\u0e07\u0e19\u0e31\u0e49\u0e19\u0e2d\u0e32\u0e08\u0e2a\u0e34\u0e49\u0e19\u0e2a\u0e38\u0e14\u0e41\u0e04\u0e48\u0e40\u0e21\u0e37\u0e48\u0e2d\u0e27\u0e32\u0e19 \u0e41\u0e15\u0e48\u0e2b\u0e19\u0e49\u0e32\u0e19\u0e35\u0e49\u0e41\u0e2a\u0e14\u0e07\u0e23\u0e32\u0e22\u0e01\u0e32\u0e23\u0e43\u0e2b\u0e21\u0e48\u0e2a\u0e38\u0e14\u0e01\u0e48\u0e2d\u0e19\u0e40\u0e2a\u0e21\u0e2d"],
+        warn: "\u0e16\u0e49\u0e32\u0e41\u0e16\u0e27\u0e44\u0e2b\u0e19\u0e02\u0e36\u0e49\u0e19\u0e27\u0e48\u0e32 \u201c\u0e42\u0e2b\u0e21\u0e14\u0e17\u0e14\u0e2a\u0e2d\u0e1a\u201d \u0e41\u0e2a\u0e14\u0e07\u0e27\u0e48\u0e32\u0e44\u0e21\u0e48\u0e21\u0e35\u0e40\u0e07\u0e34\u0e19\u0e08\u0e23\u0e34\u0e07 \u0e2b\u0e49\u0e32\u0e21\u0e19\u0e31\u0e1a\u0e40\u0e1b\u0e47\u0e19\u0e23\u0e32\u0e22\u0e44\u0e14\u0e49\u0e40\u0e14\u0e47\u0e14\u0e02\u0e32\u0e14"
       },
       {
         id: "logs", ico: "🛡️", admin: true, title: "บันทึกการเข้าใช้งานและความปลอดภัย",
@@ -676,7 +710,10 @@ window.JPARK_HELP = (function () {
           { t: "「要対応」から始める", d: "上部のタブには各グループの件数が表示されます。「要対応」はあなたの作業リストです。本日または明日到着で客室が未割当、到着日を迎えても支払いが未記録、オンライン決済が完了していない、デイユースの確認待ち、といった予約が入ります。到着が近い順に並びます。" },
           { t: "予約を開く", d: "行を押すと、お客様の氏名・連絡先・日程・部屋・料金・支払い方法が表示されます。" },
           { t: "チェックイン時に部屋番号を登録", d: "実際の部屋番号（例：204）を入力して保存します。毎回必ず行ってください。これがないとお客様はゲストサービスを利用できず、リクエストにも訪問先の部屋が表示されません。" },
-          { t: "支払いを記録する", d: "「チェックイン時に支払う」を選んだお客様は「支払い待ち」と表示されます。フロントでお支払いを受けたら「支払い済みにする」を押します。" },
+          { t: "支払いを記録する", d: "ウェブサイトからのご予約は、フロントに届く前にオンラインでお支払い済みとなり、「支払い済み」で到着します。受け取るのはルームキーカードのデポジット200THB（現金のみ）だけです。飛び込みのお客様やフロントで直接受けたご予約は、これまで通り「現金」「カード」「プロンプトペイ（現地）」を選んで「支払い済みにする」を押します。" },
+          { t: "支払いの詳細を見る", d: "ご予約を開いて「お支払い記録」をご覧ください。請求額、カード（ブランドと下4桁）、カード名義、発行銀行、お支払い日時、そして「入金状況」でホテルの口座に入金済みか処理中かが分かります。" },
+          { t: "領収書をお渡しする", d: "「お支払い記録」の中の「領収書」を押し、「印刷」を選びます。ご滞在、金額、カード、お支払い日時が印刷され、キーカードデポジットは別途であることも記載されます。" },
+          { t: "「支払済み・部屋割当済み」", d: "お支払いが完了し、実際の客室番号も割り当て済みのご予約だけが入るタブです。ここにないご予約は、まだ何かが残っています。" },
           { t: "確認メールを再送する", d: "「確認メールを再送」を押します。送信前に文面や誤った料金を修正できます。" },
           { t: "特別なご要望", d: "お客様のご要望を追加・編集し、確認メールを再送すればお客様の控えにも反映されます。" },
           { t: "予約をキャンセル", d: "「予約をキャンセル」を押し、理由を入力します。理由はスタッフのみが見るもので、お客様には表示されません。お客様には取消メールが届きます。日程に空きがあれば「予約を再開」で復活できます。" },
@@ -794,6 +831,20 @@ window.JPARK_HELP = (function () {
           { t: "事前決済を必須にする", d: "連休や繁忙期にオンにします。お客様は「チェックイン時に支払う」を選べなくなり、新規予約はすべてオンライン決済・返金不可になります。落ち着いたらオフに戻してください。" },
           { t: "下の注意書きを確認", d: "カード／PromptPayのオンライン決済がまだ有効でない場合はその旨が表示され、事前決済のスイッチは有効化されるまで効果がありません。" }
         ]
+      },
+      {
+        id: "payments", ico: "\ud83d\udcb3", admin: true, title: "\u304a\u652f\u6255\u3044",
+        intro: "\u30e1\u30c3\u30bb\u30fc\u30b8 \u2192 \ud83d\udcb3 \u304a\u652f\u6255\u3044\u3002\u6c7a\u6e08\u4f1a\u793e\u5074\u306e\u3059\u3079\u3066\u306e\u8acb\u6c42\u3092\u3001\u30db\u30c6\u30eb\u306e\u3054\u4e88\u7d04\u3068\u4e26\u3079\u3066\u8868\u793a\u3057\u307e\u3059\u3002\u5148\u65b9\u306e\u30b5\u30a4\u30c8\u3092\u958b\u3044\u3066\u898b\u6bd4\u3079\u308b\u5fc5\u8981\u306f\u3042\u308a\u307e\u305b\u3093\u3002",
+        steps: [
+          { t: "\u4e0a\u90e8\u306e4\u3064\u306e\u91d1\u984d", d: "\u300c\u6b8b\u9ad8\u5408\u8a08\u300d\u306f\u6c7a\u6e08\u4f1a\u793e\u304c\u9810\u304b\u3063\u3066\u3044\u308b\u7dcf\u984d\u3002\u300c\u4fdd\u7559\u4e2d\u300d\u306f\u304a\u5ba2\u69d8\u304c\u652f\u6255\u6e08\u307f\u3067\u51e6\u7406\u4e2d\u306e\u304a\u91d1\u3002\u300c\u51fa\u91d1\u53ef\u80fd\u300d\u306f\u4eca\u65e5\u9280\u884c\u3078\u79fb\u305b\u308b\u984d\u3002\u300c\u6e96\u5099\u91d1\u300d\u306f\u4e07\u4e00\u306e\u4e89\u3044\u306b\u5099\u3048\u305f\u7559\u4fdd\u5206\u3067\u3059\u3002" },
+          { t: "1\u4ef6\u3092\u8aad\u3080", d: "\u5404\u884c\u306b\u300c\u652f\u6255\u6e08\u307f\u300d\u300c\u51e6\u7406\u4e2d\u300d\u300c\u5931\u6557\u300d\u3001\u91d1\u984d\u3001\u304a\u652f\u6255\u3044\u65e5\u6642\u3001\u304a\u5ba2\u69d8\u3001\u30ab\u30fc\u30c9\u3001\u624b\u6570\u6599\u5f8c\u306b\u30db\u30c6\u30eb\u304c\u53d7\u3051\u53d6\u308b\u984d\u3001\u305d\u3057\u3066\u305d\u306e\u304a\u91d1\u306e\u73fe\u5728\u5730\u304c\u8868\u793a\u3055\u308c\u307e\u3059\u3002" },
+          { t: "\u5931\u6557\u306b\u306f\u7406\u7531\u304c\u3042\u308a\u307e\u3059", d: "\u6700\u3082\u591a\u3044\u306e\u306f\u3001\u30aa\u30f3\u30e9\u30a4\u30f3\u6c7a\u6e08\u3084\u6d77\u5916\u5229\u7528\u304c\u6709\u52b9\u306b\u306a\u3063\u3066\u3044\u306a\u3044\u30ab\u30fc\u30c9\u3067\u3059\u3002\u901a\u5e38\u306f\u304a\u5ba2\u69d8\u306e\u9280\u884c\u30a2\u30d7\u30ea\u3067\u5207\u308a\u66ff\u3048\u3089\u308c\u307e\u3059\u3002\u3054\u4e88\u7d04\u306f\u4f5c\u6210\u3055\u308c\u3066\u304a\u3089\u305a\u3001\u8acb\u6c42\u3082\u767a\u751f\u3057\u3066\u3044\u307e\u305b\u3093\u306e\u3067\u3001\u304a\u96fb\u8a71\u3059\u308b\u4fa1\u5024\u304c\u3042\u308a\u307e\u3059\u3002" },
+          { t: "\u300c\u7167\u5408\u300d\u3092\u62bc\u3059", d: "\u6c7a\u6e08\u4f1a\u793e\u5074\u3067\u306f\u5165\u91d1\u6e08\u307f\u306a\u306e\u306b\u3001\u30db\u30c6\u30eb\u306e\u3054\u4e88\u7d04\u306b\u53cd\u6620\u3055\u308c\u3066\u3044\u306a\u3044\u884c\u304c\u3042\u308c\u3070\u300c\u7167\u5408\u300d\u3092\u62bc\u3057\u307e\u3059\u3002\u518d\u78ba\u8a8d\u3057\u3066\u8a18\u9332\u3092\u6b63\u3057\u304f\u3057\u3001\u304a\u5ba2\u69d8\u3078\u306e\u78ba\u8a8d\u30e1\u30fc\u30eb\u3082\u9001\u4fe1\u3057\u307e\u3059\u3002" },
+          { t: "\u4e0d\u8db3\u60c5\u5831\u3092\u88dc\u5b8c", d: "\u8a18\u9332\u3092\u59cb\u3081\u308b\u524d\u306e\u53e4\u3044\u3054\u4e88\u7d04\u306b\u3001\u30ab\u30fc\u30c9\u3084\u624b\u6570\u6599\u306e\u60c5\u5831\u3092\u88dc\u3044\u307e\u3059\u3002" },
+          { t: "\u5165\u91d1\u72b6\u6cc1\u3092\u66f4\u65b0", d: "\u5404\u8acb\u6c42\u304c\u3069\u306e\u9280\u884c\u632f\u8fbc\u3067\u652f\u6255\u308f\u308c\u3001\u3044\u3064\u5165\u91d1\u3055\u308c\u305f\u304b\u3092\u78ba\u8a8d\u3057\u307e\u3059\u3002" }
+        ],
+        tips: ["\u672c\u65e5\u306e\u8acb\u6c42\u306f\u3001\u6c7a\u6e08\u4f1a\u793e\u306e\u300c\u904e\u53bb7\u65e5\u9593\u300d\u306e\u96c6\u8a08\u306b\u306f\u542b\u307e\u308c\u306a\u3044\u3053\u3068\u304c\u3042\u308a\u307e\u3059\uff08\u671f\u9593\u304c\u6628\u65e5\u307e\u3067\u306e\u5834\u5408\u304c\u3042\u308b\u305f\u3081\uff09\u3002\u3053\u306e\u753b\u9762\u306f\u5e38\u306b\u6700\u65b0\u9806\u3067\u3059\u3002"],
+        warn: "\u300c\u30c6\u30b9\u30c8\u30e2\u30fc\u30c9\u300d\u3068\u8868\u793a\u3055\u308c\u305f\u884c\u306f\u5b9f\u969b\u306e\u5165\u91d1\u304c\u3042\u308a\u307e\u305b\u3093\u3002\u58f2\u4e0a\u306b\u8a08\u4e0a\u3057\u306a\u3044\u3067\u304f\u3060\u3055\u3044\u3002"
       },
       {
         id: "logs", ico: "🛡️", admin: true, title: "アカウントログとセキュリティ",
@@ -938,7 +989,10 @@ window.JPARK_HELP = (function () {
           { t: "先看“需处理”", d: "顶部各标签会显示数量。“需处理”就是你的工作清单：今天或明天入住但还没分房、客人已到期却未记录付款、客人未完成的在线支付，以及等待确认的钟点房申请。最早入住的排在最前面。" },
           { t: "打开一条预订", d: "点一行，就能看到客人姓名和联系方式、日期、房型、金额和付款方式。" },
           { t: "入住时分配房间", d: "填写真实房号（例如 204）并保存。每次都要做——客人靠它才能使用客房服务，他的请求也才会显示该去哪个房间。" },
-          { t: "记录收款", d: "选择“入住时付款”的客人会显示“待付款”。在前台收到钱后，点“标记为已收款”。" },
+          { t: "记录收款", d: "通过网站的预订现在在送达前已在线付清，到达时就显示“已支付”—— 需要当面收取的只有 200 泰铢房卡押金，仍仅收现金。散客和前台直接下的单仍需手动记录：选“现金”“银行卡”或“PromptPay（现场）”，再点“标记为已收款”。" },
+          { t: "查看付款明细", d: "打开预订，看“支付记录”。里面有扣款金额、卡片（卡种和后四位）、持卡人、发卡银行、客人付款时间，以及“资金状态”—— 告诉你钱是否已入酒店账户，还是仍在结算中。" },
+          { t: "给客人开收据", d: "在“支付记录”框中点“收据”，再点“打印”。上面有住宿、金额、卡片和付款时间，并注明房卡押金为另计。" },
+          { t: "“已支付并已排房”", d: "这个标签里是已付清且已分配真实房号的预订 —— 无需再处理的那些。没出现在这里的，就是还有事情没做。" },
           { t: "重新发送确认邮件", d: "点“重新发送确认邮件”。发出前可以先修改措辞或改掉写错的价格。" },
           { t: "特殊要求", d: "添加或修改客人的要求，然后重新发送确认邮件，客人那份上就会显示出来。" },
           { t: "取消预订", d: "点“取消预订”并填写原因；原因只有员工看得到，客人看不到。客人会收到取消邮件。若那几天仍有空房，可以点“恢复预订”。" },
@@ -1056,6 +1110,20 @@ window.JPARK_HELP = (function () {
           { t: "要求预付款", d: "节假日和旺季打开：客人不能再选“入住时付款”，所有新预订必须在线付款且不可退款。淡季记得关掉。" },
           { t: "留意下方的说明", d: "如果酒店还没开通银行卡 / PromptPay 在线收款，页面上会写明，此时预付开关不会生效。" }
         ]
+      },
+      {
+        id: "payments", ico: "\ud83d\udcb3", admin: true, title: "\u652f\u4ed8",
+        intro: "\u6d88\u606f \u2192 \ud83d\udcb3 \u652f\u4ed8\u3002\u628a\u652f\u4ed8\u516c\u53f8\u90a3\u8fb9\u7684\u6bcf\u7b14\u6263\u6b3e\u548c\u6211\u4eec\u7684\u9884\u8ba2\u5e76\u6392\u663e\u793a \u2014\u2014 \u4e0d\u7528\u518d\u6253\u5f00\u4ed6\u4eec\u7684\u7f51\u7ad9\u9010\u6761\u6bd4\u5bf9\u3002",
+        steps: [
+          { t: "\u770b\u9876\u90e8\u56db\u4e2a\u6570\u5b57", d: "\u201c\u603b\u4f59\u989d\u201d\u662f\u652f\u4ed8\u516c\u53f8\u4ee3\u6211\u4eec\u6301\u6709\u7684\u5168\u90e8\u3002\u201c\u51bb\u7ed3\u4e2d\u201d\u662f\u5ba2\u4eba\u5df2\u4ed8\u3001\u4f46\u4ecd\u5728\u7ed3\u7b97\u7684\u94b1\u3002\u201c\u53ef\u63d0\u73b0\u201d\u662f\u4eca\u5929\u5c31\u80fd\u8f6c\u5230\u94f6\u884c\u7684\u3002\u201c\u51c6\u5907\u91d1\u201d\u662f\u4e3a\u4e89\u8bae\u9884\u7559\u7684\u3002" },
+          { t: "\u770b\u61c2\u4e00\u884c", d: "\u6bcf\u884c\u663e\u793a\u5df2\u652f\u4ed8 / \u5904\u7406\u4e2d / \u5931\u8d25\u3001\u91d1\u989d\u3001\u5ba2\u4eba\u4ed8\u6b3e\u65f6\u95f4\u3001\u5ba2\u4eba\u3001\u5361\u7247\u3001\u6263\u9664\u624b\u7eed\u8d39\u540e\u9152\u5e97\u5b9e\u6536\uff0c\u4ee5\u53ca\u8fd9\u7b14\u94b1\u73b0\u5728\u5728\u54ea\u91cc\u3002" },
+          { t: "\u5931\u8d25\u4f1a\u544a\u8bc9\u4f60\u539f\u56e0", d: "\u6700\u5e38\u89c1\u7684\u662f\u5ba2\u4eba\u7684\u5361\u6ca1\u6709\u5f00\u901a\u7f51\u4e0a\u6216\u5883\u5916\u652f\u4ed8 \u2014\u2014 \u901a\u5e38\u5728\u624b\u673a\u94f6\u884c\u91cc\u5c31\u80fd\u6253\u5f00\u3002\u6ca1\u6709\u751f\u6210\u9884\u8ba2\uff0c\u4e5f\u6ca1\u6709\u6263\u94b1\uff0c\u503c\u5f97\u6253\u4e2a\u7535\u8bdd\u56de\u53bb\u3002" },
+          { t: "\u70b9\u201c\u5bf9\u8d26\u201d", d: "\u5982\u679c\u67d0\u884c\u663e\u793a\u652f\u4ed8\u516c\u53f8\u5df2\u6536\u5230\u94b1\u3001\u4f46\u6211\u4eec\u7684\u9884\u8ba2\u6ca1\u663e\u793a\uff0c\u5c31\u70b9\u201c\u5bf9\u8d26\u201d\u3002\u7cfb\u7edf\u4f1a\u91cd\u65b0\u6838\u5bf9\u5e76\u4fee\u6b63\u8bb0\u5f55\uff0c\u540c\u65f6\u8865\u53d1\u5ba2\u4eba\u7684\u786e\u8ba4\u90ae\u4ef6\u3002" },
+          { t: "\u8865\u5168\u7f3a\u5931\u4fe1\u606f", d: "\u4e3a\u5f00\u59cb\u8bb0\u5f55\u4e4b\u524d\u7684\u65e7\u9884\u8ba2\u8865\u4e0a\u5361\u7247\u548c\u624b\u7eed\u8d39\u4fe1\u606f\u3002" },
+          { t: "\u66f4\u65b0\u5165\u8d26\u72b6\u6001", d: "\u67e5\u770b\u6bcf\u7b14\u6263\u6b3e\u7531\u54ea\u4e00\u7b14\u94f6\u884c\u8f6c\u8d26\u7ed3\u6e05\uff0c\u4ee5\u53ca\u94b1\u4ec0\u4e48\u65f6\u5019\u5230\u8d26\u3002" }
+        ],
+        tips: ["\u4eca\u5929\u7684\u6263\u6b3e\u53ef\u80fd\u4e0d\u4f1a\u51fa\u73b0\u5728\u652f\u4ed8\u516c\u53f8\u7684\u201c\u6700\u8fd1 7 \u5929\u201d\u6c47\u603b\u91cc\uff0c\u56e0\u4e3a\u90a3\u4e2a\u533a\u95f4\u53ef\u80fd\u53ea\u5230\u6628\u5929\u3002\u672c\u9875\u603b\u662f\u6700\u65b0\u5728\u524d\u3002"],
+        warn: "\u5982\u679c\u67d0\u884c\u6807\u6709\u201c\u6d4b\u8bd5\u6a21\u5f0f\u201d\uff0c\u5c31\u6ca1\u6709\u771f\u5b9e\u8d44\u91d1\u5165\u8d26\uff0c\u5207\u52ff\u8ba1\u5165\u6536\u5165\u3002"
       },
       {
         id: "logs", ico: "🛡️", admin: true, title: "账户日志与安全",
@@ -1200,7 +1268,10 @@ window.JPARK_HELP = (function () {
           { t: "先看「需處理」", d: "頂部各標籤會顯示數量。「需處理」就是你的工作清單：今天或明天入住但還沒分房、客人已到期卻未記錄付款、客人未完成的線上支付，以及等待確認的鐘點房申請。最早入住的排在最前面。" },
           { t: "打開一筆訂房", d: "點一列，就能看到賓客姓名與聯絡方式、日期、房型、金額和付款方式。" },
           { t: "入住時分配房間", d: "填寫真實房號（例如 204）並儲存。每次都要做——賓客要靠它才能使用賓客服務，他的請求也才會顯示該去哪一間房。" },
-          { t: "記錄收款", d: "選擇「入住時付款」的賓客會顯示「等待付款」。在櫃檯收到錢後，點「標記為已收款」。" },
+          { t: "記錄收款", d: "透過網站的訂房現在在送達前已線上付清，抵達時就顯示「已付款」—— 需要當面收取的只有 200 泰銖房卡押金，仍僅收現金。散客和櫃檯直接下的訂單仍需手動記錄：選「現金」「信用卡」或「PromptPay（現場）」，再點「標記為已收款」。" },
+          { t: "查看付款明細", d: "打開訂房，看「付款紀錄」。裡面有扣款金額、卡片（卡別和後四碼）、持卡人、發卡銀行、賓客付款時間，以及「資金狀態」—— 告訴你錢是否已入飯店帳戶，還是仍在結算中。" },
+          { t: "給賓客開收據", d: "在「付款紀錄」框中點「收據」，再點「列印」。上面有住宿、金額、卡片和付款時間，並註明房卡押金為另計。" },
+          { t: "「已付款並已排房」", d: "這個標籤裡是已付清且已分配真實房號的訂房 —— 無需再處理的那些。沒出現在這裡的，就是還有事情沒做。" },
           { t: "重寄確認信", d: "點「重新發送確認郵件」。寄出前可以先修改文字或改掉寫錯的價格。" },
           { t: "特殊需求", d: "新增或修改賓客的需求，然後重新發送確認郵件，賓客那份上就會顯示出來。" },
           { t: "取消預訂", d: "點「取消預訂」並填寫原因；原因只有員工看得到，賓客看不到。賓客會收到取消通知信。若那幾天仍有空房，可以點「恢復預訂」。" },
@@ -1318,6 +1389,20 @@ window.JPARK_HELP = (function () {
           { t: "新訂房要求預付款", d: "連假和旺季打開：賓客不能再選「入住時付款」，所有新訂房必須線上付款且不可退款。淡季記得關掉。" },
           { t: "留意下方的說明", d: "如果飯店還沒開通信用卡 / PromptPay 線上收款，頁面上會寫明，此時預付款開關不會生效。" }
         ]
+      },
+      {
+        id: "payments", ico: "\ud83d\udcb3", admin: true, title: "\u4ed8\u6b3e",
+        intro: "\u8a0a\u606f \u2192 \ud83d\udcb3 \u4ed8\u6b3e\u3002\u628a\u652f\u4ed8\u516c\u53f8\u90a3\u908a\u7684\u6bcf\u7b46\u6263\u6b3e\u548c\u6211\u5011\u7684\u8a02\u623f\u4e26\u6392\u986f\u793a \u2014\u2014 \u4e0d\u7528\u518d\u6253\u958b\u4ed6\u5011\u7684\u7db2\u7ad9\u9010\u689d\u6bd4\u5c0d\u3002",
+        steps: [
+          { t: "\u770b\u9802\u90e8\u56db\u500b\u6578\u5b57", d: "\u300c\u7e3d\u9918\u984d\u300d\u662f\u652f\u4ed8\u516c\u53f8\u4ee3\u6211\u5011\u6301\u6709\u7684\u5168\u90e8\u3002\u300c\u51cd\u7d50\u4e2d\u300d\u662f\u8cd3\u5ba2\u5df2\u4ed8\u3001\u4f46\u4ecd\u5728\u7d50\u7b97\u7684\u9322\u3002\u300c\u53ef\u63d0\u9818\u300d\u662f\u4eca\u5929\u5c31\u80fd\u8f49\u5230\u9280\u884c\u7684\u3002\u300c\u6e96\u5099\u91d1\u300d\u662f\u70ba\u722d\u8b70\u9810\u7559\u7684\u3002" },
+          { t: "\u770b\u61c2\u4e00\u884c", d: "\u6bcf\u884c\u986f\u793a\u5df2\u4ed8\u6b3e / \u8655\u7406\u4e2d / \u5931\u6557\u3001\u91d1\u984d\u3001\u8cd3\u5ba2\u4ed8\u6b3e\u6642\u9593\u3001\u8cd3\u5ba2\u3001\u5361\u7247\u3001\u6263\u9664\u624b\u7e8c\u8cbb\u5f8c\u98ef\u5e97\u5be6\u6536\uff0c\u4ee5\u53ca\u9019\u7b46\u9322\u73fe\u5728\u5728\u54ea\u88e1\u3002" },
+          { t: "\u5931\u6557\u6703\u544a\u8a34\u4f60\u539f\u56e0", d: "\u6700\u5e38\u898b\u7684\u662f\u8cd3\u5ba2\u7684\u5361\u6c92\u6709\u958b\u901a\u7db2\u8def\u6216\u5883\u5916\u4ed8\u6b3e \u2014\u2014 \u901a\u5e38\u5728\u624b\u6a5f\u9280\u884c\u88e1\u5c31\u80fd\u6253\u958b\u3002\u6c92\u6709\u7522\u751f\u8a02\u623f\uff0c\u4e5f\u6c92\u6709\u6263\u9322\uff0c\u503c\u5f97\u6253\u500b\u96fb\u8a71\u56de\u53bb\u3002" },
+          { t: "\u9ede\u300c\u5c0d\u5e33\u300d", d: "\u5982\u679c\u67d0\u884c\u986f\u793a\u652f\u4ed8\u516c\u53f8\u5df2\u6536\u5230\u9322\u3001\u4f46\u6211\u5011\u7684\u8a02\u623f\u6c92\u986f\u793a\uff0c\u5c31\u9ede\u300c\u5c0d\u5e33\u300d\u3002\u7cfb\u7d71\u6703\u91cd\u65b0\u6838\u5c0d\u4e26\u4fee\u6b63\u7d00\u9304\uff0c\u540c\u6642\u88dc\u5bc4\u8cd3\u5ba2\u7684\u78ba\u8a8d\u4fe1\u3002" },
+          { t: "\u88dc\u9f4a\u7f3a\u5c11\u8cc7\u8a0a", d: "\u70ba\u958b\u59cb\u7d00\u9304\u4e4b\u524d\u7684\u820a\u8a02\u623f\u88dc\u4e0a\u5361\u7247\u548c\u624b\u7e8c\u8cbb\u8cc7\u8a0a\u3002" },
+          { t: "\u66f4\u65b0\u5165\u5e33\u72c0\u614b", d: "\u67e5\u770b\u6bcf\u7b46\u6263\u6b3e\u7531\u54ea\u4e00\u7b46\u9280\u884c\u8f49\u5e33\u7d50\u6e05\uff0c\u4ee5\u53ca\u9322\u4ec0\u9ebc\u6642\u5019\u5230\u5e33\u3002" }
+        ],
+        tips: ["\u4eca\u5929\u7684\u6263\u6b3e\u53ef\u80fd\u4e0d\u6703\u51fa\u73fe\u5728\u652f\u4ed8\u516c\u53f8\u7684\u300c\u6700\u8fd1 7 \u5929\u300d\u532f\u7e3d\u88e1\uff0c\u56e0\u70ba\u90a3\u500b\u5340\u9593\u53ef\u80fd\u53ea\u5230\u6628\u5929\u3002\u672c\u9801\u7e3d\u662f\u6700\u65b0\u5728\u524d\u3002"],
+        warn: "\u5982\u679c\u67d0\u884c\u6a19\u6709\u300c\u6e2c\u8a66\u6a21\u5f0f\u300d\uff0c\u5c31\u6c92\u6709\u771f\u5be6\u8cc7\u91d1\u5165\u5e33\uff0c\u5207\u52ff\u8a08\u5165\u6536\u5165\u3002"
       },
       {
         id: "logs", ico: "🛡️", admin: true, title: "帳戶日誌與安全",

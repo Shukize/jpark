@@ -37,10 +37,21 @@
    Every provider's charge resolves to exactly one of these, and
    routes/payments.js handles the three uniformly:
 
-     { ok:true,  paid:true,  chargeRef }                 settled synchronously
-     { ok:true,  paid:false, chargeRef, qrImage }        guest scans, webhook confirms
-     { ok:true,  paid:false, chargeRef, redirect }       guest authenticates, webhook confirms
-     { ok:false, status, error }                         declined / unavailable
+     { ok:true,  paid:true,  chargeRef, detail }         settled synchronously
+     { ok:true,  paid:false, chargeRef, qrImage, detail } guest scans, webhook confirms
+     { ok:true,  paid:false, chargeRef, redirect, detail } guest authenticates, webhook confirms
+     { ok:false, status, error, failure, detail }        declined / unavailable
+
+   `detail` is the provider-neutral payment record described in ./detail.js —
+   card, fee, net, settlement, failure reason. It rides on ALL FOUR outcomes,
+   including the decline: a charge the bank refused is precisely the one whose
+   detail somebody needs, because there is no booking row for it and the only
+   other record of it is a percentage on the acquirer's dashboard.
+
+   `failure` (declines only) is the STAFF-facing reason: { code, message,
+   text }. It is deliberately NOT what goes back to the guest — `error` is
+   that, and it is a kind sentence with no acquirer detail in it, because a
+   public endpoint that echoes decline codes is a card-testing oracle.
 
    The two `paid:false` outcomes are the same state as far as the booking is
    concerned: the reservation is confirmed, payment_status is 'pending', and
@@ -220,16 +231,35 @@ async function charge({ method, amountTHB, cardToken, description, guest, bookin
       console.error(`[payments] ${p.id} declined`, result.code || '');
       return {
         ok: false,
+        provider: p.id,
         status: result.status || 402,
+        // What the GUEST reads. No acquirer code, no bank name, nothing that
+        // tells a script whether a stolen card is live — see the docblock.
         error: result.declined
-          ? 'Your card was declined. Please try a different card or pay at check-in.'
-          : 'Could not process online payment. Please try again or pay at check-in.',
+          ? 'Your card was declined. Please try a different card, or contact the hotel and we will help you complete your booking.'
+          : 'Could not process online payment right now. Please try again, or contact the hotel and we will help you complete your booking.',
+        // What STAFF read. Kept whole, verbatim from the gateway.
+        failure: (result.detail && result.detail.failure) || {
+          code: result.code || null, message: null,
+          text: require('./detail').describeFailure(result.code, null),
+        },
+        detail: result.detail || null,
       };
     }
     return Object.assign({ provider: p.id }, result);
   } catch (e) {
     console.error(`[payments] ${p.id} charge error`, (e && (e.gbp || e.omise)) || (e && e.message) || e);
-    return { ok: false, status: 502, error: 'Could not process online payment. Please try again or pay at check-in.' };
+    // A gateway that could not be reached is NOT a card that was refused, and
+    // recording it as one would put an innocent card in front of staff as a
+    // decline. No detail, and a failure reason that says what actually
+    // happened.
+    return {
+      ok: false, provider: p.id, status: 502,
+      error: 'Could not process online payment right now. Please try again, or contact the hotel and we will help you complete your booking.',
+      failure: { code: 'gateway_unreachable', message: (e && e.message) || null,
+                 text: 'The payment gateway could not be reached. This is not a problem with the guest\'s card.' },
+      detail: null,
+    };
   }
 }
 
@@ -245,14 +275,63 @@ async function charge({ method, amountTHB, cardToken, description, guest, bookin
    stop watching a charge. */
 async function verify(chargeRef) {
   const p = active();
-  if (!p || !p.isConfigured()) return { paid: false, state: 'unknown', raw: null };
+  if (!p || !p.isConfigured()) return { paid: false, state: 'unknown', raw: null, detail: null };
   const result = await p.verify(chargeRef);
-  return Object.assign({ state: result.paid ? 'paid' : 'unknown' }, result);
+  return Object.assign({ state: result.paid ? 'paid' : 'unknown', detail: null }, result);
 }
 
 function parseWebhook(body) {
   const p = active();
   return p ? p.parseWebhook(body) : null;
+}
+
+/* ── Read-only account introspection ─────────────────────────────────────
+   The staff Payments ledger and the hotel's daily report read the acquirer
+   directly rather than only trusting what this database happens to hold —
+   that is the whole point of them, since the failure they exist to catch is
+   the database being WRONG about a charge.
+
+   Every one is optional on the adapter: a provider that cannot list charges
+   simply reports nothing, and the ledger degrades to "we cannot ask right
+   now" instead of throwing. GB Prime Pay has no equivalent API, and must
+   stay a valid provider without one. */
+function supportsLedger() {
+  const p = active();
+  return Boolean(p && p.isConfigured() && typeof p.listCharges === 'function');
+}
+
+async function listCharges(opts) {
+  const p = active();
+  if (!p || !p.isConfigured() || !p.listCharges) return null;
+  return p.listCharges(opts);
+}
+
+async function balance() {
+  const p = active();
+  if (!p || !p.isConfigured() || !p.balance) return null;
+  return p.balance();
+}
+
+async function listTransfers(opts) {
+  const p = active();
+  if (!p || !p.isConfigured() || !p.listTransfers) return null;
+  return p.listTransfers(opts);
+}
+
+async function retrieveTransaction(id) {
+  const p = active();
+  if (!p || !p.isConfigured() || !p.retrieveTransaction || !id) return null;
+  return p.retrieveTransaction(id);
+}
+
+function describeCharge(raw) {
+  const p = active();
+  return p && p.describeCharge ? p.describeCharge(raw) : null;
+}
+
+function resolveSettlement(transactionId, transaction, transfers) {
+  const p = active();
+  return p && p.resolveSettlement ? p.resolveSettlement(transactionId, transaction, transfers) : null;
 }
 
 /* Is this webhook delivery cryptographically genuine?
@@ -278,6 +357,13 @@ module.exports = {
   verifySignature,
   webhookUrl,
   bookingPageUrl,
+  supportsLedger,
+  listCharges,
+  balance,
+  listTransfers,
+  retrieveTransaction,
+  describeCharge,
+  resolveSettlement,
   siteBaseUrl,
   apiBaseUrl,
 };

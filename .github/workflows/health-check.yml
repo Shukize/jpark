@@ -137,6 +137,47 @@ jobs:
             echo "::warning::Recovered $recovered payment(s) whose webhook never arrived. Payments are being confirmed by the backstop, not the webhook — verify the webhook URL is registered in the Omise dashboard."
           fi
 
+      # The daily payments report to the hotel's inbox.
+      #
+      # Rides the same wake as the reconcile step above, so it costs no extra
+      # Neon compute. It is called four times a day and SENDS ONCE: the API
+      # claims the Bangkok date with an INSERT ... ON CONFLICT DO NOTHING
+      # before doing any work, so the three later calls are cheap no-ops that
+      # answer {"sent":false,"reason":"already sent for ..."}.
+      #
+      # Deliberately does NOT fail the run when it does not send — "already
+      # sent" is the expected answer for three of the four daily calls. Only a
+      # non-200 is an error, and 401 gets its own message for the same reason
+      # the reconcile step above does: a report nobody notices has stopped
+      # arriving is worse than one that never started.
+      - name: Send the daily payments report (rides the Neon wake above)
+        if: github.event_name != 'schedule' || github.event.schedule == '23 3,9,15,21 * * *'
+        env:
+          KEY: ${{ secrets.PAYMENT_WEBHOOK_SECRET }}
+        run: |
+          url="https://jpark.onrender.com/api/v1/payments/daily-report"
+          if [ -n "$KEY" ]; then
+            url="$url?key=$KEY"
+          fi
+          body=$(curl -s -m 90 -X POST "$url" || echo '')
+          code=$(curl -s -m 90 -o /dev/null -w "%{http_code}" -X POST "$url" || echo 000)
+          echo "HTTP $code $body"
+          if [ "$code" != "200" ]; then
+            if [ "$code" = "401" ]; then
+              echo "::error::The daily payments report was REJECTED (401). The repository secret PAYMENT_WEBHOOK_SECRET is missing or does not match the value set on the API in Render, so the hotel is not receiving its payments report."
+            else
+              echo "::error::The daily payments report returned $code. Check the Render logs."
+            fi
+            exit 1
+          fi
+          # A charge the gateway has that the booking board does not is the
+          # one thing in that report nobody should have to read an email to
+          # discover.
+          attention=$(echo "$body" | sed -n 's/.*"needsAttention":\([0-9]*\).*/\1/p')
+          if [ -n "$attention" ] && [ "$attention" != "0" ]; then
+            echo "::warning::$attention charge(s) at the payment gateway do not match the booking board. Open the staff console -> Payments and press Reconcile."
+          fi
+
       # Is the payment gateway still correctly configured?
       #
       # Every way this breaks is silent from the outside. The booking page

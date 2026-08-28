@@ -58,7 +58,12 @@
   // on it, an online payment the guest never completed, an arrival whose money
   // was never recorded) had nowhere to be seen. Grouping by "what is still
   // outstanding" is what a desk actually works from.
-  const BK_FILTERS = ["all", "attention", "confirmed", "cancelled", "resent"];
+  /* "ready" is the front desk's own view: everything that is settled and
+     has a physical room against it, so the only bookings left in the other
+     tabs are the ones still needing something done. Placed after
+     "attention" because the two are opposites — one is the worklist, the
+     other is what has left it. */
+  const BK_FILTERS = ["all", "attention", "ready", "confirmed", "cancelled", "resent"];
 
   /* ---- Site Editor configuration ----
      Groups every public-site translation key (by prefix) into friendly,
@@ -3187,6 +3192,7 @@
 
   function renderMsgList() {
     if (msgView === "bookings") { renderBookingList(); return; }
+    if (msgView === "payments") { loadPaymentsLedger(false); renderPaymentsLedger(); return; }
     if (msgView === "resets") { renderResetList(); return; }
     if (msgView === "starred") { renderStarredList(); return; }
     if (msgView === "trash") { renderTrashList(); return; }
@@ -3716,6 +3722,286 @@
     return method ? (method + " — " + status) : status;
   }
 
+  /* ── The full payment record ───────────────────────────────────────────
+     The booking board has always shown WHETHER a booking was paid. This shows
+     WHAT was paid: which card, whose bank, what the gateway kept, what
+     actually reaches the hotel's account, and — when a charge failed — the
+     issuer's own reason.
+
+     It is fetched per booking rather than carried on the list. The list is
+     polled every ten seconds and written to localStorage in full; adding
+     twenty payment columns to it, multiplied by the whole booking history, is
+     the shape of database egress that took this API down once (2026-07-13)
+     and would push the console toward its storage quota besides. So the
+     server deliberately leaves `payment` out of the list projection, and it
+     arrives only when somebody opens a booking. */
+  const bkPaymentCache = new Map();
+  const BK_PAYMENT_CACHE_MAX = 60;
+
+  function bkPaymentCacheKey(b) {
+    // Keyed on the status too, so a booking that flips pending -> paid
+    // refetches instead of showing a stale "awaiting payment" record.
+    return b.id + "|" + (b.paymentStatus || "") + "|" + (b.paymentChargeId || "");
+  }
+
+  function ensureBookingPayment(b) {
+    if (!b || !b.id) return Promise.resolve(null);
+    // A booking that never went through the gateway has nothing to fetch.
+    if (!b.paymentStatus || b.paymentStatus === "n/a") return Promise.resolve(null);
+    const key = bkPaymentCacheKey(b);
+    if (bkPaymentCache.has(key)) return Promise.resolve(bkPaymentCache.get(key));
+    const API = window.JPark && window.JPark.api;
+    if (!API) return Promise.resolve(null);
+    return API.get("/api/guest-bookings/" + encodeURIComponent(b.id)).then(function (full) {
+      if (!full || full.error) return null;
+      const payment = full.payment || null;
+      if (bkPaymentCache.size >= BK_PAYMENT_CACHE_MAX) {
+        // Plain FIFO eviction — this only exists so a long shift browsing
+        // hundreds of bookings cannot grow it without bound.
+        bkPaymentCache.delete(bkPaymentCache.keys().next().value);
+      }
+      bkPaymentCache.set(key, payment);
+      return payment;
+    }).catch(function () { return null; });
+  }
+
+  function bkPayMoney(v, currency) {
+    if (v == null) return "";
+    return (currency || "THB") + " " + Number(v).toLocaleString(undefined, {
+      minimumFractionDigits: 2, maximumFractionDigits: 2,
+    });
+  }
+
+  // "MasterCard •••• 8858" — the most of a card number that exists anywhere in
+  // this system. The full number is tokenised in the guest's browser and never
+  // reaches the hotel's server at all.
+  function bkPayCardLabel(card) {
+    if (!card || !card.last4) return "";
+    return (card.brand || "Card") + " •••• " + card.last4;
+  }
+
+  // Times are always shown in Bangkok. Staff, guests and the owner are all in
+  // ICT, and a receipt showing a 15:50 payment as 08:50 is a support call.
+  function bkPayTime(iso, withSeconds) {
+    if (!iso) return "";
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return "";
+    try {
+      return d.toLocaleString(undefined, {
+        timeZone: "Asia/Bangkok", year: "numeric", month: "short", day: "2-digit",
+        hour: "2-digit", minute: "2-digit",
+        second: withSeconds ? "2-digit" : undefined, hour12: false,
+      }) + " ICT";
+    } catch (e) {
+      return d.toLocaleString();
+    }
+  }
+
+  function bkPayRow(label, value, cls) {
+    if (value == null || value === "") return "";
+    return '<div class="bk-pay-row' + (cls ? " " + cls : "") + '">' +
+      '<span class="bk-pay-k">' + esc(label) + "</span>" +
+      '<span class="bk-pay-v">' + esc(value) + "</span></div>";
+  }
+
+  function bkPaymentBlockHTML(b, pay) {
+    if (!pay) {
+      return '<div class="bk-pay-block bk-pay-empty">' + esc(t("msg.bk.pay.none")) + "</div>";
+    }
+    const cur = pay.currency || b.currency || "THB";
+    const card = pay.card || {};
+    const settle = pay.settlement || null;
+    let rows = "";
+
+    rows += bkPayRow(t("msg.bk.pay.amountCharged"), bkPayMoney(pay.amount, cur), "bk-pay-strong");
+    if (pay.fee != null) {
+      rows += bkPayRow(t("msg.bk.pay.fee"), bkPayMoney(pay.fee, cur) +
+        (pay.feeVat != null ? " (+ " + bkPayMoney(pay.feeVat, cur) + " VAT)" : ""));
+    }
+    // The figure that will appear on the hotel's bank statement.
+    rows += bkPayRow(t("msg.bk.pay.net"), bkPayMoney(pay.net, cur), "bk-pay-strong");
+    if (pay.refundedAmount) rows += bkPayRow(t("msg.bk.pay.refunded"), bkPayMoney(pay.refundedAmount, cur));
+
+    rows += bkPayRow(t("msg.bk.pay.paidBy"),
+      bkPayCardLabel(card) || (pay.method === "promptpay" ? t("msg.bk.pay.promptpay") : pay.method || ""));
+    rows += bkPayRow(t("msg.bk.pay.cardExpiry"), card.expiry);
+    rows += bkPayRow(t("msg.bk.pay.cardholder"), card.name);
+    rows += bkPayRow(t("msg.bk.pay.bank"), card.bank ? card.bank + (card.country ? " (" + card.country + ")" : "") : "");
+    rows += bkPayRow(t("msg.bk.pay.cardType"), card.funding);
+    if (pay.threeDS) rows += bkPayRow(t("msg.bk.pay.3ds"), t("msg.bk.pay.3ds." + pay.threeDS));
+
+    rows += bkPayRow(t("msg.bk.pay.guestPaidAt"), bkPayTime(pay.paidAt, true));
+    rows += bkPayRow(t("msg.bk.pay.chargeId"), pay.chargeId);
+    rows += bkPayRow(t("msg.bk.pay.transactionId"), pay.transactionId);
+
+    /* Where the money is, kept as its own group. "The guest paid" and "the
+       hotel has the money" are different days, and running the two together
+       in one list is how an owner comes to believe a settled charge is
+       withdrawable when it is still clearing. */
+    let settleHtml = "";
+    if (settle) {
+      let sr = "";
+      sr += bkPayRow(t("msg.bk.pay.clearsHold"), bkPayTime(settle.transferableAt));
+      sr += bkPayRow(t("msg.bk.pay.bankPaidAt"), bkPayTime(settle.paidAt));
+      if (settle.transferId) {
+        sr += bkPayRow(t("msg.bk.pay.transfer"), settle.transferId +
+          (settle.bank ? " → " + settle.bank : "") + (settle.last4 ? " ••••" + settle.last4 : ""));
+      }
+      settleHtml =
+        '<div class="bk-pay-settle bk-pay-settle-' + esc(settle.state || "on_hold") + '">' +
+          '<div class="bk-pay-settle-head">' + esc(t("msg.bk.pay.settleTitle")) + ": <b>" +
+            esc(t("msg.bk.pay.settle." + (settle.state || "on_hold"))) + "</b></div>" +
+          sr +
+        "</div>";
+    }
+
+    const failHtml = pay.failure
+      ? '<div class="bk-pay-fail">' +
+          "<b>" + esc(t("msg.bk.pay.failureReason")) + ":</b> " +
+          esc(pay.failure.text || pay.failure.message || pay.failure.code || "") +
+        "</div>"
+      : "";
+
+    // livemode === false means the gateway was on test keys. A test charge is
+    // identical to a real one in every visible field, so this has to be loud.
+    const testHtml = pay.livemode === false
+      ? '<div class="bk-pay-test">⚠ ' + esc(t("msg.bk.pay.testMode")) + "</div>"
+      : "";
+
+    return '<div class="bk-pay-block">' +
+      '<div class="bk-pay-head">' + esc(t("msg.bk.pay.title")) +
+        '<button class="mda-action-btn bk-pay-receipt-btn" id="bkPayReceiptBtn">🧾 ' +
+          esc(t("msg.bk.pay.receipt")) + "</button>" +
+      "</div>" +
+      testHtml + failHtml +
+      '<div class="bk-pay-rows">' + rows + "</div>" +
+      settleHtml +
+    "</div>";
+  }
+
+  function renderBkPaymentBlock(slot, b) {
+    if (!slot) return;
+    if (!b.paymentStatus || b.paymentStatus === "n/a") { slot.innerHTML = ""; return; }
+    const key = bkPaymentCacheKey(b);
+    // Painted straight from cache when we already have it, so the ten-second
+    // poll re-render does not flash a loading line over a filled-in panel.
+    if (bkPaymentCache.has(key)) {
+      slot.innerHTML = bkPaymentBlockHTML(b, bkPaymentCache.get(key));
+      wireBkReceiptButton(slot, b, bkPaymentCache.get(key));
+      return;
+    }
+    slot.innerHTML = '<div class="bk-pay-block bk-pay-empty">' + esc(t("msg.bk.pay.loading")) + "</div>";
+    ensureBookingPayment(b).then(function (pay) {
+      if (!slot.isConnected) return;
+      slot.innerHTML = bkPaymentBlockHTML(b, pay);
+      wireBkReceiptButton(slot, b, pay);
+    });
+  }
+
+  function wireBkReceiptButton(slot, b, pay) {
+    const btn = slot.querySelector("#bkPayReceiptBtn");
+    if (btn) btn.addEventListener("click", () => openBkReceipt(b, pay));
+  }
+
+  /* ── A printable receipt ────────────────────────────────────────────────
+     A guest who paid online and wants something on paper at the desk, and the
+     hotel's own copy for the accounts.
+
+     Rendered into an overlay on document.body and printed with `body`
+     carrying `bk-printing`, which is what lets the print rules out-specify
+     help.css's own @media print block — that block hides .dash-panel and
+     shows the whole staff handbook for every print from this page, so a
+     receipt printed without beating it would come out with the handbook
+     behind it. */
+  function bkReceiptHTML(b, pay, siblings) {
+    const cur = (pay && pay.currency) || b.currency || "THB";
+    const rows = siblings && siblings.length > 1 ? siblings : [b];
+    const grand = rows.reduce((s, r) => s + Number(r.total || 0), 0);
+    const card = (pay && pay.card) || {};
+    const settle = (pay && pay.settlement) || null;
+
+    const line = (k, v) => (v == null || v === "" ? "" :
+      '<tr><th>' + esc(k) + "</th><td>" + esc(v) + "</td></tr>");
+
+    const roomLines = rows.map((r) =>
+      '<tr><td>' + esc(r.room || "") + (r.roomNumber ? " · " + esc(r.roomNumber) : "") + "</td>" +
+      "<td>" + esc(fmtBookingDate(r.checkIn) + " → " + fmtBookingDate(r.checkOut)) + "</td>" +
+      '<td class="bk-rc-amt">' + esc(bkPayMoney(r.total, cur)) + "</td></tr>").join("");
+
+    return '<div class="bk-receipt-sheet">' +
+      '<div class="bk-rc-head">' +
+        '<div class="bk-rc-brand">' + esc(t("msg.bk.receipt.hotel")) + "</div>" +
+        '<div class="bk-rc-title">' + esc(t("msg.bk.receipt.title")) + "</div>" +
+      "</div>" +
+      (pay && pay.livemode === false
+        ? '<div class="bk-rc-test">' + esc(t("msg.bk.pay.testMode")) + "</div>" : "") +
+      '<table class="bk-rc-meta">' +
+        line(t("msg.bk.receipt.for"), [b.guestName, b.guestEmail].filter(Boolean).join(" · ")) +
+        line(t("msg.bk.ref"), b.groupRef || b.ref) +
+        line(t("msg.bk.receipt.issued"), bkPayTime(pay && pay.paidAt ? pay.paidAt : b.createdAt, false)) +
+      "</table>" +
+      '<div class="bk-rc-section">' + esc(t("msg.bk.receipt.rooms")) + "</div>" +
+      '<table class="bk-rc-rooms">' + roomLines +
+        '<tr class="bk-rc-total"><td colspan="2">' + esc(t("msg.bk.total")) + "</td>" +
+        '<td class="bk-rc-amt">' + esc(bkPayMoney(grand, cur)) + "</td></tr>" +
+      "</table>" +
+      (pay
+        ? '<div class="bk-rc-section">' + esc(t("msg.bk.pay.title")) + "</div>" +
+          '<table class="bk-rc-meta">' +
+            line(t("msg.bk.pay.paidBy"), bkPayCardLabel(card) ||
+              (pay.method === "promptpay" ? t("msg.bk.pay.promptpay") : pay.method)) +
+            line(t("msg.bk.pay.cardholder"), card.name) +
+            line(t("msg.bk.pay.bank"), card.bank) +
+            line(t("msg.bk.pay.amountCharged"), bkPayMoney(pay.amount, cur)) +
+            line(t("msg.bk.pay.guestPaidAt"), bkPayTime(pay.paidAt, true)) +
+            line(t("msg.bk.pay.chargeId"), pay.chargeId) +
+            (settle ? line(t("msg.bk.pay.bankPaidAt"), bkPayTime(settle.paidAt)) : "") +
+          "</table>"
+        : "") +
+      // The key-card deposit is separate from the room charge and is still
+      // cash at the desk, however the room itself was paid for. Saying it on
+      // the receipt is what stops a guest who prepaid online arriving
+      // believing there is nothing left to hand over.
+      '<div class="bk-rc-note">' + esc(t("msg.bk.receipt.deposit")) + "</div>" +
+      '<div class="bk-rc-thanks">' + esc(t("msg.bk.receipt.thanks")) + "</div>" +
+    "</div>";
+  }
+
+  function openBkReceipt(b, pay) {
+    const siblings = b.groupRef
+      ? getBookingMsgs().filter((x) => x.groupRef === b.groupRef)
+          .sort((a, c) => (a.groupIndex || 0) - (c.groupIndex || 0))
+      : [];
+    const overlay = document.createElement("div");
+    overlay.className = "bk-receipt-overlay";
+    overlay.innerHTML =
+      '<div class="bk-receipt-modal">' +
+        '<div class="bk-receipt-bar">' +
+          '<button class="mda-action-btn" id="bkRcPrint">🖨 ' + esc(t("msg.bk.receipt.print")) + "</button>" +
+          '<button class="mda-action-btn" id="bkRcClose">' + esc(t("msg.bk.receipt.close")) + "</button>" +
+        "</div>" +
+        bkReceiptHTML(b, pay, siblings) +
+      "</div>";
+    document.body.appendChild(overlay);
+
+    const close = () => {
+      document.body.classList.remove("bk-printing");
+      overlay.remove();
+      document.removeEventListener("keydown", onKey);
+    };
+    const onKey = (e) => { if (e.key === "Escape") close(); };
+    document.addEventListener("keydown", onKey);
+    overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
+    overlay.querySelector("#bkRcClose").addEventListener("click", close);
+    overlay.querySelector("#bkRcPrint").addEventListener("click", () => {
+      // The class is what the print stylesheet keys off; removed again
+      // afterwards so an ordinary print from this page is unaffected.
+      document.body.classList.add("bk-printing");
+      window.print();
+      setTimeout(() => document.body.classList.remove("bk-printing"), 500);
+    });
+  }
+
   /* Front-desk-only actions on a direct/pay-at-checkin booking: assign the
      physical room number, and record how in-person payment was received.
      OTA-sourced bookings never go through this flow, so these controls are
@@ -3881,6 +4167,20 @@
     return reasons;
   }
 
+  /* Settled and ready to walk in: the money is in and a physical room has
+     been put against the booking.
+
+     Cancelled bookings are excluded even when they were paid — a cancelled
+     reservation nobody is arriving for is not "ready", and leaving it here
+     would make the tab's count read as arrivals the desk should expect.
+
+     Note `roomNumber` is the PHYSICAL room. `room` is the room TYPE
+     ("Studio Single") and is set on every booking, so testing that instead
+     would mark everything ready. */
+  function isBookingReady(b) {
+    return b.paymentStatus === "paid" && !!b.roomNumber && b.status !== "cancelled";
+  }
+
   function startOfToday() {
     const d = new Date();
     d.setHours(0, 0, 0, 0);
@@ -3891,6 +4191,7 @@
     let out = bookings;
     if (bkFilter === "resent") out = out.filter((b) => !!b.lastAmendedAt);
     else if (bkFilter === "attention") out = out.filter((b) => bookingActionReasons(b).length > 0);
+    else if (bkFilter === "ready") out = out.filter(isBookingReady);
     else if (bkFilter !== "all") out = out.filter((b) => b.status === bkFilter);
     const q = bkSearchQuery.trim().toLowerCase();
     if (q) {
@@ -3907,13 +4208,14 @@
   // rather than "this is broken" — the Guest Requests board already labels its
   // filters this way.
   function bookingFilterCounts() {
-    const counts = { all: 0, attention: 0, confirmed: 0, cancelled: 0, resent: 0 };
+    const counts = { all: 0, attention: 0, ready: 0, confirmed: 0, cancelled: 0, resent: 0 };
     getBookingMsgs().forEach((b) => {
       counts.all++;
       if (b.status === "confirmed") counts.confirmed++;
       if (b.status === "cancelled") counts.cancelled++;
       if (b.lastAmendedAt) counts.resent++;
       if (bookingActionReasons(b).length) counts.attention++;
+      if (isBookingReady(b)) counts.ready++;
     });
     return counts;
   }
@@ -4550,6 +4852,9 @@
       '<div class="bk-staff-label-slot"></div>' +
       '<div class="bk-special-req-slot"></div>' +
       '<div class="bk-detail-grid">' + fields + "</div>" +
+      // The full payment record — filled in asynchronously, because it is
+      // deliberately not carried on the polled list. See renderBkPaymentBlock.
+      '<div class="bk-payment-slot"></div>' +
       (b.status === "cancelled" ? bkCancellationSummaryHTML(b) : (b.channel === "direct" ? bkFrontDeskHTML(b) : "")) +
       '<div class="bk-confirm-label">' + esc(t("msg.bk.confirmation")) + "</div>" +
       '<div class="tr-note msg-tr-note" style="display:none"></div>' +
@@ -4617,6 +4922,7 @@
       }
     });
 
+    renderBkPaymentBlock(detailArea.querySelector(".bk-payment-slot"), b);
     renderBkLabelBlock(detailArea.querySelector(".bk-staff-label-slot"), b);
     renderBkSpecialRequestBlock(detailArea.querySelector(".bk-special-req-slot"), b);
 
@@ -4833,6 +5139,226 @@
   }
 
   /* ====================  PASSWORD RESET REQUESTS (admin)  ==================== */
+  /* ── The payments ledger (admin) ────────────────────────────────────────
+     Charges read straight from the payment gateway, lined up against this
+     hotel's own booking records.
+
+     It exists because the two halves of the truth live in different systems.
+     The gateway knows every charge ever attempted; the booking board knows
+     every reservation. Everything that can go wrong with a payment lives in
+     the gap: money taken with no booking behind it, a booking still saying
+     "awaiting payment" for a charge that settled days ago, a card refused
+     without anyone at the hotel being told.
+
+     Answering "was there a payment today?" used to mean opening the acquirer's
+     dashboard in one tab and the booking board in another and comparing by
+     eye. It also meant knowing that a dashboard's "last 7 days" summary can
+     END yesterday — so a payment taken this morning is missing from it while
+     being perfectly real.
+
+     Deliberately NOT polled. It fires gateway calls and a database read, and
+     nothing here is urgent enough to run on a timer — Neon bills compute time
+     and any query wakes it for a full autosuspend window. It loads when the
+     view is opened and when somebody presses Refresh. */
+  let paymentsLedger = null;      // last response, in memory only
+  let paymentsLedgerLoading = false;
+  let paymentsLedgerError = null;
+
+  function payLedgerMoney(v, cur) {
+    if (v == null) return "—";
+    return (cur || "THB") + " " + Number(v).toLocaleString(undefined, {
+      minimumFractionDigits: 2, maximumFractionDigits: 2,
+    });
+  }
+
+  function loadPaymentsLedger(force) {
+    const API = window.JPark && window.JPark.api;
+    if (!API || paymentsLedgerLoading) return;
+    if (paymentsLedger && !force) return;
+    paymentsLedgerLoading = true;
+    paymentsLedgerError = null;
+    renderPaymentsLedger();
+    API.get("/api/v1/payments/ledger?limit=40").then((r) => {
+      paymentsLedgerLoading = false;
+      if (!r || r.error) {
+        paymentsLedgerError = (r && r.error) || t("msg.payments.unavailable");
+        paymentsLedger = null;
+      } else {
+        paymentsLedger = r;
+      }
+      renderPaymentsLedger();
+    }).catch(() => {
+      paymentsLedgerLoading = false;
+      paymentsLedgerError = t("msg.payments.unavailable");
+      renderPaymentsLedger();
+    });
+  }
+
+  function payLedgerBalanceHTML(bal) {
+    if (!bal) return "";
+    const cell = (labelKey, value, cls) =>
+      '<div class="pay-bal-cell' + (cls ? " " + cls : "") + '">' +
+        '<div class="pay-bal-k">' + esc(t(labelKey)) + "</div>" +
+        '<div class="pay-bal-v">' + esc(payLedgerMoney(value, bal.currency)) + "</div>" +
+      "</div>";
+    return '<div class="pay-balance">' +
+      cell("msg.payments.bal.total", bal.total) +
+      // On hold and transferable are the two an owner actually acts on:
+      // one means wait, the other means the money can be withdrawn today.
+      cell("msg.payments.bal.onHold", bal.onHold, "pay-bal-hold") +
+      cell("msg.payments.bal.transferable", bal.transferable, "pay-bal-free") +
+      cell("msg.payments.bal.reserve", bal.reserve) +
+    "</div>";
+  }
+
+  function payLedgerRowHTML(c) {
+    const cur = c.currency || "THB";
+    const card = c.card || {};
+    const who = c.guest
+      ? [c.guest.name, c.guest.roomType].filter(Boolean).join(" · ")
+      : t("msg.payments.noGuest");
+    const refs = (c.bookings || []).map((b) => b.groupRef || b.ref).filter(Boolean);
+    const uniqueRefs = refs.filter((v, i) => refs.indexOf(v) === i);
+
+    const flags = (c.flags || []).map((f) =>
+      '<div class="pay-flag pay-flag-' + esc(f.level) + '">' + esc(f.text) + "</div>").join("");
+
+    // Only offer the button where pressing it could change something. A
+    // settled, fully-recorded charge has nothing to reconcile, and a button
+    // that does nothing invites pressing it repeatedly.
+    const needsAction = (c.flags || []).some((f) =>
+      f.code === "paid_not_recorded" || f.code === "paid_no_booking" ||
+      f.code === "detail_missing" || f.code === "pending");
+
+    return '<div class="pay-row pay-state-' + esc(c.state || "unknown") + '" data-charge="' + esc(c.chargeId) + '">' +
+      '<div class="pay-row-top">' +
+        '<span class="pay-state">' + esc(t("msg.payments.state." + (c.state || "unknown"))) + "</span>" +
+        '<span class="pay-amt">' + esc(payLedgerMoney(c.amount, cur)) + "</span>" +
+        '<span class="pay-when">' + esc(bkPayTime(c.paidAt || c.createdAt, false)) + "</span>" +
+      "</div>" +
+      '<div class="pay-row-mid">' +
+        '<span class="pay-who">' + esc(who) + "</span>" +
+        (uniqueRefs.length ? '<span class="pay-ref">' + esc(uniqueRefs.join(", ")) + "</span>" : "") +
+        '<span class="pay-card">' + esc(bkPayCardLabel(card) ||
+          (c.method === "promptpay" ? t("msg.bk.pay.promptpay") : (c.method || ""))) + "</span>" +
+      "</div>" +
+      (c.net != null
+        ? '<div class="pay-row-net">' + esc(t("msg.bk.pay.net")) + ": " + esc(payLedgerMoney(c.net, cur)) +
+          (c.settlement ? " · " + esc(t("msg.bk.pay.settle." + (c.settlement.state || "on_hold"))) : "") +
+          (c.settlement && c.settlement.paidAt ? " · " + esc(bkPayTime(c.settlement.paidAt, false)) : "") +
+          "</div>"
+        : "") +
+      flags +
+      '<div class="pay-row-foot">' +
+        '<code class="pay-id">' + esc(c.chargeId || "") + "</code>" +
+        (needsAction
+          ? '<button class="btn-activate pay-reconcile-btn" data-charge="' + esc(c.chargeId) + '">' +
+              esc(t("msg.payments.reconcile")) + "</button>"
+          : "") +
+      "</div>" +
+    "</div>";
+  }
+
+  function renderPaymentsLedger() {
+    const listArea = document.getElementById("msgListArea");
+    if (!listArea) return;
+    // Same admin gate as the password-reset view: the list carries guest
+    // names, email addresses, card details and the hotel's own takings.
+    if (!isAdmin()) { listArea.innerHTML = ""; return; }
+
+    const bar =
+      '<div class="msg-list-header">' + esc(t("msg.payments")) +
+        '<span class="pay-actions">' +
+          '<button class="btn-activate" id="payRefreshBtn">↻ ' + esc(t("msg.payments.refresh")) + "</button>" +
+          '<button class="btn-activate" id="payBackfillBtn">' + esc(t("msg.payments.backfill")) + "</button>" +
+          '<button class="btn-activate" id="paySettleBtn">' + esc(t("msg.payments.settle")) + "</button>" +
+        "</span>" +
+      "</div>";
+
+    let body;
+    if (paymentsLedgerLoading) {
+      body = '<div class="msg-empty"><div class="me-ico">💳</div><div class="me-sub">' +
+        esc(t("msg.payments.loading")) + "</div></div>";
+    } else if (paymentsLedgerError) {
+      body = '<div class="pay-error">' + esc(paymentsLedgerError) + "</div>";
+    } else if (!paymentsLedger || !paymentsLedger.available) {
+      body = '<div class="msg-empty"><div class="me-ico">💳</div><div class="me-sub">' +
+        esc((paymentsLedger && paymentsLedger.reason) || t("msg.payments.unavailable")) + "</div></div>";
+    } else if (!paymentsLedger.charges.length) {
+      body = '<div class="msg-empty"><div class="me-ico">💳</div>' +
+        '<div class="me-title">' + esc(t("msg.empty.title")) + "</div>" +
+        '<div class="me-sub">' + esc(t("msg.payments.empty")) + "</div></div>";
+    } else {
+      body =
+        (paymentsLedger.mode === "test"
+          ? '<div class="pay-testbanner">⚠ ' + esc(t("msg.bk.pay.testMode")) + "</div>"
+          : "") +
+        payLedgerBalanceHTML(paymentsLedger.balance) +
+        paymentsLedger.charges.map(payLedgerRowHTML).join("");
+    }
+
+    listArea.innerHTML = bar + body;
+
+    const refresh = listArea.querySelector("#payRefreshBtn");
+    if (refresh) refresh.addEventListener("click", () => loadPaymentsLedger(true));
+
+    const runAction = (path, btn) => {
+      const API = window.JPark && window.JPark.api;
+      if (!API) return;
+      btn.disabled = true;
+      const original = btn.textContent;
+      btn.textContent = t("msg.payments.working");
+      API.post(path, {}).then((r) => {
+        btn.disabled = false;
+        btn.textContent = original;
+        if (!r || r.error) { U.toast((r && r.error) || t("msg.payments.unavailable"), "error"); return; }
+        // Report what actually happened rather than a bare "done" — the
+        // interesting outcome of a backfill is usually zero, and a person
+        // needs to be able to tell "nothing to do" from "it did not run".
+        const parts = [];
+        if (r.settled) parts.push(r.settled + " " + t("msg.payments.res.settled"));
+        if (r.filled) parts.push(r.filled + " " + t("msg.payments.res.filled"));
+        if (r.closed) parts.push(r.closed + " " + t("msg.payments.res.closed"));
+        if (r.updated) parts.push(r.updated + " " + t("msg.payments.res.updated"));
+        U.toast(parts.length ? parts.join(" · ") : t("msg.payments.res.none"), "success");
+        loadPaymentsLedger(true);
+      }).catch(() => {
+        btn.disabled = false;
+        btn.textContent = original;
+        U.toast(t("msg.payments.unavailable"), "error");
+      });
+    };
+
+    const backfill = listArea.querySelector("#payBackfillBtn");
+    if (backfill) backfill.addEventListener("click", () => runAction("/api/v1/payments/backfill", backfill));
+    const settle = listArea.querySelector("#paySettleBtn");
+    if (settle) settle.addEventListener("click", () => runAction("/api/v1/payments/settlement-refresh", settle));
+
+    listArea.querySelectorAll(".pay-reconcile-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const API = window.JPark && window.JPark.api;
+        if (!API) return;
+        const chargeId = btn.getAttribute("data-charge");
+        btn.disabled = true;
+        btn.textContent = t("msg.payments.working");
+        API.post("/api/v1/payments/ledger/reconcile", { chargeId }).then((r) => {
+          if (!r || r.error || r.ok === false) {
+            btn.disabled = false;
+            U.toast((r && r.error) || t("msg.payments.unavailable"), "error");
+            return;
+          }
+          U.toast(r.message || t("msg.payments.res.none"), "success");
+          // A reconcile can flip a booking to paid, so the board is stale too.
+          bkPaymentCache.clear();
+          loadPaymentsLedger(true);
+        }).catch(() => {
+          btn.disabled = false;
+          U.toast(t("msg.payments.unavailable"), "error");
+        });
+      });
+    });
+  }
+
   function renderResetList() {
     const listArea = document.getElementById("msgListArea");
     if (!isAdmin()) { listArea.innerHTML = ""; return; }

@@ -80,7 +80,13 @@
       'bk.pay.checkinTimeNote': 'Check-in from 14:00 ICT · Check-out until 12:00 ICT',
       'bk.pay.done': 'Done',
       'bk.pay.reserveTitle': 'Reserve now — pay at check-in',
+      'bk.pay.reserveTitleOnline': "Reserve now — pay online",
+      'bk.pay.noRefundNoteOnline': "If you pay now and later cancel, change your dates, arrive late or do not arrive, the amount is not returned. If you need a flexible booking, please call the hotel before you pay and we will advise you. The 200 THB key-card deposit is separate and always refunded.",
       'bk.pay.checkinNote': "You're not paying online. We'll email your confirmation now, and you'll settle the balance in person at check-in — by cash, credit/debit card, or PromptPay QR at our front desk.",
+      'bk.pay.onlineOnlyNote': "Bookings made on our website are paid online — by credit/debit card or PromptPay QR. If you would rather pay in person, please call the hotel and we will take your booking by phone.",
+      'bk.pay.depositCashOnly': "The 200 THB key-card deposit is not part of this payment — it is still collected separately, in cash, at check-in, and returned in full at check-out.",
+      'bk.pay.err.onlineRequired': "Bookings made on our website are paid online. Please choose card or PromptPay QR above, or call the hotel to book by phone.",
+      'bk.dayuse.payNote': "Day-use requests are not paid online. We will confirm your 3-hour slot by phone or email, and you settle at the front desk on the day.",
       'bk.pay.prepayRequiredNote': "During this busy period, full prepayment is required — pay-at-check-in isn't available for these dates, and this booking is non-refundable if you don't arrive (no-show) or cancel.",
       'bk.pay.testModeTitle': 'Test mode — no payment will be taken.',
       'bk.pay.testModeNote': 'This booking page is connected to the payment gateway in test mode. You can complete the form, but no card is charged and no money is transferred. Please contact the hotel to confirm your reservation.',
@@ -151,7 +157,13 @@
       'bk.pay.checkinTimeNote': 'เช็คอินตั้งแต่ 14:00 น. (เวลาไทย) · เช็คเอาท์ภายใน 12:00 น. (เวลาไทย)',
       'bk.pay.done': 'เสร็จสิ้น',
       'bk.pay.reserveTitle': 'จองเลย ชำระเงินที่โรงแรม',
+      'bk.pay.reserveTitleOnline': "จองเลย ชำระเงินออนไลน์",
+      'bk.pay.noRefundNoteOnline': "หากท่านชำระเงินตอนนี้ แล้วภายหลังยกเลิก เปลี่ยนวันเข้าพัก มาถึงล่าช้า หรือไม่เข้าพัก จะไม่มีการคืนเงิน หากท่านต้องการการจองแบบยืดหยุ่น กรุณาโทรหาโรงแรมก่อนชำระเงิน แล้วเราจะแนะนำให้ท่าน ทั้งนี้เงินมัดจำบัตรคีย์การ์ด 200 บาท เป็นคนละส่วนและคืนให้เสมอ",
       'bk.pay.checkinNote': 'ท่านไม่ต้องชำระเงินออนไลน์ เราจะส่งอีเมลยืนยันการจองให้ทันที และท่านสามารถชำระยอดคงเหลือได้ที่หน้าเคาน์เตอร์เมื่อเช็คอิน — ด้วยเงินสด บัตรเครดิต/เดบิต หรือ QR พร้อมเพย์',
+      'bk.pay.onlineOnlyNote': "การจองผ่านเว็บไซต์ของเราต้องชำระเงินออนไลน์ — ด้วยบัตรเครดิต/เดบิต หรือ QR พร้อมเพย์ หากท่านต้องการชำระด้วยตนเอง กรุณาโทรหาโรงแรม แล้วเราจะรับจองทางโทรศัพท์ให้ท่าน",
+      'bk.pay.depositCashOnly': "เงินมัดจำบัตรคีย์การ์ด 200 บาท ไม่รวมอยู่ในการชำระเงินครั้งนี้ — ยังคงเก็บแยกเป็นเงินสด ณ วันเช็คอิน และคืนเต็มจำนวนเมื่อเช็คเอาท์",
+      'bk.pay.err.onlineRequired': "การจองผ่านเว็บไซต์ต้องชำระเงินออนไลน์ กรุณาเลือกบัตรหรือ QR พร้อมเพย์ด้านบน หรือโทรหาโรงแรมเพื่อจองทางโทรศัพท์",
+      'bk.dayuse.payNote': "คำขอใช้ห้องแบบรายวัน (3 ชั่วโมง) ไม่ต้องชำระเงินออนไลน์ เราจะยืนยันช่วงเวลาให้ท่านทางโทรศัพท์หรืออีเมล และท่านชำระเงินที่เคาน์เตอร์ในวันเข้าใช้",
       'bk.pay.prepayRequiredNote': 'ในช่วงที่มีผู้เข้าพักจำนวนมาก จำเป็นต้องชำระเงินล่วงหน้าเต็มจำนวน — ไม่สามารถเลือกชำระที่โรงแรมสำหรับวันดังกล่าวได้ และการจองนี้จะไม่คืนเงินหากท่านไม่เข้าพัก (No-show) หรือยกเลิก',
       'bk.pay.testModeTitle': 'โหมดทดสอบ — จะไม่มีการเรียกเก็บเงิน',
       'bk.pay.testModeNote': 'หน้าจองนี้เชื่อมต่อกับระบบชำระเงินในโหมดทดสอบ ท่านสามารถกรอกแบบฟอร์มได้ แต่จะไม่มีการตัดบัตรและไม่มีการโอนเงินใด ๆ กรุณาติดต่อโรงแรมเพื่อยืนยันการจองของท่าน',
@@ -222,7 +234,13 @@
       'bk.pay.checkinTimeNote': 'チェックインは14:00（タイ時間）から、チェックアウトは12:00（タイ時間）までです',
       'bk.pay.done': '完了',
       'bk.pay.reserveTitle': '今すぐご予約 — お支払いはチェックイン時に',
+      'bk.pay.reserveTitleOnline': "今すぐご予約 — オンラインでお支払い",
+      'bk.pay.noRefundNoteOnline': "今お支払いいただいた後にキャンセル、日程の変更、到着の遅れ、ご不泊となった場合でも、料金は返金されません。変更の可能性がある場合は、お支払いの前にお電話にてご相談ください。なお、ルームキーカードのデポジット200THBはこれとは別で、必ず返金いたします。",
       'bk.pay.checkinNote': 'オンラインでのお支払いは不要です。ご予約確認メールをすぐにお送りいたします。残額はチェックイン時にフロントにて、現金・クレジット/デビットカード、またはプロンプトペイQRでお支払いいただけます。',
+      'bk.pay.onlineOnlyNote': "当ホテルのウェブサイトからのご予約は、クレジット/デビットカードまたはプロンプトペイQRによるオンラインでのお支払いとなります。現地でのお支払いをご希望の場合は、お電話にてご予約を承ります。",
+      'bk.pay.depositCashOnly': "ルームキーカードのデポジット200THBは今回のお支払いには含まれません。チェックイン時に現金で別途お預かりし、チェックアウト時に全額返金いたします。",
+      'bk.pay.err.onlineRequired': "当ホテルのウェブサイトからのご予約はオンラインでのお支払いとなります。上記からカードまたはプロンプトペイQRをお選びいただくか、お電話にてご予約ください。",
+      'bk.dayuse.payNote': "デイユース（3時間）のお申し込みはオンライン決済ではありません。お電話またはメールでお時間を確定のうえ、当日フロントにてお支払いいただきます。",
       'bk.pay.prepayRequiredNote': '混雑期のため、全額前払いが必要です。この期間はチェックイン時のお支払いはお選びいただけず、ご到着がない場合（ノーショー）やキャンセルの場合は返金されません。',
       'bk.pay.testModeTitle': 'テストモード — お支払いは発生しません。',
       'bk.pay.testModeNote': 'この予約ページは決済システムのテストモードに接続されています。フォームの入力は可能ですが、カードへの請求も送金も行われません。ご予約の確定はホテルまでご連絡ください。',
@@ -293,7 +311,13 @@
       'bk.pay.checkinTimeNote': '入住时间为14:00（泰国时间）起，退房时间为12:00（泰国时间）前',
       'bk.pay.done': '完成',
       'bk.pay.reserveTitle': '立即预订 — 入住时付款',
+      'bk.pay.reserveTitleOnline': "立即预订 — 在线支付",
+      'bk.pay.noRefundNoteOnline': "如您现在付款，之后取消、变更日期、延迟抵达或未入住，款项恕不退还。如您需要可变更的预订，请在付款前致电酒店，我们将为您提供建议。200 泰铢房卡押金为另计，且必定退还。",
       'bk.pay.checkinNote': '您无需在线支付。我们会立即发送预订确认邮件，您可在入住时于前台以现金、信用卡/借记卡或PromptPay二维码支付余款。',
+      'bk.pay.onlineOnlyNote': "通过本酒店网站预订须在线支付 — 使用信用卡/借记卡或 PromptPay 二维码。如您希望现场付款，请致电酒店，我们将为您电话预订。",
+      'bk.pay.depositCashOnly': "200泰铢房卡押金不包含在本次付款中 — 仍于入住时另行以现金收取，退房时全额退还。",
+      'bk.pay.err.onlineRequired': "通过本网站预订须在线支付。请在上方选择银行卡或 PromptPay 二维码，或致电酒店进行电话预订。",
+      'bk.dayuse.payNote': "钟点房（3小时）申请无需在线支付。我们将通过电话或邮件与您确认时段，您可在当天于前台付款。",
       'bk.pay.prepayRequiredNote': '旺季期间需全额预付——所选日期不提供到店支付，且如未入住（No-show）或取消恕不退款。',
       'bk.pay.testModeTitle': '测试模式 — 不会收取任何款项。',
       'bk.pay.testModeNote': '此预订页面已连接至支付网关的测试模式。您可以填写表单，但不会扣款，也不会发生任何资金转移。请联系酒店确认您的预订。',
@@ -364,7 +388,13 @@
       'bk.pay.checkinTimeNote': '入住時間為14:00（泰國時間）起，退房時間為12:00（泰國時間）前',
       'bk.pay.done': '完成',
       'bk.pay.reserveTitle': '立即預訂 — 入住時付款',
+      'bk.pay.reserveTitleOnline': "立即預訂 — 線上付款",
+      'bk.pay.noRefundNoteOnline': "如您現在付款，之後取消、變更日期、延遲抵達或未入住，款項恕不退還。如您需要可變更的訂房，請在付款前致電飯店，我們將為您提供建議。200 泰銖房卡押金為另計，且必定退還。",
       'bk.pay.checkinNote': '您無需線上支付。我們會立即發送預訂確認郵件，您可在入住時於前台以現金、信用卡/簽帳卡或PromptPay二維碼支付餘款。',
+      'bk.pay.onlineOnlyNote': "透過本飯店網站訂房須線上付款 — 使用信用卡/簽帳卡或 PromptPay QR。若您希望現場付款，請致電飯店，我們將為您電話訂房。",
+      'bk.pay.depositCashOnly': "200泰銖房卡押金不包含在本次付款中 — 仍於入住時另行以現金收取，退房時全額退還。",
+      'bk.pay.err.onlineRequired': "透過本網站訂房須線上付款。請於上方選擇信用卡或 PromptPay QR，或致電飯店進行電話訂房。",
+      'bk.dayuse.payNote': "鐘點房（3小時）申請無需線上付款。我們將透過電話或電子郵件與您確認時段，您可於當天在櫃檯付款。",
       'bk.pay.prepayRequiredNote': '旺季期間需全額預付——所選日期不提供到店支付，且如未入住（No-show）或取消恕不退款。',
       'bk.pay.testModeTitle': '測試模式 — 不會收取任何款項。',
       'bk.pay.testModeNote': '此訂房頁面已連接至支付閘道的測試模式。您可以填寫表單，但不會扣款，也不會發生任何資金轉移。請聯繫酒店確認您的訂房。',
@@ -406,11 +436,44 @@
   //  Fetched eagerly (not lazily on modal open) so it's already resolved by
   //  the time a guest reaches the guest-details step.
   // ============================================================
-  var paymentConfig = { provider: null, publicKey: null, paymentEnabled: false, methods: [], tokenizeUrl: null };
+  //  `payAtCheckinAllowed` is the online-only rule: false in normal operation
+  //  (a booking made here is paid here), true only while the server cannot
+  //  reach a gateway at all — so the site degrades to pay-at-check-in instead
+  //  of dead-ending a guest at the last step of the funnel.
+  //
+  //  It starts TRUE here, before the real config arrives, on purpose. The
+  //  pre-config state of this page is "no gateway known", which is exactly
+  //  the state the fallback exists for; starting it false would render a form
+  //  with no payment method a guest could choose during the fetch.
+  var paymentConfig = {
+    provider: null, publicKey: null, paymentEnabled: false, methods: [],
+    tokenizeUrl: null, payAtCheckinAllowed: true,
+  };
+  //  Anything that renders the payment choice waits on this. Without it there
+  //  is a real window — the page opens, a guest is quick, the config is still
+  //  in flight — where the form is built from the defaults above and then
+  //  submitted with a method the server no longer accepts.
+  var paymentConfigReady = Promise.resolve();
+  var onPaymentConfigLoaded = null;
   if (window.JPark.api) {
-    window.JPark.api.get('/api/v1/payments/config').then(function (r) {
+    paymentConfigReady = window.JPark.api.get('/api/v1/payments/config').then(function (r) {
       if (r && !r.error) paymentConfig = r;
-    }).catch(function () {});
+      // The form may already be on screen; re-render it against the real
+      // config rather than leaving a stale choice the server will refuse.
+      if (typeof onPaymentConfigLoaded === 'function') { try { onPaymentConfigLoaded(); } catch (e) {} }
+    }).catch(function () {
+      // A config we could not fetch is a gateway we cannot use. Leave the
+      // fallback open — a booking taken as pay-at-check-in is a booking.
+    });
+  }
+
+  // Is pay-at-check-in offerable right now? Anything that renders or
+  // validates a payment method goes through here rather than reading the flag,
+  // so the "older backend that predates this field" case is handled once: such
+  // a backend still accepts pay-at-check-in, so treating a missing field as
+  // `true` keeps an old API and a new page in agreement.
+  function payAtCheckinAllowed() {
+    return paymentConfig.payAtCheckinAllowed !== false;
   }
 
   // Does the live gateway offer this method? An account can have cards
@@ -836,16 +899,22 @@
   // true while a gateway is actually live) that option is gone, so start the
   // guest on a valid online method instead.
   function defaultPaymentMethod() {
-    return paymentConfig.prepayRequired ? firstOnlineMethod() : 'pay_at_checkin';
+    // Online-only is now the ordinary case, so an online method is the
+    // ordinary default; pay-at-check-in is only ever the default while the
+    // gateway is unreachable.
+    if (!payAtCheckinAllowed() || paymentConfig.prepayRequired) return firstOnlineMethod();
+    return 'pay_at_checkin';
   }
   function currentPaymentMethod() {
     var m = (state && state.paymentMethod) || defaultPaymentMethod();
-    // Guard: if prepay is required, never resolve to pay-at-check-in (e.g. a
-    // stale state set before the config finished loading).
+    // Guard: never resolve to pay-at-check-in while it is not on offer. This
+    // catches the case that actually bites — a method chosen (or defaulted)
+    // before the config finished loading, then submitted afterwards.
+    if (!payAtCheckinAllowed() && m === 'pay_at_checkin') return firstOnlineMethod();
     if (paymentConfig.prepayRequired && m === 'pay_at_checkin') return firstOnlineMethod();
     // Guard: never resolve to an online method this account can't take.
     if (m !== 'pay_at_checkin' && !methodAvailable(m)) {
-      return paymentConfig.prepayRequired ? firstOnlineMethod() : 'pay_at_checkin';
+      return payAtCheckinAllowed() && !paymentConfig.prepayRequired ? 'pay_at_checkin' : firstOnlineMethod();
     }
     return m;
   }
@@ -863,8 +932,17 @@
     var prepay = !!paymentConfig.prepayRequired;
     // Busy/holiday policy: no pay-at-check-in option, plus an upfront
     // non-refundable notice so the guest agrees to the terms before paying.
-    var payAtCheckinRadio = prepay ? '' :
+    // The online-only rule. Rendered only when the server says pay-at-check-in
+    // is genuinely on offer — i.e. it cannot reach a gateway — so the option
+    // cannot appear on a page whose booking the server would then refuse.
+    var payAtCheckinRadio = (prepay || !payAtCheckinAllowed()) ? '' :
       '<label class="bkp-radio"><input type="radio" name="bkpPaymentMethod" value="pay_at_checkin"' + (m === 'pay_at_checkin' ? ' checked' : '') + '> ' + TR('bk.pay.payAtCheckin') + '</label>';
+    // Two different reasons the guest cannot pay at the desk, and they need
+    // different sentences: a busy-period rule that also makes the booking
+    // non-refundable, versus the ordinary standing rule that this website
+    // takes payment online.
+    var onlineOnlyNotice = (!prepay && !payAtCheckinAllowed()) ?
+      '<p class="bkp-online-only-note">' + esc(TR('bk.pay.onlineOnlyNote')) + '</p>' : '';
     var prepayNotice = prepay ?
       '<p class="bkp-prepay-note" style="background:#fdecea;border:1px solid #f0b7b1;border-radius:8px;padding:9px 12px;margin:0 0 8px;color:#8a2a1a;font-size:0.82rem;line-height:1.45">' +
         esc(TR('bk.pay.prepayRequiredNote')) + '</p>' : '';
@@ -881,6 +959,7 @@
       '<label class="bkp-label">' + TR('bk.pay.howToPay') + '</label>' +
       testNotice +
       prepayNotice +
+      onlineOnlyNotice +
       '<div class="bkp-radio-row" id="bkpPaymentMethodRow">' +
         payAtCheckinRadio +
         (methodAvailable('card')
@@ -895,9 +974,19 @@
       // never open. It names the flexible alternative in the same breath, so
       // the choice is informed rather than a term discovered afterwards.
       '<p class="bkp-norefund-note">' +
-        '<strong>' + esc(TR('bk.pay.noRefundTitle')) + '</strong> ' + esc(TR('bk.pay.noRefundNote')) +
+        '<strong>' + esc(TR('bk.pay.noRefundTitle')) + '</strong> ' +
+        // The original sentence tells the guest to choose "Pay at check-in"
+        // if they want flexibility. With online-only in force that option is
+        // not on the page, so it would be advice they cannot follow.
+        esc(TR(payAtCheckinAllowed() ? 'bk.pay.noRefundNote' : 'bk.pay.noRefundNoteOnline')) +
         ' <a href="policies.html#booking-policy" target="_blank" rel="noopener">' + esc(TR('footer.policies')) + '</a>' +
       '</p>' +
+      // The deposit note further down the form already carries the cash rule
+      // in full, and a second box beside it saying nearly the same thing was
+      // just noise — verified by looking at the rendered page. What the guest
+      // needs added at THIS point is only that the deposit is not part of what
+      // they are about to pay, so that is all this line says.
+      '<p class="bkp-deposit-cash-note">' + esc(depositStillCashNote()) + '</p>' +
       '<div class="bkp-card-fields" id="bkpCardFields"' + (m === 'card' ? '' : ' hidden') + '>' +
         '<div class="bkp-field"><label>' + TR('bk.pay.cardName') + '</label><input id="bkpCardName" autocomplete="cc-name"></div>' +
         '<div class="bkp-field"><label>' + TR('bk.pay.cardNumber') + '</label><input id="bkpCardNumber" inputmode="numeric" autocomplete="cc-number" placeholder="4242 4242 4242 4242"></div>' +
@@ -930,6 +1019,17 @@
   // stale/contradictory copy.
   function paymentNoteText() {
     return currentPaymentMethod() === 'pay_at_checkin' ? TR('bk.pay.checkinNote') : TR('bk.pay.onlinePayNote');
+  }
+
+  /* The key-card deposit is unchanged by any of this, and saying so matters
+     more now than it did.
+
+     A guest who has just paid the full room total online has every reason to
+     believe there is nothing left to hand over at the desk. The 200 THB
+     key-card deposit is a separate, refundable, CASH transaction taken at
+     check-in — it is not part of the online payment and never has been. */
+  function depositStillCashNote() {
+    return TR('bk.pay.depositCashOnly');
   }
 
   // Submit button label: the normal action label for pay-at-checkin, or
@@ -1004,7 +1104,7 @@
           '<div class="bkp-summary-row bkp-summary-time">' + TR('bk.pay.checkinTimeNote') + '</div>' +
         '</div>' +
 
-        '<h3 class="bkp-unavail-title">' + TR('bk.pay.reserveTitle') + '</h3>' +
+        '<h3 class="bkp-unavail-title">' + TR(payAtCheckinAllowed() ? 'bk.pay.reserveTitle' : 'bk.pay.reserveTitleOnline') + '</h3>' +
 
         variantHTML +
 
@@ -1134,11 +1234,33 @@
     var submitBtn = qs('#bkpSubmitBtn');
     if (submitBtn) submitBtn.addEventListener('click', onReservationSubmit);
     wireDepositAck();
-    wirePaymentMethodField(function () {
+    var rewire = function () {
       var noteEl = qs('#bkpPayNote');
       if (noteEl) noteEl.textContent = paymentNoteText();
       setReservationSubmitting(false);
-    });
+    };
+    wirePaymentMethodField(rewire);
+
+    /* Re-render the payment choice if the config lands (or changes) after the
+       form is already on screen.
+
+       Without this there is a real window — the page opens, a guest fills the
+       form quickly, the config request is still in flight — where the choice
+       was built from the pre-config defaults and then submitted with a method
+       the server has since stopped accepting. Rebuilding the field in place
+       keeps everything the guest has typed; only the payment block redraws. */
+    onPaymentConfigLoaded = function () {
+      var host = qs('.bkp-payment-method');
+      if (!host || !host.parentNode) return;
+      var wrap = document.createElement('div');
+      wrap.innerHTML = paymentMethodFieldHTML();
+      var replacement = wrap.firstChild;
+      if (!replacement) { host.parentNode.removeChild(host); return; }
+      host.parentNode.replaceChild(replacement, host);
+      wirePaymentMethodField(rewire);
+      var noteEl = qs('#bkpPayNote');
+      if (noteEl) noteEl.textContent = paymentNoteText();
+    };
   }
 
   function setReservationSubmitting(isSubmitting) {
@@ -1239,6 +1361,20 @@
           showFormError(TR('bk.pay.err.soldOut'));
         } else if (r.status === 402) {
           showFormError(r.error || TR('bk.pay.err.cardDeclined'));
+        } else if (r.code === 'ONLINE_PAYMENT_REQUIRED') {
+          /* The server refused pay-at-check-in because online payment is the
+             rule. Almost always this means the page was built before the
+             payment config landed (or from a cached copy predating the rule),
+             so the guest is looking at a form that offered them a choice the
+             server no longer accepts.
+
+             Recover rather than dead-end: re-read the config, move them onto a
+             valid method, re-render the choice, and say what changed. The form
+             keeps everything they typed. */
+          paymentConfig.payAtCheckinAllowed = false;
+          state.paymentMethod = firstOnlineMethod();
+          if (typeof onPaymentConfigLoaded === 'function') { try { onPaymentConfigLoaded(); } catch (e) {} }
+          showFormError(r.error || TR('bk.pay.err.onlineRequired'));
         } else {
           showFormError(r.error || TR('bk.pay.err.generic'));
         }
@@ -1575,11 +1711,33 @@
     });
     qs('#bkpSubmitBtn').addEventListener('click', onGroupSubmit);
     wireDepositAck();
-    wirePaymentMethodField(function () {
+    var rewire = function () {
       var noteEl = qs('#bkpPayNote');
       if (noteEl) noteEl.textContent = paymentNoteText();
       setGroupSubmitting(false);
-    });
+    };
+    wirePaymentMethodField(rewire);
+
+    /* Re-render the payment choice if the config lands (or changes) after the
+       form is already on screen.
+
+       Without this there is a real window — the page opens, a guest fills the
+       form quickly, the config request is still in flight — where the choice
+       was built from the pre-config defaults and then submitted with a method
+       the server has since stopped accepting. Rebuilding the field in place
+       keeps everything the guest has typed; only the payment block redraws. */
+    onPaymentConfigLoaded = function () {
+      var host = qs('.bkp-payment-method');
+      if (!host || !host.parentNode) return;
+      var wrap = document.createElement('div');
+      wrap.innerHTML = paymentMethodFieldHTML();
+      var replacement = wrap.firstChild;
+      if (!replacement) { host.parentNode.removeChild(host); return; }
+      host.parentNode.replaceChild(replacement, host);
+      wirePaymentMethodField(rewire);
+      var noteEl = qs('#bkpPayNote');
+      if (noteEl) noteEl.textContent = paymentNoteText();
+    };
   }
 
   function groupResultViewHTML() {
@@ -1622,6 +1780,13 @@
         if (!r || r.offline || (r.status && r.status >= 500)) showFormError(TR('bk.pay.err.offline'));
         else if (r.status === 409) showFormError(r.error || TR('bk.pay.err.soldOut'));
         else if (r.status === 402) showFormError(r.error || TR('bk.pay.err.cardDeclined'));
+        else if (r.code === 'ONLINE_PAYMENT_REQUIRED') {
+          // Same recovery as the single-room path — see its comment.
+          paymentConfig.payAtCheckinAllowed = false;
+          state.paymentMethod = firstOnlineMethod();
+          if (typeof onPaymentConfigLoaded === 'function') { try { onPaymentConfigLoaded(); } catch (e) {} }
+          showFormError(r.error || TR('bk.pay.err.onlineRequired'));
+        }
         else showFormError(r.error || TR('bk.pay.err.generic'));
         return;
       }
@@ -1826,7 +1991,7 @@
           '<div class="bkp-field"><label>' + TR('bk.pay.phone') + '</label><input type="tel" id="bkpPhone" autocomplete="tel"></div>' +
         '</div>' +
 
-        '<p class="bkp-pp-note">' + TR('bk.pay.checkinNote') + '</p>' +
+        '<p class="bkp-pp-note">' + TR('bk.dayuse.payNote') + '</p>' +
 
         '<p class="bkp-form-error" id="bkpFormError" hidden></p>' +
 
