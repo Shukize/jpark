@@ -3851,13 +3851,19 @@
     const settle = pay.settlement || null;
     let rows = "";
 
-    rows += bkPayRow(t("msg.bk.pay.amountCharged"), bkPayMoney(pay.amount, cur), "bk-pay-strong");
-    if (pay.fee != null) {
+    // "Amount charged" on an unpaid charge is what was ATTEMPTED, not taken.
+    const settled = pay.state === "paid" || b.paymentStatus === "paid";
+    rows += bkPayRow(settled ? t("msg.bk.pay.amountCharged") : t("msg.bk.pay.amountAttempted"),
+      bkPayMoney(pay.amount, cur), "bk-pay-strong");
+    /* Fee and net only once the money actually moved. The gateway quotes both
+       on every charge — they are what it would have kept — so showing them on
+       a refused or in-flight charge reports takings the hotel does not have. */
+    if (settled && pay.fee != null) {
       rows += bkPayRow(t("msg.bk.pay.fee"), bkPayMoney(pay.fee, cur) +
         (pay.feeVat != null ? " (+ " + bkPayMoney(pay.feeVat, cur) + " VAT)" : ""));
     }
     // The figure that will appear on the hotel's bank statement.
-    rows += bkPayRow(t("msg.bk.pay.net"), bkPayMoney(pay.net, cur), "bk-pay-strong");
+    if (settled) rows += bkPayRow(t("msg.bk.pay.net"), bkPayMoney(pay.net, cur), "bk-pay-strong");
     if (pay.refundedAmount) rows += bkPayRow(t("msg.bk.pay.refunded"), bkPayMoney(pay.refundedAmount, cur));
 
     rows += bkPayRow(t("msg.bk.pay.paidBy"),
@@ -4013,7 +4019,10 @@
 
     let money = "";
     money += line(t("msg.bk.pay.txnAmount"), bkPayMoney(pay.amount, cur));
-    if (totalDeducted != null) {
+    // Same rule as the board: a charge that did not settle has no fee and no
+    // net, whatever the gateway quotes against it.
+    const settled = pay.state === "paid";
+    if (settled && totalDeducted != null) {
       money += line(t("msg.bk.pay.txnFee"),
         "− " + bkPayMoney(totalDeducted, cur) + (effectiveRate != null ? "  (" + pct(effectiveRate) + " " + t("msg.bk.pay.ofSale") + ")" : ""));
       money += line("  " + t("msg.bk.pay.feeRate").replace("{rate}", pct(feeRate)),
@@ -4021,7 +4030,7 @@
       money += line("  " + t("msg.bk.pay.vatRate").replace("{rate}", pct(vatRate)),
         "− " + bkPayMoney(pay.feeVat, cur), "bk-rc-sub");
     }
-    money += line(t("msg.bk.pay.netAmount"), bkPayMoney(pay.net, cur), "bk-rc-net");
+    if (settled) money += line(t("msg.bk.pay.netAmount"), bkPayMoney(pay.net, cur), "bk-rc-net");
     if (pay.refundedAmount) money += line(t("msg.bk.pay.refunded"), bkPayMoney(pay.refundedAmount, cur));
 
     let detail = "";
@@ -4238,6 +4247,18 @@
        receipt is printed and handed across the desk. A guest has no business
        seeing the hotel's acquiring costs, so the toggle exists rather than one
        compromise document that is wrong for both readers. */
+    /* One receipt window at a time.
+
+       Every click used to append another overlay to <body>. While they were
+       correctly positioned they stacked invisibly on top of each other, so
+       nothing looked wrong and Close only dismissed the topmost — leaving
+       copies behind that a later style change made visible all at once. Close
+       any open one first, so pressing Receipt twice re-opens rather than
+       accumulates. */
+    const existing = document.querySelector(".bk-receipt-overlay");
+    if (existing) existing.remove();
+    document.body.classList.remove("bk-printing");
+
     let internal = true;
     const overlay = document.createElement("div");
     overlay.className = "bk-receipt-overlay";
@@ -4260,6 +4281,20 @@
     };
     document.body.appendChild(overlay);
 
+    /* `bk-printing` is added for the WHOLE life of the receipt window, not
+       just around the Print button.
+
+       Two reasons, both of which produced a printed dashboard. Adding it only
+       on the button meant Ctrl+P — which is what people actually press —
+       printed the console instead of the receipt. And removing it on a 500ms
+       timer raced Chrome's print preview: the preview stays open long after
+       window.print() returns, so the class was stripped while the user was
+       still looking at it, and the layout reverted mid-preview.
+
+       Every rule keyed on it lives inside @media print, so carrying it on the
+       body while the window is open changes nothing on screen. */
+    document.body.classList.add("bk-printing");
+
     const close = () => {
       document.body.classList.remove("bk-printing");
       overlay.remove();
@@ -4277,13 +4312,7 @@
       overlay.querySelector("#bkRcGuest").addEventListener("click", () => {
         if (internal) { internal = false; paint(); }
       });
-      overlay.querySelector("#bkRcPrint").addEventListener("click", () => {
-        // The class is what the print stylesheet keys off; removed again
-        // afterwards so an ordinary print from this page is unaffected.
-        document.body.classList.add("bk-printing");
-        window.print();
-        setTimeout(() => document.body.classList.remove("bk-printing"), 500);
-      });
+      overlay.querySelector("#bkRcPrint").addEventListener("click", () => window.print());
     }
     paint();
   }
@@ -5528,7 +5557,14 @@
         '<span class="pay-card">' + esc(bkPayCardLabel(card) ||
           (c.method === "promptpay" ? t("msg.bk.pay.promptpay") : (c.method || ""))) + "</span>" +
       "</div>" +
-      (c.net != null
+      /* Net is shown ONLY for a charge that actually settled.
+
+         The gateway reports fee and net on every charge object, paid or not —
+         they are what it WOULD have kept. Printing "Net to the hotel" against
+         a charge the bank refused states income that does not exist and never
+         will, on the row whose whole purpose is to say the money did not
+         arrive. Same for one still in flight: it has not been earned yet. */
+      (c.net != null && c.state === "paid"
         ? '<div class="pay-row-net">' + esc(t("msg.bk.pay.net")) + ": " + esc(payLedgerMoney(c.net, cur)) +
           (c.settlement ? " · " + esc(t("msg.bk.pay.settle." + (c.settlement.state || "on_hold"))) : "") +
           (c.settlement && c.settlement.paidAt ? " · " + esc(bkPayTime(c.settlement.paidAt, false)) : "") +
