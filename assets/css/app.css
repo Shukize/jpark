@@ -2467,3 +2467,53 @@ body.mobile-view .fac-card.large {
   .pay-when { margin-left: 0; width: 100%; }
   .pay-actions { float: none; margin-top: 8px; }
 }
+
+/* ── Receipt: internal copy vs guest copy ────────────────────────────────
+   One document, two readers. The internal copy carries the hotel's gateway
+   fees and net takings; the guest copy is the same page with that section
+   removed. The toggle is deliberately prominent, because printing the wrong
+   one hands a guest the hotel's acquiring costs. */
+.bk-rc-toggle { display: flex; gap: 0; margin-right: auto; border: 1px solid #d8dede; border-radius: 8px; overflow: hidden; }
+.bk-rc-tab {
+  border: 0; background: #fff; color: #5c6668; cursor: pointer;
+  padding: 6px 13px; font-size: 0.8rem; font-family: inherit;
+}
+.bk-rc-tab + .bk-rc-tab { border-left: 1px solid #e4e8e8; }
+.bk-rc-tab.active { background: #0c5b58; color: #fff; font-weight: 600; }
+
+.bk-rc-internal {
+  margin: 26px -30px -30px;
+  padding: 20px 30px 26px;
+  background: #f7f9f9;
+  border-top: 2px dashed #cfd8d8;
+  border-radius: 0 0 12px 12px;
+}
+.bk-rc-internal-head {
+  font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase;
+  color: #0c5b58; font-weight: 700; margin-bottom: 6px;
+}
+.bk-rc-internal-note {
+  font-size: 0.76rem; line-height: 1.5; color: #8a5a00;
+  background: #fff4e5; border: 1px solid #f0c07a;
+  border-radius: 7px; padding: 8px 11px; margin-bottom: 14px;
+}
+.bk-rc-mismatch {
+  font-size: 0.78rem; line-height: 1.5; color: #8a2a1a;
+  background: #fdecea; border: 1px solid #f0b7b1;
+  border-radius: 7px; padding: 8px 11px; margin-bottom: 14px; font-weight: 600;
+}
+.bk-rc-internal .bk-rc-meta { margin-bottom: 14px; }
+.bk-rc-money td { text-align: right; }
+/* The two components of the fee, indented under their total — so nobody adds
+   the two percentages together, which is exactly what happened here. */
+.bk-rc-sub th, .bk-rc-sub td { color: #8a9294; font-size: 0.8rem; padding-top: 1px; padding-bottom: 1px; }
+.bk-rc-net th, .bk-rc-net td {
+  font-weight: 700; border-top: 1px solid #d8dede; padding-top: 8px;
+}
+
+@media print {
+  /* Never let the toggle itself print, and keep the internal block on the
+     same sheet as the figures it explains. */
+  body.bk-printing .bk-rc-toggle { display: none !important; }
+  body.bk-printing .bk-rc-internal { page-break-inside: avoid; background: none !important; }
+}

@@ -3913,7 +3913,95 @@
      shows the whole staff handbook for every print from this page, so a
      receipt printed without beating it would come out with the handbook
      behind it. */
-  function bkReceiptHTML(b, pay, siblings) {
+  /* The gateway's own accounting, laid out the way the gateway lays it out.
+
+     Staff comparing this against the Omise dashboard should not have to
+     translate between two vocabularies or do arithmetic in their head, so
+     this mirrors that screen line for line: transaction amount, the fee split
+     into its rate and the VAT ON THE FEE, and the net amount, with the
+     transaction id underneath.
+
+     The fee split is worth being explicit about. The hotel's own staff read
+     "3.65% + VAT 7%" as a 10.65% deduction and said so in writing; it is not.
+     The 7% is VAT charged on the FEE, not on the sale. On a 5,550 charge that
+     is 202.58 + 14.18 = 216.76, which is 3.91% — not 10.65%. Showing the
+     effective percentage next to the total removes the question. */
+  function bkReceiptInternalHTML(b, pay, grand, cur) {
+    if (!pay) return "";
+    const line = (k, v, cls) => (v == null || v === "" ? "" :
+      '<tr' + (cls ? ' class="' + cls + '"' : '') + '><th>' + esc(k) + "</th><td>" + esc(v) + "</td></tr>");
+    const card = pay.card || {};
+    const settle = pay.settlement || null;
+
+    // Rates derived from the amounts rather than hard-coded: the acquirer's
+    // rate is negotiable and a hard-coded 3.65% would quietly become a lie.
+    const feeRate = (pay.fee != null && pay.amount) ? (pay.fee / pay.amount * 100) : null;
+    const vatRate = (pay.feeVat != null && pay.fee) ? (pay.feeVat / pay.fee * 100) : null;
+    const totalDeducted = (pay.fee != null || pay.feeVat != null)
+      ? (Number(pay.fee || 0) + Number(pay.feeVat || 0)) : null;
+    const effectiveRate = (totalDeducted != null && pay.amount) ? (totalDeducted / pay.amount * 100) : null;
+    const pct = (v) => (v == null ? "" : v.toFixed(2).replace(/\.00$/, "") + "%");
+
+    let money = "";
+    money += line(t("msg.bk.pay.txnAmount"), bkPayMoney(pay.amount, cur));
+    if (totalDeducted != null) {
+      money += line(t("msg.bk.pay.txnFee"),
+        "− " + bkPayMoney(totalDeducted, cur) + (effectiveRate != null ? "  (" + pct(effectiveRate) + " " + t("msg.bk.pay.ofSale") + ")" : ""));
+      money += line("  " + t("msg.bk.pay.feeRate").replace("{rate}", pct(feeRate)),
+        "− " + bkPayMoney(pay.fee, cur), "bk-rc-sub");
+      money += line("  " + t("msg.bk.pay.vatRate").replace("{rate}", pct(vatRate)),
+        "− " + bkPayMoney(pay.feeVat, cur), "bk-rc-sub");
+    }
+    money += line(t("msg.bk.pay.netAmount"), bkPayMoney(pay.net, cur), "bk-rc-net");
+    if (pay.refundedAmount) money += line(t("msg.bk.pay.refunded"), bkPayMoney(pay.refundedAmount, cur));
+
+    let detail = "";
+    detail += line(t("msg.bk.pay.paidBy"), bkPayCardLabel(card) ||
+      (pay.method === "promptpay" ? t("msg.bk.pay.promptpay") : pay.method));
+    detail += line(t("msg.bk.pay.cardExpiry"), card.expiry);
+    detail += line(t("msg.bk.pay.cardholder"), card.name);
+    detail += line(t("msg.bk.pay.bank"), card.bank ? card.bank + (card.country ? " (" + card.country + ")" : "") : "");
+    detail += line(t("msg.bk.pay.cardType"), card.funding);
+    detail += line(t("msg.bk.pay.3ds"), pay.threeDS ? t("msg.bk.pay.3ds." + pay.threeDS) : "");
+    detail += line(t("msg.bk.pay.chargeStatus"), pay.status || pay.state);
+    detail += line(t("msg.bk.pay.created"), bkPayTime(pay.createdAt, true));
+    detail += line(t("msg.bk.pay.guestPaidAt"), bkPayTime(pay.paidAt, true));
+    detail += line(t("msg.bk.pay.chargeId"), pay.chargeId);
+    detail += line(t("msg.bk.pay.transactionId"), pay.transactionId);
+    if (pay.failure) detail += line(t("msg.bk.pay.failureReason"), pay.failure.text || pay.failure.message || pay.failure.code);
+
+    let settleRows = "";
+    if (settle) {
+      settleRows += line(t("msg.bk.pay.settleTitle"), t("msg.bk.pay.settle." + (settle.state || "on_hold")));
+      settleRows += line(t("msg.bk.pay.clearsHold"), bkPayTime(settle.transferableAt));
+      settleRows += line(t("msg.bk.pay.bankPaidAt"), bkPayTime(settle.paidAt));
+      settleRows += line(t("msg.bk.pay.transfer"), settle.transferId
+        ? settle.transferId + (settle.bank ? " → " + settle.bank : "") + (settle.last4 ? " ••••" + settle.last4 : "")
+        : "");
+    }
+
+    // The booking total and the charge should agree. When they do not — a
+    // group booking charged as one, a partial refund, a price amended after
+    // payment — say so rather than printing two numbers side by side and
+    // leaving somebody to notice.
+    const mismatch = (pay.amount != null && Math.abs(Number(pay.amount) - Number(grand)) > 0.01)
+      ? '<div class="bk-rc-mismatch">' + esc(t("msg.bk.receipt.mismatch")
+          .replace("{booking}", bkPayMoney(grand, cur))
+          .replace("{charged}", bkPayMoney(pay.amount, cur))) + "</div>"
+      : "";
+
+    return '<div class="bk-rc-internal">' +
+      '<div class="bk-rc-internal-head">' + esc(t("msg.bk.receipt.internalTitle")) + "</div>" +
+      '<div class="bk-rc-internal-note">' + esc(t("msg.bk.receipt.internalNote")) + "</div>" +
+      (pay.livemode === false ? '<div class="bk-rc-test">' + esc(t("msg.bk.pay.testMode")) + "</div>" : "") +
+      mismatch +
+      '<table class="bk-rc-meta bk-rc-money">' + money + "</table>" +
+      '<table class="bk-rc-meta">' + detail + "</table>" +
+      (settleRows ? '<table class="bk-rc-meta">' + settleRows + "</table>" : "") +
+    "</div>";
+  }
+
+  function bkReceiptHTML(b, pay, siblings, internal) {
     const cur = (pay && pay.currency) || b.currency || "THB";
     const rows = siblings && siblings.length > 1 ? siblings : [b];
     const grand = rows.reduce((s, r) => s + Number(r.total || 0), 0);
@@ -3964,6 +4052,10 @@
       // believing there is nothing left to hand over.
       '<div class="bk-rc-note">' + esc(t("msg.bk.receipt.deposit")) + "</div>" +
       '<div class="bk-rc-thanks">' + esc(t("msg.bk.receipt.thanks")) + "</div>" +
+      // Everything the gateway knows, for staff. Appended AFTER the thanks
+      // line rather than woven in, so the guest copy is exactly the document
+      // above it with this section removed — not a different layout.
+      (internal ? bkReceiptInternalHTML(b, pay, grand, cur) : "") +
     "</div>";
   }
 
@@ -3972,16 +4064,37 @@
       ? getBookingMsgs().filter((x) => x.groupRef === b.groupRef)
           .sort((a, c) => (a.groupIndex || 0) - (c.groupIndex || 0))
       : [];
+    /* Two copies of one document.
+
+       INTERNAL is the default, because this lives in the staff console and the
+       question it usually answers is an accounting one — what did the gateway
+       actually keep, and has the money landed. It carries the hotel's fees and
+       net takings.
+
+       GUEST COPY is the same document with that section removed, for when the
+       receipt is printed and handed across the desk. A guest has no business
+       seeing the hotel's acquiring costs, so the toggle exists rather than one
+       compromise document that is wrong for both readers. */
+    let internal = true;
     const overlay = document.createElement("div");
     overlay.className = "bk-receipt-overlay";
-    overlay.innerHTML =
-      '<div class="bk-receipt-modal">' +
-        '<div class="bk-receipt-bar">' +
-          '<button class="mda-action-btn" id="bkRcPrint">🖨 ' + esc(t("msg.bk.receipt.print")) + "</button>" +
-          '<button class="mda-action-btn" id="bkRcClose">' + esc(t("msg.bk.receipt.close")) + "</button>" +
-        "</div>" +
-        bkReceiptHTML(b, pay, siblings) +
-      "</div>";
+    const paint = () => {
+      overlay.innerHTML =
+        '<div class="bk-receipt-modal' + (internal ? " is-internal" : "") + '">' +
+          '<div class="bk-receipt-bar">' +
+            '<div class="bk-rc-toggle" role="group">' +
+              '<button class="bk-rc-tab' + (internal ? " active" : "") + '" id="bkRcInternal">' +
+                esc(t("msg.bk.receipt.internal")) + "</button>" +
+              '<button class="bk-rc-tab' + (internal ? "" : " active") + '" id="bkRcGuest">' +
+                esc(t("msg.bk.receipt.guestCopy")) + "</button>" +
+            "</div>" +
+            '<button class="mda-action-btn" id="bkRcPrint">🖨 ' + esc(t("msg.bk.receipt.print")) + "</button>" +
+            '<button class="mda-action-btn" id="bkRcClose">' + esc(t("msg.bk.receipt.close")) + "</button>" +
+          "</div>" +
+          bkReceiptHTML(b, pay, siblings, internal) +
+        "</div>";
+      wire();
+    };
     document.body.appendChild(overlay);
 
     const close = () => {
@@ -3992,14 +4105,24 @@
     const onKey = (e) => { if (e.key === "Escape") close(); };
     document.addEventListener("keydown", onKey);
     overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
-    overlay.querySelector("#bkRcClose").addEventListener("click", close);
-    overlay.querySelector("#bkRcPrint").addEventListener("click", () => {
-      // The class is what the print stylesheet keys off; removed again
-      // afterwards so an ordinary print from this page is unaffected.
-      document.body.classList.add("bk-printing");
-      window.print();
-      setTimeout(() => document.body.classList.remove("bk-printing"), 500);
-    });
+
+    function wire() {
+      overlay.querySelector("#bkRcClose").addEventListener("click", close);
+      overlay.querySelector("#bkRcInternal").addEventListener("click", () => {
+        if (!internal) { internal = true; paint(); }
+      });
+      overlay.querySelector("#bkRcGuest").addEventListener("click", () => {
+        if (internal) { internal = false; paint(); }
+      });
+      overlay.querySelector("#bkRcPrint").addEventListener("click", () => {
+        // The class is what the print stylesheet keys off; removed again
+        // afterwards so an ordinary print from this page is unaffected.
+        document.body.classList.add("bk-printing");
+        window.print();
+        setTimeout(() => document.body.classList.remove("bk-printing"), 500);
+      });
+    }
+    paint();
   }
 
   /* Front-desk-only actions on a direct/pay-at-checkin booking: assign the
