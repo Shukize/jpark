@@ -4231,6 +4231,43 @@
     "</div>";
   }
 
+  /* What "Save as PDF" will call the file.
+
+     Browsers take the suggested filename straight from document.title, so
+     that is the only lever there is — there is no print API that sets it.
+     Left alone the title is "J Park Hotel — Staff", which turns a folder of
+     saved receipts into a folder of identically-named files that overwrite
+     each other on the second save.
+
+     Named for the guest and the moment they paid, in Bangkok time, so a
+     folder sorts chronologically per guest and two receipts can never
+     collide. Colons are illegal in filenames on Windows and macOS alike, so
+     the time is hyphenated rather than punctuated. */
+  function bkReceiptFileName(b, pay) {
+    const when = (pay && pay.paidAt) || b.createdAt;
+    const d = when ? new Date(when) : new Date();
+    let stamp;
+    try {
+      const parts = new Intl.DateTimeFormat("en-CA", {
+        timeZone: "Asia/Bangkok",
+        year: "numeric", month: "2-digit", day: "2-digit",
+        hour: "2-digit", minute: "2-digit", hour12: false,
+      }).formatToParts(d).reduce((a, x) => { a[x.type] = x.value; return a; }, {});
+      stamp = parts.year + "-" + parts.month + "-" + parts.day + " " + parts.hour + "-" + parts.minute;
+    } catch (e) {
+      // Intl without full tz data must not cost us a filename.
+      stamp = new Date(d).toISOString().slice(0, 16).replace("T", " ").replace(":", "-");
+    }
+    const guest = [b.guestName, b.guestLastName].filter(Boolean).join(" ").trim();
+    // Strip rather than substitute the characters a filesystem refuses, so
+    // the name stays readable instead of gaining underscores.
+    return (guest ? guest + " " : "")
+      .concat(stamp)
+      .replace(/[\/:*?"<>|]+/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
   function openBkReceipt(b, pay) {
     const siblings = b.groupRef
       ? getBookingMsgs().filter((x) => x.groupRef === b.groupRef)
@@ -4295,8 +4332,16 @@
        body while the window is open changes nothing on screen. */
     document.body.classList.add("bk-printing");
 
+    // Set for as long as the window is open, for the same reason the print
+    // class is: whichever way the guest's copy is saved — the Print button,
+    // Ctrl+P, "Save as PDF" from the preview — it gets the same name.
+    document.title = bkReceiptFileName(b, pay);
+
     const close = () => {
       document.body.classList.remove("bk-printing");
+      // Let the badge updater recompute it rather than restoring the string
+      // captured on open, which may be several polls out of date by now.
+      try { updateBadges(); } catch (e) { document.title = "Staff Console · J Park Hotel"; }
       overlay.remove();
       document.removeEventListener("keydown", onKey);
     };
@@ -7969,9 +8014,17 @@
     setCount("countChat", chatUnread);
     setCount("countMessages", msgUnread);
     const total = pending + chatUnread + msgUnread;
-    // Keep the browser tab flagged as unread until every request/chat/booking
-    // is read — the count and the word stay in the title so the front desk can
-    // tell at a glance from any tab that something is waiting.
+    /* Keep the browser tab flagged as unread until every request/chat/booking
+       is read — the count and the word stay in the title so the front desk
+       can tell at a glance from any tab that something is waiting.
+
+       EXCEPT while a receipt is open. The title is also what the browser
+       offers as the filename when a receipt is saved as a PDF, and this
+       function runs on the ten-second poll — so without this guard a saved
+       receipt is called "🔔 3 unread · Staff Console" or, worse, gets a
+       different name depending on how long the window was left open. The
+       receipt restores the count itself when it closes. */
+    if (document.body.classList.contains("bk-printing")) return;
     document.title = (total ? "🔔 " + total + " " + t("staff.notif.unread") + " · " : "") + "Staff Console · J Park Hotel";
   }
   function setCount(id, n) {
