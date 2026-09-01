@@ -170,12 +170,50 @@ async function settle(chargeRef, verified) {
    check-in instead of waiting. Never overwrites a row already marked paid. */
 async function markUnpaid(chargeRef, state, detail) {
   const set = PD.updateSet(detail, 2);
+  /* THE FEE COMES OFF THE BILL.
+
+     `total` includes the online payment fee, which exists for exactly one
+     reason: the gateway takes a cut of an online payment. This charge is now
+     one that will never be paid online — the guest is going to settle at the
+     front desk, in cash or on the desk terminal — so there is no gateway cut
+     to recover, and leaving the fee on the bill would have reception collect
+     a card-processing fee on a cash payment. Nobody downstream would catch
+     it: the amount is already printed on the confirmation email the guest is
+     holding.
+
+     So the booking is returned to its accommodation price. room_total is the
+     price this stay was actually sold at; COALESCE covers the rows that
+     predate the breakdown, where `total` already IS the room price and this
+     resolves to a no-op. Runs in the same statement as the status flip so a
+     row can never be 'failed' while still carrying a fee, and RETURNING *
+     hands the corrected figures straight to the email below. */
+  /* A CTE, not a plain UPDATE ... RETURNING, for one reason: RETURNING hands
+     back the NEW row, so `RETURNING payment_surcharge` after setting it to 0
+     returns 0. The notice below has to be able to tell "we just removed a
+     fee" from "there was never a fee on this booking" — the second is true of
+     anything taken while the pass-through was switched off, and of every
+     booking that predates it — and announcing a discount that never happened
+     sends reception looking for an error.
+
+     `before` selects the rows under the same predicate the UPDATE uses, in
+     the same statement, so the old value is captured atomically rather than
+     by a racing SELECT. */
   const { rows } = await db.query(
-    `UPDATE guest_bookings SET payment_status = 'failed'${set.clause ? ', ' + set.clause : ''}
-     WHERE payment_charge_id = $1 AND payment_status = 'pending'
-     RETURNING *`,
+    `WITH before AS (
+       SELECT id, payment_surcharge AS dropped_surcharge
+         FROM guest_bookings
+        WHERE payment_charge_id = $1 AND payment_status = 'pending'
+     )
+     UPDATE guest_bookings g
+        SET payment_status = 'failed',
+            total = COALESCE(g.room_total, g.total),
+            payment_surcharge = 0${set.clause ? ', ' + set.clause : ''}
+       FROM before b
+      WHERE g.id = b.id
+     RETURNING g.*, b.dropped_surcharge`,
     [chargeRef, ...set.values]
   );
+  const droppedSurcharge = rows.reduce((n, r) => n + Number(r.dropped_surcharge || 0), 0);
   if (rows.length) {
     log(`charge ${chargeRef} ${state} — ${rows.length} row(s) marked unpaid; guest pays at check-in`);
     // The front desk is the only party who can act on this, and until now
@@ -186,7 +224,23 @@ async function markUnpaid(chargeRef, state, detail) {
     // One notice per reservation, not per room: a group's rooms all share
     // this charge and all flip together in the statement above.
     try {
-      sendPaymentFailedEmail(rows[0], detail || null);
+      /* The WHOLE reservation, not the first row of it.
+
+         A group's rooms all share this charge and all flip together above, so
+         the notice is one per reservation — but it was built from rows[0]
+         alone, which on a 3-room cart told reception to collect one room's
+         share of the money. The sorted set lets the notice add them up and
+         say how many rooms it is talking about.
+
+         `hadSurcharge` is captured here because the UPDATE above has already
+         zeroed it: the notice needs to know whether a fee was actually
+         dropped before it tells the desk the amount is lower than the guest's
+         confirmation email. */
+      const ordered = rows.slice().sort((a, b) => (a.group_index || 0) - (b.group_index || 0));
+      sendPaymentFailedEmail(ordered[0], detail || null, {
+        rows: ordered,
+        hadSurcharge: droppedSurcharge > 0,
+      });
     } catch (e) {
       console.error('[reconcile] payment-failed notice', e);
     }

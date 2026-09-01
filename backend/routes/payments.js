@@ -58,6 +58,10 @@ const HOTEL_EMAIL_ADDR = 'jparkhotel1@gmail.com';
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const roomRates = require('../lib/roomRates');
 const rateOverrides = require('../lib/rateOverrides');
+// The online payment fee passed on to the guest, so the hotel receives the
+// room rate in full. See lib/paymentFees.js for the arithmetic and the
+// admin switch that turns it off.
+const paymentFees = require('../lib/paymentFees');
 const { countOverlappingPool } = require('../lib/availability');
 const { makeLimiter } = require('../lib/rateLimit');
 const { sendEmail } = require('../mailer');
@@ -272,10 +276,16 @@ async function validateAndPriceRoom(r, nights) {
   // total on a room with no rollaway). It does NOT count against maxGuests: a
   // bed is a physical surface for an already-counted guest, not a new head.
   const extraBed = Boolean(r.extraBed) && !!roomInfo.extraBedAvailable;
-  const total = await computeTotal(room, variantLabel, breakfast, nights, adults + children, childAges, extraBed);
-  if (total == null) return { error: 'Unknown room variant' };
+  // The ACCOMMODATION charge. Deliberately named roomTotal rather than total:
+  // once the online payment fee is passed on to the guest (lib/paymentFees.js)
+  // these are two different numbers, and the room rate is the one the hotel
+  // earns. The fee is added afterwards, by the route, because it depends on
+  // how the guest is paying — which this per-room pricing helper has no
+  // business knowing.
+  const roomTotal = await computeTotal(room, variantLabel, breakfast, nights, adults + children, childAges, extraBed);
+  if (roomTotal == null) return { error: 'Unknown room variant' };
 
-  return { values: { room, variantLabel, breakfast, smoking, adults, children, childAges, extraBed, total } };
+  return { values: { room, variantLabel, breakfast, smoking, adults, children, childAges, extraBed, roomTotal } };
 }
 
 // Insert one confirmed direct booking row. `p.groupRef/groupIndex/groupSize`
@@ -287,7 +297,15 @@ async function validateAndPriceRoom(r, nights) {
 // overrides for a booking paid online — omitted (or undefined), they default
 // to exactly what every pay-at-checkin booking has always used, so no
 // existing call site needs to change.
+//
+// `p.total` is what the GUEST IS CHARGED. `p.roomTotal` and
+// `p.paymentSurcharge` split it into the accommodation charge and the online
+// payment fee passed on to the guest (lib/paymentFees.js). A caller that
+// passes neither gets room_total = total and a zero surcharge, which is the
+// truth for any booking with no fee to pass on.
 async function insertBookingRow(client, p) {
+  const roomTotal = p.roomTotal != null ? p.roomTotal : p.total;
+  const surcharge = p.paymentSurcharge != null ? p.paymentSurcharge : 0;
   const { rows } = await client.query(
     `INSERT INTO guest_bookings
        (ref, channel, channel_name, guest_name, guest_last_name, guest_email, guest_phone,
@@ -304,10 +322,17 @@ async function insertBookingRow(client, p) {
         payment_card_brand, payment_card_last4, payment_card_expiry,
         payment_card_bank, payment_card_country, payment_card_funding,
         payment_3ds, payment_failure_code, payment_failure_message,
-        payment_livemode, payment_detail, payment_detail_at)
+        payment_livemode, payment_detail, payment_detail_at,
+        -- The breakdown of $12 (total). Appended after the gateway block for
+        -- the same reason that block was appended after everything else: a
+        -- column inserted mid-list silently shifts every positional parameter
+        -- below it, and the money columns are the worst possible place to
+        -- learn that lesson.
+        room_total, payment_surcharge)
      VALUES ($1,'direct','Direct (Website)',$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,'THB','confirmed',$13,
              $14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,
-             $27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39,$40,$41,$42,$43,$44,$45,$46)
+             $27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39,$40,$41,$42,$43,$44,$45,$46,
+             $47,$48)
      RETURNING *`,
     [
       p.ref, p.guestName, p.guestLastName, p.guestEmail, p.guestPhone || null,
@@ -332,6 +357,7 @@ async function insertBookingRow(client, p) {
           c.payment_livemode, c.payment_detail, c.payment_detail_at,
         ];
       }()),
+      roomTotal, surcharge,
     ]
   );
   return rows[0];
@@ -669,6 +695,14 @@ router.post('/reservations', async (req, res) => {
   if (priced.error) return res.status(400).json({ error: priced.error });
   const v = priced.values;
 
+  /* The online payment fee, added to the room total so the hotel receives the
+     room rate in full. Computed HERE rather than inside the pricing helper
+     because it depends on the payment method (a PromptPay QR costs less to
+     accept than a card) and on a live admin switch. For pay-at-check-in it
+     resolves to a zero surcharge and `bill.total === v.roomTotal`, so the
+     rest of this route needs no branch. See lib/paymentFees.js. */
+  const bill = await paymentFees.quoteFor(v.roomTotal, paymentChoice.method);
+
   const guestName = String(guest.firstName || 'Guest').trim();
   const guestLastName = guest.lastName ? String(guest.lastName).trim() : null;
 
@@ -705,8 +739,10 @@ router.post('/reservations', async (req, res) => {
     let onlinePayment = null;
     if (paymentChoice.method !== 'pay_at_checkin') {
       const result = await payments.charge({
+        // The guest's whole bill: the room total plus the processing fee that
+        // makes the hotel whole on it. Never a client-supplied number.
+        amountTHB: bill.total,
         method: paymentChoice.method,
-        amountTHB: v.total,
         cardToken: paymentChoice.cardToken,
         bookingRef: ref,
         guest: { name: `${guestName} ${guestLastName || ''}`.trim(), email: guest.email, phone: guest.phone },
@@ -734,7 +770,10 @@ router.post('/reservations', async (req, res) => {
         room: v.room,
         checkIn,
         checkOut,
-        amount: v.total,
+        // What was presented to the gateway, fee included — so a declined
+        // attempt records the amount that was actually attempted, not the
+        // room rate underneath it.
+        amount: bill.total,
         detail: result.detail || null,
       };
       if (!result.ok) {
@@ -758,7 +797,8 @@ router.post('/reservations', async (req, res) => {
     const saved = await insertBookingRow(client, {
       ref, guestName, guestLastName, guestEmail: guest.email, guestPhone: guest.phone,
       room: v.room, checkIn, checkOut, nights, adults: v.adults, children: v.children,
-      total: v.total, lang: b.lang, smoking: v.smoking, breakfast: v.breakfast,
+      total: bill.total, roomTotal: bill.roomTotal, paymentSurcharge: bill.surcharge,
+      lang: b.lang, smoking: v.smoking, breakfast: v.breakfast,
       childAges: v.childAges, extraBed: v.extraBed, specialRequests,
       nonRefundable: prepayRequired,
       paymentProvider: onlinePayment ? onlinePayment.provider : undefined,
@@ -848,7 +888,24 @@ router.post('/reservations/group', async (req, res) => {
     if (r.error) return res.status(400).json({ error: `Room ${i + 1}: ${r.error}` });
     priced.push(r.values);
   }
-  const grandTotal = priced.reduce((s, p) => s + Number(p.total || 0), 0);
+  const grandRoomTotal = priced.reduce((s, p) => s + Number(p.roomTotal || 0), 0);
+
+  /* ONE gross-up for the whole cart, never one per room.
+
+     The cart is charged as a single transaction, so the acquirer takes its
+     cut once, off the grand total — and grossing up each room separately
+     then summing would round up once per room and overcharge the guest a
+     Baht per extra room for nothing.
+
+     The single surcharge is then split back across the rooms by
+     allocateSurcharge(), whose parts add up to exactly the whole. That
+     matters because each room is stored as its own row, and the receipt, the
+     group confirmation email and every report total those rows: a split that
+     rounded independently would print a grand total that disagreed with the
+     amount the card was charged. */
+  const bill = await paymentFees.quoteFor(grandRoomTotal, paymentChoice.method);
+  const surchargeShares = paymentFees.allocateSurcharge(bill.surcharge, priced.map((p) => p.roomTotal));
+  const grandTotal = bill.total;
 
   const guestName = String(guest.firstName || 'Guest').trim();
   const guestLastName = guest.lastName ? String(guest.lastName).trim() : null;
@@ -895,7 +952,7 @@ router.post('/reservations/group', async (req, res) => {
     if (paymentChoice.method !== 'pay_at_checkin') {
       const result = await payments.charge({
         method: paymentChoice.method,
-        amountTHB: grandTotal,
+        amountTHB: bill.total,
         cardToken: paymentChoice.cardToken,
         bookingRef: groupRef,
         guest: { name: `${guestName} ${guestLastName || ''}`.trim(), email: guest.email, phone: guest.phone },
@@ -916,7 +973,11 @@ router.post('/reservations/group', async (req, res) => {
         ref: `${groupRef}-R${i + 1}`,
         guestName, guestLastName, guestEmail: guest.email, guestPhone: guest.phone,
         room: v.room, checkIn, checkOut, nights, adults: v.adults, children: v.children,
-        total: v.total, lang: b.lang, smoking: v.smoking, breakfast: v.breakfast,
+        // This room's share of the bill: its own room total, plus its share
+        // of the one processing fee charged for the whole cart.
+        total: Number(v.roomTotal) + surchargeShares[i],
+        roomTotal: v.roomTotal, paymentSurcharge: surchargeShares[i],
+        lang: b.lang, smoking: v.smoking, breakfast: v.breakfast,
         childAges: v.childAges, extraBed: v.extraBed, specialRequests,
         groupRef, groupIndex: i + 1, groupSize,
         nonRefundable: prepayRequired,
@@ -949,8 +1010,17 @@ router.post('/reservations/group', async (req, res) => {
       status: 'confirmed',
       groupRef,
       grandTotal,
+      // The grand total broken out, so the success screen can name the
+      // processing fee it just charged rather than showing one number the
+      // guest has to reconcile against the quote they agreed to.
+      roomTotal: bill.roomTotal,
+      surcharge: bill.surcharge,
       currency: 'THB',
-      rooms: savedRows.map((r) => ({ ref: r.ref, room: r.room, total: Number(r.total || 0) })),
+      rooms: savedRows.map((r) => ({
+        ref: r.ref, room: r.room, total: Number(r.total || 0),
+        roomTotal: Number(r.room_total != null ? r.room_total : r.total || 0),
+        surcharge: Number(r.payment_surcharge || 0),
+      })),
       bookings: savedRows.map(row2jsPublic),
       payment: paymentResponse(paymentChoice.method, onlinePayment),
     });
@@ -1588,6 +1658,18 @@ router.post('/payments/refresh/:id', requireAuth, async (req, res) => {
     // guest's confirmation email is sent exactly once — never from here twice.
     if (verified.paid && bk.payment_status !== 'paid') {
       await reconciler.settle(bk.payment_charge_id, verified);
+    } else if (verified.state === 'failed' || verified.state === 'expired') {
+      /* The gateway says this charge is over and was never paid. Close the
+         payment leg here rather than leaving it to a sweep — this endpoint is
+         a member of staff pressing "refresh" while looking at the booking, and
+         the answer they get back should be the settled one.
+
+         It matters more than it used to: markUnpaid() is also what takes the
+         online payment fee back off the bill, so until it runs the front desk
+         is looking at a total that includes a gateway cut nobody is going to
+         pay. lib/paymentsLedger.js's reconcileCharge already did this; this
+         route was the one path that did not. */
+      await reconciler.markUnpaid(bk.payment_charge_id, verified.state, verified.detail || null);
     } else if (verified.detail) {
       await reconciler.recordDetail(bk.payment_charge_id, verified.detail);
     }

@@ -269,7 +269,20 @@ function fakeQuery(sql, params) {
       // with the real column order tests the stub, not the code.
       group_ref: params[21] || null, group_index: params[22] || null,
       group_size: params[23] || null,
-      payment_detail: params[26] || null,
+      // The gateway block starts at $27. `payment_detail` is the second-to-
+      // last of it ($45) — this used to read params[26], which is
+      // payment_AMOUNT, so every assertion about a stored detail record was
+      // really asserting an amount. Exactly the class of stub bug the comment
+      // above was written about.
+      payment_amount: params[26] != null ? params[26] : null,
+      payment_fee: params[28] != null ? params[28] : null,
+      payment_fee_vat: params[29] != null ? params[29] : null,
+      payment_net: params[30] != null ? params[30] : null,
+      payment_livemode: params[43] != null ? params[43] : null,
+      payment_detail: params[44] || null,
+      // The bill split, appended last: $47/$48.
+      room_total: params[46] != null ? params[46] : null,
+      payment_surcharge: params[47] != null ? params[47] : null,
     };
     inserted.push(row);
     return { rows: [row] };
@@ -279,10 +292,26 @@ function fakeQuery(sql, params) {
     hit.forEach((r) => { r.payment_status = 'paid'; });
     return { rows: hit };
   }
-  if (/UPDATE guest_bookings SET payment_status = 'failed'/i.test(s)) {
+  /* markUnpaid. Matched on the SET, not on the statement's opening words: the
+     real query is now a CTE (`WITH before AS (...) UPDATE guest_bookings g
+     SET payment_status = 'failed' ...`) so it can return the fee it is about
+     to zero. A stub pinned to the old one-line shape would silently stop
+     matching and fall through to some other branch — worse than failing. */
+  if (/SET payment_status = 'failed'/i.test(s)) {
     const hit = inserted.filter((r) => r.payment_charge_id === params[0] && r.payment_status === 'pending');
-    hit.forEach((r) => { r.payment_status = 'failed'; });
-    return { rows: hit };
+    const out = hit.map((r) => {
+      // The pre-update fee, which the real statement returns via its CTE —
+      // the notice uses it to tell "we removed a fee" from "there was never
+      // one", and RETURNING alone would hand back the zeroed value.
+      const dropped_surcharge = r.payment_surcharge;
+      r.payment_status = 'failed';
+      // Mirrors `total = COALESCE(room_total, total), payment_surcharge = 0`:
+      // a payment that will now be settled in person carries no gateway fee.
+      if (r.room_total != null) r.total = r.room_total;
+      r.payment_surcharge = 0;
+      return Object.assign({}, r, { dropped_surcharge });
+    });
+    return { rows: out };
   }
   // The reconciler's sweep: every distinct charge still awaiting payment.
   // The real query also bounds by created_at and LIMIT; neither matters to a
@@ -505,6 +534,44 @@ const fakeDb = {
     omiseSeen.charge.amount + ' vs ' + oRow.total);
   check('omise charge carries return_uri for 3-D Secure', !!omiseSeen.charge.return_uri, omiseSeen.charge.return_uri);
 
+  /* ── The online payment fee actually reached the gateway ──────────────
+     The two checks above are self-consistent: they compare the charge
+     against the row that was written from the same number, so they would
+     stay green if the fee were never added at all. These pin it to the
+     ARITHMETIC instead — the room rate is recomputed here from the same
+     rate table the route priced from, grossed up independently, and the
+     result has to be what Omise was asked for. */
+  {
+    const paymentFees = require('./lib/paymentFees');
+    const schedule = await paymentFees.getEffectiveFees();
+    const roomOnly = Number(oRow.room_total);
+    const quoted = paymentFees.quote(roomOnly, 'card', schedule);
+
+    check('the booking stores the room rate separately from the amount charged',
+      roomOnly > 0 && Number(oRow.total) > roomOnly,
+      `room ${oRow.room_total} vs total ${oRow.total}`);
+    check('room_total + payment_surcharge === total',
+      Math.round((roomOnly + Number(oRow.payment_surcharge)) * 100) === Math.round(Number(oRow.total) * 100),
+      `${oRow.room_total} + ${oRow.payment_surcharge} vs ${oRow.total}`);
+    check('the amount charged is the grossed-up total, not the room rate',
+      Number(oRow.total) === quoted.total, `${oRow.total} vs ${quoted.total}`);
+    check('the gateway was asked for the grossed-up amount in satang',
+      omiseSeen.charge.amount === Math.round(quoted.total * 100),
+      omiseSeen.charge.amount + ' vs ' + Math.round(quoted.total * 100));
+
+    // The point of the whole feature: after Omise takes its cut of what it
+    // was actually asked to process, the hotel is left with the room rate.
+    // Computed from the MOCK's own fee fields, which mirror Omise's real
+    // satang rounding — not from the quote's expectation.
+    const fee = Math.round(omiseSeen.charge.amount * 0.0365);
+    const feeVat = Math.round(fee * 0.07);
+    const netTHB = (omiseSeen.charge.amount - fee - feeVat) / 100;
+    check('after the gateway takes its cut, the hotel still has the room rate',
+      netTHB >= roomOnly, `net ${netTHB} vs room ${roomOnly}`);
+    check('and is not over-recovering by more than the rounding',
+      netTHB - roomOnly < 1, `net ${netTHB} vs room ${roomOnly}`);
+  }
+
   // Card that the bank sends to 3-D Secure — the case the ORIGINAL code
   // could not handle and read as a decline.
   const o3ds = await realFetch(base + '/reservations', {
@@ -633,6 +700,43 @@ const fakeDb = {
   // re-send the guest a payment-confirmed email on every single run.
   const sweptAgain = await reconciler.sweep({ reason: 'test-idempotent' });
   check('a second sweep recovers nothing (no duplicate emails)', sweptAgain.recovered === 0, JSON.stringify(sweptAgain));
+
+  /* ── An online payment that never completes must not leave its fee ─────
+     The single worst outcome of passing the gateway fee to the guest: a
+     PromptPay QR that expires, or a 3-D Secure challenge the guest walks
+     away from. The reservation stays confirmed and the guest settles at the
+     front desk — in cash, or on the desk terminal — so there is no gateway
+     cut to recover. If the fee stayed on `total`, reception would collect a
+     card-processing fee on a cash payment, from an amount already printed on
+     the confirmation email the guest is holding, and nothing downstream
+     would ever question it. */
+  {
+    const abandoned = await realFetch(base + '/reservations', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        room: roomKey, variantLabel: variant, checkIn: '2027-02-01', checkOut: '2027-02-03',
+        adults: 2, children: 0, breakfast: false, paymentMethod: 'card', cardToken: 'tokn_3ds',
+        guest: { firstName: 'Nok', lastName: 'Sri', email: 'nok@example.com', phone: '0866666666' },
+      }),
+    });
+    check('a 3-D Secure booking is created pending', abandoned.status === 201, String(abandoned.status));
+    const row = inserted[inserted.length - 1];
+    const chargedTotal = Number(row.total);
+    const roomOnly = Number(row.room_total);
+    check('while it is pending, the bill still carries the fee',
+      Number(row.payment_surcharge) > 0 && chargedTotal > roomOnly,
+      `${row.room_total} / ${row.payment_surcharge} / ${row.total}`);
+
+    // The guest never finishes at the bank. The reconciler closes the leg.
+    await reconciler.markUnpaid(row.payment_charge_id, 'failed', null);
+
+    check('the payment leg is closed as failed', row.payment_status === 'failed', row.payment_status);
+    check('THE FEE COMES OFF: the bill falls back to the room rate',
+      Number(row.total) === roomOnly, `${row.total} vs ${roomOnly}`);
+    check('and the surcharge is zeroed, so nothing re-adds it',
+      Number(row.payment_surcharge) === 0, String(row.payment_surcharge));
+    check('the reservation itself is untouched', row.status === 'confirmed', row.status);
+  }
 
   // settle() is what both the webhook and the reconciler call, so the two
   // racing on one charge must settle exactly once between them.

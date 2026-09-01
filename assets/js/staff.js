@@ -4015,7 +4015,13 @@
      The 7% is VAT charged on the FEE, not on the sale. On a 5,550 charge that
      is 202.58 + 14.18 = 216.76, which is 3.91% — not 10.65%. Showing the
      effective percentage next to the total removes the question. */
-  function bkReceiptInternalHTML(b, pay, grand, cur, lang) {
+  /* `surcharge` is the online payment fee this booking charged the guest —
+     what the hotel INTENDED to recover. The gateway's actual deduction is on
+     the charge object. Showing both, and the difference between them, is what
+     turns "we think our rate is 3.65%" into something the front desk can
+     check on a single receipt: if the acquirer quietly moves its rate, the
+     shortfall line says so on the next receipt anybody prints. */
+  function bkReceiptInternalHTML(b, pay, grand, cur, lang, surcharge) {
     if (!pay) return "";
     const line = (k, v, cls) => (v == null || v === "" ? "" :
       '<tr' + (cls ? ' class="' + cls + '"' : '') + '><th>' + esc(k) + "</th><td>" + esc(v) + "</td></tr>");
@@ -4045,6 +4051,33 @@
         "− " + bkPayMoney(pay.feeVat, cur, lang), "bk-rc-sub");
     }
     if (settled) money += line(tl("msg.bk.pay.netAmount", lang), bkPayMoney(pay.net, cur, lang), "bk-rc-net");
+
+    /* Did the pass-through work? Three lines, only when a fee was actually
+       charged to the guest and the charge actually settled:
+         what the room earns · what the guest paid for the fee · net − room.
+
+       That last number is the whole point of the feature. It should be a
+       small positive figure (the gross-up rounds up to a whole Baht, so the
+       hotel lands a little over rather than a little under). A negative one
+       means the acquirer is deducting more than the configured rate — a fact
+       nobody would otherwise notice until the bank balance disagreed with the
+       books by an amount too small to chase and too regular to ignore. */
+    const feeToGuest = Number(surcharge || 0);
+    if (settled && feeToGuest > 0) {
+      const roomRevenue = Number(grand) - feeToGuest;
+      money += line(tl("msg.bk.pay.roomRevenue", lang), bkPayMoney(roomRevenue, cur, lang), "bk-rc-sub");
+      money += line(tl("msg.bk.pay.feeToGuest", lang), "+ " + bkPayMoney(feeToGuest, cur, lang), "bk-rc-sub");
+      if (pay.net != null) {
+        const delta = Number(pay.net) - roomRevenue;
+        const amt = bkPayMoney(Math.abs(delta), cur, lang);
+        money += line("",
+          delta >= 0
+            ? tl("msg.bk.pay.recoverySurplus", lang).replace("{amount}", amt)
+            : tl("msg.bk.pay.recoveryShort", lang).replace("{amount}", amt),
+          delta >= 0 ? "bk-rc-recovered" : "bk-rc-short");
+      }
+    }
+
     if (pay.refundedAmount) money += line(tl("msg.bk.pay.refunded", lang), bkPayMoney(pay.refundedAmount, cur, lang));
 
     let detail = "";
@@ -4115,6 +4148,19 @@
     const cur = (pay && pay.currency) || b.currency || "THB";
     const rows = siblings && siblings.length > 1 ? siblings : [b];
     const grand = rows.reduce((s, r) => s + Number(r.total || 0), 0);
+    /* The folio's two halves. Each room is priced at its ACCOMMODATION rate —
+       what the room cost — and the one online payment fee is a single line
+       beneath, exactly where a hotel folio puts a service charge. Printing
+       each room at its share of the charge instead would spread one fee in
+       fractions across the rooms and give a guest three prices that match
+       nothing they were quoted.
+
+       roomTotal falls back to total for anything with no breakdown stored:
+       every booking taken before the fee existed, every OTA and manual row.
+       Those two numbers are the same there, so the receipt is unchanged. */
+    const roomOnly = (r) => Number(r.roomTotal != null ? r.roomTotal : r.total || 0);
+    const accommodation = rows.reduce((s, r) => s + roomOnly(r), 0);
+    const surcharge = rows.reduce((s, r) => s + Number(r.paymentSurcharge || 0), 0);
     const card = (pay && pay.card) || {};
 
     const line = (k, v) => (v == null || v === "" ? "" :
@@ -4144,9 +4190,31 @@
         "<td>" + esc(fmtBookingDate(r.checkIn, lang) + " → " + fmtBookingDate(r.checkOut, lang)) +
           (nights ? '<div class="bk-rc-sub-line">' + esc(nights) + "</div>" : "") +
         "</td>" +
-        '<td class="bk-rc-amt">' + esc(bkPayMoney(r.total, cur, lang)) + "</td>" +
+        '<td class="bk-rc-amt">' + esc(bkPayMoney(roomOnly(r), cur, lang)) + "</td>" +
       "</tr>";
     }).join("");
+
+    /* The closing rows of the room table. One line when there is no fee —
+       byte-for-byte the receipt this desk has been printing — and three when
+       there is, so the guest can follow the arithmetic from the room rate
+       they booked to the amount that left their card. */
+    const totalRows = surcharge > 0
+      ? '<tr class="bk-rc-subtotal">' +
+          '<td colspan="2">' + esc(tl("msg.bk.roomTotal", lang)) + "</td>" +
+          '<td class="bk-rc-amt">' + esc(bkPayMoney(accommodation, cur, lang)) + "</td>" +
+        "</tr>" +
+        '<tr class="bk-rc-subtotal">' +
+          '<td colspan="2">' + esc(tl("msg.bk.surcharge", lang)) + "</td>" +
+          '<td class="bk-rc-amt">' + esc(bkPayMoney(surcharge, cur, lang)) + "</td>" +
+        "</tr>" +
+        '<tr class="bk-rc-total">' +
+          '<td colspan="2">' + esc(tl("msg.bk.receipt.totalPaid", lang)) + "</td>" +
+          '<td class="bk-rc-amt">' + esc(bkPayMoney(grand, cur, lang)) + "</td>" +
+        "</tr>"
+      : '<tr class="bk-rc-total">' +
+          '<td colspan="2">' + esc(tl("msg.bk.receipt.totalPaid", lang)) + "</td>" +
+          '<td class="bk-rc-amt">' + esc(bkPayMoney(grand, cur, lang)) + "</td>" +
+        "</tr>";
 
     const paidLabel = bkPayCardLabel(card) ||
       (pay && pay.method === "promptpay" ? tl("msg.bk.pay.promptpay", lang) : (pay && pay.method) || "");
@@ -4198,13 +4266,14 @@
         "<thead><tr>" +
           "<th>" + esc(tl("msg.bk.receipt.rooms", lang)) + "</th>" +
           "<th>" + esc(tl("msg.bk.receipt.stay", lang)) + "</th>" +
-          '<th class="bk-rc-amt">' + esc(tl("msg.bk.total", lang)) + "</th>" +
+          // "Amount", not "Total paid": each row is now the room's own
+          // accommodation charge, and the amount actually paid is the tfoot
+          // line beneath the fee. A column headed "Total paid" over a room
+          // price is a receipt that argues with itself.
+          '<th class="bk-rc-amt">' + esc(tl("msg.bk.receipt.amount", lang)) + "</th>" +
         "</tr></thead>" +
         "<tbody>" + roomLines + "</tbody>" +
-        '<tfoot><tr class="bk-rc-total">' +
-          '<td colspan="2">' + esc(tl("msg.bk.receipt.totalPaid", lang)) + "</td>" +
-          '<td class="bk-rc-amt">' + esc(bkPayMoney(grand, cur, lang)) + "</td>" +
-        "</tr></tfoot>" +
+        "<tfoot>" + totalRows + "</tfoot>" +
       "</table>" +
 
       // ── How it was paid ─────────────────────────────────────────────────
@@ -4218,6 +4287,13 @@
             line(tl("msg.bk.pay.guestPaidAt", lang), bkPayTime(pay.paidAt, true, lang)) +
             line(tl("msg.bk.pay.chargeId", lang), pay.chargeId) +
           "</table>"
+        : "") +
+
+      // One sentence naming the fee, on BOTH copies — the guest copy is this
+      // sheet with the internal block removed, so without it the fee line on
+      // the folio would be a number the guest has no explanation for.
+      (surcharge > 0
+        ? '<div class="bk-rc-fee-note">' + esc(tl("msg.bk.receipt.feeNote", lang)) + "</div>"
         : "") +
 
       // The key-card deposit is separate from the room charge and is still
@@ -4241,7 +4317,7 @@
       // Everything the gateway knows, for staff. Appended after the document
       // proper rather than woven in, so the guest copy is exactly the pages
       // above with this section removed — not a different layout.
-      (internal ? bkReceiptInternalHTML(b, pay, grand, cur) : "") +
+      (internal ? bkReceiptInternalHTML(b, pay, grand, cur, lang, surcharge) : "") +
     "</div>";
   }
 
@@ -5242,6 +5318,16 @@
     fields += bookingField("msg.bk.breakfast", t(b.breakfast ? "msg.bk.breakfast.yes" : "msg.bk.breakfast.no"));
     if (b.extraBed) fields += bookingField("msg.bk.extraBed", t("msg.bk.breakfast.yes"));
     if (b.nonRefundable) fields += bookingField("msg.bk.nonRefundable", t("msg.bk.breakfast.yes"));
+    /* The bill split, shown only when there is a split to show. `total` is
+       what the guest was charged; `roomTotal` is what the hotel earns on the
+       stay. A front-desk conversation about a price is always about the room
+       rate, so it has to be on the panel next to the amount that reached the
+       card — otherwise staff are left subtracting. */
+    if (Number(b.paymentSurcharge || 0) > 0 && b.roomTotal != null) {
+      const cur = (b.currency || "THB") + " ";
+      fields += bookingField("msg.bk.roomTotal", cur + Number(b.roomTotal).toLocaleString());
+      fields += bookingField("msg.bk.surcharge", cur + Number(b.paymentSurcharge).toLocaleString());
+    }
     fields += bookingField("msg.bk.total", totalStr);
     fields += bookingField("msg.bk.payment", bkPaymentLabel(b));
     fields += bookingField("msg.bk.statusLabel", bkStatusLabel(b.status));
@@ -6944,7 +7030,30 @@
   let ratesData = null; // { [room]: { maxGuests, extraBedAvailable, variants: [{label, room, bf, overridden}] } }
   let ratesSurcharges = null; // { extraBed, extraBreakfastGuest }
   let dayUseRatesData = null; // { [room]: number } — flat, like ratesSurcharges, not per-variant
+  // { enabled, vatRate, rates: { card, promptpay } } — the online payment fee
+  // passed on to the guest (backend/lib/paymentFees.js). Stored as
+  // PROPORTIONS; the fields below show and accept PERCENTAGES.
+  let paymentFeesData = null;
   let ratesWired = false;
+
+  // A percentage a person types (3.65) <-> the proportion the API stores
+  // (0.0365). Every crossing of that boundary goes through these two, because
+  // one un-converted 3.65 would try to add 365% to every booking.
+  function pctToRate(pct) { return Math.round(Number(pct) * 1e6) / 1e8; }
+  function rateToPct(rate) { return Math.round(Number(rate) * 1e8) / 1e6; }
+  /* Takes the RAW field value, not a Number.
+
+     `Number("")` is 0, and zero is a legitimate fee rate (a gateway that
+     charges nothing), so a validator that only saw the number could not tell
+     "the hotel takes no cut on cards" from "somebody cleared this box". The
+     second saves a 0% rate and the hotel silently absorbs the fee again on
+     every online booking from then on — invisible, because the booking page
+     simply stops showing a fee line. An empty box is a mistake; reject it. */
+  function validPctField(raw, max) {
+    if (typeof raw !== "string" || raw.trim() === "") return false;
+    const n = Number(raw);
+    return isFinite(n) && n >= 0 && n <= max;
+  }
 
   function validRateInput(n) {
     return typeof n === "number" && isFinite(n) && n > RATE_MIN && n <= RATE_MAX;
@@ -6963,6 +7072,8 @@
       ratesData = res.rooms;
       ratesSurcharges = res.surcharges || { extraBed: 500, extraBreakfastGuest: 190, childBreakfast5to8: 100 };
       dayUseRatesData = res.dayUse || {};
+      paymentFeesData = res.paymentFees ||
+        { enabled: true, vatRate: 0.07, rates: { card: 0.0365, promptpay: 0.0265 } };
     }
     buildRatesRows(wrap);
     wireRatesSave();
@@ -7040,8 +7151,122 @@
     wrap.appendChild(section);
   }
 
+  /* ── The online payment fee (backend/lib/paymentFees.js) ───────────────
+     The one card in this tab that is not a price the hotel sets — it is the
+     hotel's own cost, passed on. Three things have to be visible together or
+     it cannot be managed at all:
+
+       · the switch, because passing a card fee to a cardholder is a
+         commercial decision the hotel must be able to reverse in one tick;
+       · the rates the acquirer QUOTES, typed as percentages;
+       · what the acquirer has actually been DEDUCTING, derived from settled
+         charges — filled in asynchronously below, because "our rate is 3.65%"
+         is a belief, and the only way that belief goes wrong is silently. */
+  function buildPaymentFeeFields(wrap) {
+    const section = document.createElement("div");
+    section.className = "ed-rate-surcharges ed-fee-card";
+
+    const heading = document.createElement("div");
+    heading.className = "ed-rate-label";
+    heading.textContent = t("staff.site.feeTitle");
+    section.appendChild(heading);
+
+    const blurb = document.createElement("p");
+    blurb.className = "muted ed-fee-note";
+    blurb.textContent = t("staff.site.feeNote");
+    section.appendChild(blurb);
+
+    const onField = document.createElement("label");
+    onField.className = "ed-rate-field ed-fee-toggle";
+    const onInput = document.createElement("input");
+    onInput.type = "checkbox";
+    onInput.checked = paymentFeesData.enabled !== false;
+    onInput.id = "edFeeEnabled";
+    onField.appendChild(onInput);
+    onField.appendChild(document.createTextNode(" " + t("staff.site.feeEnabled")));
+    section.appendChild(onField);
+
+    // One row per method, plus VAT. Percentages, with the resulting all-in
+    // rate spelled out beside them so nobody adds 3.65 and 7 together — the
+    // hotel's own staff have already made that mistake in writing.
+    [["card", "staff.site.feeCard"], ["promptpay", "staff.site.feePromptPay"]].forEach(([method, key]) => {
+      const field = document.createElement("label");
+      field.className = "ed-rate-field";
+      const input = document.createElement("input");
+      input.type = "number"; input.min = "0"; input.max = "20"; input.step = "0.01";
+      input.value = rateToPct(paymentFeesData.rates[method]);
+      input.dataset.feeRate = method;
+      field.appendChild(document.createTextNode(t(key)));
+      field.appendChild(input);
+      const eff = document.createElement("span");
+      eff.className = "ed-fee-eff";
+      eff.dataset.feeEff = method;
+      field.appendChild(eff);
+      section.appendChild(field);
+    });
+
+    const vatField = document.createElement("label");
+    vatField.className = "ed-rate-field";
+    const vatInput = document.createElement("input");
+    vatInput.type = "number"; vatInput.min = "0"; vatInput.max = "30"; vatInput.step = "0.01";
+    vatInput.value = rateToPct(paymentFeesData.vatRate);
+    vatInput.dataset.feeVat = "1";
+    vatField.appendChild(document.createTextNode(t("staff.site.feeVat")));
+    vatField.appendChild(vatInput);
+    section.appendChild(vatField);
+
+    // Live "so a 1,000 THB room becomes…" line. An abstract percentage is
+    // hard to sanity-check; a worked example is not.
+    const example = document.createElement("div");
+    example.className = "ed-fee-example";
+    section.appendChild(example);
+
+    const observed = document.createElement("div");
+    observed.className = "ed-fee-observed";
+    observed.textContent = t("staff.site.feeObservedLoading");
+    section.appendChild(observed);
+
+    const repaint = () => {
+      const vat = pctToRate(Number(vatInput.value));
+      section.querySelectorAll("input[data-fee-rate]").forEach((inp) => {
+        const rate = pctToRate(Number(inp.value));
+        const k = rate * (1 + vat);
+        const badge = section.querySelector('[data-fee-eff="' + inp.dataset.feeRate + '"]');
+        if (badge) badge.textContent = isFinite(k) ? "= " + (Math.round(k * 10000) / 100).toFixed(2) + "%" : "";
+      });
+      const cardRate = pctToRate(Number((section.querySelector('input[data-fee-rate="card"]') || {}).value || 0));
+      const k = cardRate * (1 + vat);
+      const gross = (k > 0 && k < 1 && onInput.checked) ? Math.ceil(Number((1000 / (1 - k)).toFixed(6))) : 1000;
+      example.textContent = t("staff.site.feeExample").replace("{total}", String(gross)).replace("{fee}", String(gross - 1000));
+    };
+    section.addEventListener("input", repaint);
+    section.addEventListener("change", repaint);
+    repaint();
+
+    wrap.appendChild(section);
+
+    /* What the acquirer really kept, from settled charges. Fetched after the
+       card is on screen — it is evidence, not a setting, and a slow or failed
+       lookup must never hold up editing the numbers above it. */
+    J.api.get("/api/rates/observed-fees").then((res) => {
+      if (!res || res.error || !res.observed) {
+        observed.textContent = t("staff.site.feeObservedNone");
+        return;
+      }
+      const methods = Object.keys(res.observed);
+      if (!methods.length) { observed.textContent = t("staff.site.feeObservedNone"); return; }
+      observed.innerHTML = "<strong>" + esc(t("staff.site.feeObservedTitle")) + "</strong> " +
+        methods.map((m) => {
+          const o = res.observed[m];
+          return esc(m) + ": " + (Math.round(o.effectiveRate * 10000) / 100).toFixed(2) + "% " +
+            esc(t("staff.site.feeObservedOver").replace("{n}", String(o.charges)));
+        }).join(" · ");
+    }).catch(() => { observed.textContent = t("staff.site.feeObservedNone"); });
+  }
+
   function buildRatesRows(wrap) {
     wrap.innerHTML = "";
+    buildPaymentFeeFields(wrap);
     buildSurchargeFields(wrap);
     buildDayUseFields(wrap);
     Object.keys(ratesData).forEach((roomName) => {
@@ -7116,18 +7341,45 @@
         dayUsePayload[inp.dataset.dayuse] = val;
       });
 
+      /* The payment fee. Converted from the percentages a person types to
+         the proportions the API stores — the one place that conversion can
+         be forgotten, and forgetting it would submit a 3.65 that the server
+         rejects as "must be a proportion" rather than silently applying.
+         Validated here too so a bad value never leaves the browser. */
+      const feePayload = { rates: {} };
+      const feeToggle = wrap.querySelector("#edFeeEnabled");
+      if (feeToggle) feePayload.enabled = !!feeToggle.checked;
+      wrap.querySelectorAll("input[data-fee-rate]").forEach((inp) => {
+        inp.classList.remove("ed-rate-invalid");
+        if (!validPctField(inp.value, 20)) { inp.classList.add("ed-rate-invalid"); hasError = true; return; }
+        feePayload.rates[inp.dataset.feeRate] = pctToRate(Number(inp.value));
+      });
+      const vatInput = wrap.querySelector("input[data-fee-vat]");
+      if (vatInput) {
+        vatInput.classList.remove("ed-rate-invalid");
+        if (!validPctField(vatInput.value, 30)) { vatInput.classList.add("ed-rate-invalid"); hasError = true; }
+        else feePayload.vatRate = pctToRate(Number(vatInput.value));
+      }
+
       if (hasError) { U.toast(t("staff.site.ratesError"), "error"); return; }
 
       btn.disabled = true;
-      const res = await J.api.put("/api/rates", { rates: payload, surcharges: surchargePayload, dayUse: dayUsePayload });
+      const res = await J.api.put("/api/rates", {
+        rates: payload, surcharges: surchargePayload, dayUse: dayUsePayload, paymentFees: feePayload,
+      });
       btn.disabled = false;
       if (J.api.isOffline(res) || !res || res.error) {
         U.toast((res && res.error) || t("staff.site.ratesError"), "error");
         return;
       }
-      ratesData = res.rooms;
+      // Same defensive shape the three lines below already use. A 200 that
+      // somehow came back without `rooms` would otherwise throw inside
+      // buildRatesRows() and leave the tab blank AFTER a successful save —
+      // the one moment an admin most needs to see what was stored.
+      ratesData = res.rooms || ratesData;
       ratesSurcharges = res.surcharges || ratesSurcharges;
       dayUseRatesData = res.dayUse || dayUseRatesData;
+      paymentFeesData = res.paymentFees || paymentFeesData;
       buildRatesRows(wrap);
       U.toast(t("staff.site.ratesSaved"), "success");
     });

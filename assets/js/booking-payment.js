@@ -70,6 +70,16 @@
       'bk.pay.err.cardIncomplete': 'Please fill in all card details.',
       'bk.pay.err.paymentUnavailable': 'Online payment is not currently available. Please choose pay at check-in.',
       'bk.pay.total': 'Total',
+      // The bill, broken into the two things a guest is paying for. The
+      // accommodation line is deliberately named "Accommodation" rather than
+      // "Subtotal": a guest comparing this page against the room rate they
+      // clicked needs to see their own number, unchanged, before anything is
+      // added to it.
+      'bk.pay.roomSubtotal': 'Accommodation',
+      'bk.pay.processingFee': 'Online payment fee',
+      'bk.pay.totalToPay': 'Total to pay',
+      'bk.pay.feeNote': 'This payment carries a {rate} processing fee charged by our payment provider ({feeRate} plus {vatRate} VAT on that fee). It is shown separately above and included in the total.',
+      'bk.pay.feeNoteAtDesk': 'Paying at the front desk on arrival avoids this fee.',
       'bk.pay.extraBedLine': 'Extra bed (3rd guest)', 'bk.pay.extraBreakfastLine': 'Extra breakfast guest',
       'bk.pay.extraBedLabel': 'Extra bed', 'bk.pay.extraBedAdd': 'Add an extra bed',
       'bk.pay.processingText': 'Processing…',
@@ -148,6 +158,11 @@
       'bk.pay.err.cardIncomplete': 'กรุณากรอกข้อมูลบัตรให้ครบถ้วน',
       'bk.pay.err.paymentUnavailable': 'ขณะนี้ไม่สามารถชำระเงินออนไลน์ได้ กรุณาเลือกชำระเงินที่หน้าเคาน์เตอร์แทน',
       'bk.pay.total': 'ยอดรวม',
+      'bk.pay.roomSubtotal': 'ค่าห้องพัก',
+      'bk.pay.processingFee': 'ค่าธรรมเนียมชำระเงินออนไลน์',
+      'bk.pay.totalToPay': 'ยอดที่ต้องชำระ',
+      'bk.pay.feeNote': 'การชำระเงินนี้มีค่าธรรมเนียม {rate} ซึ่งเรียกเก็บโดยผู้ให้บริการรับชำระเงิน ({feeRate} บวก VAT {vatRate} ของค่าธรรมเนียมดังกล่าว) โดยแสดงแยกไว้ด้านบนและรวมอยู่ในยอดรวมแล้ว',
+      'bk.pay.feeNoteAtDesk': 'หากชำระที่เคาน์เตอร์ในวันเข้าพัก จะไม่มีค่าธรรมเนียมนี้',
       'bk.pay.extraBedLine': 'เตียงเสริม (ผู้เข้าพักคนที่ 3)', 'bk.pay.extraBreakfastLine': 'อาหารเช้าเพิ่มเติม',
       'bk.pay.extraBedLabel': 'เตียงเสริม', 'bk.pay.extraBedAdd': 'เพิ่มเตียงเสริม',
       'bk.pay.processingText': 'กำลังดำเนินการ…',
@@ -226,6 +241,11 @@
       'bk.pay.err.cardIncomplete': 'カード情報をすべてご入力ください。',
       'bk.pay.err.paymentUnavailable': 'ただいまオンライン決済をご利用いただけません。チェックイン時のお支払いをお選びください。',
       'bk.pay.total': '合計',
+      'bk.pay.roomSubtotal': '宿泊料金',
+      'bk.pay.processingFee': 'オンライン決済手数料',
+      'bk.pay.totalToPay': 'お支払い合計',
+      'bk.pay.feeNote': 'このお支払いには、決済代行会社が課す{rate}の決済手数料がかかります（手数料{feeRate}＋その手数料に対する消費税{vatRate}）。上記に内訳を表示し、合計金額に含まれています。',
+      'bk.pay.feeNoteAtDesk': 'ご到着時にフロントでお支払いいただく場合、この手数料はかかりません。',
       'bk.pay.extraBedLine': 'エキストラベッド（3人目）', 'bk.pay.extraBreakfastLine': '追加の朝食',
       'bk.pay.extraBedLabel': 'エキストラベッド', 'bk.pay.extraBedAdd': 'エキストラベッドを追加',
       'bk.pay.processingText': '処理中…',
@@ -304,6 +324,11 @@
       'bk.pay.err.cardIncomplete': '请填写完整的银行卡信息。',
       'bk.pay.err.paymentUnavailable': '目前无法使用在线支付，请选择入住时付款。',
       'bk.pay.total': '总计',
+      'bk.pay.roomSubtotal': '房费',
+      'bk.pay.processingFee': '网上支付手续费',
+      'bk.pay.totalToPay': '应付总额',
+      'bk.pay.feeNote': '本次付款需支付由支付服务商收取的 {rate} 手续费（手续费 {feeRate}，另加该手续费的 {vatRate} 增值税）。上方已单独列出，并已计入总额。',
+      'bk.pay.feeNoteAtDesk': '抵店时在前台付款则无需支付此项手续费。',
       'bk.pay.extraBedLine': '加床（第3位客人）', 'bk.pay.extraBreakfastLine': '额外早餐',
       'bk.pay.extraBedLabel': '加床', 'bk.pay.extraBedAdd': '加一张床',
       'bk.pay.processingText': '处理中…',
@@ -382,6 +407,11 @@
       'bk.pay.err.cardIncomplete': '請填寫完整的銀行卡資訊。',
       'bk.pay.err.paymentUnavailable': '目前無法使用線上支付，請選擇入住時付款。',
       'bk.pay.total': '總計',
+      'bk.pay.roomSubtotal': '房費',
+      'bk.pay.processingFee': '網路付款手續費',
+      'bk.pay.totalToPay': '應付總額',
+      'bk.pay.feeNote': '本次付款需支付由金流服務商收取的 {rate} 手續費（手續費 {feeRate}，另加該手續費的 {vatRate} 營業稅）。上方已另行列出，並已計入總額。',
+      'bk.pay.feeNoteAtDesk': '抵達時於櫃檯付款則不需支付此項手續費。',
       'bk.pay.extraBedLine': '加床（第3位客人）', 'bk.pay.extraBreakfastLine': '額外早餐',
       'bk.pay.extraBedLabel': '加床', 'bk.pay.extraBedAdd': '加一張床',
       'bk.pay.processingText': '處理中…',
@@ -460,6 +490,23 @@
   //  submitted with a method the server no longer accepts.
   var paymentConfigReady = Promise.resolve();
   var onPaymentConfigLoaded = null;
+  /* Same idea, one fetch over: booking-page.js's GET /api/rates carries the
+     live payment-fee schedule, and a modal already on screen is quoting the
+     fee from the static mirror until it lands. Whichever view is open sets
+     this so it can re-price itself in place. */
+  var onRatesLoaded = null;
+  /* Is a booking currently being submitted?
+
+     updateReservationTotals()/updateCartBill() end by re-labelling the submit
+     button with the new amount — which also re-ENABLES it. That is right when
+     a guest changes the breakfast option; it is a double-charge when a
+     background fetch (the payment config, or the live rate schedule) lands
+     while the charge is already in flight, because the button goes live again
+     under the guest's finger. */
+  var submitting = false;
+  document.addEventListener('jpark:ratesloaded', function () {
+    if (typeof onRatesLoaded === 'function') { try { onRatesLoaded(); } catch (e) {} }
+  });
   if (window.JPark.api) {
     paymentConfigReady = window.JPark.api.get('/api/v1/payments/config').then(function (r) {
       if (r && !r.error) paymentConfig = r;
@@ -854,6 +901,80 @@
   }
   function currentTotal() { return (currentRate() + currentSurcharge() + extraBedRate()) * state.nights; }
 
+  /* ── The online payment fee, shown before the guest commits ────────────
+     currentTotal() above is the ACCOMMODATION charge — the money the hotel
+     earns, and the figure every rate on this site quotes. Paying online costs
+     the hotel a percentage of whatever the gateway processes, and that cost
+     is passed to the guest as its own named line rather than buried in the
+     room rate: the room still costs what the room card said it costs.
+
+     The quote depends on how they are paying (a PromptPay QR is cheaper to
+     accept than a card, and paying at the desk carries nothing at all), so it
+     is recomputed on every method change — see wirePaymentMethodField's
+     callers. Purely a display figure: backend/routes/payments.js recomputes
+     it from the same schedule before a single satang moves. */
+  function billFor(roomTotal) {
+    var P = window.JPark && window.JPark.pricing;
+    if (!P || !P.paymentFeeQuote) {
+      return { roomTotal: roomTotal, surcharge: 0, total: roomTotal, applied: false };
+    }
+    return P.paymentFeeQuote(roomTotal, currentPaymentMethod());
+  }
+  function currentBill() { return billFor(currentTotal()); }
+  function cartBill() { return billFor(cartGrandTotal()); }
+
+  var PCT = function (v) {
+    // 0.039055 -> "3.91%", 0.07 -> "7%", 0 -> "0%". Two decimals is as fine as
+    // a percentage ever needs to read on a bill; a trailing ".00" or ".10" is
+    // noise. The trim is anchored to the decimal point on purpose — a blanket
+    // /\.?0+$/ turns "0.00" into "" and prints a bare "%", and it would eat
+    // the zero off a whole number like "20".
+    var n = Math.round(Number(v || 0) * 10000) / 100;
+    return String(n.toFixed(2).replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '')) + '%';
+  };
+
+  /* The bill's closing rows. One line when there is no fee to show (exactly
+     what this modal always rendered), three when there is — accommodation,
+     the fee, and the total — so the guest can see their room rate survive
+     intact and watch what was added to it. */
+  function totalRowsHTML(bill, totalLabelKey, totalId) {
+    var idAttr = totalId ? ' id="' + totalId + '"' : '';
+    if (!bill.applied || !bill.surcharge) {
+      return '<div class="bkp-total-row"><span>' + TR(totalLabelKey) + '</span>' +
+        '<strong' + idAttr + '>' + money(bill.total) + '</strong></div>';
+    }
+    /* No percentage on the row itself.
+
+       It would sit directly above an "Accommodation" line it is NOT a
+       percentage of — the fee is a percentage of the TOTAL, one line further
+       down — so a guest checking the arithmetic finds it does not reconcile.
+       And the success screens' realised rate is a hair above the quoted one
+       (the whole-Baht rounding), which would print "3.98%" under a form that
+       said "3.91%". The note directly beneath spells the whole thing out:
+       the all-in rate, the provider's rate, and the VAT charged on it. */
+    return '<div class="bkp-total-row bkp-subtotal-row"><span>' + TR('bk.pay.roomSubtotal') + '</span>' +
+        '<span>' + money(bill.roomTotal) + '</span></div>' +
+      '<div class="bkp-total-row bkp-fee-row"><span>' + TR('bk.pay.processingFee') + '</span>' +
+        '<span>' + money(bill.surcharge) + '</span></div>' +
+      '<div class="bkp-total-row bkp-pay-total-row"><span>' + TR('bk.pay.totalToPay') + '</span>' +
+        '<strong' + idAttr + '>' + money(bill.total) + '</strong></div>';
+  }
+
+  // The sentence under the bill explaining the fee, in the guest's language.
+  // Spells out both rates and the fact that the VAT is on the FEE — the
+  // single thing everyone reading "3.65% + 7%" gets wrong.
+  function feeNoteHTML(bill) {
+    if (!bill.applied || !bill.surcharge) return '';
+    var note = TR('bk.pay.feeNote')
+      .replace('{rate}', PCT(bill.effectiveRate))
+      .replace('{feeRate}', PCT(bill.feeRate))
+      .replace('{vatRate}', PCT(bill.vatRate));
+    // Only offer the desk as an alternative when it is genuinely on offer;
+    // otherwise it is advice the guest cannot act on.
+    if (payAtCheckinAllowed()) note += ' ' + TR('bk.pay.feeNoteAtDesk');
+    return '<p class="bkp-fee-note">' + esc(note) + '</p>';
+  }
+
   // 0-3 lines describing the per-night surcharges currently in effect.
   // Children are priced independently of adult count (age 0-4 free, 5-8 a
   // flat childBreakfast5to8, 9+ treated as an adult) — mirrors
@@ -1149,7 +1270,13 @@
         extraBedFieldHTML() +
 
         '<div id="bkpSurchargeNotes">' + surchargeNotesHTML() + '</div>' +
-        '<div class="bkp-total-row"><span>' + TR('bk.pay.total') + '</span><strong id="bkpTotal">' + money(currentTotal()) + '</strong></div>' +
+        /* The ROOM's price, next to the room being configured. Deliberately
+           NOT the payable total: the payment method — and therefore the fee —
+           is chosen further down the form, so a total here would be a total
+           for a method the guest has not picked yet. The payable bill is
+           rendered below, immediately above the button that charges it. */
+        '<div class="bkp-total-row"><span>' + TR('bk.pay.total') + '</span>' +
+          '<strong id="bkpTotal">' + money(currentTotal()) + '</strong></div>' +
 
         // Solo mode: an "Add another room" link (above guest details, since
         // adding doesn't need them) turns this into a multi-room booking.
@@ -1170,6 +1297,13 @@
             '<div class="bkp-field"><label>' + TR('bk.pay.note') + '</label><textarea id="bkpNote" rows="2" placeholder="' + esc(TR('bk.pay.notePlaceholder')) + '"></textarea></div>' +
           '</div>' +
           paymentMethodFieldHTML() +
+          /* The bill the guest is about to agree to, under the method that
+             determines it. One container so a method change can redraw the
+             whole thing: swapping an amount inside a fixed row could never
+             ADD or REMOVE the fee lines, which is exactly what moving between
+             paying online and paying at the desk has to do. */
+          '<div id="bkpBillRows" class="bkp-bill">' +
+            totalRowsHTML(currentBill(), 'bk.pay.totalToPay', 'bkpPayTotal') + feeNoteHTML(currentBill()) + '</div>' +
           '<div class="bkp-deposit-note"><strong>' + TR('bk.pay.depositTitle') + ':</strong> ' + TR('bk.pay.depositNote') + '</div>' +
           // A guest must know how to change or cancel BEFORE they commit, not
           // only afterwards in the email. This states exactly how to reach us
@@ -1184,7 +1318,7 @@
 
         (inCart
           ? '<button type="button" class="btn btn-solid bkp-submit-btn" id="bkpAddRoomBtn">' + TR('bk.pay.addToBooking') + '</button>'
-          : '<button type="button" class="btn btn-solid bkp-submit-btn" id="bkpSubmitBtn">' + submitButtonLabel(TR('bk.pay.confirmReservation'), currentTotal()) + '</button>') +
+          : '<button type="button" class="btn btn-solid bkp-submit-btn" id="bkpSubmitBtn">' + submitButtonLabel(TR('bk.pay.confirmReservation'), currentBill().total) + '</button>') +
       '</div>' +
       resultViewsHTML() +
       '</div>';
@@ -1195,6 +1329,11 @@
   function updateReservationTotals() {
     var totalEl = qs('#bkpTotal');
     if (totalEl) totalEl.textContent = money(currentTotal());
+    var bill = currentBill();
+    var billEl = qs('#bkpBillRows');
+    // Absent in cart-adding mode, where this modal only configures a room and
+    // the bill is settled once at Review & book.
+    if (billEl) billEl.innerHTML = totalRowsHTML(bill, 'bk.pay.totalToPay', 'bkpPayTotal') + feeNoteHTML(bill);
     var notesEl = qs('#bkpSurchargeNotes');
     if (notesEl) notesEl.innerHTML = surchargeNotesHTML();
     var v = currentVariant();
@@ -1208,7 +1347,11 @@
     // an online payment method is selected (breakfast/extra-bed/variant
     // changes all affect what's about to be charged). No-ops harmlessly in
     // cart-adding mode, where there is no #bkpSubmitBtn.
-    setReservationSubmitting(false);
+    //
+    // Never while a charge is in flight: this call re-enables the button, and
+    // a background fetch landing mid-submit would hand the guest a live
+    // "Pay" button for a booking that is already being paid for.
+    if (!submitting) setReservationSubmitting(false);
   }
 
   function wireReservationForm() {
@@ -1262,6 +1405,10 @@
     var rewire = function () {
       var noteEl = qs('#bkpPayNote');
       if (noteEl) noteEl.textContent = paymentNoteText();
+      // The fee depends on HOW they are paying, so the bill has to be redrawn
+      // when that changes — a card fee left on screen after switching to
+      // pay-at-check-in is a price the guest was never going to be charged.
+      updateReservationTotals();
       setReservationSubmitting(false);
     };
     wirePaymentMethodField(rewire);
@@ -1276,7 +1423,29 @@
        keeps everything the guest has typed; only the payment block redraws. */
     onPaymentConfigLoaded = function () {
       var host = qs('.bkp-payment-method');
-      if (!host || !host.parentNode) return;
+      /* The re-price runs FIRST, and unconditionally.
+
+         paymentMethodFieldHTML() returns nothing at all while the config is
+         still in flight (paymentEnabled defaults to false), so on a cold
+         backend there is no .bkp-payment-method element to replace — and the
+         early return below would skip the re-price entirely. That is the
+         worst case, not an edge case: the guest is looking at a bill with no
+         fee on it, and the config that just arrived is the thing that adds
+         one. */
+      updateReservationTotals();
+      if (!host || !host.parentNode) {
+        // No block to swap: build the payment choice in for the first time,
+        // above the bill it governs.
+        var billHost = qs('#bkpBillRows');
+        var fresh = document.createElement('div');
+        fresh.innerHTML = paymentMethodFieldHTML();
+        if (billHost && billHost.parentNode && fresh.firstChild) {
+          billHost.parentNode.insertBefore(fresh.firstChild, billHost);
+          wirePaymentMethodField(rewire);
+          updateReservationTotals();
+        }
+        return;
+      }
       var wrap = document.createElement('div');
       wrap.innerHTML = paymentMethodFieldHTML();
       var replacement = wrap.firstChild;
@@ -1285,14 +1454,24 @@
       wirePaymentMethodField(rewire);
       var noteEl = qs('#bkpPayNote');
       if (noteEl) noteEl.textContent = paymentNoteText();
+      // The default method may have changed with the config (pay-at-check-in
+      // withdrawn, a method disabled), and with it the fee.
+      updateReservationTotals();
     };
+
+    /* The live rate schedule landing after the modal opened. The bill on
+       screen was quoted from the static mirror in booking-page.js; if the
+       hotel has since edited the fee — or switched it off — this is the
+       moment the guest must see the real number, not on submit. */
+    onRatesLoaded = function () { updateReservationTotals(); };
   }
 
   function setReservationSubmitting(isSubmitting) {
+    submitting = !!isSubmitting;
     var btn = qs('#bkpSubmitBtn');
     if (btn) {
       btn.disabled = isSubmitting;
-      btn.textContent = isSubmitting ? TR('bk.pay.processingText') : submitButtonLabel(TR('bk.pay.confirmReservation'), currentTotal());
+      btn.textContent = isSubmitting ? TR('bk.pay.processingText') : submitButtonLabel(TR('bk.pay.confirmReservation'), currentBill().total);
     }
   }
 
@@ -1406,7 +1585,14 @@
         return;
       }
       var payment = r.payment ? Object.assign({}, r.payment, { bookingId: r.booking.id }) : null;
-      showSuccess(r.booking.ref, { payment: payment }, r.booking.total);
+      showSuccess(r.booking.ref, {
+        payment: payment,
+        bill: {
+          roomTotal: r.booking.roomTotal != null ? r.booking.roomTotal : r.booking.total,
+          surcharge: r.booking.paymentSurcharge || 0,
+          total: r.booking.total,
+        },
+      }, r.booking.total);
     }).catch(function () {
       setReservationSubmitting(false);
       showFormError(TR('bk.pay.err.offline'));
@@ -1426,6 +1612,10 @@
         '<h3>' + TR('bk.pay.successTitle') + '</h3>' +
         '<p>' + TR('bk.pay.confirmationLabel') + ': <strong id="bkpRefText"></strong></p>' +
         '<div class="bkp-payment-outcome" id="bkpPaymentOutcome" hidden></div>' +
+        // What was actually charged, itemised. The confirmation email carries
+        // the same three lines; a guest who was shown a fee before paying must
+        // be able to find it again afterwards, on the screen and in writing.
+        '<div id="bkpSuccessBill" hidden></div>' +
         '<div class="bkp-deposit-note"><strong>' + TR('bk.pay.depositTitle') + ':</strong> ' + TR('bk.pay.depositNote') + '</div>' +
         '<div class="bkp-deposit-note bkp-cancel-note"><strong>' + TR('bk.pay.cancelTitle') + ':</strong> ' + TR('bk.pay.cancelNote') + '</div>' +
         '<p class="bkp-success-note bkp-checkin-time-note">' + TR('bk.pay.checkinTimeNote') + '</p>' +
@@ -1477,10 +1667,17 @@
   // carries a charge reference; Omise's cannot, because Omise mints its charge
   // id during the charge call — after the return URL has already been built.
   // The booking id is known here, client-side, either way.
-  function stashPendingPayment(ref, amount, bookingId) {
+  /* The 3-D Secure round trip leaves this site entirely, so anything the
+     return page needs has to be written down first. `bill` rides along with
+     the reference and the amount for one reason: the guest comes back to a
+     screen that says what they paid, and the bill they agreed to — room rate,
+     fee, total — is exactly the thing they will want to check against their
+     bank's SMS. Without it the return page could only show one number. */
+  function stashPendingPayment(ref, amount, bookingId, bill) {
     try {
       sessionStorage.setItem(PENDING_KEY, JSON.stringify({
         ref: ref || '', amount: amount || 0, bookingId: bookingId || null,
+        bill: bill || null,
       }));
     } catch (e) { /* private mode / storage disabled — the return page degrades gracefully */ }
   }
@@ -1522,6 +1719,12 @@
   // PromptPay QR + live poll that flips to the same paid banner once the
   // guest scans — without ever implying the RESERVATION itself is at risk
   // while payment is still pending.
+  /* The breakdown belonging to whatever is currently on the success screen,
+     set by whichever flow rendered it. renderPaymentOutcome() needs it only
+     for the 3-D Secure hand-off, which has to write it to sessionStorage
+     before the browser leaves for the bank. */
+  var stashedBill = null;
+
   function renderPaymentOutcome(el, payment, amount) {
     stopQrPoll();
     if (!el) return;
@@ -1546,7 +1749,8 @@
       stashPendingPayment(
         qs('#bkpRefText') ? qs('#bkpRefText').textContent : '',
         amount,
-        payment.bookingId
+        payment.bookingId,
+        stashedBill
       );
       // A tick of delay so the confirmation number above is actually painted
       // before the browser navigates away — otherwise a guest whose bank page
@@ -1629,6 +1833,29 @@
       if (titleEl) titleEl.textContent = TR(opts.titleKey);
       if (noteEl) noteEl.textContent = TR(opts.noteKey);
     }
+    /* The breakdown, taken from the SERVER's saved booking rather than
+       recomputed here — this is a receipt of what happened, not another
+       estimate, and the two must never be able to disagree on the page that
+       tells a guest what they just paid.
+
+       Rendered BEFORE renderPaymentOutcome(), not after: that call is what
+       hands a 3-D Secure guest off to their bank, and it writes this
+       breakdown to sessionStorage on the way out. Set it afterwards and the
+       stash carries whatever the PREVIOUS booking left behind. */
+    var b = opts && opts.bill;
+    stashedBill = b || null;
+    var billEl = qs('#bkpSuccessBill');
+    if (billEl) {
+      if (b && b.surcharge > 0) {
+        billEl.hidden = false;
+        billEl.innerHTML = totalRowsHTML({
+          applied: true, roomTotal: b.roomTotal, surcharge: b.surcharge, total: b.total,
+        }, 'bk.pay.totalToPay', null);
+      } else {
+        billEl.hidden = true;
+        billEl.innerHTML = '';
+      }
+    }
     renderPaymentOutcome(qs('#bkpPaymentOutcome'), opts && opts.payment, amount);
     var doneBtn = qs('#bkpDoneBtn');
     if (doneBtn) doneBtn.addEventListener('click', close);
@@ -1685,7 +1912,8 @@
         '<p class="bkp-section-label">' + TR('bk.pay.roomsInBooking') + '</p>' +
         '<div class="bkp-cart-list" id="bkpCartList">' + roomsHTML + '</div>' +
 
-        '<div class="bkp-total-row bkp-grand-total"><span>' + TR('bk.pay.grandTotal') + '</span><strong id="bkpGrandTotal">' + money(cartGrandTotal()) + '</strong></div>' +
+        '<div id="bkpCartBillRows" class="bkp-grand-total">' +
+          totalRowsHTML(cartBill(), 'bk.pay.grandTotal', 'bkpGrandTotal') + feeNoteHTML(cartBill()) + '</div>' +
 
         '<div class="bkp-guest-fields">' +
           '<p class="bkp-section-label">' + TR('bk.pay.guestDetails') + '</p>' +
@@ -1711,7 +1939,7 @@
 
         '<p class="bkp-form-error" id="bkpFormError" hidden></p>' +
 
-        '<button type="button" class="btn btn-solid bkp-submit-btn" id="bkpSubmitBtn">' + submitButtonLabel(TR('bk.pay.confirmBooking') + ' · ' + roomsWord(cart.length), cartGrandTotal()) + '</button>' +
+        '<button type="button" class="btn btn-solid bkp-submit-btn" id="bkpSubmitBtn">' + submitButtonLabel(TR('bk.pay.confirmBooking') + ' · ' + roomsWord(cart.length), cartBill().total) + '</button>' +
       '</div>' +
       groupResultViewHTML() +
       '</div>';
@@ -1739,7 +1967,9 @@
     var rewire = function () {
       var noteEl = qs('#bkpPayNote');
       if (noteEl) noteEl.textContent = paymentNoteText();
-      setGroupSubmitting(false);
+      // Redraws the bill (fee lines appear/disappear with the method) and
+      // re-labels the submit button with the new amount.
+      updateCartBill();
     };
     wirePaymentMethodField(rewire);
 
@@ -1753,7 +1983,22 @@
        keeps everything the guest has typed; only the payment block redraws. */
     onPaymentConfigLoaded = function () {
       var host = qs('.bkp-payment-method');
-      if (!host || !host.parentNode) return;
+      // Re-price first and unconditionally — see the solo form's copy of this
+      // handler. On a cold backend there is no payment block to replace,
+      // which is exactly when the arriving config is what puts a fee on the
+      // bill the guest is looking at.
+      updateCartBill();
+      if (!host || !host.parentNode) {
+        var billHost = qs('#bkpCartBillRows');
+        var fresh = document.createElement('div');
+        fresh.innerHTML = paymentMethodFieldHTML();
+        if (billHost && billHost.parentNode && fresh.firstChild) {
+          billHost.parentNode.insertBefore(fresh.firstChild, billHost);
+          wirePaymentMethodField(rewire);
+          updateCartBill();
+        }
+        return;
+      }
       var wrap = document.createElement('div');
       wrap.innerHTML = paymentMethodFieldHTML();
       var replacement = wrap.firstChild;
@@ -1762,7 +2007,22 @@
       wirePaymentMethodField(rewire);
       var noteEl = qs('#bkpPayNote');
       if (noteEl) noteEl.textContent = paymentNoteText();
+      updateCartBill();
     };
+
+    onRatesLoaded = function () { updateCartBill(); };
+  }
+
+  // Redraw the cart's closing rows — accommodation, fee, total — after
+  // anything that can change the fee: the payment method, the live rate
+  // schedule landing, a room removed from the cart.
+  function updateCartBill() {
+    var bill = cartBill();
+    var el = qs('#bkpCartBillRows');
+    if (el) el.innerHTML = totalRowsHTML(bill, 'bk.pay.grandTotal', 'bkpGrandTotal') + feeNoteHTML(bill);
+    // Same rule as updateReservationTotals(): never re-enable a button whose
+    // booking is already being charged.
+    if (!submitting) setGroupSubmitting(false);
   }
 
   function groupResultViewHTML() {
@@ -1774,7 +2034,7 @@
         '<div class="bkp-payment-outcome" id="bkpPaymentOutcome" hidden></div>' +
         '<p class="bkp-section-label">' + TR('bk.pay.roomsInBooking') + '</p>' +
         '<div class="bkp-cart-list" id="bkpSuccessRooms"></div>' +
-        '<div class="bkp-total-row bkp-grand-total"><span>' + TR('bk.pay.grandTotal') + '</span><strong id="bkpSuccessTotal"></strong></div>' +
+        '<div id="bkpSuccessBillRows" class="bkp-grand-total"></div>' +
         '<div class="bkp-deposit-note" id="bkpSuccessDeposit"></div>' +
         '<p class="bkp-success-note bkp-checkin-time-note">' + TR('bk.pay.checkinTimeNote') + '</p>' +
         '<p class="bkp-success-note bkp-email-sent-note">' + TR('bk.pay.emailSentNote') + '</p>' +
@@ -1785,10 +2045,11 @@
   }
 
   function setGroupSubmitting(isSubmitting) {
+    submitting = !!isSubmitting;
     var btn = qs('#bkpSubmitBtn');
     if (btn) {
       btn.disabled = isSubmitting;
-      btn.textContent = isSubmitting ? TR('bk.pay.processingText') : submitButtonLabel(TR('bk.pay.confirmBooking') + ' · ' + roomsWord(cart.length), cartGrandTotal());
+      btn.textContent = isSubmitting ? TR('bk.pay.processingText') : submitButtonLabel(TR('bk.pay.confirmBooking') + ' · ' + roomsWord(cart.length), cartBill().total);
     }
   }
 
@@ -1821,7 +2082,19 @@
         ? (r.payment ? Object.assign({}, r.payment, { bookingId: r.booking.id }) : null)
         : (r.payment ? Object.assign({}, r.payment, { bookingId: r.bookings[0].id }) : null);
       showGroupSuccess(single
-        ? { groupRef: r.booking.ref, grandTotal: r.booking.total, rooms: [{ room: r.booking.room, total: r.booking.total }] }
+        // A one-room cart posts to the single-room endpoint, so the split has
+        // to be carried across by hand — without it the success screen shows
+        // one number and the guest cannot find the fee they just agreed to.
+        ? {
+            groupRef: r.booking.ref,
+            grandTotal: r.booking.total,
+            roomTotal: r.booking.roomTotal != null ? r.booking.roomTotal : r.booking.total,
+            surcharge: r.booking.paymentSurcharge || 0,
+            rooms: [{
+              room: r.booking.room,
+              total: r.booking.roomTotal != null ? r.booking.roomTotal : r.booking.total,
+            }],
+          }
         : r, payment);
     };
 
@@ -1890,15 +2163,31 @@
     if (refEl) refEl.textContent = resp.groupRef || '';
     var roomsEl = qs('#bkpSuccessRooms');
     if (roomsEl && resp.rooms) {
+      /* Each room at its ACCOMMODATION price, matching the "Accommodation"
+         subtotal directly beneath the list. `rm.total` is the room's share of
+         the charge — its room rate PLUS its slice of the one fee — so listing
+         that here would show the fee inside every room and then again on its
+         own line below. The server sends both; this is the one to print. */
       roomsEl.innerHTML = resp.rooms.map(function (rm) {
+        var shown = rm.roomTotal != null ? rm.roomTotal : rm.total;
         return '<div class="bkp-cart-item"><div class="bkp-cart-item-main">' +
           '<div class="bkp-cart-item-name">' + esc(rm.room) + '</div></div>' +
-          '<div class="bkp-cart-item-side"><span class="bkp-cart-item-price">' + money(rm.total) + '</span></div></div>';
+          '<div class="bkp-cart-item-side"><span class="bkp-cart-item-price">' + money(shown) + '</span></div></div>';
       }).join('');
     }
     var grandTotal = resp.grandTotal != null ? resp.grandTotal : cartGrandTotal();
-    var totalEl = qs('#bkpSuccessTotal');
-    if (totalEl) totalEl.textContent = money(grandTotal);
+    // From the server's own answer, not from the cart: the cart holds display
+    // estimates, and this line is the record of what the card was charged.
+    var surcharge = Number(resp.surcharge || 0);
+    var billEl = qs('#bkpSuccessBillRows');
+    if (billEl) {
+      billEl.innerHTML = totalRowsHTML({
+        applied: surcharge > 0,
+        roomTotal: resp.roomTotal != null ? resp.roomTotal : grandTotal,
+        surcharge: surcharge,
+        total: grandTotal,
+      }, 'bk.pay.grandTotal', 'bkpSuccessTotal');
+    }
     var depEl = qs('#bkpSuccessDeposit');
     if (depEl) {
       depEl.innerHTML = '<strong>' + TR('bk.pay.depositTitle') + ':</strong> ' +
@@ -1906,6 +2195,12 @@
           ? TR('bk.pay.depositNote')
           : TR('bk.pay.depositNoteMulti').replace('{amount}', String(200 * n)).replace('{n}', String(n)));
     }
+    // Set before renderPaymentOutcome() for the same reason as the solo path:
+    // a 3-D Secure hand-off stashes this breakdown on its way to the bank, so
+    // the guest comes back to the same three lines they agreed to.
+    stashedBill = surcharge > 0
+      ? { roomTotal: resp.roomTotal != null ? resp.roomTotal : grandTotal, surcharge: surcharge, total: grandTotal }
+      : null;
     renderPaymentOutcome(qs('#bkpPaymentOutcome'), payment, grandTotal);
     // Booking succeeded — empty the cart now so a refresh can't resubmit it
     // (the success view already renders from the server response, not the cart).
@@ -2104,7 +2399,7 @@
     build();
     overlay.hidden = false;
     lockBodyScroll();
-    showSuccess(stashed.ref, {}, stashed.amount);
+    showSuccess(stashed.ref, { bill: stashed.bill || null }, stashed.amount);
 
     var el = qs('#bkpPaymentOutcome');
     if (!el) return;

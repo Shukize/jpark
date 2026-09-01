@@ -6,6 +6,19 @@
    truth guests are charged from (backend/lib/rateOverrides.js) so the feed
    can never drift from what a booking actually costs.
 
+   THE ADVERTISED PRICE INCLUDES THE ONLINE PAYMENT FEE. A booking made on
+   this website is paid on this website, so the gateway fee (lib/paymentFees.js)
+   is not optional for anyone arriving through this feed — it is a mandatory
+   charge, and Google requires mandatory charges to be inside the advertised
+   price rather than added at checkout. Advertising the bare room rate would
+   under-quote every itinerary by the same 3.9% and put the property's
+   price accuracy in question across the whole module.
+
+   Grossed up per NIGHT here, where the booking engine grosses up the whole
+   stay total once. The two differ only by the whole-Baht rounding — under a
+   Baht per stay — which is far inside any price-accuracy tolerance, and it
+   errs high rather than low.
+
    Deliberately out of scope:
    - Day-use bookings (backend/lib/roomRates.js's DAYUSE) — a flat 3-hour
      price with no per-night model, doesn't fit Google's ARI rate shape.
@@ -16,6 +29,7 @@
 const db = require('../db');
 const roomRates = require('./roomRates');
 const rateOverrides = require('./rateOverrides');
+const paymentFees = require('./paymentFees');
 const availability = require('./availability');
 const ids = require('./hotelAdsIds');
 
@@ -67,6 +81,11 @@ async function getAriData({ startDate, endDateExclusive } = {}) {
   // the whole feed — advertising a stale ceiling would offer rooms the
   // booking guard then refuses.
   const inventoryMap = await rateOverrides.getEffectiveInventoryMap();
+  /* Quoted at the CARD rate, the dearer of the two methods. A guest who pays
+     by PromptPay is then charged slightly less than advertised, which is the
+     only direction an advertised price is allowed to be wrong in. */
+  const feeSchedule = await paymentFees.getEffectiveFees();
+  const advertised = (rate) => paymentFees.quote(rate, 'card', feeSchedule).total;
   const plans = [];
 
   for (const name of roomRates.roomKeys()) {
@@ -94,7 +113,9 @@ async function getAriData({ startDate, endDateExclusive } = {}) {
           const remaining = Math.max(0, inventory - booked);
           nightly.push({
             date: d,
-            amount: rate,
+            // What a guest arriving from this listing actually pays for the
+            // night, fee included — see the note at the top of this file.
+            amount: advertised(rate),
             currency: 'THB',
             available: remaining > 0,
             count: Math.min(remaining, MAX_ADVERTISED_COUNT),

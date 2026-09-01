@@ -31,11 +31,11 @@
   var I = window.JPark.i18n || null;
 
   var STR = {
-    en: { 'rooms.fromPrice': 'from {price} / night', 'rooms.perNightNote': 'Room-only rate in Thai Baht (THB) per night. Breakfast, extra bed and extra guests are priced during booking.' },
-    th: { 'rooms.fromPrice': 'เริ่มต้น {price} / คืน', 'rooms.perNightNote': 'ราคาเฉพาะห้องพัก (ไม่รวมอาหารเช้า) เป็นเงินบาท (THB) ต่อคืน ค่าอาหารเช้า เตียงเสริม และผู้เข้าพักเพิ่มจะแสดงในขั้นตอนการจอง' },
-    ja: { 'rooms.fromPrice': '{price} / 泊〜', 'rooms.perNightNote': '1泊あたりの室料のみの料金（タイバーツ／THB）です。朝食、エキストラベッド、追加のご宿泊者の料金はご予約時に表示されます。' },
-    'zh-Hans': { 'rooms.fromPrice': '{price} / 晚起', 'rooms.perNightNote': '为每晚仅含房费的泰铢（THB）价格。早餐、加床及加人费用将在预订时显示。' },
-    'zh-Hant': { 'rooms.fromPrice': '{price} / 晚起', 'rooms.perNightNote': '為每晚僅含房費的泰銖（THB）價格。早餐、加床及加人費用將在訂房時顯示。' },
+    en: { 'rooms.fromPrice': 'from {price} / night', 'rooms.perNightNote': 'Room-only rate in Thai Baht (THB) per night. Breakfast, extra bed and extra guests are priced during booking, and an online payment fee is added if you pay by card or PromptPay — every item is itemised before you confirm.' },
+    th: { 'rooms.fromPrice': 'เริ่มต้น {price} / คืน', 'rooms.perNightNote': 'ราคาเฉพาะห้องพัก (ไม่รวมอาหารเช้า) เป็นเงินบาท (THB) ต่อคืน ค่าอาหารเช้า เตียงเสริม และผู้เข้าพักเพิ่มจะแสดงในขั้นตอนการจอง และหากชำระด้วยบัตรหรือพร้อมเพย์จะมีค่าธรรมเนียมชำระเงินออนไลน์เพิ่ม โดยทุกรายการจะแสดงแยกก่อนยืนยันการจอง' },
+    ja: { 'rooms.fromPrice': '{price} / 泊〜', 'rooms.perNightNote': '1泊あたりの室料のみの料金（タイバーツ／THB）です。朝食、エキストラベッド、追加のご宿泊者の料金はご予約時に表示されます。カードまたはPromptPayでお支払いの場合はオンライン決済手数料が加算され、ご確定前にすべて内訳として表示されます。' },
+    'zh-Hans': { 'rooms.fromPrice': '{price} / 晚起', 'rooms.perNightNote': '为每晚仅含房费的泰铢（THB）价格。早餐、加床及加人费用将在预订时显示；若使用银行卡或 PromptPay 付款，还会加收网上支付手续费，所有项目均在您确认前逐项列出。' },
+    'zh-Hant': { 'rooms.fromPrice': '{price} / 晚起', 'rooms.perNightNote': '為每晚僅含房費的泰銖（THB）價格。早餐、加床及加人費用將在訂房時顯示；若使用金融卡／信用卡或 PromptPay 付款，還會加收網路付款手續費，所有項目均在您確認前逐項列出。' },
   };
   if (I) I.registerI18n(STR);
 

@@ -585,6 +585,68 @@ walk-ins and phone bookings; that is a different code path and is unchanged.
 The **200 THB key-card deposit is also unchanged**: still separate, still
 cash, still collected at check-in.
 
+### The online payment fee (since 2026-09-01)
+
+The acquirer keeps a percentage of every online payment, plus VAT **on that
+percentage**. The hotel used to absorb it: a 5,550 THB room charge arrived in
+the bank as 5,333.24, and the 216.76 difference was a discount nobody had
+agreed to give.
+
+That cost is now added to the guest's bill as its own named line, so the hotel
+receives the room rate in full. **Room rates themselves are unchanged.**
+
+`backend/lib/paymentFees.js` is the one calculation, and the shape of it is
+the whole point:
+
+```
+k     = feeRate x (1 + vatRate)      # card: 3.65% x 1.07 = 3.9055%
+gross = ceil( net / (1 - k) )        # SOLVED for, never net x (1 + k)
+```
+
+Adding a percentage of the room total looks right and still leaves the hotel
+short, because the acquirer's cut is charged on the bigger number it actually
+processes. `backend/test-payment-fees.js` asserts both: that the gross-up
+leaves the hotel whole across a range of real room totals, and that the naive
+version does not. Rounding is **up to a whole Baht** — the only direction that
+cannot under-recover, and it keeps every price on the site a whole number.
+
+The VAT is charged on the FEE, not on the sale. 3.65% + 7% VAT is **3.91%**,
+not 10.65%. The hotel's own staff read it the other way once, in writing,
+which is why that arithmetic lives in exactly one file and why the Site
+Editor prints the all-in rate next to each field.
+
+| | |
+|---|---|
+| Stored | `guest_bookings.room_total` (what the stay cost) + `payment_surcharge` (the fee) = `total` (what the guest is charged, and what reaches the gateway) |
+| Configured | `site_content.payment_fees` — Site Editor → Rates. Rates per method, VAT, and an **off switch**. Percentages in the UI, proportions in the API |
+| Shown | booking modal, cart review, success screen, both confirmation emails, the staff booking panel, and both receipt copies — in all five languages |
+| Advertised | the Google Hotel Ads feed publishes the fee-inclusive price, because a mandatory charge belongs inside an advertised price |
+| Not charged | pay-at-check-in, day-use, OTA and manual bookings, and the key-card deposit |
+
+Three details that are easy to get wrong and are handled:
+
+- **A cart is grossed up ONCE**, on the grand total, then split across the
+  rooms by largest-remainder **in satang** (`allocateSurcharge`). Grossing up
+  per room and summing would round up once per room and overcharge; a split
+  that rounded independently would print a grand total the card was never
+  charged.
+- **A payment that never completes loses its fee.** An expired PromptPay QR or
+  an abandoned 3-D Secure means the guest settles at the front desk, where
+  there is no gateway cut to recover — so `paymentReconciler.markUnpaid()`
+  resets `total` back to `room_total` in the same statement that closes the
+  payment leg, and the hotel notice tells reception why the amount is lower
+  than the guest's confirmation email.
+- **The configured rate is checkable against evidence.** `observedRates()`
+  derives what the acquirer has actually been deducting from settled charges,
+  and the Site Editor prints it beside the setting. The internal receipt goes
+  further and says, per booking, whether the fee charged actually covered what
+  the gateway took — a rate change would otherwise show up only as a slow
+  shortfall nobody attributes to anything.
+
+Passing a card fee to a cardholder is a commercial decision with rules around
+it. The off switch is a database column rather than an environment variable
+precisely so it can be reversed from a phone, with no deploy.
+
 ### The payment record
 
 Until 2026-08-28 a charge told this system exactly one thing: whether it was

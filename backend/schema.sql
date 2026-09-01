@@ -241,6 +241,51 @@ ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS payment_failure_message TEXT
 -- in every other column, so without this a test booking reads as income.
 ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS payment_livemode BOOLEAN;
 
+/* ── What the stay cost, and what taking the payment cost ────────────────
+   `total` is, and stays, THE AMOUNT THE GUEST IS CHARGED — it is what the
+   confirmation email quotes, what the receipt totals, and what must equal
+   payment_amount. Nothing that reads it needs to change.
+
+   These two split that number into its parts, so "the guest paid 5,776" can
+   always be told back apart into "the room was 5,550 and the card fee was
+   226" without re-deriving anything:
+
+     room_total         the accommodation charge — the money the hotel earns,
+                        and the figure every rate, override and surcharge in
+                        lib/rateOverrides.js actually produces
+     payment_surcharge  the acquirer's fee (plus VAT on that fee) passed on to
+                        the guest, so the hotel nets room_total in full.
+                        See backend/lib/paymentFees.js for the arithmetic.
+
+   room_total + payment_surcharge = total, always. For a booking with no
+   surcharge — pay-at-check-in, or the surcharge switched off — the surcharge
+   is 0.00 and room_total equals total.
+
+   NULLABLE with no default, like every payment column above: an OTA row, a
+   manually keyed row and every booking taken before this existed must read
+   as "not broken down" rather than as a zero-value room with a zero fee.
+   Readers fall back to `total` when room_total is NULL.
+
+   ── AGGREGATING A GROUP: these two are the OPPOSITE of payment_amount ────
+   Every row of a multi-room booking carries the SAME payment_amount, because
+   the whole cart is one charge — so a report that sums payment_amount across
+   a group multiplies the money by the room count, and must GROUP BY
+   payment_charge_id instead.
+
+   room_total and payment_surcharge are the other way round: each row holds
+   its OWN share, and the one fee charged for the cart is split across them
+   (backend/lib/paymentFees.js's allocateSurcharge, exact to the satang). So
+   these two are SUMMED across a group, exactly like `total`, and summing
+   them is what makes the receipt's accommodation and fee lines add up to the
+   amount the card was actually charged.
+
+   If a payment closes UNPAID (an expired PromptPay QR, an abandoned 3-D
+   Secure), backend/paymentReconciler.js's markUnpaid() resets total back to
+   room_total and zeroes the surcharge: the guest will settle at the front
+   desk, where there is no gateway fee to recover. */
+ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS room_total        NUMERIC(10,2);
+ALTER TABLE guest_bookings ADD COLUMN IF NOT EXISTS payment_surcharge NUMERIC(10,2);
+
 /* ── Settlement: when the money actually reaches the bank ────────────────
    "The guest paid" and "the hotel has the money" are different days. Omise
    captures a charge immediately (payment_paid_at) but holds the funds through
@@ -612,6 +657,28 @@ ALTER TABLE site_content ADD COLUMN IF NOT EXISTS surcharges JSONB NOT NULL DEFA
 -- in backend/lib/roomRates.js's DAYUSE map. See backend/lib/rateOverrides.js's
 -- getEffectiveDayUseRates()/getEffectiveDayUsePrice().
 ALTER TABLE site_content ADD COLUMN IF NOT EXISTS day_use_rates JSONB NOT NULL DEFAULT '{}';
+
+/* Admin-editable ONLINE PAYMENT FEE schedule (Site Editor "Rates" tab) — the
+   acquirer's percentage, plus VAT on that percentage, which is added to a
+   guest's bill so the hotel receives the room rate in full.
+
+   Shape (sparse — anything absent falls back to the static default in
+   backend/lib/paymentFees.js):
+     { "enabled": true,
+       "vatRate": 0.07,
+       "rates": { "card": 0.0365, "promptpay": 0.0265 } }
+
+   Rates are stored as PROPORTIONS, not percentages: 0.0365, never 3.65. The
+   Site Editor shows percentages and converts on the way in and out, because
+   a 3.65 stored here would try to take 365% of every booking. Values outside
+   a sane band are rejected on write (routes/rates.js) and again on read
+   (lib/paymentFees.js), falling back per-field to the default.
+
+   `enabled: false` switches the whole pass-through off — guests are charged
+   the room rate and the hotel absorbs the fee again, exactly as it did before
+   this existed. It is a column rather than an environment variable precisely
+   so it can be reversed from a phone, without a deploy. */
+ALTER TABLE site_content ADD COLUMN IF NOT EXISTS payment_fees JSONB NOT NULL DEFAULT '{}';
 
 -- Admin-editable per-room-type availability (Site Editor). Sparse list of
 -- room names currently delisted/unbookable — absence means available (the

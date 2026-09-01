@@ -1026,6 +1026,32 @@ body.bk-pay-open { position: fixed; left: 0; right: 0; overflow: hidden; }
 }
 .bkp-total-row strong { font-size: 1.25rem; }
 
+/* ── The bill, itemised ──────────────────────────────────────────────────
+   Accommodation and the online payment fee are set BELOW the total's weight
+   on purpose: they are the working, and the number the guest is agreeing to
+   pay is the one that should carry the eye. The fee row is the only line on
+   the bill that is not the hotel's own money, so it is toned back rather
+   than highlighted — a surcharge shouted at a guest reads as a charge being
+   defended. It is legible, named, and adds up. */
+.bkp-subtotal-row,
+.bkp-fee-row {
+  font-size: 0.92rem; color: var(--ink-soft); padding: 2px 2px;
+}
+/* A rule above the payable total, so the two lines above it visibly sum. */
+.bkp-pay-total-row { border-top: 1px solid var(--gold-light); margin-top: 4px; padding-top: 8px; }
+.bkp-fee-note {
+  margin: 6px 2px 0; font-size: 0.78rem; line-height: 1.5; color: var(--ink-soft);
+}
+/* The payable bill, set apart from the form fields above it — this is the
+   number the guest is agreeing to, and it sits directly above the button that
+   charges it rather than further up the page under a method they had not
+   chosen yet. */
+.bkp-bill {
+  background: #f7faf9; border: 1px solid var(--gold-light);
+  border-radius: 10px; padding: 10px 14px;
+}
+.bkp-bill .bkp-pay-total-row { border-top-color: var(--teal); }
+
 .bkp-guest-fields { display: flex; flex-direction: column; gap: 12px; }
 
 .bkp-deposit-note {

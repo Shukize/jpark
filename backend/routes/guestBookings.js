@@ -99,6 +99,30 @@ function isOnlineProvider(provider) {
    A billing MISTAKE is deliberately still invited. Refusing refunds is a
    policy; refusing to correct a double charge is not one, and the offer costs
    nothing to make honestly. */
+/* The two extra bill lines a booking with an online payment fee needs.
+
+   Returns { text: [lines], rows: '<tr>…' } — or empty for a booking with no
+   fee, which is every pay-at-check-in booking, every OTA row, and every
+   reservation taken before the pass-through existed. Both bodies are built
+   from this one function because the text and HTML halves of these emails
+   have already drifted apart once (the group cancellation hard-coded
+   "nothing to refund" in HTML while the text body said otherwise), and a
+   money figure is the worst place for that to happen again.
+
+   The fee is printed even when it is the only thing between the room rate
+   and the total: a guest who reads "Total 5,776" against a room card that
+   said 5,550 must be able to find the missing 226 on the same page. */
+function billBreakdown(L, roomTotal, surcharge, currency) {
+  const fee = Number(surcharge || 0);
+  if (!(fee > 0) || roomTotal == null) return { text: [], rows: '' };
+  const roomMoney = formatMoney(roomTotal, currency);
+  const feeMoney = formatMoney(fee, currency);
+  return {
+    text: [`${L.accommodation}: ${roomMoney}`, `${L.processingFee}: ${feeMoney}`],
+    rows: T.row(L.accommodation, roomMoney) + T.row(L.processingFee, feeMoney),
+  };
+}
+
 function cancellationRefundLine(paidOnline, money, lang) {
   // This is the sentence that tells a guest whether their money is coming
   // back. It was English-only while every other guest email had been
@@ -228,6 +252,12 @@ const EMAIL_I18N = {
     extraBed: 'Extra bed',
     specialRequests: 'Special requests',
     total: 'Total', payment: 'Payment',
+    // The bill split into what the stay cost and what taking the payment
+    // cost. Only printed when there is a fee to print — a pay-at-check-in or
+    // pre-surcharge booking shows the single Total line it always did.
+    accommodation: 'Accommodation',
+    processingFee: 'Online payment fee',
+    feeNote: 'The online payment fee is charged by our payment provider for card and PromptPay transactions. It is shown separately above and is included in the total.',
     adultsChildren: (a, c) => `${a} ${a === 1 ? 'adult' : 'adults'}` + (c > 0 ? `, ${c} ${c === 1 ? 'child' : 'children'}` : ''),
     childAgesSuffix: (ages) => (ages && ages.length ? ` (ages: ${ages.join(', ')})` : ''),
     nonSmoking: 'Non-Smoking', smoking: 'Smoking', yes: 'Yes', no: 'No',
@@ -272,6 +302,9 @@ const EMAIL_I18N = {
     extraBed: 'เตียงเสริม',
     specialRequests: 'คำขอพิเศษ',
     total: 'ยอดรวม', payment: 'การชำระเงิน',
+    accommodation: 'ค่าห้องพัก',
+    processingFee: 'ค่าธรรมเนียมชำระเงินออนไลน์',
+    feeNote: 'ค่าธรรมเนียมการชำระเงินออนไลน์เรียกเก็บโดยผู้ให้บริการรับชำระเงินสำหรับรายการบัตรเครดิต/เดบิตและพร้อมเพย์ แสดงแยกไว้ด้านบนและรวมอยู่ในยอดรวมแล้ว',
     adultsChildren: (a, c) => `ผู้ใหญ่ ${a} ท่าน` + (c > 0 ? `, เด็ก ${c} ท่าน` : ''),
     childAgesSuffix: (ages) => (ages && ages.length ? ` (อายุ: ${ages.join(', ')})` : ''),
     nonSmoking: 'ห้องปลอดบุหรี่', smoking: 'ห้องสูบบุหรี่', yes: 'มี', no: 'ไม่มี',
@@ -316,6 +349,9 @@ const EMAIL_I18N = {
     extraBed: 'エキストラベッド',
     specialRequests: 'ご要望',
     total: '合計金額', payment: 'お支払い',
+    accommodation: '宿泊料金',
+    processingFee: 'オンライン決済手数料',
+    feeNote: 'オンライン決済手数料は、カードおよびPromptPayでのお支払いに対して決済代行会社が課すものです。上記に内訳を記載し、合計金額に含まれています。',
     adultsChildren: (a, c) => `大人 ${a}名` + (c > 0 ? `、子供 ${c}名` : ''),
     childAgesSuffix: (ages) => (ages && ages.length ? ` (年齢: ${ages.join('、')})` : ''),
     nonSmoking: '禁煙', smoking: '喫煙可', yes: 'あり', no: 'なし',
@@ -360,6 +396,9 @@ const EMAIL_I18N = {
     extraBed: '加床',
     specialRequests: '特殊要求',
     total: '总计', payment: '付款方式',
+    accommodation: '房费',
+    processingFee: '网上支付手续费',
+    feeNote: '网上支付手续费由支付服务商就银行卡及 PromptPay 交易收取。上方已单独列出，并已计入总额。',
     adultsChildren: (a, c) => `成人 ${a} 位` + (c > 0 ? `，儿童 ${c} 位` : ''),
     childAgesSuffix: (ages) => (ages && ages.length ? ` (年龄：${ages.join('、')})` : ''),
     nonSmoking: '无烟房', smoking: '吸烟房', yes: '含', no: '不含',
@@ -404,6 +443,9 @@ const EMAIL_I18N = {
     extraBed: '加床',
     specialRequests: '特殊要求',
     total: '總計', payment: '付款方式',
+    accommodation: '房費',
+    processingFee: '網路付款手續費',
+    feeNote: '網路付款手續費由金流服務商就金融卡／信用卡及 PromptPay 交易收取。上方已另行列出，並已計入總額。',
     adultsChildren: (a, c) => `成人 ${a} 位` + (c > 0 ? `，兒童 ${c} 位` : ''),
     childAgesSuffix: (ages) => (ages && ages.length ? ` (年齡：${ages.join('、')})` : ''),
     nonSmoking: '無菸房', smoking: '吸菸房', yes: '含', no: '不含',
@@ -512,6 +554,10 @@ function hotelNotice(bk) {
     `Breakfast: ${breakfastLabel(bk)}`,
     ...(bk.extra_bed ? ['Extra bed: Yes'] : []),
     ...(bk.special_requests ? [`Special requests: ${bk.special_requests}`] : []),
+    ...(Number(bk.payment_surcharge || 0) > 0
+      ? [`Accommodation: ${formatMoney(bk.room_total, bk.currency)}`,
+         `Online payment fee: ${formatMoney(bk.payment_surcharge, bk.currency)}`]
+      : []),
     `Total: ${money}`,
     ...(payment ? [`Payment: ${payment}`] : []),
     ...(balanceDue ? ['', balanceDue.text] : []),
@@ -547,6 +593,13 @@ function hotelNotice(bk) {
         T.row('Breakfast', breakfastLabel(bk)) +
         (bk.extra_bed ? T.row('Extra bed', 'Yes') : '') +
         (bk.special_requests ? T.row('Special requests', bk.special_requests) : '') +
+        // What the guest paid, split into what the hotel earns and what the
+        // gateway's fee added. Front desk reads this against the board, and
+        // "the room was 5,550" is the number they need to recognise.
+        (Number(bk.payment_surcharge || 0) > 0
+          ? T.row('Accommodation', formatMoney(bk.room_total, bk.currency)) +
+            T.row('Online payment fee', formatMoney(bk.payment_surcharge, bk.currency))
+          : '') +
         T.row('Total', money, { strong: true }) +
         (payment ? T.row('Payment', payment) : '')
       ) +
@@ -575,6 +628,8 @@ function confirmationEmail(bk) {
     ? formatMoney(bk.total, bk.currency) : null;
   const smokingText = bk.smoking_preference === 'smoking' ? L.smoking : L.nonSmoking;
   const breakfastText = bk.breakfast ? L.yes : L.no;
+  // Empty unless this booking actually carried an online payment fee.
+  const breakdown = billBreakdown(L, bk.room_total, bk.payment_surcharge, bk.currency);
   const lines = [
     L.greeting(bk.guest_name),
     '',
@@ -590,8 +645,10 @@ function confirmationEmail(bk) {
     `${L.breakfast}: ${breakfastText}`,
     ...(bk.extra_bed ? [`${L.extraBed}: ${L.yes}`] : []),
     ...(bk.special_requests ? [`${L.specialRequests}: ${bk.special_requests}`] : []),
+    ...breakdown.text,
     `${L.total}: ${money}`,
     ...(payment ? [`${L.payment}: ${payment}`] : []),
+    ...(breakdown.text.length ? [L.feeNote] : []),
     // Whichever payment-outcome note applies sits directly next to the
     // deposit note below it — a guest who just paid online in full is
     // exactly the person most likely to skim past a policy line that isn't
@@ -631,9 +688,11 @@ function confirmationEmail(bk) {
         T.row(L.breakfast, breakfastText) +
         (bk.extra_bed ? T.row(L.extraBed, L.yes) : '') +
         (bk.special_requests ? T.row(L.specialRequests, bk.special_requests) : '') +
+        breakdown.rows +
         T.row(L.total, money, { strong: true }) +
         (payment ? T.row(L.payment, payment) : '')
       ) +
+      (breakdown.rows ? T.paragraph(L.feeNote, { small: true, muted: true }) : '') +
       (paidOnline ? T.notice('paid', L.paidOnline(money), { strong: true }) : '') +
       (awaitingOnline ? T.notice('pending', L.awaitingOnlinePayment(money)) : '') +
       (balanceDueMoney ? T.notice('due', L.balanceDue(balanceDueMoney)) : '') +
@@ -665,7 +724,20 @@ function groupConfirmationEmail(rows) {
   const paidOnline = isOnlineProvider(first.payment_provider) && first.payment_status === 'paid';
   const awaitingOnline = isOnlineProvider(first.payment_provider) && first.payment_status === 'pending';
   const payment = guestPaymentLabel(first, L);
-  const roomMoney = (r) => (r.total != null ? formatMoney(r.total, currency) : '—');
+  /* Each room is listed at its ACCOMMODATION price, not at its share of the
+     charge. The one online payment fee is charged once for the whole cart and
+     is shown once, on its own line below — printing each room at its total
+     would scatter fractions of one fee across the rooms and leave a guest
+     with three prices that individually match nothing they were quoted.
+
+     Falls back to `total` for a booking with no breakdown stored (every group
+     taken before the pass-through existed), where the two are the same
+     number anyway. */
+  const roomOnly = (r) => Number(r.room_total != null ? r.room_total : r.total || 0);
+  const roomMoney = (r) => (r.total != null ? formatMoney(roomOnly(r), currency) : '—');
+  const accommodation = rows.reduce((s, r) => s + roomOnly(r), 0);
+  const groupSurcharge = rows.reduce((s, r) => s + Number(r.payment_surcharge || 0), 0);
+  const breakdown = billBreakdown(L, accommodation, groupSurcharge, currency);
 
   const roomTextBlock = (r, i) => {
     const smokingText = r.smoking_preference === 'smoking' ? L.smoking : L.nonSmoking;
@@ -691,8 +763,10 @@ function groupConfirmationEmail(rows) {
     '',
     ...rows.map((r, i) => roomTextBlock(r, i)),
     '',
+    ...breakdown.text,
     `${L.grandTotal}: ${grandMoney}`,
     ...(payment ? [`${L.payment}: ${payment}`] : []),
+    ...(breakdown.text.length ? [L.feeNote] : []),
     ...(first.special_requests ? [`${L.specialRequests}: ${first.special_requests}`] : []),
     ...(paidOnline ? ['', L.paidOnline(grandMoney)] : []),
     ...(awaitingOnline ? ['', L.awaitingOnlinePayment(grandMoney)] : []),
@@ -736,6 +810,7 @@ function groupConfirmationEmail(rows) {
           T.row(L.checkout, formatCheckDate(first.check_out, CHECKOUT_TIME)) +
           T.row(L.nights, first.nights) +
           roomRowsHtml +
+          breakdown.rows +
           T.row(T.raw(`<span style="color:${T.BRAND.teal};font-weight:600">${escapeHtml(L.grandTotal)}</span>`), grandMoney, { strong: true }) +
           (payment ? T.row(L.payment, payment) : '') +
           (first.special_requests ? T.row(L.specialRequests, first.special_requests) : '')
@@ -744,6 +819,7 @@ function groupConfirmationEmail(rows) {
         (awaitingOnline ? T.notice('pending', L.awaitingOnlinePayment(grandMoney)) : '') +
         (balanceDueMoney ? T.notice('due', L.balanceDue(balanceDueMoney)) : '') +
         (first.non_refundable ? T.notice('alert', L.nonRefundableNote, { strong: true }) : '') +
+        (breakdown.rows ? T.paragraph(L.feeNote, { small: true, muted: true }) : '') +
         T.notice('warn', L.depositNoteMulti(n)) +
         T.divider() +
         T.paragraph(L.closing) +
@@ -759,7 +835,14 @@ function groupHotelNotice(rows) {
   const currency = first.currency || 'THB';
   const grand = rows.reduce((s, r) => s + Number(r.total || 0), 0);
   const via = first.channel_name || first.channel || 'Direct';
-  const roomMoney = (r) => (r.total != null ? formatMoney(r.total, currency) : '—');
+  /* Each room at its ACCOMMODATION price, with the one online payment fee
+     shown once below — the same shape as the guest's own copy. Listing rooms
+     at their share of the charge would put a slice of the fee inside every
+     room price and then add the fee again under them. */
+  const roomOnly = (r) => Number(r.room_total != null ? r.room_total : r.total || 0);
+  const accommodation = rows.reduce((s, r) => s + roomOnly(r), 0);
+  const groupSurcharge = rows.reduce((s, r) => s + Number(r.payment_surcharge || 0), 0);
+  const roomMoney = (r) => (r.total != null ? formatMoney(roomOnly(r), currency) : '—');
   const roomLine = (r, i) => {
     const childAges = Array.isArray(r.child_ages) && r.child_ages.length ? ` (ages: ${r.child_ages.join(', ')})` : '';
     return `  Room ${i + 1}: ${r.room || '—'} — ${guestCountLabel(r.adults, r.children)}${childAges}, `
@@ -780,7 +863,13 @@ function groupHotelNotice(rows) {
     ...rows.map((r, i) => roomLine(r, i)),
     '',
     ...(first.special_requests ? [`Special requests: ${first.special_requests}`, ''] : []),
-    `Grand total (all rooms): ${grand} ${currency}`,
+    ...(groupSurcharge > 0
+      ? [`Accommodation: ${formatMoney(accommodation, currency)}`,
+         `Online payment fee: ${formatMoney(groupSurcharge, currency)}`]
+      : []),
+    // formatMoney, not a raw float: summing per-room shares can land on
+    // 8450.999999999999 and this line is read as an amount of money.
+    `Grand total (all rooms): ${formatMoney(grand, currency)}`,
     '',
     'This reservation is now in the Guest Booking inbox of the staff console.',
   ];
@@ -807,6 +896,10 @@ function groupHotelNotice(rows) {
           T.row('Nights', first.nights) +
           roomRowsHtml +
           (first.special_requests ? T.row('Special requests', first.special_requests) : '') +
+          (groupSurcharge > 0
+            ? T.row('Accommodation', formatMoney(accommodation, currency)) +
+              T.row('Online payment fee', formatMoney(groupSurcharge, currency))
+            : '') +
           T.row(T.raw(`<span style="color:${T.BRAND.teal};font-weight:600">Grand total</span>`), formatMoney(grand, currency), { strong: true })
         ) +
         T.paragraph('This reservation is now in the Guest Booking inbox of the staff console.', { small: true, muted: true }),
@@ -1201,26 +1294,52 @@ function sendDeclinedAttemptNotice(a) {
    charge was accepted as pending, so the room is held and the guest is
    expected to arrive. They simply have not paid, and the front desk needs to
    know to collect on arrival rather than waving them through as prepaid. */
-function paymentFailedHotelNotice(bk, detail) {
-  const money = bk.total != null ? formatMoney(bk.total, bk.currency) : '—';
+function paymentFailedHotelNotice(bk, detail, opts) {
   const failure = (detail && detail.failure) || {};
   const reason = failure.text || failure.message || 'The payment did not complete.';
+
+  /* Every room of the reservation, not just the one this notice was built
+     from. A group's rooms share one charge and all close out together, so
+     there is one notice — and it used to quote rows[0].total, which on a
+     three-room cart told reception to collect a third of the money. */
+  const group = (opts && Array.isArray(opts.rows) && opts.rows.length) ? opts.rows : [bk];
+  const outstanding = group.reduce((n, r) => n + Number(r.total || 0), 0);
+  const money = outstanding ? formatMoney(outstanding, bk.currency) : '—';
+  const isGroup = group.length > 1;
+
   const rows = [
     ['Guest', bk.guest_name || '—'],
-    ['Booking', bk.ref || '—'],
-    ['Room type', bk.room || '—'],
+    ['Booking', (isGroup ? (bk.group_ref || bk.ref) : bk.ref) || '—'],
+    ['Room type', isGroup
+      ? group.map((r) => r.room || '—').join(', ')
+      : (bk.room || '—')],
     ['Dates', bk.check_in && bk.check_out
       ? `${String(bk.check_in).slice(0, 10)} → ${String(bk.check_out).slice(0, 10)}` : '—'],
-    ['Amount outstanding', money],
+    ['Amount outstanding', money + (isGroup ? ` (all ${group.length} rooms)` : '')],
     ['Reason', reason],
     ['Gateway charge id', bk.payment_charge_id || '—'],
   ];
+  /* Only when a fee was ACTUALLY dropped. The guest is then holding a
+     confirmation email quoting a higher figure — it included the online
+     payment fee, which no longer applies now that they are paying in person —
+     and reception has to be told, or the first thing that happens at the desk
+     is an argument about which number is right.
+
+     Said unconditionally it would be a lie on any booking that never carried
+     a fee: one taken while the pass-through was switched off, or any booking
+     that predates it being closed out by the backfill. */
+  const feeDropped = (opts && opts.hadSurcharge)
+    ? "This amount is LOWER than the total on the guest's confirmation email. " +
+      'That total included the online payment fee, which only applies to payments taken online — ' +
+      'paying at the desk does not carry it. Collect the amount above.'
+    : '';
   const lines = [
     `The online payment for booking ${bk.ref} did not complete.`,
     '',
     'THE RESERVATION STILL STANDS — the room is held and the guest is expected.',
     'Collect payment at check-in.',
     '',
+    ...(feeDropped ? [feeDropped, ''] : []),
     ...rows.map(([k, v]) => `${k}: ${v}`),
   ];
   const letterhead = emailLetterhead();
@@ -1233,15 +1352,16 @@ function paymentFailedHotelNotice(bk, detail) {
       T.heading(`Payment not completed — ${bk.ref}`) +
       T.notice('warn', reason, { strong: true }) +
       T.paragraph(T.raw('<strong>The reservation still stands.</strong> The room is held and the guest is expected — collect payment at check-in.')) +
+      (feeDropped ? T.notice('due', feeDropped) : '') +
       T.table(rows.map(([k, v]) => T.row(k, v)).join('')),
   });
   return { text, html };
 }
 
-function sendPaymentFailedEmail(bk, detail) {
+function sendPaymentFailedEmail(bk, detail, opts) {
   const to = hotelRecipients();
   if (!to.length) return;
-  const { text, html } = paymentFailedHotelNotice(bk, detail);
+  const { text, html } = paymentFailedHotelNotice(bk, detail, opts);
   sendEmail({
     to,
     subject: `Payment not completed — ${bk.ref}`,
@@ -1493,6 +1613,18 @@ function row2js(r) {
     nonRefundable: !!r.non_refundable,
     specialRequests: r.special_requests || null,
     total: r.total ? Number(r.total) : null,
+    /* `total` split into what the stay cost and what taking the payment cost.
+
+       roomTotal falls back to `total` because every booking taken before the
+       fee pass-through existed — and every OTA and manually keyed row —
+       stores its whole amount in `total` with nothing broken out. Reading
+       null as "no room charge" would print a receipt for a free room.
+
+       Two numeric columns, so this is safe to carry on the polled LIST
+       (unlike the payment_* detail block above, which is not). */
+    roomTotal: r.room_total != null ? Number(r.room_total)
+      : (r.total != null ? Number(r.total) : null),
+    paymentSurcharge: r.payment_surcharge != null ? Number(r.payment_surcharge) : 0,
     currency: r.currency,
     status: r.status,
     lang: r.lang,
@@ -1570,7 +1702,7 @@ const LIST_COLUMNS = [
   'adults', 'children', 'child_ages', 'smoking_preference', 'breakfast', 'extra_bed',
   'non_refundable',
   'special_requests',
-  'total', 'currency', 'status', 'lang',
+  'total', 'room_total', 'payment_surcharge', 'currency', 'status', 'lang',
   'payment_provider', 'payment_method', 'payment_status', 'payment_charge_id',
   'cancelled_at', 'cancelled_by_id', 'cancelled_by_name', 'cancellation_reason',
   'previous_status', 'needs_review', 'starred', 'staff_label', 'last_amended_at',
@@ -2008,8 +2140,30 @@ router.patch('/:id', requireAuth, async (req, res) => {
       if (!ALLOWED_PAYMENT_METHODS.includes(paymentMethod)) {
         return res.status(400).json({ error: 'Invalid paymentMethod' });
       }
+      /* Recording payment AT THE DESK also drops the online payment fee.
+
+         This is the front desk saying "the guest paid me, in person". Every
+         method this route accepts is an in-person one (cash, the desk
+         terminal, a PromptPay QR at the counter), and none of them costs the
+         hotel the website gateway's cut — which is the only reason
+         `payment_surcharge` was ever added to `total`.
+
+         The case this exists for is ordinary, not exotic: a guest picks
+         PromptPay online, never scans the QR, and turns up anyway. Without
+         this, reception reads the fee-inclusive total off the board and
+         collects a card-processing fee in cash, from a guest who never made
+         a card payment — and the amount looks right, because it is the amount
+         on the confirmation email.
+
+         Same shape as paymentReconciler.markUnpaid(): one statement, so a row
+         can never be marked paid-in-person while still carrying the fee.
+         COALESCE covers rows with no breakdown, where this is a no-op. */
       await db.query(
-        `UPDATE guest_bookings SET payment_method = $1, payment_status = 'paid' WHERE id = $2`,
+        `UPDATE guest_bookings
+            SET payment_method = $1, payment_status = 'paid',
+                total = COALESCE(room_total, total),
+                payment_surcharge = 0
+          WHERE id = $2`,
         [paymentMethod, req.params.id]
       );
     }

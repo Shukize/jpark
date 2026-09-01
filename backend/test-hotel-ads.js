@@ -91,7 +91,21 @@ const hotelAdsFeed = require('./lib/hotelAdsFeed');
   const data = await hotelAdsFeed.getAriData({ startDate: '2026-08-01', endDateExclusive: '2026-08-04' });
   check('ari nightly window length (3 nights)', data.plans[0].nightly.length, 3);
   const studioSingleRO = data.plans.find((p) => p.roomName === 'Studio Single' && !p.breakfast);
-  check('rate matches roomRates static base (no admin override present)', studioSingleRO.nightly[0].amount, roomRates.getRoom('Studio Single').variants[0].room);
+  /* The advertised rate is the room rate GROSSED UP by the online payment
+     fee — a booking made through this listing is paid on the website, so the
+     fee is mandatory and Google requires mandatory charges inside the
+     advertised price. Asserted against paymentFees rather than against a
+     frozen number, so the day the acquirer's rate changes this follows it
+     instead of failing. */
+  const baseRate = roomRates.getRoom('Studio Single').variants[0].room;
+  const paymentFees = require('./lib/paymentFees');
+  const expectedAdvertised = paymentFees.quote(baseRate, 'card', await paymentFees.getEffectiveFees()).total;
+  check('advertised rate is the room rate plus the online payment fee',
+    studioSingleRO.nightly[0].amount, expectedAdvertised);
+  checkTrue('the advertised rate is never BELOW the room rate',
+    studioSingleRO.nightly[0].amount >= baseRate);
+  checkTrue('and never below what a PromptPay guest pays either',
+    studioSingleRO.nightly[0].amount >= paymentFees.quote(baseRate, 'promptpay', await paymentFees.getEffectiveFees()).total);
   check('sold-out night reports available:false', studioSingleRO.nightly[0].available, false);
   check('sold-out night reports count:0', studioSingleRO.nightly[0].count, 0);
   check('open night reports available:true', studioSingleRO.nightly[1].available, true);

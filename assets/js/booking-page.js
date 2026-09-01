@@ -393,7 +393,7 @@
       'bk.upTo': 'Up to', 'bk.guest': 'guest', 'bk.guests': 'guests',
       'bk.fromTpl': 'From {price} per room / night', 'bk.night': 'night', 'bk.nights': 'nights',
       'bk.roomOnly': 'room only', 'bk.withBreakfast': 'with breakfast',
-      'bk.rateIncl': '2026 general rate · taxes & service included', 'bk.enquire': 'Enquire to Book',
+      'bk.rateIncl': '2026 general rate · taxes & service included · online payment fee added at checkout', 'bk.enquire': 'Enquire to Book',
       'bk.extraGuestBed': '3rd guest: +{bed} extra bed, +{bf} breakfast if selected. Extra bed placement is subject to the specific room assigned at check-in.',
       'bk.extraGuestNoBed': 'No extra bed available for a 3rd guest, but breakfast can be added for +{bf}',
       'bk.piece': 'piece', 'bk.pieces': 'pieces',
@@ -453,7 +453,7 @@
       'bk.upTo': 'รองรับสูงสุด', 'bk.guest': 'ท่าน', 'bk.guests': 'ท่าน',
       'bk.fromTpl': 'เริ่มต้น {price} ต่อห้อง / คืน', 'bk.night': 'คืน', 'bk.nights': 'คืน',
       'bk.roomOnly': 'เฉพาะห้องพัก', 'bk.withBreakfast': 'รวมอาหารเช้า',
-      'bk.rateIncl': 'อัตราทั่วไปปี 2026 · รวมภาษีและค่าบริการ', 'bk.enquire': 'สอบถามเพื่อจอง',
+      'bk.rateIncl': 'อัตราทั่วไปปี 2026 · รวมภาษีและค่าบริการ · มีค่าธรรมเนียมชำระเงินออนไลน์เพิ่มในขั้นตอนชำระเงิน', 'bk.enquire': 'สอบถามเพื่อจอง',
       'bk.extraGuestBed': 'ผู้เข้าพักคนที่ 3: เตียงเสริม +{bed} และอาหารเช้า +{bf} หากเลือก การจัดวางเตียงเสริมขึ้นอยู่กับห้องพักที่ได้รับจริงเมื่อเช็คอิน',
       'bk.extraGuestNoBed': 'ห้องนี้ไม่มีเตียงเสริมสำหรับผู้เข้าพักคนที่ 3 แต่สามารถเพิ่มอาหารเช้าได้ +{bf}',
       'bk.piece': 'ชิ้น', 'bk.pieces': 'ชิ้น',
@@ -513,7 +513,7 @@
       'bk.upTo': '最大', 'bk.guest': '名', 'bk.guests': '名',
       'bk.fromTpl': '{price}〜 / 1室1泊', 'bk.night': '泊', 'bk.nights': '泊',
       'bk.roomOnly': '室料のみ', 'bk.withBreakfast': '朝食付き',
-      'bk.rateIncl': '2026年一般料金 · 税・サービス料込み', 'bk.enquire': '予約を問い合わせる',
+      'bk.rateIncl': '2026年一般料金 · 税・サービス料込み · お支払い時にオンライン決済手数料が加算されます', 'bk.enquire': '予約を問い合わせる',
       'bk.extraGuestBed': '3人目のご宿泊者: エキストラベッド +{bed}、朝食を選択の場合は +{bf}。エキストラベッドの設置場所は、チェックイン時にご案内する客室により異なります。',
       'bk.extraGuestNoBed': 'この客室は3人目用のエキストラベッドはご用意できませんが、朝食は +{bf} で追加可能です',
       'bk.piece': '点', 'bk.pieces': '点',
@@ -573,7 +573,7 @@
       'bk.upTo': '最多', 'bk.guest': '位', 'bk.guests': '位',
       'bk.fromTpl': '{price} 起 / 每间每晚', 'bk.night': '晚', 'bk.nights': '晚',
       'bk.roomOnly': '仅房费', 'bk.withBreakfast': '含早餐',
-      'bk.rateIncl': '2026 年一般房价 · 含税及服务费', 'bk.enquire': '咨询预订',
+      'bk.rateIncl': '2026 年一般房价 · 含税及服务费 · 结算时另加网上支付手续费', 'bk.enquire': '咨询预订',
       'bk.extraGuestBed': '第3位客人：加床 +{bed}，如选早餐则 +{bf}。加床的具体摆放位置以入住时实际分配的房间为准。',
       'bk.extraGuestNoBed': '此房型无法为第3位客人加床，但可加购早餐 +{bf}',
       'bk.piece': '件', 'bk.pieces': '件',
@@ -633,7 +633,7 @@
       'bk.upTo': '最多', 'bk.guest': '位', 'bk.guests': '位',
       'bk.fromTpl': '{price} 起 / 每間每晚', 'bk.night': '晚', 'bk.nights': '晚',
       'bk.roomOnly': '僅房費', 'bk.withBreakfast': '含早餐',
-      'bk.rateIncl': '2026 年一般房價 · 含稅及服務費', 'bk.enquire': '諮詢預訂',
+      'bk.rateIncl': '2026 年一般房價 · 含稅及服務費 · 結帳時另加網路付款手續費', 'bk.enquire': '諮詢預訂',
       'bk.extraGuestBed': '第3位客人：加床 +{bed}，如選早餐則 +{bf}。加床的具體擺放位置以入住時實際分配的房間為準。',
       'bk.extraGuestNoBed': '此房型無法為第3位客人加床，但可加購早餐 +{bf}',
       'bk.piece': '件', 'bk.pieces': '件',
@@ -1011,6 +1011,29 @@
   // and Book Now both appeared to do nothing) on every single page load.
   var SURCHARGES = { extraBed: 500, extraBreakfastGuest: 190, childBreakfast5to8: 100 };
 
+  /* The online payment fee the guest pays on top of the room total, so the
+     hotel receives the room rate in full.
+
+     Mirrors backend/lib/paymentFees.js's DEFAULT_PAYMENT_FEES exactly —
+     guarded by backend/test-rate-parity.js on every build, like every other
+     hand-mirrored price table in this file — and live-corrected by the same
+     GET /api/rates fetch that corrects room rates, so an admin who edits the
+     rate in the Site Editor changes what the booking page quotes without a
+     deploy.
+
+     Rates are PROPORTIONS (0.0365), not percentages. VAT is charged on the
+     FEE, not on the sale: the deduction is 3.65% × 1.07 = 3.9055%, not
+     10.65%. See the backend file's docblock — that misreading has already
+     been made once, in writing, by the people this money belongs to. */
+  var PAYMENT_FEES = {
+    enabled: true,
+    vatRate: 0.07,
+    rates: { card: 0.0365, promptpay: 0.0265 },
+  };
+  // Methods that are not billed a percentage — nothing is passed on for a
+  // booking settled in person. Mirrors NO_FEE_METHODS server-side.
+  var NO_FEE_METHODS = ['pay_at_checkin', 'in_person', 'cash'];
+
   // Mirrors backend/lib/rateOverrides.js's computeGuestSurcharge() exactly —
   // see that function's comment for the full policy. `childAges` (optional
   // array of integers) prices each child independently of adult count (free
@@ -1077,12 +1100,45 @@
       : room.variants[0].bf + SURCHARGES.extraBreakfastGuest;
   }
 
+  /* Mirrors backend/lib/paymentFees.js's quote() exactly — see that file for
+     why the fee is solved for rather than added as a percentage, and why the
+     result is rounded UP to whole Baht.
+
+     This is a DISPLAY quote. The server recomputes the same numbers from the
+     same source before charging anything, so a stale or tampered client can
+     only ever be shown a wrong figure, never billed one. */
+  function paymentFeeQuote(roomTotal, method) {
+    var net = Number(roomTotal) || 0;
+    var flat = { roomTotal: net, surcharge: 0, total: net, feeRate: 0, vatRate: 0, effectiveRate: 0, applied: false };
+    if (!PAYMENT_FEES.enabled || !method || NO_FEE_METHODS.indexOf(method) !== -1) return flat;
+    var rate = PAYMENT_FEES.rates[method];
+    if (typeof rate !== 'number' || !isFinite(rate) || rate <= 0 || net <= 0) return flat;
+    var vat = typeof PAYMENT_FEES.vatRate === 'number' && isFinite(PAYMENT_FEES.vatRate) ? PAYMENT_FEES.vatRate : 0;
+    var k = rate * (1 + vat);
+    if (!(k > 0) || k >= 1) return flat;
+    // toFixed(6) before ceiling: 5550 / 0.960945 can land on 5775.000000001
+    // for a net that divides exactly, and a guest must not be charged an
+    // extra Baht for a floating-point artefact.
+    var total = Math.ceil(Number((net / (1 - k)).toFixed(6)));
+    return {
+      roomTotal: net,
+      surcharge: Math.round((total - net) * 100) / 100,
+      total: total,
+      feeRate: rate,
+      vatRate: vat,
+      effectiveRate: k,
+      applied: true,
+    };
+  }
+
   window.JPark = window.JPark || {};
   window.JPark.pricing = {
     computeGuestSurcharge: computeGuestSurcharge,
     isOccupancyTier: isOccupancyTier,
     occupancyBreakfastPrice: occupancyBreakfastPrice,
     getSurcharges: function () { return SURCHARGES; },
+    getPaymentFees: function () { return PAYMENT_FEES; },
+    paymentFeeQuote: paymentFeeQuote,
   };
 
   // Paint everything in the current language (initial load + on switch).
@@ -1132,6 +1188,28 @@
       var val = surcharges[key];
       if (typeof val === 'number' && isFinite(val) && val > 0 && val <= 100000) SURCHARGES[key] = val;
     });
+  }
+
+  /* Same live-override merge, for the payment fee schedule. Field by field,
+     with the same bounds the server validates against, so a malformed stored
+     value can only ever be ignored — never turn a 3.65% fee into 365%.
+
+     `enabled` is honoured in BOTH directions on purpose: an admin who
+     switches the pass-through off must see it disappear from the quote here
+     too, or the page would keep charging a fee the server has stopped
+     applying. */
+  function applyPaymentFees(fees) {
+    if (!fees || typeof fees !== 'object') return;
+    if (typeof fees.enabled === 'boolean') PAYMENT_FEES.enabled = fees.enabled;
+    if (typeof fees.vatRate === 'number' && isFinite(fees.vatRate) && fees.vatRate >= 0 && fees.vatRate <= 0.3) {
+      PAYMENT_FEES.vatRate = fees.vatRate;
+    }
+    if (fees.rates && typeof fees.rates === 'object') {
+      Object.keys(PAYMENT_FEES.rates).forEach(function (method) {
+        var v = fees.rates[method];
+        if (typeof v === 'number' && isFinite(v) && v >= 0 && v <= 0.2) PAYMENT_FEES.rates[method] = v;
+      });
+    }
   }
 
   // Same live-override merge as applyRateOverrides(), but for the flat
@@ -1198,8 +1276,13 @@
       applyRateOverrides(res.rooms);
       applySurcharges(res.surcharges);
       applyDayUseOverrides(res.dayUse);
+      applyPaymentFees(res.paymentFees);
       renderAll(); // repaint any already-drawn cards with corrected prices
       injectPricingSchema(); // refresh with live-override-corrected prices
+      // A booking modal already open when this lands is showing a quote built
+      // from the static mirror. Tell it to re-price rather than leaving a
+      // stale fee on screen until the guest touches something.
+      document.dispatchEvent(new CustomEvent('jpark:ratesloaded'));
     }).catch(function () {});
   })();
 

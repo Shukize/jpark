@@ -975,6 +975,38 @@ textarea.ed-field-input { resize: vertical; line-height: 1.5; }
 .ed-rate-field input.ed-rate-invalid { border-color: var(--terracotta-d, #b8552e); }
 .ed-rate-surcharges { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; background: rgba(201,162,75,0.12); border: 1px solid var(--gold, #c9a24b); padding: 10px 14px; border-radius: 10px; }
 
+/* The online payment fee card. Set apart from the surcharge/day-use rows it
+   sits beside because it is the hotel's own COST rather than a price it sets
+   — and because it carries a switch, a worked example and a line of evidence
+   rather than three bare numbers. */
+.ed-fee-card { background: rgba(26,35,126,0.06); border-color: #1a237e; gap: 12px 20px; }
+.ed-fee-card .ed-rate-label,
+.ed-fee-card .ed-fee-note,
+.ed-fee-card .ed-fee-example,
+.ed-fee-card .ed-fee-observed,
+.ed-fee-card .ed-fee-toggle { flex-basis: 100%; }
+.ed-fee-note { margin: 0; font-size: 0.78rem; line-height: 1.5; }
+/* The switch reads as a sentence, so it lays out as one: box, then words, on
+   its own line above the numbers it governs. The surrounding card is a
+   horizontal flex row (it is shared with the surcharge fields), which
+   otherwise stacks a checkbox on top of its own label. */
+/* Each rate keeps its label, its box and its "= 3.91%" together in one
+   column, so three fields on one line never interleave. */
+.ed-fee-card .ed-rate-field { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+/* The toggle is one of those fields by class, but reads as a sentence, so it
+   goes back to a row — after the column rule above, and at equal specificity,
+   or the box ends up stacked on top of its own words. */
+.ed-fee-card .ed-fee-toggle {
+  display: flex; align-items: center; gap: 8px;
+  flex-direction: row; font-weight: 600;
+}
+.ed-fee-card .ed-fee-toggle input { width: auto; margin: 0; }
+/* The all-in rate, sitting next to the rate that produced it — so nobody adds
+   the fee percentage and the VAT percentage together, which has happened. */
+.ed-fee-eff { font-size: 0.78rem; opacity: 0.75; margin-left: 6px; white-space: nowrap; }
+.ed-fee-example { font-size: 0.82rem; font-weight: 600; color: #1a237e; }
+.ed-fee-observed { font-size: 0.78rem; opacity: 0.85; }
+
 /* ---- Live Chat editor ---- */
 .ed-chat-group { background: var(--paper); border-radius: 12px; padding: 14px 16px; margin-bottom: 18px; }
 .ed-chat-group > h4, .ed-chat-h { margin: 0 0 4px; font-size: 0.98rem; color: var(--ink); }
@@ -2502,6 +2534,13 @@ body.mobile-view .fac-card.large {
 .bk-rc-net th, .bk-rc-net td {
   font-weight: 700; border-top: 1px solid #d8dede; padding-top: 8px;
 }
+/* Did the pass-through actually work? Green when the guest's fee covered
+   what the gateway took, red when it did not — which is the acquirer having
+   moved its rate, and the only place anyone would ever notice. */
+.bk-rc-recovered td { color: #1b6b3a; font-size: 0.78rem; }
+.bk-rc-short th, .bk-rc-short td {
+  color: #8a2a1a; font-weight: 700; font-size: 0.8rem; line-height: 1.45;
+}
 
 @media print {
   /* Never let the toggle itself print, and keep the internal block on the
@@ -2650,6 +2689,22 @@ body.mobile-view .fac-card.large {
 .bk-rc-total td {
   padding-top: 13px; font-weight: 700; font-size: 0.98rem;
   border-bottom: none; border-top: 2px solid var(--rc-ink);
+}
+/* Accommodation and the online payment fee, above the total they sum to.
+   Lighter than the total so the eye still lands on the amount paid, but
+   plainly legible — a guest checking a receipt against the rate they booked
+   needs to find their room price on it. */
+.bk-rc-subtotal td {
+  padding-top: 9px; padding-bottom: 0; border-bottom: none;
+  color: var(--rc-soft); font-size: 0.86rem;
+}
+.bk-rc-subtotal + .bk-rc-subtotal td { padding-top: 3px; }
+.bk-rc-subtotal + .bk-rc-total td { padding-top: 9px; border-top-width: 1px; }
+/* One sentence naming the fee, on both copies. The guest copy has the
+   internal block stripped out of it, so without this the fee line would be a
+   number with no explanation anywhere on the sheet the guest takes home. */
+.bk-rc-fee-note {
+  margin-top: 12px; font-size: 0.74rem; color: var(--rc-soft); line-height: 1.5;
 }
 
 .bk-rc-section {
