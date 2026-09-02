@@ -393,7 +393,7 @@
       'bk.upTo': 'Up to', 'bk.guest': 'guest', 'bk.guests': 'guests',
       'bk.fromTpl': 'From {price} per room / night', 'bk.night': 'night', 'bk.nights': 'nights',
       'bk.roomOnly': 'room only', 'bk.withBreakfast': 'with breakfast',
-      'bk.rateIncl': '2026 general rate · taxes & service included · online payment fee added at checkout', 'bk.enquire': 'Enquire to Book',
+      'bk.rateIncl': '2026 general rate · taxes & service included', 'bk.rateInclFee': ' · online payment fee added at checkout', 'bk.enquire': 'Enquire to Book',
       'bk.extraGuestBed': '3rd guest: +{bed} extra bed, +{bf} breakfast if selected. Extra bed placement is subject to the specific room assigned at check-in.',
       'bk.extraGuestNoBed': 'No extra bed available for a 3rd guest, but breakfast can be added for +{bf}',
       'bk.piece': 'piece', 'bk.pieces': 'pieces',
@@ -453,7 +453,7 @@
       'bk.upTo': 'รองรับสูงสุด', 'bk.guest': 'ท่าน', 'bk.guests': 'ท่าน',
       'bk.fromTpl': 'เริ่มต้น {price} ต่อห้อง / คืน', 'bk.night': 'คืน', 'bk.nights': 'คืน',
       'bk.roomOnly': 'เฉพาะห้องพัก', 'bk.withBreakfast': 'รวมอาหารเช้า',
-      'bk.rateIncl': 'อัตราทั่วไปปี 2026 · รวมภาษีและค่าบริการ · มีค่าธรรมเนียมชำระเงินออนไลน์เพิ่มในขั้นตอนชำระเงิน', 'bk.enquire': 'สอบถามเพื่อจอง',
+      'bk.rateIncl': 'อัตราทั่วไปปี 2026 · รวมภาษีและค่าบริการ', 'bk.rateInclFee': ' · มีค่าธรรมเนียมชำระเงินออนไลน์เพิ่มในขั้นตอนชำระเงิน', 'bk.enquire': 'สอบถามเพื่อจอง',
       'bk.extraGuestBed': 'ผู้เข้าพักคนที่ 3: เตียงเสริม +{bed} และอาหารเช้า +{bf} หากเลือก การจัดวางเตียงเสริมขึ้นอยู่กับห้องพักที่ได้รับจริงเมื่อเช็คอิน',
       'bk.extraGuestNoBed': 'ห้องนี้ไม่มีเตียงเสริมสำหรับผู้เข้าพักคนที่ 3 แต่สามารถเพิ่มอาหารเช้าได้ +{bf}',
       'bk.piece': 'ชิ้น', 'bk.pieces': 'ชิ้น',
@@ -513,7 +513,7 @@
       'bk.upTo': '最大', 'bk.guest': '名', 'bk.guests': '名',
       'bk.fromTpl': '{price}〜 / 1室1泊', 'bk.night': '泊', 'bk.nights': '泊',
       'bk.roomOnly': '室料のみ', 'bk.withBreakfast': '朝食付き',
-      'bk.rateIncl': '2026年一般料金 · 税・サービス料込み · お支払い時にオンライン決済手数料が加算されます', 'bk.enquire': '予約を問い合わせる',
+      'bk.rateIncl': '2026年一般料金 · 税・サービス料込み', 'bk.rateInclFee': ' · お支払い時にオンライン決済手数料が加算されます', 'bk.enquire': '予約を問い合わせる',
       'bk.extraGuestBed': '3人目のご宿泊者: エキストラベッド +{bed}、朝食を選択の場合は +{bf}。エキストラベッドの設置場所は、チェックイン時にご案内する客室により異なります。',
       'bk.extraGuestNoBed': 'この客室は3人目用のエキストラベッドはご用意できませんが、朝食は +{bf} で追加可能です',
       'bk.piece': '点', 'bk.pieces': '点',
@@ -573,7 +573,7 @@
       'bk.upTo': '最多', 'bk.guest': '位', 'bk.guests': '位',
       'bk.fromTpl': '{price} 起 / 每间每晚', 'bk.night': '晚', 'bk.nights': '晚',
       'bk.roomOnly': '仅房费', 'bk.withBreakfast': '含早餐',
-      'bk.rateIncl': '2026 年一般房价 · 含税及服务费 · 结算时另加网上支付手续费', 'bk.enquire': '咨询预订',
+      'bk.rateIncl': '2026 年一般房价 · 含税及服务费', 'bk.rateInclFee': ' · 结算时另加网上支付手续费', 'bk.enquire': '咨询预订',
       'bk.extraGuestBed': '第3位客人：加床 +{bed}，如选早餐则 +{bf}。加床的具体摆放位置以入住时实际分配的房间为准。',
       'bk.extraGuestNoBed': '此房型无法为第3位客人加床，但可加购早餐 +{bf}',
       'bk.piece': '件', 'bk.pieces': '件',
@@ -633,7 +633,7 @@
       'bk.upTo': '最多', 'bk.guest': '位', 'bk.guests': '位',
       'bk.fromTpl': '{price} 起 / 每間每晚', 'bk.night': '晚', 'bk.nights': '晚',
       'bk.roomOnly': '僅房費', 'bk.withBreakfast': '含早餐',
-      'bk.rateIncl': '2026 年一般房價 · 含稅及服務費 · 結帳時另加網路付款手續費', 'bk.enquire': '諮詢預訂',
+      'bk.rateIncl': '2026 年一般房價 · 含稅及服務費', 'bk.rateInclFee': ' · 結帳時另加網路付款手續費', 'bk.enquire': '諮詢預訂',
       'bk.extraGuestBed': '第3位客人：加床 +{bed}，如選早餐則 +{bf}。加床的具體擺放位置以入住時實際分配的房間為準。',
       'bk.extraGuestNoBed': '此房型無法為第3位客人加床，但可加購早餐 +{bf}',
       'bk.piece': '件', 'bk.pieces': '件',
@@ -848,7 +848,12 @@
           extraGuestNote +
         '</div>' +
         '<div class="rr-price-row">' +
-          '<span class="rr-price-note">' + TR('bk.rateIncl') + '</span>' +
+          // The fee clause is appended only while the pass-through is
+          // actually on. An admin who switches it off in the Site Editor must
+          // not be left with every room card still promising a charge the
+          // booking form has stopped adding.
+          '<span class="rr-price-note">' + TR('bk.rateIncl') +
+            (PAYMENT_FEES.enabled ? TR('bk.rateInclFee') : '') + '</span>' +
           '<div class="rr-cta-group">' +
             '<button type="button" class="btn btn-solid rr-book-btn">' + TR('bk.pay.bookNow') + '</button>' +
             '<a href="tel:+66863260664" class="rr-call-link">' + TR('bk.pay.preferCall') + '</a>' +

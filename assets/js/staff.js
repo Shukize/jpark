@@ -4105,11 +4105,21 @@
         : "");
     }
 
-    // The booking total and the charge should agree. When they do not — a
-    // group booking charged as one, a partial refund, a price amended after
-    // payment — say so rather than printing two numbers side by side and
-    // leaving somebody to notice.
-    const mismatch = (pay.amount != null && Math.abs(Number(pay.amount) - Number(grand)) > 0.01)
+    /* The booking total and the charge should agree. When they do not — a
+       group booking charged as one, a partial refund, a price amended after
+       payment — say so rather than printing two numbers side by side and
+       leaving somebody to notice.
+
+       SETTLED CHARGES ONLY. An unsettled charge's amount is what was
+       ATTEMPTED, not what was taken, and the two are now expected to differ:
+       when a PromptPay QR expires or a guest walks away from 3-D Secure, the
+       reconciler drops the online payment fee off the bill (the guest is
+       going to pay at the desk, where there is no gateway cut), leaving a
+       booking total that is deliberately lower than the amount the gateway
+       was asked for. Flagging that as a discrepancy would put a red warning
+       on every abandoned-payment receipt and teach staff to ignore the one
+       banner that exists to catch real ones. */
+    const mismatch = (settled && pay.amount != null && Math.abs(Number(pay.amount) - Number(grand)) > 0.01)
       ? '<div class="bk-rc-mismatch">' + esc(tl("msg.bk.receipt.mismatch", lang)
           .replace("{booking}", bkPayMoney(grand, cur, lang))
           .replace("{charged}", bkPayMoney(pay.amount, cur, lang))) + "</div>"
