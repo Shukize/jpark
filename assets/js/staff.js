@@ -3693,10 +3693,13 @@
     if (ageDays >= BK_AGE_OLDER2_DAYS) return "older2";
     return "recent";
   }
-  function bkStatusLabel(s) {
+  // `lang` is passed only by the printed documents, which may be rendering for
+  // a guest whose language is not the console's. Everywhere else omits it and
+  // gets the console language, exactly as before.
+  function bkStatusLabel(s, lang) {
     if (!s) return "";
     const k = "msg.bk.status." + s;
-    const v = t(k);
+    const v = tl(k, lang);
     return v === k ? (s.charAt(0).toUpperCase() + s.slice(1)) : v;
   }
   // Payment method + status for bookings taken through the site's own online
@@ -3716,7 +3719,7 @@
   function bkIsOnlineProvider(p) {
     return !!p && p !== "in_person";
   }
-  function bkPaymentLabel(b) {
+  function bkPaymentLabel(b, lang) {
     if (!b.paymentStatus || b.paymentStatus === "n/a") return "";
     const methodKey = b.paymentMethod === "cash" ? "msg.bk.payment.cash"
       : b.paymentMethod === "card" ? "msg.bk.payment.card"
@@ -3724,12 +3727,12 @@
       : b.paymentMethod === "pay_at_checkin" ? "msg.bk.payment.pay_at_checkin"
       : b.paymentMethod === "promptpay" ? "msg.bk.payment.promptpay"
       : "";
-    let method = methodKey ? t(methodKey) : (b.paymentProvider || "");
+    let method = methodKey ? tl(methodKey, lang) : (b.paymentProvider || "");
     if (bkIsOnlineProvider(b.paymentProvider) && b.paymentMethod === "card") {
-      method = method + " " + t("msg.bk.payment.onlineSuffix");
+      method = method + " " + tl("msg.bk.payment.onlineSuffix", lang);
     }
     const statusKey = "msg.bk.payment.status." + b.paymentStatus;
-    const statusVal = t(statusKey);
+    const statusVal = tl(statusKey, lang);
     const status = statusVal === statusKey ? b.paymentStatus : statusVal;
     return method ? (method + " — " + status) : status;
   }
@@ -4154,6 +4157,84 @@
     site: "jparkhotel.com",
   };
 
+  /* ── The parts both printed documents share ──────────────────────────────
+     The receipt and the booking sheet are two documents about one stay. Where
+     they say the same thing they say it with the same code, so a change to
+     the way a room reads on paper cannot land on one and miss the other. */
+
+  // What the room itself cost, as against what the card was charged. Falls
+  // back to `total` for anything with no breakdown stored: every booking
+  // taken before the online payment fee existed, and every OTA or manual row.
+  // Those two numbers are the same there.
+  function bkDocRoomOnly(r) {
+    return Number(r.roomTotal != null ? r.roomTotal : r.total || 0);
+  }
+
+  /* "1 nights" on a one-night stay is exactly the sort of thing a guest
+     notices on a document the hotel handed them. English is the only one of
+     the five languages here that inflects, but the singular key exists in all
+     of them so nobody editing this has to know which. */
+  function bkDocCount(key, n, lang) {
+    return tl(key + (Number(n) === 1 ? "One" : ""), lang).replace("{n}", String(n));
+  }
+
+  // The letterhead, and the rule beneath it.
+  function bkDocLetterheadHTML(lang) {
+    return '<div class="bk-rc-head">' +
+        '<img class="bk-rc-logo" src="images/logo-full.png" alt="J Park Hotel" ' +
+          'onerror="this.style.display=\'none\'">' +
+        '<div class="bk-rc-contact">' +
+          "<div>" + esc(RECEIPT_HOTEL.address) + "</div>" +
+          "<div>" + esc(tl("msg.bk.receipt.tel", lang)) + " " + esc(RECEIPT_HOTEL.phones.join(" · ")) +
+            "  ·  " + esc(RECEIPT_HOTEL.email) + "  ·  " + esc(RECEIPT_HOTEL.site) + "</div>" +
+        "</div>" +
+      "</div>" +
+      '<div class="bk-rc-rule"></div>';
+  }
+
+  /* One line per room, carrying what anybody actually checks a hotel document
+     for: which room, which nights, how many people, and whether breakfast was
+     in the price. Without that last one a guest cannot tell a room-only rate
+     from one including breakfast — the most common question asked of a
+     document at this desk.
+
+     `opts.smoking` adds the room preference. The booking sheet wants it — a
+     guest who asked for a non-smoking room checks that before they arrive —
+     but the receipt is a record of money already moved, and does not.
+
+     A cancelled room is still listed, and says so. The case that matters is a
+     multi-room booking with one room dropped: leaving that room off the sheet
+     entirely reads as our mistake, and leaving it on unmarked reads as a room
+     the guest still has. */
+  function bkDocRoomRowsHTML(rows, cur, lang, opts) {
+    const o = opts || {};
+    return rows.map((r) => {
+      const nights = r.nights ? bkDocCount("msg.bk.receipt.nights", r.nights, lang) : "";
+      const guests = [
+        r.adults ? bkDocCount("msg.bk.receipt.adults", r.adults, lang) : "",
+        r.children ? bkDocCount("msg.bk.receipt.children", r.children, lang) : "",
+      ].filter(Boolean).join(", ");
+      const extras = [
+        r.breakfast ? tl("msg.bk.receipt.withBreakfast", lang) : tl("msg.bk.receipt.roomOnly", lang),
+        r.extraBed ? tl("msg.bk.extraBed", lang) : "",
+        o.smoking ? tl("msg.bk.smokingPref." + (r.smokingPreference || "non_smoking"), lang) : "",
+      ].filter(Boolean).join(" · ");
+      const cancelled = r.status === "cancelled";
+      return "<tr" + (cancelled ? ' class="bk-rc-room-cancelled"' : "") + ">" +
+        "<td>" +
+          '<span class="bk-rc-room">' + esc(r.room || "") + "</span>" +
+          (r.roomNumber ? ' <span class="bk-rc-room-no">' + esc(tl("msg.bk.roomNumber", lang)) + " " + esc(r.roomNumber) + "</span>" : "") +
+          (cancelled ? ' <span class="bk-rc-cancel-tag">' + esc(tl("msg.bk.sheet.cancelledRoom", lang)) + "</span>" : "") +
+          '<div class="bk-rc-sub-line">' + esc([guests, extras].filter(Boolean).join(" · ")) + "</div>" +
+        "</td>" +
+        "<td>" + esc(fmtBookingDate(r.checkIn, lang) + " → " + fmtBookingDate(r.checkOut, lang)) +
+          (nights ? '<div class="bk-rc-sub-line">' + esc(nights) + "</div>" : "") +
+        "</td>" +
+        '<td class="bk-rc-amt">' + esc(bkPayMoney(bkDocRoomOnly(r), cur, lang)) + "</td>" +
+      "</tr>";
+    }).join("");
+  }
+
   function bkReceiptHTML(b, pay, siblings, internal, lang) {
     const cur = (pay && pay.currency) || b.currency || "THB";
     const rows = siblings && siblings.length > 1 ? siblings : [b];
@@ -4165,10 +4246,8 @@
        fractions across the rooms and give a guest three prices that match
        nothing they were quoted.
 
-       roomTotal falls back to total for anything with no breakdown stored:
-       every booking taken before the fee existed, every OTA and manual row.
-       Those two numbers are the same there, so the receipt is unchanged. */
-    const roomOnly = (r) => Number(r.roomTotal != null ? r.roomTotal : r.total || 0);
+       Each room's own accommodation charge is bkDocRoomOnly(). */
+    const roomOnly = bkDocRoomOnly;
     const accommodation = rows.reduce((s, r) => s + roomOnly(r), 0);
     const surcharge = rows.reduce((s, r) => s + Number(r.paymentSurcharge || 0), 0);
     const card = (pay && pay.card) || {};
@@ -4176,33 +4255,7 @@
     const line = (k, v) => (v == null || v === "" ? "" :
       '<tr><th>' + esc(k) + "</th><td>" + esc(v) + "</td></tr>");
 
-    /* One line per room, carrying what a guest actually checks a hotel
-       receipt for: which room, which nights, how many people, and whether
-       breakfast was in the price. Without that last one a guest cannot tell a
-       room-only rate from one including breakfast — the most common question
-       asked of a receipt at this desk. */
-    const roomLines = rows.map((r) => {
-      const nights = r.nights ? tl("msg.bk.receipt.nights", lang).replace("{n}", String(r.nights)) : "";
-      const guests = [
-        r.adults ? tl("msg.bk.receipt.adults", lang).replace("{n}", String(r.adults)) : "",
-        r.children ? tl("msg.bk.receipt.children", lang).replace("{n}", String(r.children)) : "",
-      ].filter(Boolean).join(", ");
-      const extras = [
-        r.breakfast ? tl("msg.bk.receipt.withBreakfast", lang) : tl("msg.bk.receipt.roomOnly", lang),
-        r.extraBed ? tl("msg.bk.extraBed", lang) : "",
-      ].filter(Boolean).join(" · ");
-      return "<tr>" +
-        "<td>" +
-          '<span class="bk-rc-room">' + esc(r.room || "") + "</span>" +
-          (r.roomNumber ? ' <span class="bk-rc-room-no">' + esc(tl("msg.bk.roomNumber", lang)) + " " + esc(r.roomNumber) + "</span>" : "") +
-          '<div class="bk-rc-sub-line">' + esc([guests, extras].filter(Boolean).join(" · ")) + "</div>" +
-        "</td>" +
-        "<td>" + esc(fmtBookingDate(r.checkIn, lang) + " → " + fmtBookingDate(r.checkOut, lang)) +
-          (nights ? '<div class="bk-rc-sub-line">' + esc(nights) + "</div>" : "") +
-        "</td>" +
-        '<td class="bk-rc-amt">' + esc(bkPayMoney(roomOnly(r), cur, lang)) + "</td>" +
-      "</tr>";
-    }).join("");
+    const roomLines = bkDocRoomRowsHTML(rows, cur, lang);
 
     /* The closing rows of the room table. One line when there is no fee —
        byte-for-byte the receipt this desk has been printing — and three when
@@ -4237,17 +4290,7 @@
 
     return '<div class="bk-receipt-sheet">' +
 
-      // ── Letterhead ──────────────────────────────────────────────────────
-      '<div class="bk-rc-head">' +
-        '<img class="bk-rc-logo" src="images/logo-full.png" alt="J Park Hotel" ' +
-          'onerror="this.style.display=\'none\'">' +
-        '<div class="bk-rc-contact">' +
-          "<div>" + esc(RECEIPT_HOTEL.address) + "</div>" +
-          "<div>" + esc(tl("msg.bk.receipt.tel", lang)) + " " + esc(RECEIPT_HOTEL.phones.join(" · ")) +
-            "  ·  " + esc(RECEIPT_HOTEL.email) + "  ·  " + esc(RECEIPT_HOTEL.site) + "</div>" +
-        "</div>" +
-      "</div>" +
-      '<div class="bk-rc-rule"></div>' +
+      bkDocLetterheadHTML(lang) +
       '<h1 class="bk-rc-title">' + esc(tl("msg.bk.receipt.title", lang)) + "</h1>" +
 
       (pay && pay.livemode === false
@@ -4368,94 +4411,81 @@
       .trim();
   }
 
-  function openBkReceipt(b, pay) {
-    const siblings = b.groupRef
-      ? getBookingMsgs().filter((x) => x.groupRef === b.groupRef)
-          .sort((a, c) => (a.groupIndex || 0) - (c.groupIndex || 0))
-      : [];
-    /* Two copies of one document.
+  /* ── One window, two documents ───────────────────────────────────────────
+     The receipt and the booking sheet are different documents printed out of
+     the same piece of furniture: an overlay that prints as a sheet of A4, a
+     toggle between the copy for the guest and the copy for the hotel, a
+     language picker, a Print button, and the filename the browser offers when
+     somebody saves it as a PDF.
 
-       INTERNAL is the default, because this lives in the staff console and the
-       question it usually answers is an accounting one — what did the gateway
-       actually keep, and has the money landed. It carries the hotel's fees and
-       net takings.
+     That furniture lives here once, because each of the parts that are easy
+     to get wrong has already been got wrong once: a second click stacking an
+     invisible second overlay, `bk-printing` applied only around the Print
+     button so Ctrl+P printed the console instead of the document, and a
+     document title left behind after the window closed.
 
-       GUEST COPY is the same document with that section removed, for when the
-       receipt is printed and handed across the desk. A guest has no business
-       seeing the hotel's acquiring costs, so the toggle exists rather than one
-       compromise document that is wrong for both readers. */
-    /* One receipt window at a time.
+     Every print rule in app.css is keyed on .bk-receipt-overlay / -modal /
+     -sheet, so both documents wear those class names.
+
+     opts: { copies: [{key, label}], copy, langFor: {key: lang}, fileName,
+             render(copyKey, lang) -> html } */
+  function openBkPrintWindow(opts) {
+    const copies = opts.copies;
+    const langFor = opts.langFor;
+    let copy = opts.copy || copies[0].key;
+
+    /* One print window at a time.
 
        Every click used to append another overlay to <body>. While they were
        correctly positioned they stacked invisibly on top of each other, so
        nothing looked wrong and Close only dismissed the topmost — leaving
        copies behind that a later style change made visible all at once. Close
-       any open one first, so pressing Receipt twice re-opens rather than
+       any open one first, so pressing the button twice re-opens rather than
        accumulates. */
     const existing = document.querySelector(".bk-receipt-overlay");
     if (existing) existing.remove();
     document.body.classList.remove("bk-printing");
 
-    let internal = true;
-
-    /* Each copy remembers its own language, because they are read by different
-       people.
-
-       The GUEST copy defaults to the language the guest actually booked in —
-       booking.html records it on the reservation, and it is auto-detected from
-       their device on a first visit — so handing over a readable document is
-       the default rather than something staff must remember to select.
-
-       The INTERNAL copy defaults to the console language, because the person
-       reading it is the one logged in.
-
-       Both are overridable: a guest may ask for English, and a Thai
-       receptionist may want to check what the Japanese copy actually says
-       before printing it. */
-    const consoleLang = I.getLang();
-    const guestLang = I.SUPPORTED.indexOf(b.lang) >= 0 ? b.lang : consoleLang;
-    const langFor = { internal: consoleLang, guest: guestLang };
-
     const overlay = document.createElement("div");
     overlay.className = "bk-receipt-overlay";
+
     const paint = () => {
-      const copy = internal ? "internal" : "guest";
-      const lang = langFor[copy];
+      const lang = langFor[copy] || I.getLang();
       // Every label in the toolbar stays in the CONSOLE's language — it is
       // chrome for the member of staff, not part of the document.
       overlay.innerHTML =
-        '<div class="bk-receipt-modal' + (internal ? " is-internal" : "") + '">' +
+        '<div class="bk-receipt-modal">' +
           '<div class="bk-receipt-bar">' +
             '<div class="bk-rc-toggle" role="group">' +
-              '<button class="bk-rc-tab' + (internal ? " active" : "") + '" id="bkRcInternal">' +
-                esc(t("msg.bk.receipt.internal")) + "</button>" +
-              '<button class="bk-rc-tab' + (internal ? "" : " active") + '" id="bkRcGuest">' +
-                esc(t("msg.bk.receipt.guestCopy")) + "</button>" +
+              copies.map(function (c) {
+                return '<button class="bk-rc-tab' + (c.key === copy ? " active" : "") + '" ' +
+                  'data-copy="' + esc(c.key) + '">' + esc(c.label) + "</button>";
+              }).join("") +
             "</div>" +
             '<label class="bk-rc-lang">' +
               '<span class="bk-rc-lang-cap">' + esc(t("msg.bk.receipt.language")) + "</span>" +
-              '<select id="bkRcLang">' +
+              '<select class="bk-rc-lang-select">' +
                 I.SUPPORTED.map(function (l) {
                   return '<option value="' + esc(l) + '"' + (l === lang ? " selected" : "") + ">" +
                     esc(I.LANG_NAMES[l] || l) + "</option>";
                 }).join("") +
               "</select>" +
             "</label>" +
-            '<button class="mda-action-btn" id="bkRcPrint">🖨 ' + esc(t("msg.bk.receipt.print")) + "</button>" +
-            '<button class="mda-action-btn" id="bkRcClose">' + esc(t("msg.bk.receipt.close")) + "</button>" +
+            '<button class="mda-action-btn bk-rc-print-btn">🖨 ' + esc(t("msg.bk.receipt.print")) + "</button>" +
+            '<button class="mda-action-btn bk-rc-close-btn">' + esc(t("msg.bk.receipt.close")) + "</button>" +
           "</div>" +
-          bkReceiptHTML(b, pay, siblings, internal, lang) +
+          opts.render(copy, lang) +
         "</div>";
       wire();
     };
     document.body.appendChild(overlay);
 
-    /* `bk-printing` is added for the WHOLE life of the receipt window, not
-       just around the Print button.
+    /* `bk-printing` is added for the WHOLE life of the window, not just
+       around the Print button.
 
        Two reasons, both of which produced a printed dashboard. Adding it only
        on the button meant Ctrl+P — which is what people actually press —
-       printed the console instead of the receipt. And removing it on a 500ms
+       printed the console instead of the document. And removing it on a 500ms
        timer raced Chrome's print preview: the preview stays open long after
        window.print() returns, so the class was stripped while the user was
        still looking at it, and the layout reverted mid-preview.
@@ -4464,10 +4494,14 @@
        body while the window is open changes nothing on screen. */
     document.body.classList.add("bk-printing");
 
-    // Set for as long as the window is open, for the same reason the print
-    // class is: whichever way the guest's copy is saved — the Print button,
-    // Ctrl+P, "Save as PDF" from the preview — it gets the same name.
-    document.title = bkReceiptFileName(b, pay);
+    /* Browsers take the suggested "Save as PDF" filename straight from
+       document.title, so that is the only lever there is — there is no print
+       API that sets it. Left alone the title is "J Park Hotel — Staff", which
+       turns a folder of saved documents into a folder of identically-named
+       files that overwrite each other on the second save. Set for as long as
+       the window is open, so however the document is saved — the Print
+       button, Ctrl+P, "Save as PDF" from the preview — it gets that name. */
+    document.title = opts.fileName;
 
     const close = () => {
       document.body.classList.remove("bk-printing");
@@ -4482,22 +4516,345 @@
     overlay.addEventListener("click", (e) => { if (e.target === overlay) close(); });
 
     function wire() {
-      overlay.querySelector("#bkRcClose").addEventListener("click", close);
-      overlay.querySelector("#bkRcInternal").addEventListener("click", () => {
-        if (!internal) { internal = true; paint(); }
+      overlay.querySelector(".bk-rc-close-btn").addEventListener("click", close);
+      overlay.querySelector(".bk-rc-print-btn").addEventListener("click", () => window.print());
+      Array.prototype.forEach.call(overlay.querySelectorAll(".bk-rc-tab"), function (btn) {
+        btn.addEventListener("click", () => {
+          if (btn.getAttribute("data-copy") === copy) return;
+          copy = btn.getAttribute("data-copy");
+          paint();
+        });
       });
-      overlay.querySelector("#bkRcGuest").addEventListener("click", () => {
-        if (internal) { internal = false; paint(); }
-      });
-      overlay.querySelector("#bkRcLang").addEventListener("change", (e) => {
-        // Remembered per copy, so switching to the guest copy and back does
-        // not lose the language either was set to.
-        langFor[internal ? "internal" : "guest"] = e.target.value;
+      overlay.querySelector(".bk-rc-lang-select").addEventListener("change", (e) => {
+        // Remembered per copy, so switching copies and back does not lose the
+        // language either was set to.
+        langFor[copy] = e.target.value;
         paint();
       });
-      overlay.querySelector("#bkRcPrint").addEventListener("click", () => window.print());
     }
     paint();
+
+    // For a document still waiting on data — the booking sheet asks the
+    // server for the payment record — so it can redraw when the answer lands.
+    return { repaint: () => { if (overlay.isConnected) paint(); } };
+  }
+
+  // Every room of a multi-room booking shares one groupRef, and a document
+  // about the stay is about all of them.
+  function bkDocSiblings(b) {
+    return b.groupRef
+      ? getBookingMsgs().filter((x) => x.groupRef === b.groupRef)
+          .sort((a, c) => (a.groupIndex || 0) - (c.groupIndex || 0))
+      : [];
+  }
+
+  function openBkReceipt(b, pay) {
+    /* Two copies of one document.
+
+       INTERNAL is the default, because this lives in the staff console and the
+       question it usually answers is an accounting one — what did the gateway
+       actually keep, and has the money landed. It carries the hotel's fees and
+       net takings.
+
+       GUEST COPY is the same document with that section removed, for when the
+       receipt is printed and handed across the desk. A guest has no business
+       seeing the hotel's acquiring costs, so the toggle exists rather than one
+       compromise document that is wrong for both readers.
+
+       Each copy remembers its own language, because they are read by different
+       people. The GUEST copy defaults to the language the guest actually
+       booked in — booking.html records it on the reservation, and it is
+       auto-detected from their device on a first visit — so handing over a
+       readable document is the default rather than something staff must
+       remember to select. The INTERNAL copy defaults to the console language,
+       because the person reading it is the one logged in. Both are
+       overridable: a guest may ask for English, and a Thai receptionist may
+       want to check what the Japanese copy actually says before printing it. */
+    const consoleLang = I.getLang();
+    const guestLang = I.SUPPORTED.indexOf(b.lang) >= 0 ? b.lang : consoleLang;
+    const siblings = bkDocSiblings(b);
+    openBkPrintWindow({
+      copies: [
+        { key: "internal", label: t("msg.bk.receipt.internal") },
+        { key: "guest", label: t("msg.bk.receipt.guestCopy") },
+      ],
+      langFor: { internal: consoleLang, guest: guestLang },
+      fileName: bkReceiptFileName(b, pay),
+      render: (copy, lang) => bkReceiptHTML(b, pay, siblings, copy === "internal", lang),
+    });
+  }
+
+  /* ── The booking sheet ───────────────────────────────────────────────────
+     The receipt's sibling, not its replacement.
+
+     A receipt is about money that has already moved, and only exists once it
+     has — which leaves every pay-at-check-in, OTA and walk-in booking on the
+     board with nothing printable at all. This is about the stay: who is
+     coming, into which room, on which nights, what is included, and what is
+     still to pay. It exists for every booking, cancelled ones included.
+
+     Front desk copy adds what the desk needs and a guest should not have on
+     paper: where the booking came from, the staff note, the payment record,
+     and who cancelled it. */
+  function bkSheetFileName(b) {
+    /* Named for the guest and the booking reference — deliberately NOT
+       time-stamped the way a receipt is. Reprinting a booking should overwrite
+       the earlier PDF of that same booking rather than leave a folder of
+       near-identical files, because unlike a receipt this document legitimately
+       changes: a room gets assigned, a balance gets paid, a room gets dropped.
+       The latest print is the one worth keeping. */
+    const guest = [b.guestName, b.guestLastName].filter(Boolean).join(" ").trim();
+    const ref = b.groupRef || b.ref || "";
+    // Strip rather than substitute the characters a filesystem refuses, so
+    // the name stays readable instead of gaining underscores.
+    return [guest, ref].filter(Boolean).join(" ")
+      .replace(/[\/:*?"<>|]+/g, "").replace(/\s+/g, " ").trim() || "booking";
+  }
+
+  // The front-desk block: appended after the document proper rather than woven
+  // into it, so the guest copy is exactly the sheet above with this section
+  // removed — not a different layout.
+  function bkSheetDeskHTML(b, rows, pay, lang) {
+    const line = (k, v) => (v == null || v === "" ? "" :
+      "<tr><th>" + esc(k) + "</th><td>" + esc(v) + "</td></tr>");
+    const roomNumbers = rows.map((r) => r.roomNumber).filter(Boolean).join(", ");
+
+    let info = "";
+    info += line(tl("msg.bk.sheet.source", lang),
+      [b.channelName || b.channel || "", b.channelEmail || ""].filter(Boolean).join(" · "));
+    info += line(tl("msg.bk.statusLabel", lang), bkStatusLabel(b.status, lang));
+    info += line(tl("msg.bk.roomNumber", lang), roomNumbers || tl("msg.bk.sheet.noRoomAssigned", lang));
+    info += line(tl("msg.bk.payment", lang), bkPaymentLabel(b, lang) || tl("msg.bk.sheet.payAtCheckinShort", lang));
+    if (pay) {
+      info += line(tl("msg.bk.pay.amountCharged", lang), bkPayMoney(pay.amount, pay.currency || b.currency || "THB", lang));
+      info += line(tl("msg.bk.pay.guestPaidAt", lang), bkPayTime(pay.paidAt, false, lang));
+      info += line(tl("msg.bk.pay.chargeId", lang), pay.chargeId);
+    }
+    if (b.staffLabel) info += line(tl("msg.bk.sheet.staffNote", lang), b.staffLabel);
+    if (b.lastAmendedAt) info += line(tl("msg.bk.amended", lang), bkPayTime(b.lastAmendedAt, false, lang));
+    if (b.status === "cancelled") {
+      info += line(tl("msg.bk.cancelledBy", lang),
+        b.cancelledByName || tl("msg.bk.cancelledAuto", lang).replace("{channel}", b.channelName || b.channel || ""));
+      info += line(tl("msg.bk.cancelledAt", lang), bkPayTime(b.cancelledAt, false, lang));
+      info += line(tl("msg.bk.cancellationReason", lang), b.cancellationReason);
+    }
+
+    return '<div class="bk-rc-internal">' +
+      '<div class="bk-rc-internal-head">' + esc(tl("msg.bk.sheet.deskTitle", lang)) + "</div>" +
+      '<div class="bk-rc-internal-note">' + esc(tl("msg.bk.sheet.deskNote", lang)) + "</div>" +
+      (b.needsReview ? '<div class="bk-rc-mismatch">' + esc(tl("msg.bk.needsReview", lang)) + "</div>" : "") +
+      '<table class="bk-rc-meta">' + info + "</table>" +
+    "</div>";
+  }
+
+  function bkSheetHTML(b, siblings, pay, desk, lang) {
+    const cur = b.currency || "THB";
+    const rows = siblings && siblings.length > 1 ? siblings : [b];
+
+    /* A cancelled room is shown but not counted.
+
+       The case that matters is a multi-room booking with one room dropped:
+       the guest still needs the sheet, and the total on it has to be what
+       they will actually pay. When EVERY room is cancelled there is nothing
+       left to total, so the sheet totals the booking as it stood and says
+       across the top that it is cancelled — a record of what was cancelled,
+       rather than a bill for nothing. */
+    const active = rows.filter((r) => r.status !== "cancelled");
+    const allCancelled = active.length === 0;
+    const billable = allCancelled ? rows : active;
+    const someCancelled = !allCancelled && active.length < rows.length;
+
+    const grand = billable.reduce((s, r) => s + Number(r.total || 0), 0);
+    const accommodation = billable.reduce((s, r) => s + bkDocRoomOnly(r), 0);
+    const surcharge = billable.reduce((s, r) => s + Number(r.paymentSurcharge || 0), 0);
+
+    const line = (k, v) => (v == null || v === "" ? "" :
+      "<tr><th>" + esc(k) + "</th><td>" + esc(v) + "</td></tr>");
+
+    /* The closing rows of the room table — accommodation, the online payment
+       fee, and the total they sum to, so a guest can follow the arithmetic
+       from the rate they booked to the amount being asked of them. One line
+       when there was no fee. */
+    const totalRows = surcharge > 0
+      ? '<tr class="bk-rc-subtotal">' +
+          '<td colspan="2">' + esc(tl("msg.bk.roomTotal", lang)) + "</td>" +
+          '<td class="bk-rc-amt">' + esc(bkPayMoney(accommodation, cur, lang)) + "</td>" +
+        "</tr>" +
+        '<tr class="bk-rc-subtotal">' +
+          '<td colspan="2">' + esc(tl("msg.bk.surcharge", lang)) + "</td>" +
+          '<td class="bk-rc-amt">' + esc(bkPayMoney(surcharge, cur, lang)) + "</td>" +
+        "</tr>" +
+        '<tr class="bk-rc-total">' +
+          '<td colspan="2">' + esc(tl("msg.bk.sheet.total", lang)) + "</td>" +
+          '<td class="bk-rc-amt">' + esc(bkPayMoney(grand, cur, lang)) + "</td>" +
+        "</tr>"
+      : '<tr class="bk-rc-total">' +
+          '<td colspan="2">' + esc(tl("msg.bk.sheet.total", lang)) + "</td>" +
+          '<td class="bk-rc-amt">' + esc(bkPayMoney(grand, cur, lang)) + "</td>" +
+        "</tr>";
+
+    /* Where this booking stands with the money, in the vocabulary the guest's
+       own confirmation email already used — a sheet that invents its own
+       words for "pay at the desk" is a sheet the guest has to reconcile
+       against their email. An OTA booking is not ours to describe: the guest
+       paid, or will pay, on the terms of the site they booked through. */
+    const paid = b.paymentStatus === "paid";
+    const method = bkPayCardLabel((pay && pay.card) || {}) ||
+      (pay && pay.method === "promptpay" ? tl("msg.bk.pay.promptpay", lang) : "");
+    let payLine;
+    if (paid) {
+      payLine = [tl("msg.bk.sheet.paid", lang), method, bkPayTime(pay && pay.paidAt, false, lang)]
+        .filter(Boolean).join(" · ");
+    } else if (b.channel && b.channel !== "direct") {
+      payLine = tl("msg.bk.sheet.payViaOta", lang).replace("{channel}", b.channelName || b.channel);
+    } else if (b.paymentStatus === "failed") {
+      payLine = tl("msg.bk.sheet.paymentFailed", lang);
+    } else {
+      payLine = tl("msg.bk.sheet.payAtCheckin", lang);
+    }
+
+    /* A cancelled booking is a record, not an instruction.
+
+       Everything that tells a guest what happens next — the check-in times,
+       how to pay on arrival, the deposit to bring, "we look forward to
+       welcoming you", "bring this to check-in" — comes off it. A sheet that
+       says both CANCELLED BOOKING and "payable at check-in" is a sheet
+       somebody has to ring the hotel about. What stays is what was booked,
+       what it came to, and — if money did change hands — that it was paid. */
+    const forward = !allCancelled;
+
+    // A guest's own words, from every room of the booking, said once.
+    const requests = rows.map((r) => (r.specialRequests || "").trim()).filter(Boolean)
+      .filter((v, i, a) => a.indexOf(v) === i);
+
+    const guestName = [b.guestName, b.guestLastName].filter(Boolean).join(" ");
+
+    return '<div class="bk-receipt-sheet">' +
+
+      bkDocLetterheadHTML(lang) +
+
+      '<h1 class="bk-rc-title">' +
+        esc(tl(allCancelled ? "msg.bk.sheet.titleCancelled" : "msg.bk.sheet.title", lang)) + "</h1>" +
+
+      // A cancelled booking must never be mistaken for a valid one at the
+      // door, so it says so where nobody can miss it.
+      (allCancelled ? '<div class="bk-rc-banner">' + esc(tl("msg.bk.sheet.cancelledBanner", lang)) + "</div>" : "") +
+
+      // ── Guest, and the booking's own particulars, side by side ──────────
+      '<div class="bk-rc-parties">' +
+        '<div class="bk-rc-party">' +
+          '<div class="bk-rc-label">' + esc(tl("msg.bk.sheet.for", lang)) + "</div>" +
+          '<div class="bk-rc-party-name">' + esc(guestName) + "</div>" +
+          (b.guestEmail ? "<div>" + esc(b.guestEmail) + "</div>" : "") +
+          (b.guestPhone ? "<div>" + esc(b.guestPhone) + "</div>" : "") +
+        "</div>" +
+        '<div class="bk-rc-party bk-rc-party-right">' +
+          '<table class="bk-rc-meta">' +
+            line(tl("msg.bk.ref", lang), b.groupRef || b.ref) +
+            (b.groupRef && rows.length > 1
+              ? line(tl("msg.bk.sheet.roomsBooked", lang), String(rows.length)) : "") +
+            line(tl("msg.bk.sheet.bookedOn", lang), bkPayTime(b.createdAt, false, lang)) +
+            // Unlike a receipt, this document legitimately changes between
+            // prints — a room gets assigned, a balance gets paid. The date it
+            // was printed is what tells two copies of it apart.
+            line(tl("msg.bk.sheet.printed", lang), bkPayTime(new Date().toISOString(), false, lang)) +
+            line(tl("msg.bk.receipt.issuedBy", lang), session ? session.name : "") +
+          "</table>" +
+        "</div>" +
+      "</div>" +
+
+      // ── The stay ────────────────────────────────────────────────────────
+      '<table class="bk-rc-rooms">' +
+        "<thead><tr>" +
+          "<th>" + esc(tl("msg.bk.receipt.rooms", lang)) + "</th>" +
+          "<th>" + esc(tl("msg.bk.receipt.stay", lang)) + "</th>" +
+          '<th class="bk-rc-amt">' + esc(tl("msg.bk.receipt.amount", lang)) + "</th>" +
+        "</tr></thead>" +
+        "<tbody>" + bkDocRoomRowsHTML(rows, cur, lang, { smoking: true }) + "</tbody>" +
+        "<tfoot>" + totalRows + "</tfoot>" +
+      "</table>" +
+
+      (someCancelled
+        ? '<div class="bk-rc-fee-note">' + esc(tl("msg.bk.sheet.cancelledNote", lang)) + "</div>" : "") +
+
+      // The two facts this desk is asked for more than any others.
+      (forward ? '<div class="bk-rc-times">' + esc(tl("msg.bk.sheet.times", lang)) + "</div>" : "") +
+
+      // ── Payment ─────────────────────────────────────────────────────────
+      // On a cancelled booking this survives only when money actually moved:
+      // that it was paid is a fact worth recording, that it is payable at
+      // check-in no longer is.
+      (forward || paid
+        ? '<div class="bk-rc-section">' + esc(tl("msg.bk.sheet.paymentTitle", lang)) + "</div>" +
+          '<div class="bk-rc-pay-line">' + esc(payLine) + "</div>" +
+          (surcharge > 0
+            ? '<div class="bk-rc-fee-note">' + esc(tl("msg.bk.receipt.feeNote", lang)) + "</div>" : "") +
+          (b.nonRefundable
+            ? '<div class="bk-rc-fee-note">' + esc(tl("msg.bk.sheet.nonRefundable", lang)) + "</div>" : "")
+        : "") +
+
+      // ── What the guest asked for ────────────────────────────────────────
+      (requests.length
+        ? '<div class="bk-rc-section">' + esc(tl("msg.bk.specialRequests", lang)) + "</div>" +
+          requests.map((r) => '<div class="bk-rc-req">' + esc(r) + "</div>").join("") +
+          '<div class="bk-rc-req-note">' + esc(tl("msg.bk.sheet.requestsNote", lang)) + "</div>"
+        : "") +
+
+      // The key-card deposit is separate from the room charge and is cash at
+      // the desk however the room itself is paid for. On this sheet it is
+      // what stops a guest who prepaid online arriving believing there is
+      // nothing left to hand over.
+      (forward ? '<div class="bk-rc-note">' + esc(tl("msg.bk.receipt.deposit", lang)) + "</div>" : "") +
+
+      // ── Signature and seal ──────────────────────────────────────────────
+      '<div class="bk-rc-sign">' +
+        (forward ? '<div class="bk-rc-thanks">' + esc(tl("msg.bk.sheet.thanks", lang)) + "</div>" : "<div></div>") +
+        '<div class="bk-rc-sign-block">' +
+          '<img class="bk-rc-stamp" src="images/company-stamp.png" alt="" ' +
+            'onerror="this.style.display=\'none\'">' +
+          '<div class="bk-rc-sign-line"></div>' +
+          '<div class="bk-rc-sign-cap">' + esc(tl("msg.bk.receipt.authorised", lang)) + "</div>" +
+        "</div>" +
+      "</div>" +
+      '<div class="bk-rc-legal">' +
+        esc(tl(forward ? "msg.bk.sheet.legal" : "msg.bk.sheet.legalCancelled", lang)) + "</div>" +
+
+      (desk ? bkSheetDeskHTML(b, rows, pay, lang) : "") +
+    "</div>";
+  }
+
+  function openBkBookingSheet(b) {
+    const consoleLang = I.getLang();
+    const guestLang = I.SUPPORTED.indexOf(b.lang) >= 0 ? b.lang : consoleLang;
+    const siblings = bkDocSiblings(b);
+
+    /* The payment record is deliberately not carried on the polled booking
+       list (see renderBkPaymentBlock), so the sheet opens with whatever the
+       console already has and fills the payment lines in when the server
+       answers. Waiting on the network before showing anything would put a
+       spinner between a member of staff and a printout they just asked for,
+       and for the pay-at-check-in and OTA bookings that are the whole reason
+       this document exists there is no payment record to wait for at all. */
+    let pay = bkPaymentCache.get(bkPaymentCacheKey(b)) || null;
+
+    /* GUEST COPY leads here, the opposite way round from the receipt: a
+       receipt is opened to answer an accounting question, this is opened
+       because somebody at the desk wants a booking on paper for a guest. */
+    const win = openBkPrintWindow({
+      copies: [
+        { key: "guest", label: t("msg.bk.receipt.guestCopy") },
+        { key: "desk", label: t("msg.bk.sheet.deskCopy") },
+      ],
+      langFor: { guest: guestLang, desk: consoleLang },
+      fileName: bkSheetFileName(b),
+      render: (copy, lang) => bkSheetHTML(b, siblings, pay, copy === "desk", lang),
+    });
+
+    ensureBookingPayment(b).then(function (p) {
+      if (!p || p === pay) return;
+      pay = p;
+      win.repaint();
+    });
   }
 
   /* Front-desk-only actions on a direct/pay-at-checkin booking: assign the
@@ -5369,6 +5726,7 @@
       '<div class="msg-detail-body bk-confirm-body"></div>' +
       '<div class="msg-detail-actions">' +
         '<button class="mda-action-btn" id="mdaBkForward">↪ ' + esc(t("msg.forward")) + "</button>" +
+        '<button class="mda-action-btn" id="mdaBkPrint">🖨 ' + esc(t("msg.bk.print")) + "</button>" +
         '<button class="mda-action-btn mda-star-btn' + (bkIsStarred ? " starred" : "") + '" id="mdaBkStar">' +
           (bkIsStarred ? "★ " + esc(t("msg.unstar")) : "☆ " + esc(t("msg.star"))) +
         "</button>" +
@@ -5437,6 +5795,7 @@
     if (b.status !== "cancelled" && b.channel === "direct") wireBkFrontDesk(detailArea, b);
 
     detailArea.querySelector("#mdaBkForward").addEventListener("click", () => openForwardBooking(b));
+    detailArea.querySelector("#mdaBkPrint").addEventListener("click", () => openBkBookingSheet(b));
     detailArea.querySelector("#mdaBkStar").addEventListener("click", () => {
       const nowStarred = toggleStar(b.id, "booking");
       const btn = detailArea.querySelector("#mdaBkStar");

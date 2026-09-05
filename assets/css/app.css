@@ -2563,12 +2563,14 @@ body.mobile-view .fac-card.large {
 .bk-rc-sub-line { font-size: 0.76rem; color: #8a9294; margin-top: 2px; }
 .bk-rc-room-no { font-size: 0.78rem; color: #66716f; font-weight: normal; }
 
-/* ── The receipt overlay ─────────────────────────────────────────────────
-   The sheet is a document; this is the window it opens in. These rules were
-   lost once already, and losing them does not fail loudly — the overlay stops
-   being positioned and simply renders at the foot of the page, so the receipt
-   appears BELOW the dashboard instead of over it, and a second click stacks a
-   second copy underneath the first. Keep them next to the sheet they frame. */
+/* ── The printed-document overlay ────────────────────────────────────────
+   The window both printed documents open in — the payment receipt and the
+   booking sheet (openBkPrintWindow in staff.js). The sheet inside it is the
+   document; this is the frame around it. These rules were lost once already,
+   and losing them does not fail loudly — the overlay stops being positioned
+   and simply renders at the foot of the page, so the document appears BELOW
+   the dashboard instead of over it, and a second click stacks a second copy
+   underneath the first. Keep them next to the sheet they frame. */
 .bk-receipt-overlay {
   position: fixed;
   inset: 0;
@@ -2744,6 +2746,56 @@ body.mobile-view .fac-card.large {
 .bk-rc-legal {
   margin-top: 26px; padding-top: 12px; border-top: 1px solid var(--rc-hair);
   font-size: 0.68rem; color: #9aa2a3; text-align: center; line-height: 1.6;
+}
+
+/* ── The booking sheet ───────────────────────────────────────────────────
+   The receipt's sibling, printed from the same window and set in the same
+   stationery, so these are only the parts a receipt has no use for: a stay
+   that was cancelled, the guest's own words, and the two times every guest
+   asks about. */
+
+/* A cancelled room stays on the sheet — the case that matters is a
+   multi-room booking with one room dropped — but it must not read as a room
+   the guest still has, and it is not in the total. */
+.bk-rc-room-cancelled td { color: #9aa2a3; }
+.bk-rc-room-cancelled .bk-rc-room { text-decoration: line-through; }
+.bk-rc-cancel-tag {
+  display: inline-block;
+  font-size: 0.66rem; letter-spacing: 0.08em; text-transform: uppercase;
+  color: #8a2a1a; background: #fdecea; border: 1px solid #f0b7b1;
+  border-radius: 4px; padding: 0 6px; margin-left: 6px; white-space: nowrap;
+}
+
+/* Across the top of a sheet nobody should be checked in against. */
+.bk-rc-banner {
+  background: #fdecea; border: 1px solid #f0b7b1; color: #8a2a1a;
+  padding: 10px 13px; border-radius: 6px; margin-bottom: 20px;
+  font-size: 0.82rem; font-weight: 600; text-align: center;
+}
+
+/* Where this booking stands with the money — one sentence, set large enough
+   to be read across a desk. */
+.bk-rc-pay-line { font-size: 0.9rem; font-weight: 600; }
+
+/* Check-in and check-out. Small, because they are the same on every sheet;
+   present, because they are what the desk is asked for most. */
+.bk-rc-times { margin-top: 14px; font-size: 0.76rem; color: var(--rc-soft); }
+
+/* The guest's own words, quoted rather than paraphrased — pre-wrap because a
+   request typed as three lines was meant as three lines. */
+.bk-rc-req {
+  border-left: 3px solid var(--rc-hair); padding: 2px 0 2px 12px;
+  font-size: 0.84rem; white-space: pre-wrap; overflow-wrap: anywhere;
+}
+.bk-rc-req + .bk-rc-req { margin-top: 8px; }
+.bk-rc-req-note { margin-top: 7px; font-size: 0.72rem; color: var(--rc-soft); }
+
+@media print {
+  /* Ink-heavy fills are a screen affordance. Keep the rules, drop the
+     backgrounds — and keep a cancelled booking's warning legible in mono. */
+  body.bk-printing .bk-rc-banner,
+  body.bk-printing .bk-rc-cancel-tag { background: none !important; }
+  body.bk-printing .bk-rc-req { page-break-inside: avoid; }
 }
 
 @media (max-width: 640px) {
