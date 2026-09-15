@@ -86,7 +86,7 @@
     { title: "nav.rooms",              prefixes: ["rooms."],                                   section: "rooms",      thumb: "room:Studio Single" },
     { title: "nav.facilities",         prefixes: ["fac."],                                     section: "facilities", thumb: "pool" },
     { title: "nav.onsen",              prefixes: ["onsen."],                                   section: "onsen",      thumb: "onsenMen" },
-    { title: "nav.dining",             prefixes: ["dining.", "menu."],                         section: "dining",     thumb: "tsubaki" },
+    { title: "nav.dining",             prefixes: ["dining."],                                  section: "dining",     thumb: "tsubaki" },
     { title: "nav.coffee",             prefixes: ["coffee."],                                  section: "coffee",     thumb: "coffee" },
     { title: "staff.site.grpChat",     prefixes: ["chat."],                                    section: "coffee",     thumb: "coffee" },
     { title: "nav.gallery",            prefixes: ["gallery."],                                 section: "gallery",    thumb: "hotel" },
@@ -395,11 +395,11 @@
     };
   }
 
-  // In-room dining orders live in their own table and were never polled here,
-  // so a guest could place an order, see it in their tracker, and no one at
-  // the front desk would ever know. Both sources feed the one board; order
-  // ids are prefixed "ord-" so status updates route back to the right table
-  // (see updateReqStatus).
+  // In-room dining orders live in their own table. The guest portal no longer
+  // places them — food is ordered from the front desk by chat or phone — but
+  // the ones already on file still belong on this board, so both sources feed
+  // it. Order ids are prefixed "ord-" so status updates route back to the
+  // right table (see updateReqStatus).
   async function _pollRequests() {
     const API = window.JPark && window.JPark.api;
     if (!API) return;
@@ -1138,9 +1138,10 @@
   }
 
   /* Which of the four service departments a request belongs to. The categories
-     are the guest portal's own (see MATRIX in assets/js/guest.js); orders come
-     through as "dining". Anything unrecognised falls to the front desk, which
-     is who picks up an unclassified job in practice. */
+     are the guest portal's own (see MATRIX in assets/js/guest.js); the older
+     in-room dining orders come through as "dining". Anything unrecognised
+     falls to the front desk, which is who picks up an unclassified job in
+     practice. */
   const REQ_DEPTS = [
     { id: "housekeeping", ico: "🧺", labelKey: "matrix.cat.housekeeping" },
     { id: "maintenance",  ico: "🔧", labelKey: "matrix.cat.maintenance" },

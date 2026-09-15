@@ -125,6 +125,7 @@ window.JPARK_HELP = (function () {
           { t: "Confirm a real guest", d: "If they truly are staying — an Agoda arrival or a walk-in — check the register, then click Confirm guest. Your name is recorded against it." },
           { t: "One person answers", d: "A chat belongs to whoever it's connected to. If it says “Connected to” someone else you can read but not type. Click Take over chat if they're on break." },
           { t: "Reply", d: "Type in the box at the bottom and press Enter. The guest sees it straight away." },
+          { t: "Food and drink to a room", d: "Guests no longer order from a menu on their phone — in-room dining is asked for here, or on the telephone. Take the order in the chat, repeat it back so you both agree, tell them roughly how long it will take, then pass it to the kitchen yourself." },
           { t: "Different languages are fine", d: "The header shows the guest's language and their messages are translated for you automatically. Just write in your own language." },
           { t: "Tidy the list", d: "📌 pins an important conversation to the top, ✎ renames it, 🗑️ deletes it — deleting cannot be undone." },
           { t: "Filter", d: "All / Guests / Visitors, so you can answer real guests first." }
@@ -405,6 +406,7 @@ window.JPARK_HELP = (function () {
           { t: "ยืนยันว่าเป็นผู้เข้าพักจริง", d: "ถ้าเขาพักกับเราจริง เช่น จองผ่าน Agoda หรือ walk-in ให้เช็กทะเบียนก่อน แล้วกด “ยืนยันผู้เข้าพัก” ระบบจะบันทึกชื่อคุณไว้ว่าเป็นคนยืนยัน" },
           { t: "ตอบคนเดียวพอ", d: "แชทหนึ่งห้องเป็นของคนที่เชื่อมต่ออยู่ ถ้าขึ้นว่า “เชื่อมต่อกับ” ชื่อคนอื่น คุณจะอ่านได้แต่พิมพ์ไม่ได้ ถ้าเขาพักเบรกอยู่ ให้กด “รับช่วงแชท”" },
           { t: "ตอบกลับ", d: "พิมพ์ในช่องด้านล่างแล้วกด Enter ผู้เข้าพักจะเห็นทันที" },
+          { t: "สั่งอาหารถึงห้อง", d: "ตอนนี้ผู้เข้าพักสั่งอาหารจากเมนูในมือถือไม่ได้แล้ว เขาจะสั่งทางแชทนี้หรือโทรมา ให้รับออเดอร์ในแชท ทวนรายการให้ตรงกัน บอกเวลาคร่าว ๆ ที่ต้องรอ แล้วแจ้งครัวด้วยตัวเอง" },
           { t: "คนละภาษาก็ไม่มีปัญหา", d: "ด้านบนจะบอกภาษาของผู้เข้าพัก และข้อความของเขาจะถูกแปลให้คุณอัตโนมัติ คุณพิมพ์ภาษาของคุณได้เลย" },
           { t: "จัดระเบียบรายชื่อ", d: "📌 “ปักหมุดการสนทนา” ตรึงบทสนทนาสำคัญไว้บนสุด ✎ เปลี่ยนชื่อ 🗑️ ลบทิ้ง — ลบแล้วกู้คืนไม่ได้" },
           { t: "กรองรายชื่อ", d: "ทั้งหมด / ผู้เข้าพัก / ผู้เยี่ยมชม จะได้ตอบผู้เข้าพักจริงก่อน" }
@@ -685,6 +687,7 @@ window.JPARK_HELP = (function () {
           { t: "宿泊中のお客様を確認済みにする", d: "Agoda経由や当日飛び込みなど実際に宿泊中の場合は、台帳を確認してから「宿泊者を確認」を押します。あなたの名前が記録されます。" },
           { t: "返信は担当者ひとり", d: "チャットは接続中のスタッフのものです。「〇〇が対応中」と表示されている場合は閲覧のみで入力できません。相手が休憩中なら「対応を引き継ぐ」を押します。" },
           { t: "返信する", d: "下の入力欄に書いてEnterを押します。お客様にはすぐ届きます。" },
+          { t: "お部屋への食事・お飲み物", d: "お客様のスマホからメニューで注文する仕組みはありません。ルームサービスはこのチャットかお電話で承ります。チャットで注文を受け、復唱して確認し、およその所要時間を伝えてから、自分で厨房に通してください。" },
           { t: "言語が違っても大丈夫", d: "上部にお客様の言語が表示され、メッセージは自動で翻訳されます。あなたは自分の言語で書いて構いません。" },
           { t: "一覧を整理する", d: "📌「スレッドをピン留め」で重要な会話を上部に固定、✎で名前を変更、🗑️で削除します。削除は元に戻せません。" },
           { t: "絞り込み", d: "「すべて」「宿泊者」「訪問者」で切り替え、実際のお客様から先に対応できます。" }
@@ -965,6 +968,7 @@ window.JPARK_HELP = (function () {
           { t: "确认真实住客", d: "如果确实住在店里（比如 Agoda 订单或上门散客），先查登记，再点“确认住客”，系统会记下是你确认的。" },
           { t: "一个会话只由一个人回", d: "会话属于当前接入的那位员工。若显示“已连接 某某”，你只能看不能打字。对方在休息，就点“接管聊天”。" },
           { t: "回复", d: "在下方输入框打字，按回车发送，客人立刻就能看到。" },
+          { t: "送餐到客房", d: "客人不再从手机上的菜单下单——客房送餐改为在这里或电话中提出。在聊天里记下订单，复述一遍确认无误，告知大概需要多久，然后由你亲自转给厨房。" },
           { t: "语言不同也没关系", d: "顶部会显示客人的语言，客人的消息会自动翻译给你看。你用自己的语言写就行。" },
           { t: "整理列表", d: "📌 把重要会话置顶，✎ 改名字，🗑️ 删除——删除无法恢复。" },
           { t: "筛选", d: "全部 / 住客 / 访客，方便优先回复真正的客人。" }
@@ -1245,6 +1249,7 @@ window.JPARK_HELP = (function () {
           { t: "確認真的住客", d: "如果確實住在店裡（例如 Agoda 訂單或現場散客），先查登記，再點「確認住客」，系統會記下是你確認的。" },
           { t: "一個對話只由一人回", d: "對話屬於目前連線的那位員工。若顯示「已連線 某某」，你只能看不能打字。對方在休息，就點「接手聊天」。" },
           { t: "回覆", d: "在下方輸入框打字，按 Enter 送出，賓客立刻就會看到。" },
+          { t: "送餐到客房", d: "賓客不再從手機上的菜單下單——客房送餐改為在這裡或電話中提出。在聊天裡記下訂單，複述一遍確認無誤，告知大概需要多久，然後由你親自轉給廚房。" },
           { t: "語言不同也沒關係", d: "最上方會顯示賓客的語言，賓客的訊息會自動翻譯給你看。你用自己的語言寫就行。" },
           { t: "整理清單", d: "📌「釘選對話」把重要對話置頂，✎「重新命名」改名字，🗑️「刪除」移除——刪除無法復原。" },
           { t: "篩選", d: "全部 / 住客 / 訪客，方便先回覆真正的賓客。" }

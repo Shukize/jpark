@@ -587,13 +587,16 @@
         <div id="matrixGroups"><!-- injected --></div>
       </div>
 
-      <!-- in-room dining -->
+      <!-- in-room dining: the hotel takes these by chat or phone, not from a
+           menu on the portal, so the kitchen never has to honour a price or a
+           dish the guest picked off a page nobody keeps up to date. -->
       <div class="portal-card">
         <h3 data-i18n="rs.title">In-Room Dining</h3>
-        <p class="pc-lede" data-i18n="rs.lede">Order to your room, pick a delivery time and add any dietary notes.</p>
-        <div class="rs-cats" id="rsCats"><!-- injected --></div>
-        <div class="rs-menu" id="rsMenu"><!-- injected --></div>
-        <div class="rs-cart" id="rsCart"><!-- injected --></div>
+        <p class="pc-lede" data-i18n="rs.lede">Tell us what you'd like and we'll bring it up to your room. Message the front desk in the chat, or give us a call.</p>
+        <div class="rs-contact">
+          <button class="btn btn-solid gold" type="button" id="rsChat" data-i18n="rs.chatBtn">Chat with the front desk</button>
+          <a class="btn btn-ghost dark" href="tel:+66863260664" data-i18n="rs.callBtn">Call the front desk</a>
+        </div>
       </div>
 
       <!-- status tracker -->

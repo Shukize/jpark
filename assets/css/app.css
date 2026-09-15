@@ -141,45 +141,12 @@ body.has-banner .site-header { } /* header stays fixed; banner scrolls above */
 .ti-rail .dot.on { background: var(--teal); }
 .link-cancel { background: none; border: none; color: var(--terracotta-d); font-size: 0.8rem; cursor: pointer; padding: 0; text-decoration: underline; }
 
-/* ---------------- room service ---------------- */
-.rs-cats { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 18px; }
-.rs-cat-btn {
-  border: 1.5px solid var(--line); background: #fff; border-radius: 999px;
-  padding: 8px 18px; font-size: 0.84rem; font-weight: 600; cursor: pointer; color: var(--ink-soft);
-  font-family: var(--sans); transition: all .2s;
-}
-.rs-cat-btn.active { background: var(--teal); color: var(--ivory); border-color: var(--teal); }
-.rs-menu { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; margin-bottom: 24px; }
-.rs-item {
-  border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px;
-  display: flex; align-items: center; justify-content: space-between; gap: 10px; background: var(--paper);
-}
-.rs-item .rs-name { font-weight: 600; font-size: 0.94rem; }
-.rs-item .rs-price { font-size: 0.84rem; color: var(--terracotta); font-weight: 600; }
-.rs-add {
-  background: var(--gold); color: var(--teal-deep); border: none; border-radius: 999px;
-  width: 34px; height: 34px; font-size: 1.3rem; line-height: 1; cursor: pointer; flex: none; font-weight: 700;
-}
-.rs-add:hover { background: var(--gold-light); }
-
-.rs-cart { background: var(--teal-deep); color: var(--ivory); border-radius: 16px; padding: 20px 22px; }
-.rs-cart h4 { font-family: var(--serif); font-size: 1.25rem; margin-bottom: 14px; color: var(--ivory); }
-.rs-cart .cart-empty { color: rgba(247,242,232,0.7); font-size: 0.9rem; }
-.cart-line { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid rgba(247,242,232,0.16); }
-.cart-line .cl-name { flex: 1; font-size: 0.92rem; }
-.cart-line .cl-qty { display: flex; align-items: center; gap: 8px; }
-.cart-line .cl-qty button {
-  width: 26px; height: 26px; border-radius: 8px; border: 1px solid rgba(247,242,232,0.4);
-  background: transparent; color: var(--ivory); cursor: pointer; font-size: 1rem; line-height: 1;
-}
-.cart-line .cl-price { width: 70px; text-align: right; font-size: 0.88rem; color: var(--gold-light); }
-.cart-total { display: flex; justify-content: space-between; font-weight: 700; margin: 14px 0; font-size: 1.05rem; }
-.cart-total span:last-child { color: var(--gold-light); }
-.rs-cart .field label { color: rgba(247,242,232,0.8); }
-.rs-cart .field input, .rs-cart .field select, .rs-cart .field textarea {
-  background: rgba(247,242,232,0.95); border-color: transparent;
-}
-.rs-cart .btn { width: 100%; margin-top: 6px; }
+/* ---------------- in-room dining ----------------
+   The portal no longer carries a menu or a tray — the front desk takes the
+   order in the chat or on the phone, so all this card needs is two ways to
+   reach them. */
+.rs-contact { display: flex; flex-wrap: wrap; gap: 10px; }
+.rs-contact .btn { flex: 1 1 200px; }
 
 /* ============================================================
    REQUEST DETAIL FORMS  (taxi / wake-up / late checkout / breakfast)
@@ -1154,43 +1121,11 @@ body.mobile-view .req-btn .rb-ico {
   flex: none;
 }
 
-/* Dining category tabs — horizontal scroll, larger */
-body.mobile-view .rs-cats {
-  display: flex;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  gap: 8px;
-  padding-bottom: 4px;
-}
-body.mobile-view .rs-cat-btn {
-  white-space: nowrap;
-  flex: none;
-  padding: 10px 18px;
-  font-size: 0.9rem;
-}
-
-/* Menu items — bigger touch area */
-body.mobile-view .rs-item {
-  padding: 12px 0;
-}
-body.mobile-view .rs-add {
-  min-width: 40px;
-  min-height: 40px;
-  font-size: 1.3rem;
-}
-
-/* Cart qty buttons — bigger */
-body.mobile-view .cl-qty button {
-  min-width: 34px;
-  min-height: 34px;
-  font-size: 1.1rem;
-}
-
-/* Place order button — full width */
-body.mobile-view #rsPlace {
-  width: 100%;
+/* In-room dining — the two ways to reach the desk, stacked full-width */
+body.mobile-view .rs-contact .btn {
+  flex: 1 1 100%;
   padding: 15px;
-  font-size: 1rem;
+  font-size: 0.95rem;
 }
 
 /* Track items — bigger cancel button */

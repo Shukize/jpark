@@ -203,17 +203,6 @@
     { id: "u_staff", username: "staff", name: "Front Desk",  role: "staff", active: true }
   ];
 
-  const SEED_MENU = [
-    { id: "m4", cat: "main",      key: "menu.item.padthai",  price: 260 },
-    { id: "m5", cat: "main",      key: "menu.item.ramen",    price: 320 },
-    { id: "m6", cat: "main",      key: "menu.item.burger",   price: 350 },
-    { id: "m7", cat: "main",      key: "menu.item.salad",    price: 240 },
-    { id: "m8", cat: "drink",     key: "menu.item.coffee",   price: 120 },
-    { id: "m9", cat: "drink",     key: "menu.item.juice",    price: 140 },
-    { id: "m10", cat: "drink",    key: "menu.item.wine",     price: 420 },
-    { id: "m11", cat: "dessert",  key: "menu.item.mango",    price: 200 }
-  ];
-
   /* Guest bookings arriving from external OTA channels (Agoda, Booking.com,
      Airbnb, Trip.com …). On a real deployment these are pushed in by a small
      bridge — an email-forwarding rule or channel-manager webhook — that calls
@@ -285,14 +274,10 @@
   function seed() {
     if (read("seeded")) {
       // keep newly added seed tables in sync for older saves
-      // The room-service menu is not editable from the staff console (the CMS
-      // only edits each item's TEXT, never the item list), so it is kept in
-      // lockstep with SEED_MENU rather than merely created when missing. A
-      // "if (!read(...))" guard here only ever ADDED the table, so an item
-      // withdrawn from the menu stayed on sale forever in any browser that had
-      // already seeded — which is exactly how a removed dessert kept appearing
-      // on the guest's tablet after it was taken off.
-      if (JSON.stringify(read("menu")) !== JSON.stringify(SEED_MENU)) write("menu", SEED_MENU);
+      // In-room dining is ordered from the front desk now, not from a menu in
+      // the portal, so the old "menu" table is cleared out of any browser
+      // still carrying it rather than left to be read by something later.
+      try { localStorage.removeItem(keyFor("menu")); } catch (_) {}
       if (!read("concierge")) write("concierge", SEED_CONCIERGE);
       if (!read("messages")) write("messages", []);
       if (!read("resetRequests")) write("resetRequests", []);
@@ -309,7 +294,6 @@
     }
     write("bookings", SEED_BOOKINGS);
     write("staff", SEED_STAFF);
-    write("menu", SEED_MENU);
     write("concierge", SEED_CONCIERGE);
     write("guestBookings", SEED_GUEST_BOOKINGS);
     write("requests", []);
@@ -342,7 +326,7 @@
       .filter((k) => k.indexOf(NS) === 0)
       .forEach((k) => localStorage.removeItem(k));
     seed();
-    ["bookings","staff","menu","concierge","requests","orders","chats","company","messages","announcements","content","guestBookings","resetRequests"]
+    ["bookings","staff","concierge","requests","orders","chats","company","messages","announcements","content","guestBookings","resetRequests"]
       .forEach((t) => emit(t, read(t)));
   }
 

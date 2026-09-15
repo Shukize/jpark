@@ -41,7 +41,7 @@ Default staff credentials no longer need manual rotation — see
 ## Features
 
 - 5 languages: Thai · English · Japanese · Simplified Chinese · Traditional Chinese
-- Guest portal: service requests, in-room dining, live request tracker
+- Guest portal: service requests, live request tracker (in-room dining is taken by the front desk via chat or phone, not ordered from the portal)
 - Live chat (guest ↔ front desk, localStorage-based)
 - Staff & admin console (`staff.html`) with internal messaging and a team status board
 - **Site Editor (admin)** — a streamlined, tabbed CMS that edits **every** piece of public text and **every** photo in **every** section:
@@ -957,7 +957,7 @@ console (no visible error) until someone happened to log back in.
 | `POST /api/sessions/ban` \| `/unban` | Admin only — ban/unban an IP (ban cascade-revokes its active sessions); scoped to `/api/auth` + `/api/sessions` only, never guest-facing routes |
 | `GET/POST /api/service-requests` | Guest service requests |
 | `GET/POST /api/chat` | Live chat messages |
-| `GET/POST /api/orders` | In-room dining orders |
+| `GET/POST /api/orders` | In-room dining orders (legacy — the portal no longer places these; kept so existing orders still show) |
 | `GET/POST /api/guest-bookings` | OTA booking inbox |
 | `GET/POST /api/messages` | Internal staff messages |
 | `PATCH /api/messages/:id/report` | Flag a message as reported by a user |

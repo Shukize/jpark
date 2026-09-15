@@ -1,7 +1,7 @@
 /* ============================================================
    J Park Hotel — guest portal
-   Access gate, quick service matrix, in-room dining,
-   live request tracker, and concierge wiring.
+   Access gate, quick service matrix, live request tracker,
+   and concierge wiring.
    API-first: all writes go to the backend; localStorage is
    the fallback when the API is unreachable (offline / dev).
    ============================================================ */
@@ -31,7 +31,6 @@
 
   const els = {};
   let guest = null;
-  let cart = {};
   let pollTimer = null;
 
   /* ──────────────────────────────── AUTH GATE ─────────────────────────────── */
@@ -126,8 +125,7 @@
       ].filter(Boolean).join(" · ");
       renderUnconfirmedNote();
       renderMatrix();
-      renderMenu();
-      renderCart();
+      wireDining();
       renderTracker();
       startTrackerPoll();
     } else {
@@ -182,7 +180,7 @@
     });
 
     document.getElementById("pbSignout").addEventListener("click", () => {
-      guest = null; cart = {};
+      guest = null;
       S.clearSession("guest");
       showPortal();
     });
@@ -222,6 +220,22 @@
   function feeTierLine(time) {
     const tier = U.checkoutFeeTier(time);
     return tier ? t("req.checkout.tier." + tier) : "";
+  }
+
+  /* The next eight half-hour slots, plus "as soon as possible" — what a taxi
+     pickup is chosen from. (Written for in-room dining originally; that menu
+     is gone, the time picker it shared is not.) */
+  function deliveryOptions() {
+    const opts = ['<option value="asap">' + U.escapeHtml(t("rs.asap")) + "</option>"];
+    const now = new Date();
+    for (let i = 1; i <= 8; i++) {
+      const d = new Date(now.getTime() + i * 30 * 60000);
+      const hh = String(d.getHours()).padStart(2, "0");
+      const mm = String(Math.floor(d.getMinutes() / 5) * 5).padStart(2, "0");
+      const label = hh + ":" + mm;
+      opts.push('<option value="' + label + '">' + label + "</option>");
+    }
+    return opts.join("");
   }
 
   function buildDetailForm(key, cfg) {
@@ -377,134 +391,20 @@
   }
 
   /* ─────────────────────────────── IN-ROOM DINING ─────────────────────────── */
-  const RS_CATS = ["main", "drink", "dessert"];
-  let activeCat = "main";
-
-  function renderMenu() {
-    const catWrap  = document.getElementById("rsCats");
-    const menuWrap = document.getElementById("rsMenu");
-    if (!catWrap || !menuWrap) return;
-    catWrap.innerHTML = "";
-    RS_CATS.forEach((c) => {
-      const b = document.createElement("button");
-      b.className = "rs-cat-btn" + (c === activeCat ? " active" : "");
-      b.type = "button";
-      b.textContent = t("rs.cat." + c);
-      b.addEventListener("click", () => { activeCat = c; renderMenu(); });
-      catWrap.appendChild(b);
+  /* The portal used to carry a menu, a tray and a Place order button. It
+     doesn't any more: the kitchen's dishes and prices change faster than a
+     page nobody owns, and every order still had to be read out to the desk in
+     the end. So the card now just opens the guest's own live chat thread —
+     already tagged with their name and room — or dials the front desk. */
+  function wireDining() {
+    const btn = document.getElementById("rsChat");
+    if (!btn || btn.dataset.wired) return;
+    btn.dataset.wired = "1";
+    btn.addEventListener("click", () => {
+      // askAbout() opens the widget AND posts the subject as the guest's first
+      // line, so whoever picks it up sees what it's about before they reply.
+      if (window.JPark.chat) window.JPark.chat.askAbout(t("rs.title"));
     });
-    menuWrap.innerHTML = "";
-    S.list("menu").filter((m) => m.cat === activeCat).forEach((m) => {
-      const item = document.createElement("div");
-      item.className = "rs-item";
-      item.innerHTML =
-        '<div><div class="rs-name">' + U.escapeHtml(t(m.key)) + "</div>" +
-        '<div class="rs-price">' + U.money(m.price) + "</div></div>" +
-        '<button class="rs-add" type="button" aria-label="' + U.escapeHtml(t("rs.add")) + '">+</button>';
-      item.querySelector(".rs-add").addEventListener("click", () => {
-        cart[m.id] = (cart[m.id] || 0) + 1; renderCart();
-      });
-      menuWrap.appendChild(item);
-    });
-  }
-
-  function deliveryOptions() {
-    const opts = ['<option value="asap">' + U.escapeHtml(t("rs.asap")) + "</option>"];
-    const now = new Date();
-    for (let i = 1; i <= 8; i++) {
-      const d = new Date(now.getTime() + i * 30 * 60000);
-      const hh = String(d.getHours()).padStart(2, "0");
-      const mm = String(Math.floor(d.getMinutes() / 5) * 5).padStart(2, "0");
-      const label = hh + ":" + mm;
-      opts.push('<option value="' + label + '">' + label + "</option>");
-    }
-    return opts.join("");
-  }
-
-  function renderCart() {
-    const wrap = document.getElementById("rsCart");
-    if (!wrap) return;
-    const menu  = S.list("menu");
-    const lines = Object.keys(cart).filter((id) => cart[id] > 0);
-    let html = "<h4>" + U.escapeHtml(t("rs.cart")) + "</h4>";
-    if (!lines.length) {
-      html += '<p class="cart-empty">' + U.escapeHtml(t("rs.cartEmpty")) + "</p>";
-      wrap.innerHTML = html; return;
-    }
-    let total = 0;
-    lines.forEach((id) => {
-      const m = menu.find((x) => x.id === id); if (!m) return;
-      const sub = m.price * cart[id]; total += sub;
-      html +=
-        '<div class="cart-line" data-id="' + id + '">' +
-        '<span class="cl-name">' + U.escapeHtml(t(m.key)) + "</span>" +
-        '<span class="cl-qty"><button type="button" data-act="dec">−</button>' +
-        "<b>" + cart[id] + "</b>" +
-        '<button type="button" data-act="inc">+</button></span>' +
-        '<span class="cl-price">' + U.money(sub) + "</span></div>";
-    });
-    html +=
-      '<div class="cart-total"><span>' + U.escapeHtml(t("rs.total")) + "</span><span>" + U.money(total) + "</span></div>" +
-      '<div class="field"><label>' + U.escapeHtml(t("rs.deliveryTime")) + '</label><select id="rsDeliver">' + deliveryOptions() + "</select></div>" +
-      '<div class="field"><label>' + U.escapeHtml(t("rs.notes")) + '</label><textarea id="rsNotes" placeholder="' + U.escapeHtml(t("rs.notesPh")) + '"></textarea></div>' +
-      '<button class="btn btn-solid gold" id="rsPlace" type="button">' + U.escapeHtml(t("rs.place")) + "</button>";
-    wrap.innerHTML = html;
-    wrap.querySelectorAll(".cart-line").forEach((line) => {
-      const id = line.getAttribute("data-id");
-      line.querySelector('[data-act="inc"]').addEventListener("click", () => { cart[id]++; renderCart(); });
-      line.querySelector('[data-act="dec"]').addEventListener("click", () => {
-        cart[id]--; if (cart[id] <= 0) delete cart[id]; renderCart();
-      });
-    });
-    wrap.querySelector("#rsPlace").addEventListener("click", placeOrder);
-  }
-
-  async function placeOrder() {
-    const menu  = S.list("menu");
-    const items = Object.keys(cart).filter((id) => cart[id] > 0).map((id) => {
-      const m = menu.find((x) => x.id === id);
-      return { key: m.key, name: t(m.key), qty: cart[id], price: m.price };
-    });
-    if (!items.length) return;
-    const deliver = (document.getElementById("rsDeliver") || {}).value || "asap";
-    const note    = (document.getElementById("rsNotes")   || {}).value || "";
-    const total   = items.reduce((s, it) => s + it.price * it.qty, 0);
-    const guestId = S.guestId();
-
-    const payload = {
-      guestId, guestName: guest.name, room: guest.room,
-      items, deliverAt: deliver, notes: note, total,
-      bookingRef: guest.ref || null,
-    };
-
-    const API = window.JPark.api;
-    if (API) {
-      const res = await API.post("/api/orders", payload);
-      if (!res.error) {
-        cart = {}; renderCart();
-        U.toast(t("rs.placed"), "success");
-        renderTracker();
-        return;
-      }
-      // Same rule as submitService(): a rejected order is never reported as
-      // placed. Keep the cart intact so the guest can retry rather than
-      // re-picking every dish.
-      if (!res.offline) {
-        console.error("[guest] order failed:", res.error);
-        U.toast(t("matrix.failed"), "error");
-        return;
-      }
-    }
-    // Offline fallback
-    S.insert("requests", Object.assign({
-      kind: "order", category: "dining",
-      titleKey: "staff.requests.order", title: t("staff.requests.order"),
-      room: guest.room, guestName: guest.name, guestId,
-      lang: I.getLang(), deliverAt: deliver, note, status: "pending",
-    }, { items, total }));
-    cart = {}; renderCart();
-    U.toast(t("rs.placed"), "success");
-    renderTracker();
   }
 
   /* ─────────────────────────────── STATUS TRACKER ─────────────────────────── */
@@ -928,12 +828,11 @@
     renderConcierge();
 
     S.on("requests", () => { if (guest) renderTracker(); });
-    S.on("menu",     () => { if (guest) { renderMenu(); renderCart(); } });
     S.on("concierge", renderConcierge);
 
     document.addEventListener("jpark:langchange", () => {
       renderConcierge();
-      if (guest) { renderMatrix(); renderMenu(); renderCart(); renderTracker(); }
+      if (guest) { renderMatrix(); renderTracker(); }
     });
   });
 })();

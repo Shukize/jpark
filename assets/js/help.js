@@ -353,7 +353,11 @@
     if (sectionId) setTimeout(function () { scrollToSection(sectionId); }, 60);
   }
 
-  const SEEN_KEY = "jpark.help.seen";
+  // Bumped whenever the handbook changes in a way staff need to notice, so the
+  // "New" flag comes back for everyone instead of only for people who had
+  // never opened the guide. (v2: in-room dining is ordered from the front desk
+  // now, not from a menu on the guest's phone.)
+  const SEEN_KEY = "jpark.help.seen.v2";
   function markSeen() {
     try { localStorage.setItem(SEEN_KEY, "1"); } catch (_) {}
     const nav = document.querySelector('.nav-item[data-panel="help"]');

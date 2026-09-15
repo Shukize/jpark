@@ -1,5 +1,10 @@
 /* ============================================================
    J Park Hotel — in-room dining orders
+   The guest portal no longer places these: food is ordered from the front
+   desk in the live chat or on the telephone. The routes stay so the orders
+   already on file keep showing on the Guest Requests board and in a guest's
+   own tracker, and so an old cached page can't have its order silently
+   swallowed.
    GET  /api/orders               all orders (staff)
    GET  /api/orders?guestId=X     guest's own orders
    POST /api/orders               place an order
