@@ -35,10 +35,15 @@ const CONFIG = {
   FORWARD_TO: 'PASTE_THE_ACCOUNTS_EMAIL_HERE',
 
   // Subject the client sees. `Fwd: Your Render receipt` is ambiguous arriving in
-  // a purchasing inbox, so say whose bill it is up front. {vendor} and {subject}
-  // are filled in. Set to '' to forward with Gmail's default "Fwd: …" instead.
-  // Only the subject line changes — the body and the PDF are never touched.
-  FORWARD_SUBJECT: 'J Park Hotel — {vendor} invoice — {subject}',
+  // a purchasing inbox, so lead with the billed entity — that's how accounts
+  // files it — and name the site in brackets so it's clear what the charge is
+  // for. {vendor} and {subject} are filled in. Set to '' for Gmail's plain
+  // "Fwd: …". Only the subject changes; the body and the PDF are never touched.
+  //
+  // Keep {subject} on the end. Without it every month's forward carries an
+  // identical subject, which Gmail collapses into one thread at the client's
+  // end — a new invoice then arrives silently inside an old conversation.
+  FORWARD_SUBJECT: 'Thai-J Associates — {vendor} invoice (J Park Hotel website) — {subject}',
 
   /**
    * Every vendor whose bill the hotel pays for this site.

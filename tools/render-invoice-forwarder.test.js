@@ -134,8 +134,8 @@ console.log('\nclient-facing subject:');
 {
   const a = makeMsg('id-1', 'billing@render.com', 'Your Render receipt');
   run([a], {});
-  check('subject names the hotel and the vendor',
-    a._opts[0] && a._opts[0].subject === 'J Park Hotel — Render invoice — Your Render receipt',
+  check('subject leads with the billed entity and keeps the original tail',
+    a._opts[0] && a._opts[0].subject === 'Thai-J Associates — Render invoice (J Park Hotel website) — Your Render receipt',
     JSON.stringify(a._opts[0]));
   check('body and attachments untouched (no body override)',
     a._opts[0] && !('htmlBody' in a._opts[0]) && !('body' in a._opts[0]),

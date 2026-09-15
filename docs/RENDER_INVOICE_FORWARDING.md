@@ -135,11 +135,15 @@ in the subject or body, and re-checks this per message rather than per thread.
 ### Other things it handles that a naive forwarder gets wrong
 
 - **The client sees a subject that says whose bill it is.** `Fwd: Your Render
-  receipt` is ambiguous landing in a purchasing inbox, so the forward goes out
-  as `J Park Hotel — Render invoice — Your Render receipt`
-  (`CONFIG.FORWARD_SUBJECT`, blank it for Gmail's plain `Fwd:`). Only the
-  subject line is restyled — the body and the PDF are passed through untouched,
-  which matters because the PDF is the accounting document.
+  receipt` is ambiguous landing in a purchasing inbox, so the forward leads with
+  the billed entity, which is how accounts files it:
+  `Thai-J Associates — Render invoice (J Park Hotel website) — Your Render
+  receipt` (`CONFIG.FORWARD_SUBJECT`, blank it for Gmail's plain `Fwd:`). Keep
+  the trailing `{subject}`: without it every month's forward is byte-identical
+  and Gmail collapses them into a single thread at the client's end, so a new
+  invoice lands silently inside an old conversation. Only the subject is
+  restyled — the body and the PDF pass through untouched, which matters
+  because the PDF is the accounting document.
 - **Dedupe is per message, not per thread.** Gmail groups consecutive
   same-subject receipts into one thread; a thread-level "done" marker would
   forward January and silently swallow every month after it.
