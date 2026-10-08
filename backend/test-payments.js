@@ -75,6 +75,7 @@ const gateway = http.createServer((req, res) => {
 // ── Mock Omise ────────────────────────────────────────────────────────────
 const omiseSeen = { charge: null, source: null, lookups: [] };
 const omisePaid = new Set();
+const omiseExpired = new Set();
 
 /* A REAL Omise charge, not the three-field stub this mock used to answer with.
 
@@ -182,6 +183,7 @@ const omiseApi = http.createServer((req, res) => {
       omiseSeen.lookups.push(id);
       if (!/^chrg_/.test(id)) return json({ object: 'error', code: 'not_found' }, 404);
       const paid = omisePaid.has(id);
+      if (!paid && omiseExpired.has(id)) return json(omiseCharge(id, 'expired', omiseSeen.charge || {}));
       return json(omiseCharge(id, paid ? 'successful' : 'pending', omiseSeen.charge || {}));
     }
     // Account API — what the go-live diagnostics reads. `webhook_uri: null`
@@ -299,29 +301,34 @@ function fakeQuery(sql, params) {
      matching and fall through to some other branch — worse than failing. */
   if (/SET payment_status = 'failed'/i.test(s)) {
     const hit = inserted.filter((r) => r.payment_charge_id === params[0] && r.payment_status === 'pending');
+    const reason = params[params.length - 1];
     const out = hit.map((r) => {
-      // The pre-update fee, which the real statement returns via its CTE —
-      // the notice uses it to tell "we removed a fee" from "there was never
-      // one", and RETURNING alone would hand back the zeroed value.
-      const dropped_surcharge = r.payment_surcharge;
+      // The status BEFORE the release, which the real statement returns via
+      // its CTE — RETURNING alone would hand back 'cancelled'.
+      const prior_status = r.status;
       r.payment_status = 'failed';
-      // Mirrors `total = COALESCE(room_total, total), payment_surcharge = 0`:
-      // a payment that will now be settled in person carries no gateway fee.
+      // Mirrors `total = COALESCE(room_total, total), payment_surcharge = 0`.
       if (r.room_total != null) r.total = r.room_total;
       r.payment_surcharge = 0;
-      return Object.assign({}, r, { dropped_surcharge });
+      // The release: cancelled, which is what frees the room.
+      if (r.status !== 'cancelled') r.previous_status = r.status;
+      r.status = 'cancelled';
+      r.cancelled_by_name = r.cancelled_by_name || 'System (payment not completed)';
+      r.cancellation_reason = r.cancellation_reason || reason;
+      return Object.assign({}, r, { prior_status });
     });
     return { rows: out };
   }
-  // The reconciler's sweep: every distinct charge still awaiting payment.
-  // The real query also bounds by created_at and LIMIT; neither matters to a
-  // handful of in-memory rows, and asserting them here would only pin the
-  // stub to the SQL text rather than to the behaviour.
-  if (/SELECT DISTINCT payment_charge_id/i.test(s)) {
-    const refs = [...new Set(inserted
+  // The reconciler's sweep: every distinct charge still awaiting payment,
+  // with how long ago it was booked (a row may set `_ageMinutes`). The real
+  // query also bounds by created_at and LIMIT; neither matters to a handful
+  // of in-memory rows.
+  if (/SELECT payment_charge_id,\s+EXTRACT\(EPOCH/i.test(s)) {
+    const byRef = new Map();
+    inserted
       .filter((r) => r.payment_status === 'pending' && r.payment_charge_id && r.payment_provider)
-      .map((r) => r.payment_charge_id))];
-    return { rows: refs.map((payment_charge_id) => ({ payment_charge_id })) };
+      .forEach((r) => byRef.set(r.payment_charge_id, Math.max(byRef.get(r.payment_charge_id) || 0, r._ageMinutes || 0)));
+    return { rows: [...byRef].map(([payment_charge_id, age_minutes]) => ({ payment_charge_id, age_minutes })) };
   }
   if (/SELECT id, ref, status, payment_status FROM guest_bookings/i.test(s)) {
     // Mirrors the real route's single lookup: the booking's own id, or any of
@@ -701,15 +708,13 @@ const fakeDb = {
   const sweptAgain = await reconciler.sweep({ reason: 'test-idempotent' });
   check('a second sweep recovers nothing (no duplicate emails)', sweptAgain.recovered === 0, JSON.stringify(sweptAgain));
 
-  /* ── An online payment that never completes must not leave its fee ─────
-     The single worst outcome of passing the gateway fee to the guest: a
-     PromptPay QR that expires, or a 3-D Secure challenge the guest walks
-     away from. The reservation stays confirmed and the guest settles at the
-     front desk — in cash, or on the desk terminal — so there is no gateway
-     cut to recover. If the fee stayed on `total`, reception would collect a
-     card-processing fee on a cash payment, from an amount already printed on
-     the confirmation email the guest is holding, and nothing downstream
-     would ever question it. */
+  /* ── An online payment that never completes releases the booking ───────
+     Owner's rule (2026-10-08): an unpaid booking does not stand. A failed
+     3-D Secure challenge, an expired PromptPay QR, or a payment still open
+     when the hold runs out cancels the booking — which is what frees the
+     room, since availability only counts confirmed bookings. The fee still
+     comes off, so a booking staff later Reopen for a pay-in-person guest
+     does not carry a card fee. */
   {
     const abandoned = await realFetch(base + '/reservations', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -735,7 +740,67 @@ const fakeDb = {
       Number(row.total) === roomOnly, `${row.total} vs ${roomOnly}`);
     check('and the surcharge is zeroed, so nothing re-adds it',
       Number(row.payment_surcharge) === 0, String(row.payment_surcharge));
-    check('the reservation itself is untouched', row.status === 'confirmed', row.status);
+    check('THE BOOKING IS RELEASED: cancelled, so the room is free again', row.status === 'cancelled', row.status);
+    check('the console shows why it was cancelled',
+      /payment failed/i.test(row.cancellation_reason || '') && /System/.test(row.cancelled_by_name || ''),
+      `${row.cancelled_by_name} / ${row.cancellation_reason}`);
+    check('a second close-out is a no-op (no second guest email)',
+      (await reconciler.markUnpaid(row.payment_charge_id, 'failed', null)) === 0);
+  }
+
+  // Omise reports the QR expired -> the sweep releases the booking.
+  const mkQr = async (checkIn, checkOut, email) => {
+    const r = await realFetch(base + '/reservations', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        room: roomKey, variantLabel: variant, checkIn, checkOut,
+        adults: 1, children: 0, breakfast: false, paymentMethod: 'promptpay',
+        guest: { firstName: 'Qr', lastName: 'Test', email, phone: '0844444444' },
+        // Its own per-device booking budget, so these extra bookings don't
+        // eat the one later sections of this suite rely on.
+        clientId: 'test-release-' + checkIn,
+      }),
+    });
+    check(`QR booking ${checkIn} created pending`, r.status === 201, String(r.status));
+    return inserted[inserted.length - 1];
+  };
+  {
+    const expiredRow = await mkQr('2027-03-01', '2027-03-02', 'exp@example.com');
+    omiseExpired.add(expiredRow.payment_charge_id);
+    const s1 = await reconciler.sweep({ reason: 'test-expired' });
+    check('expired QR: the sweep closes it out', s1.closed >= 1, JSON.stringify(s1));
+    check('expired QR: booking cancelled, room released', expiredRow.status === 'cancelled' && expiredRow.payment_status === 'failed',
+      `${expiredRow.status}/${expiredRow.payment_status}`);
+    check('expired QR: reason says it expired', /expired/i.test(expiredRow.cancellation_reason || ''), expiredRow.cancellation_reason);
+  }
+  {
+    // Still pending at Omise. Inside the hold it is left alone; past it, released.
+    const young = await mkQr('2027-03-05', '2027-03-06', 'young@example.com');
+    young._ageMinutes = 10;
+    const old = await mkQr('2027-03-08', '2027-03-09', 'old@example.com');
+    old._ageMinutes = reconciler.PAYMENT_HOLD_MINUTES + 5;
+    await reconciler.sweep({ reason: 'test-hold' });
+    check('inside the hold: booking still stands, payment still pending',
+      young.status === 'confirmed' && young.payment_status === 'pending', `${young.status}/${young.payment_status}`);
+    check('past the hold: booking cancelled, room released',
+      old.status === 'cancelled' && old.payment_status === 'failed', `${old.status}/${old.payment_status}`);
+    check('past the hold: reason names the time limit', /not completed within/i.test(old.cancellation_reason || ''), old.cancellation_reason);
+
+    // The hold-expiry check never releases on a lookup that FAILED.
+    const realVerify = payments.verify;
+    payments.verify = async () => { throw new Error('network blip'); };
+    const keptOnBlip = await reconciler.releaseIfStillPending(young.payment_charge_id);
+    payments.verify = realVerify;
+    check('a failed gateway lookup does not release the booking',
+      keptOnBlip === false && young.status === 'confirmed', `${keptOnBlip}/${young.status}`);
+
+    // The guest pays the old QR AFTER the room was released.
+    omisePaid.add(old.payment_charge_id);
+    const late = await reconciler.settle(old.payment_charge_id);
+    check('late payment is recorded as paid', old.payment_status === 'paid', old.payment_status);
+    check('late payment does NOT silently reinstate the booking (desk decides)', old.status === 'cancelled', old.status);
+    check('late payment counts as settled (stop watching)', late.settled === true, JSON.stringify(late));
+    omisePaid.add(young.payment_charge_id); // tidy: let later sweeps ignore it
   }
 
   // settle() is what both the webhook and the reconciler call, so the two

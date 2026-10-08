@@ -265,6 +265,12 @@ const EMAIL_I18N = {
     childAgesSuffix: (ages) => (ages && ages.length ? ` (ages: ${ages.join(', ')})` : ''),
     nonSmoking: 'Non-Smoking', smoking: 'Smoking', yes: 'Yes', no: 'No',
     breakfastIncluded: 'Included', breakfastNotIncluded: 'Not included (room only)',
+    // Sent when an online payment fails, expires or is never completed: the
+    // booking is cancelled and the room released (paymentReconciler.markUnpaid).
+    unsuccessfulHeading: 'Your booking was not completed',
+    unsuccessfulIntro: (ref) => `We did not receive payment for booking ${ref}, so it could not be confirmed. The booking has been cancelled and the room released.`,
+    unsuccessfulNoCharge: 'No payment has been taken for this booking.',
+    unsuccessfulRebook: 'If you would still like to stay with us, you are welcome to book again at jparkhotel.com, or reply to this email or call us and we will be glad to help.',
     balanceDue: (money) => `Balance due: ${money}. Payable in person at check-in by cash, credit/debit card, or PromptPay QR at our front desk.`,
     paidOnline: (money) => `✓ Payment received — thank you! You paid ${money} online for this stay.`,
     awaitingOnlinePayment: (money) => `Your PromptPay payment of ${money} is being confirmed. Your reservation is already confirmed either way — we'll email you as soon as payment is confirmed, or you're welcome to pay at check-in instead.`,
@@ -312,6 +318,10 @@ const EMAIL_I18N = {
     childAgesSuffix: (ages) => (ages && ages.length ? ` (อายุ: ${ages.join(', ')})` : ''),
     nonSmoking: 'ห้องปลอดบุหรี่', smoking: 'ห้องสูบบุหรี่', yes: 'มี', no: 'ไม่มี',
     breakfastIncluded: 'รวมอาหารเช้า', breakfastNotIncluded: 'ไม่รวมอาหารเช้า (เฉพาะห้องพัก)',
+    unsuccessfulHeading: 'การจองของท่านไม่สำเร็จ',
+    unsuccessfulIntro: (ref) => `เราไม่ได้รับการชำระเงินสำหรับการจองหมายเลข ${ref} จึงไม่สามารถยืนยันการจองได้ การจองนี้ถูกยกเลิกและห้องพักถูกปล่อยคืนแล้ว`,
+    unsuccessfulNoCharge: 'ไม่มีการเรียกเก็บเงินใด ๆ สำหรับการจองนี้',
+    unsuccessfulRebook: 'หากท่านยังประสงค์จะเข้าพักกับเรา สามารถจองใหม่ได้ที่ jparkhotel.com หรือตอบกลับอีเมลนี้ หรือโทรหาเรา เรายินดีให้ความช่วยเหลือ',
     balanceDue: (money) => `ยอดคงเหลือที่ต้องชำระ: ${money} ชำระได้ที่หน้าเคาน์เตอร์ในวันเช็คอิน ด้วยเงินสด บัตรเครดิต/เดบิต หรือ PromptPay QR`,
     paidOnline: (money) => `✓ ได้รับการชำระเงินแล้ว ขอบคุณที่ชำระเงินจำนวน ${money} ออนไลน์สำหรับการเข้าพักครั้งนี้`,
     awaitingOnlinePayment: (money) => `กำลังตรวจสอบการชำระเงินผ่าน PromptPay จำนวน ${money} การจองของท่านได้รับการยืนยันแล้วไม่ว่าผลการชำระเงินจะเป็นอย่างไร เราจะแจ้งให้ท่านทราบทางอีเมลทันทีที่ได้รับการยืนยันการชำระเงิน หรือท่านสามารถชำระเงินที่หน้าเคาน์เตอร์แทนได้`,
@@ -359,6 +369,10 @@ const EMAIL_I18N = {
     childAgesSuffix: (ages) => (ages && ages.length ? ` (年齢: ${ages.join('、')})` : ''),
     nonSmoking: '禁煙', smoking: '喫煙可', yes: 'あり', no: 'なし',
     breakfastIncluded: '朝食付き', breakfastNotIncluded: '朝食なし（素泊まり）',
+    unsuccessfulHeading: 'ご予約は完了しませんでした',
+    unsuccessfulIntro: (ref) => `ご予約 ${ref} のお支払いが確認できなかったため、ご予約を確定することができませんでした。ご予約は取り消され、お部屋は解放されました。`,
+    unsuccessfulNoCharge: 'このご予約に対する料金は一切発生しておりません。',
+    unsuccessfulRebook: '引き続きご宿泊をご希望の場合は、jparkhotel.com より改めてご予約いただくか、本メールへのご返信またはお電話にてお気軽にお問い合わせください。',
     balanceDue: (money) => `お支払い残額：${money}。チェックイン時にフロントにて現金、クレジット/デビットカード、またはプロンプトペイQRでお支払いください。`,
     paidOnline: (money) => `✓ お支払いを確認いたしました。ご滞在分のお支払い ${money} をオンラインで承りました。誠にありがとうございます。`,
     awaitingOnlinePayment: (money) => `プロンプトペイでのお支払い（${money}）を確認中です。ご予約はいずれにしても確定しております。お支払いの確認が取れ次第メールにてご案内いたしますので、チェックイン時にお支払いいただくことも可能です。`,
@@ -406,6 +420,10 @@ const EMAIL_I18N = {
     childAgesSuffix: (ages) => (ages && ages.length ? ` (年龄：${ages.join('、')})` : ''),
     nonSmoking: '无烟房', smoking: '吸烟房', yes: '含', no: '不含',
     breakfastIncluded: '含早餐', breakfastNotIncluded: '不含早餐（仅住宿）',
+    unsuccessfulHeading: '您的预订未完成',
+    unsuccessfulIntro: (ref) => `我们未收到预订 ${ref} 的付款，因此无法确认该预订。该预订已取消，房间已释放。`,
+    unsuccessfulNoCharge: '本次预订未收取任何费用。',
+    unsuccessfulRebook: '如您仍希望入住，欢迎在 jparkhotel.com 重新预订，或回复此邮件、致电我们，我们乐意为您提供帮助。',
     balanceDue: (money) => `尚需支付金额：${money}。可于入住时在前台以现金、信用卡/借记卡或PromptPay二维码支付。`,
     paidOnline: (money) => `✓ 已收到付款，感谢您！您已在线支付本次入住费用 ${money}。`,
     awaitingOnlinePayment: (money) => `您的PromptPay付款（${money}）正在确认中。无论付款结果如何，您的预订均已确认。付款确认后我们将通过邮件通知您，您也可以选择于入住时付款。`,
@@ -453,6 +471,10 @@ const EMAIL_I18N = {
     childAgesSuffix: (ages) => (ages && ages.length ? ` (年齡：${ages.join('、')})` : ''),
     nonSmoking: '無菸房', smoking: '吸菸房', yes: '含', no: '不含',
     breakfastIncluded: '含早餐', breakfastNotIncluded: '不含早餐（僅住宿）',
+    unsuccessfulHeading: '您的預訂未完成',
+    unsuccessfulIntro: (ref) => `我們未收到預訂 ${ref} 的付款，因此無法確認該預訂。該預訂已取消，房間已釋放。`,
+    unsuccessfulNoCharge: '本次預訂未收取任何費用。',
+    unsuccessfulRebook: '如您仍希望入住，歡迎在 jparkhotel.com 重新預訂，或回覆此郵件、致電我們，我們樂意為您提供協助。',
     balanceDue: (money) => `尚需支付金額：${money}。可於入住時在前台以現金、信用卡/簽帳卡或PromptPay二維碼支付。`,
     paidOnline: (money) => `✓ 已收到付款，感謝您！您已在線支付本次入住費用 ${money}。`,
     awaitingOnlinePayment: (money) => `您的PromptPay付款（${money}）正在確認中。無論付款結果如何，您的預訂均已確認。付款確認後我們將透過郵件通知您，您也可以選擇於入住時付款。`,
@@ -1205,86 +1227,200 @@ function sendDeclinedAttemptNotice(a) {
 }
 
 /* The other half of that gap: a payment that WAS in flight and then didn't
-   make it — an abandoned 3-D Secure challenge, a PromptPay QR that expired.
+   make it — a declined 3-D Secure challenge, a PromptPay QR that expired, or
+   a payment simply never completed within the hold window.
 
-   Unlike a decline, the booking exists here: it was written the moment the
-   charge was accepted as pending, so the room is held and the guest is
-   expected to arrive. They simply have not paid, and the front desk needs to
-   know to collect on arrival rather than waving them through as prepaid. */
-function paymentFailedHotelNotice(bk, detail, opts) {
+   The owner's rule (2026-10-08): an unpaid booking does not stand. The
+   reconciler has already cancelled it and released the room in the same
+   statement that closed the payment (paymentReconciler.markUnpaid), so these
+   two emails only REPORT that — one to the guest, one to the front desk.
+
+   `rows` is every room of the reservation, sorted: a group's rooms share one
+   charge and are released together, so there is one email of each kind per
+   reservation, never one per room. */
+const RELEASE_REASON = {
+  expired: 'The online payment expired before it was completed.',
+  failed: 'The online payment was declined or failed.',
+  timeout: 'The online payment was not completed within the hold time.',
+};
+
+function bookingReleasedHotelNotice(rows, detail, state) {
+  const bk = rows[0];
   const failure = (detail && detail.failure) || {};
-  const reason = failure.text || failure.message || 'The payment did not complete.';
-
-  /* Every room of the reservation, not just the one this notice was built
-     from. A group's rooms share one charge and all close out together, so
-     there is one notice — and it used to quote rows[0].total, which on a
-     three-room cart told reception to collect a third of the money. */
-  const group = (opts && Array.isArray(opts.rows) && opts.rows.length) ? opts.rows : [bk];
-  const outstanding = group.reduce((n, r) => n + Number(r.total || 0), 0);
-  const money = outstanding ? formatMoney(outstanding, bk.currency) : '—';
-  const isGroup = group.length > 1;
-
-  const rows = [
+  const reason = failure.text || failure.message || RELEASE_REASON[state] || RELEASE_REASON.failed;
+  const isGroup = rows.length > 1;
+  const ref = (isGroup ? (bk.group_ref || bk.ref) : bk.ref) || '—';
+  const value = rows.reduce((n, r) => n + Number(r.total || 0), 0);
+  const fields = [
     ['Guest', bk.guest_name || '—'],
-    ['Booking', (isGroup ? (bk.group_ref || bk.ref) : bk.ref) || '—'],
-    ['Room type', isGroup
-      ? group.map((r) => r.room || '—').join(', ')
-      : (bk.room || '—')],
+    ['Guest email', bk.guest_email || '—'],
+    ['Guest phone', bk.guest_phone || '—'],
+    ['Booking', ref],
+    ['Room type', rows.map((r) => r.room || '—').join(', ')],
     ['Dates', bk.check_in && bk.check_out
       ? `${String(bk.check_in).slice(0, 10)} → ${String(bk.check_out).slice(0, 10)}` : '—'],
-    ['Amount outstanding', money + (isGroup ? ` (all ${group.length} rooms)` : '')],
+    ['Booking value', (value ? formatMoney(value, bk.currency) : '—') + (isGroup ? ` (all ${rows.length} rooms)` : '')],
     ['Reason', reason],
     ['Gateway charge id', bk.payment_charge_id || '—'],
   ];
-  /* Only when a fee was ACTUALLY dropped. The guest is then holding a
-     confirmation email quoting a higher figure — it included the online
-     payment fee, which no longer applies now that they are paying in person —
-     and reception has to be told, or the first thing that happens at the desk
-     is an argument about which number is right.
-
-     Said unconditionally it would be a lie on any booking that never carried
-     a fee: one taken while the pass-through was switched off, or any booking
-     that predates it being closed out by the backfill. */
-  const feeDropped = (opts && opts.hadSurcharge)
-    ? "This amount is LOWER than the total on the guest's confirmation email. " +
-      'That total included the online payment fee, which only applies to payments taken online — ' +
-      'paying at the desk does not carry it. Collect the amount above.'
-    : '';
+  const summary = 'The booking has been CANCELLED automatically and the room released. ' +
+    (bk.guest_email ? 'The guest has been emailed that the booking was not completed. ' : 'The booking has no guest email, so the guest has NOT been told. ') +
+    'No payment was taken.';
   const lines = [
-    `The online payment for booking ${bk.ref} did not complete.`,
+    `Booking ${ref} released — payment not completed.`,
     '',
-    'THE RESERVATION STILL STANDS — the room is held and the guest is expected.',
-    'Collect payment at check-in.',
+    summary,
     '',
-    ...(feeDropped ? [feeDropped, ''] : []),
-    ...rows.map(([k, v]) => `${k}: ${v}`),
+    ...fields.map(([k, v]) => `${k}: ${v}`),
   ];
   const letterhead = emailLetterhead();
   const text = lines.join('\n') + letterhead.text;
   const html = T.wrap({
-    preheader: `Payment not completed · ${money} · ${bk.ref}`,
+    preheader: `Booking released · payment not completed · ${ref}`,
     accent: T.BRAND.gold,
     footer: emailFooterHtml(),
     body:
-      T.heading(`Payment not completed — ${bk.ref}`) +
+      T.heading(`Booking released — ${ref}`) +
       T.notice('warn', reason, { strong: true }) +
-      T.paragraph(T.raw('<strong>The reservation still stands.</strong> The room is held and the guest is expected — collect payment at check-in.')) +
-      (feeDropped ? T.notice('due', feeDropped) : '') +
-      T.table(rows.map(([k, v]) => T.row(k, v)).join('')),
+      T.paragraph(summary) +
+      T.table(fields.map(([k, v]) => T.row(k, v)).join('')),
   });
   return { text, html };
 }
 
-function sendPaymentFailedEmail(bk, detail, opts) {
+function bookingUnsuccessfulEmail(rows) {
+  const bk = rows[0];
+  const L = EMAIL_I18N[bk.lang] || EMAIL_I18N.en;
+  const ref = (rows.length > 1 ? (bk.group_ref || bk.ref) : bk.ref) || '—';
+  const rooms = rows.map((r) => r.room || '—').join(', ');
+  const lines = [
+    L.greeting(bk.guest_name),
+    '',
+    L.unsuccessfulIntro(ref),
+    '',
+    `${L.room}: ${rooms}`,
+    `${L.checkin}: ${formatCheckDate(bk.check_in, CHECKIN_TIME)}`,
+    `${L.checkout}: ${formatCheckDate(bk.check_out, CHECKOUT_TIME)}`,
+    '',
+    L.unsuccessfulNoCharge,
+    '',
+    L.unsuccessfulRebook,
+    '',
+    'J Park Hotel, Chonburi',
+  ];
+  const letterhead = emailLetterhead();
+  const text = lines.join('\n') + letterhead.text;
+  const html = T.wrap({
+    preheader: L.unsuccessfulHeading,
+    footer: emailFooterHtml(),
+    body:
+      T.heading(L.unsuccessfulHeading) +
+      T.paragraph(L.greeting(bk.guest_name)) +
+      T.notice('alert', L.unsuccessfulIntro(ref), { strong: true }) +
+      T.table(
+        T.row(L.room, rooms) +
+        T.row(L.checkin, formatCheckDate(bk.check_in, CHECKIN_TIME)) +
+        T.row(L.checkout, formatCheckDate(bk.check_out, CHECKOUT_TIME))
+      ) +
+      T.paragraph(L.unsuccessfulNoCharge) +
+      T.paragraph(L.unsuccessfulRebook) +
+      T.paragraph(L.spamNote, { small: true, muted: true }),
+  });
+  return { text, html };
+}
+
+/* `opts.notifyGuest` is false when staff had already cancelled the booking
+   by hand before the payment closed — the guest has heard from the desk. */
+function sendBookingReleasedEmails(rows, detail, state, opts) {
+  if (!rows || !rows.length) return;
+  const bk = rows[0];
+  const ref = (rows.length > 1 ? (bk.group_ref || bk.ref) : bk.ref) || '—';
+  const notifyGuest = !opts || opts.notifyGuest !== false;
+
+  if (notifyGuest && bk.guest_email) {
+    const { text, html } = bookingUnsuccessfulEmail(rows);
+    const to = hotelRecipients();
+    sendEmail({
+      to: bk.guest_email,
+      subject: `J Park Hotel — booking not completed (${ref})`,
+      text,
+      html,
+      replyTo: to[0] || undefined,
+    }, { bookingId: bk.id, bookingRef: ref, kind: 'booking_unsuccessful', sentByName: 'System (payment not completed)' })
+      .catch((err) => console.error('[guest-bookings] booking-unsuccessful email error', err));
+  }
+
   const to = hotelRecipients();
-  if (!to.length) return;
-  const { text, html } = paymentFailedHotelNotice(bk, detail, opts);
-  sendEmail({
-    to,
-    subject: `Payment not completed — ${bk.ref}`,
-    text,
-    html,
-  }).catch((err) => console.error('[guest-bookings] payment-failed notice error', err));
+  if (to.length) {
+    const { text, html } = bookingReleasedHotelNotice(rows, detail, state);
+    sendEmail({ to, subject: `Booking released — payment not completed (${ref})`, text, html })
+      .catch((err) => console.error('[guest-bookings] booking-released notice error', err));
+  }
+
+  broadcastStaffMessage(
+    `Booking released — payment not completed (${ref})`,
+    [
+      'Cancelled automatically: the online payment was not completed. The room is available again.',
+      `Guest: ${bk.guest_name || '—'}`,
+      `Room: ${rows.map((r) => r.room || '—').join(', ')}`,
+      `Check-in: ${String(bk.check_in).slice(0, 10)}`,
+      `Check-out: ${String(bk.check_out).slice(0, 10)}`,
+      `Ref: ${ref}`,
+    ].join('\n')
+  ).catch((err) => console.error('[guest-bookings] booking-released broadcast error', err));
+}
+
+/* Money arrived for a booking that had already been released — a PromptPay
+   QR paid after the hold ran out. Rare, but it is real money from a guest who
+   was told their booking failed, and the room may since have been resold, so
+   no confirmation is sent automatically: the desk decides between Reopen
+   (which re-checks availability) + Resend confirmation, or a refund. */
+function sendLatePaymentAlert(rows, detail) {
+  const bk = rows[0];
+  const ref = (rows.length > 1 ? (bk.group_ref || bk.ref) : bk.ref) || '—';
+  const d = detail || detailFromRow(bk);
+  const paid = d && d.amount != null ? formatMoney(d.amount, bk.currency) : 'see the payment record';
+  const lines = [
+    `ACTION NEEDED: payment received for booking ${ref}, which had already been released.`,
+    '',
+    'The guest was told the booking was not completed, and the room was released. Contact the guest and either:',
+    '  1. Reopen the booking in the staff console (it re-checks the room is still free), then Resend confirmation; or',
+    '  2. Refund the payment from the Omise dashboard.',
+    '',
+    `Guest: ${bk.guest_name || '—'} · ${bk.guest_email || '—'} · ${bk.guest_phone || '—'}`,
+    `Room type: ${rows.map((r) => r.room || '—').join(', ')}`,
+    `Dates: ${String(bk.check_in).slice(0, 10)} → ${String(bk.check_out).slice(0, 10)}`,
+    `Amount paid: ${paid}`,
+    `Gateway charge id: ${bk.payment_charge_id || '—'}`,
+  ];
+  const to = hotelRecipients();
+  if (to.length) {
+    const letterhead = emailLetterhead();
+    sendEmail({
+      to,
+      subject: `⚠ Payment received for a released booking — ${ref}`,
+      text: lines.join('\n') + letterhead.text,
+      html: T.wrap({
+        preheader: `Payment received after release · ${ref}`,
+        accent: T.BRAND.gold,
+        footer: emailFooterHtml(),
+        body:
+          T.heading(`Payment received for a released booking — ${ref}`) +
+          T.notice('alert', 'The guest was told this booking was not completed and the room was released. Contact the guest: Reopen the booking (then Resend confirmation), or refund the payment.', { strong: true }) +
+          T.table(
+            T.row('Guest', bk.guest_name || '—', { strong: true }) +
+            T.row('Guest email', bk.guest_email || '—') +
+            T.row('Guest phone', bk.guest_phone || '—') +
+            T.row('Room type', rows.map((r) => r.room || '—').join(', ')) +
+            T.row('Dates', `${String(bk.check_in).slice(0, 10)} → ${String(bk.check_out).slice(0, 10)}`) +
+            T.row('Amount paid', paid, { strong: true }) +
+            T.row('Gateway charge id', bk.payment_charge_id || '—')
+          ),
+      }),
+    }).catch((err) => console.error('[guest-bookings] late-payment alert error', err));
+  }
+  broadcastStaffMessage(`⚠ Payment received for a released booking — ${ref}`, lines.join('\n'))
+    .catch((err) => console.error('[guest-bookings] late-payment broadcast error', err));
 }
 
 // Front-desk follow-up (English, like hotelNotice()) — the accounting
@@ -2491,9 +2627,11 @@ module.exports.row2jsPublic = row2jsPublic;
 module.exports.sendPaymentConfirmedEmail = sendPaymentConfirmedEmail;
 module.exports.sendGroupPaymentConfirmedEmail = sendGroupPaymentConfirmedEmail;
 module.exports.sendDeclinedAttemptNotice = sendDeclinedAttemptNotice;
-module.exports.sendPaymentFailedEmail = sendPaymentFailedEmail;
+module.exports.sendBookingReleasedEmails = sendBookingReleasedEmails;
+module.exports.sendLatePaymentAlert = sendLatePaymentAlert;
 module.exports.paymentDeclinedHotelNotice = paymentDeclinedHotelNotice;
-module.exports.paymentFailedHotelNotice = paymentFailedHotelNotice;
+module.exports.bookingReleasedHotelNotice = bookingReleasedHotelNotice;
+module.exports.bookingUnsuccessfulEmail = bookingUnsuccessfulEmail;
 module.exports.paymentDetailLines = paymentDetailLines;
 module.exports.paymentDetailRows = paymentDetailRows;
 module.exports.testModeNoticeText = testModeNoticeText;

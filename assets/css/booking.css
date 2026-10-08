@@ -1123,6 +1123,12 @@ body.bk-pay-open { position: fixed; left: 0; right: 0; overflow: hidden; }
 .bkp-payment-outcome.bkp-payment-pending {
   background: #eef2ff; border: 1px solid #b7c4f0; color: #33408a;
 }
+/* showPaymentFailed() hides the notes that only belong to a booking that
+   stands; several of them set their own display, which would beat [hidden]. */
+#bkpViewSuccess [hidden] { display: none !important; }
+.bkp-payment-outcome.bkp-payment-failed {
+  background: #fdecea; border: 1px solid #f1b0a9; color: #a12a1e;
+}
 .bkp-payment-outcome h4 { margin: 0 0 8px; font-family: var(--serif); font-size: 1rem; }
 .bkp-qr-img { display: block; max-width: 220px; width: 100%; margin: 8px auto; border-radius: 8px; background: #fff; }
 .bkp-qr-instructions, .bkp-qr-waiting, .bkp-qr-close-note { margin: 6px 0 0; }

@@ -312,6 +312,42 @@ function assertHasText(name, text) {
   check('group, payment lands: guest gets the full multi-room confirmation',
     toGuest().length === 1 && /booking confirmed/.test(toGuest()[0].subject) && /Deluxe/.test(toGuest()[0].text));
 
+  // ── An unpaid booking is released and the guest told ──────────────────
+  const failedRow = booking({ payment_provider: 'omise', payment_method: 'promptpay', payment_status: 'failed', status: 'cancelled', payment_charge_id: 'chrg_rel_1' });
+  m = renderCase('booking-unsuccessful', GB.bookingUnsuccessfulEmail([failedRow]));
+  assertEmailShape('booking unsuccessful (guest)', m.html);
+  assertHasText('booking unsuccessful (guest)', m.text);
+  check('booking unsuccessful: says it was not confirmed and the room released',
+    /could not be confirmed/.test(m.text) && /room released/.test(m.text));
+  check('booking unsuccessful: says no payment was taken', /No payment has been taken/.test(m.text));
+  check('booking unsuccessful: never says "confirmed" as a heading', !/Your reservation is confirmed/.test(m.text));
+  ['th', 'ja', 'zh-Hans', 'zh-Hant'].forEach((lang) => {
+    const r = GB.bookingUnsuccessfulEmail([Object.assign({}, failedRow, { lang })]);
+    check(`booking unsuccessful (${lang}): localized, not the English copy`,
+      r.text.indexOf('No payment has been taken') === -1 && r.text.indexOf('JP-TEST-0001') !== -1);
+  });
+  m = renderCase('booking-released-hotel', GB.bookingReleasedHotelNotice([failedRow], null, 'timeout'));
+  assertEmailShape('booking released (hotel)', m.html);
+  check('booking released (hotel): says cancelled and room released', /CANCELLED automatically and the room released/.test(m.text));
+
+  outbox.length = 0;
+  GB.sendBookingReleasedEmails([failedRow], null, 'expired');
+  await flush();
+  check('release: guest is emailed "booking not completed"', toGuest().length === 1 && /booking not completed/.test(toGuest()[0].subject),
+    toGuest().map((x) => x.subject).join(' | '));
+  check('release: front desk is emailed', outbox.some((x) => x.to && x.to[0] === 'desk@example.com' && /Booking released/.test(x.subject)));
+
+  outbox.length = 0;
+  GB.sendBookingReleasedEmails([failedRow], null, 'expired', { notifyGuest: false });
+  await flush();
+  check('release of a booking staff already cancelled: guest not emailed twice', toGuest().length === 0);
+
+  outbox.length = 0;
+  GB.sendLatePaymentAlert([Object.assign({}, failedRow, { payment_status: 'paid' })], null);
+  await flush();
+  check('late payment: no confirmation goes to the guest', toGuest().length === 0);
+  check('late payment: front desk gets an action-needed alert', outbox.some((x) => /Payment received for a released booking/.test(x.subject)));
+
   // ── A hostile name must not escape through the plain-text side either ──
   check('plain-text bodies carry the name verbatim (no markup to execute there)',
     rendered['hotel-notice'].text.indexOf(HOSTILE) !== -1);

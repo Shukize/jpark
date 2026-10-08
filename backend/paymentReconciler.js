@@ -55,7 +55,8 @@ const PD = require('./lib/payments/detail');
 const {
   sendPaymentConfirmedEmail,
   sendGroupPaymentConfirmedEmail,
-  sendPaymentFailedEmail,
+  sendBookingReleasedEmails,
+  sendLatePaymentAlert,
 } = require('./routes/guestBookings');
 
 /* When to re-ask Omise about a charge nobody has confirmed yet, in minutes
@@ -70,10 +71,19 @@ const {
    whole life of the charge without polling through it. */
 const WATCH_SCHEDULE_MINUTES = [1, 3, 8, 20, 45, 90];
 
-// A sweep only looks at recent bookings. Anything older than this either
-// settled long ago or is a charge that will never complete, and re-asking
-// Omise about it forever would be pure noise.
-const SWEEP_MAX_AGE_HOURS = 48;
+/* How long a booking holds its room while the online payment is open. A
+   payment still unfinished at this point is given up on: the booking is
+   cancelled and the room released (markUnpaid 'timeout'). Matches the last
+   watch check above, so the release happens on that check. Omise does not
+   promise to ever expire an abandoned 3-D Secure charge, so without this a
+   walked-away guest could hold a room indefinitely. */
+const PAYMENT_HOLD_MINUTES = 90;
+
+// A sweep only looks at bookings this recent. Wide on purpose: a pending
+// payment past the hold is now released on its first sweep, so it stops
+// being 'pending' and is never re-asked about — the set stays tiny, and a
+// long window is what reaches an abandoned booking left over from a restart.
+const SWEEP_MAX_AGE_HOURS = 24 * 30;
 
 // Hard ceiling on how many charges one sweep will verify, so a backlog (or a
 // bug) can never turn into an unbounded burst of outbound API calls.
@@ -152,6 +162,17 @@ async function settle(chargeRef, verified) {
     return { settled: false, state: 'paid', rows: 0 };
   }
 
+  // Paid, but the booking had already been released (the hold ran out, or
+  // staff cancelled it): the money is recorded above, but the guest is NOT
+  // sent a confirmation for a room that may since have been resold — the
+  // desk is alerted to Reopen it or refund.
+  if (rows.some((r) => r.status === 'cancelled')) {
+    const sorted = rows.slice().sort((a, b) => (a.group_index || 0) - (b.group_index || 0));
+    log(`charge ${chargeRef} PAID AFTER RELEASE — ${rows.length} row(s); desk alerted`);
+    try { sendLatePaymentAlert(sorted, detail); } catch (e) { console.error('[reconcile] late-payment alert', e); }
+    return { settled: true, state: 'paid', rows: rows.length };
+  }
+
   if (rows[0].group_ref) {
     const sorted = rows.slice().sort((a, b) => (a.group_index || 0) - (b.group_index || 0));
     sendGroupPaymentConfirmedEmail(sorted, detail).catch((err) => console.error('[reconcile] group email', err));
@@ -161,92 +182,73 @@ async function settle(chargeRef, verified) {
   return { settled: true, state: 'paid', rows: rows.length };
 }
 
-/* Mark a charge that can no longer be paid.
+/* Close out a charge that can no longer be paid — and RELEASE THE BOOKING.
 
-   An expired PromptPay QR or a failed 3-D Secure attempt would otherwise sit
-   at 'pending' forever, which reads on the booking board as "money is on its
-   way" when it never is. The RESERVATION is untouched and stays confirmed —
-   only the payment leg is closed out, so the front desk knows to collect at
-   check-in instead of waiting. Never overwrites a row already marked paid. */
+   The owner's rule (2026-10-08): a booking that is not paid does not stand.
+   An expired PromptPay QR, a failed 3-D Secure attempt, or a payment still
+   unfinished when the hold runs out (`state === 'timeout'`, see
+   PAYMENT_HOLD_MINUTES) therefore cancels the booking, which is what frees
+   the room: availability only counts confirmed bookings (lib/availability.js).
+   The guest is emailed that the booking was not completed, and the desk is
+   told. (Before this, the booking stayed confirmed for collection at
+   check-in.)
+
+   One statement does it all, so a row can never be 'failed' yet still holding
+   the room. It only matches rows still 'pending', so it never touches a
+   booking that has been paid.
+
+   The fee still comes off `total`: if the desk later Reopens the booking for
+   a guest who will pay in person, the bill must not carry a card-processing
+   fee for a payment that never happened online.
+
+   A CTE so the PRIOR status comes back with the row (RETURNING gives the new
+   one): a booking staff had already cancelled by hand is closed out quietly,
+   without telling the guest a second time. */
 async function markUnpaid(chargeRef, state, detail) {
   const set = PD.updateSet(detail, 2);
-  /* THE FEE COMES OFF THE BILL.
-
-     `total` includes the online payment fee, which exists for exactly one
-     reason: the gateway takes a cut of an online payment. This charge is now
-     one that will never be paid online — the guest is going to settle at the
-     front desk, in cash or on the desk terminal — so there is no gateway cut
-     to recover, and leaving the fee on the bill would have reception collect
-     a card-processing fee on a cash payment. Nobody downstream would catch
-     it: the amount is already printed on the confirmation email the guest is
-     holding.
-
-     So the booking is returned to its accommodation price. room_total is the
-     price this stay was actually sold at; COALESCE covers the rows that
-     predate the breakdown, where `total` already IS the room price and this
-     resolves to a no-op. Runs in the same statement as the status flip so a
-     row can never be 'failed' while still carrying a fee, and RETURNING *
-     hands the corrected figures straight to the email below. */
-  /* A CTE, not a plain UPDATE ... RETURNING, for one reason: RETURNING hands
-     back the NEW row, so `RETURNING payment_surcharge` after setting it to 0
-     returns 0. The notice below has to be able to tell "we just removed a
-     fee" from "there was never a fee on this booking" — the second is true of
-     anything taken while the pass-through was switched off, and of every
-     booking that predates it — and announcing a discount that never happened
-     sends reception looking for an error.
-
-     `before` selects the rows under the same predicate the UPDATE uses, in
-     the same statement, so the old value is captured atomically rather than
-     by a racing SELECT. */
+  const reasonParam = `$${2 + set.values.length}`;
   const { rows } = await db.query(
     `WITH before AS (
-       SELECT id, payment_surcharge AS dropped_surcharge
+       SELECT id, status AS prior_status
          FROM guest_bookings
         WHERE payment_charge_id = $1 AND payment_status = 'pending'
      )
      UPDATE guest_bookings g
         SET payment_status = 'failed',
             total = COALESCE(g.room_total, g.total),
-            payment_surcharge = 0${set.clause ? ', ' + set.clause : ''}
+            payment_surcharge = 0,
+            status = 'cancelled',
+            previous_status = CASE WHEN g.status = 'cancelled' THEN g.previous_status ELSE g.status END,
+            cancelled_at = COALESCE(g.cancelled_at, NOW()),
+            cancelled_by_name = COALESCE(g.cancelled_by_name, 'System (payment not completed)'),
+            cancellation_reason = COALESCE(g.cancellation_reason, ${reasonParam})${set.clause ? ', ' + set.clause : ''}
        FROM before b
       WHERE g.id = b.id
-     RETURNING g.*, b.dropped_surcharge`,
-    [chargeRef, ...set.values]
+     RETURNING g.*, b.prior_status`,
+    [chargeRef, ...set.values, RELEASE_REASON[state] || RELEASE_REASON.failed]
   );
-  const droppedSurcharge = rows.reduce((n, r) => n + Number(r.dropped_surcharge || 0), 0);
   if (rows.length) {
-    log(`charge ${chargeRef} ${state} — ${rows.length} row(s) marked unpaid; guest pays at check-in`);
-    // The front desk is the only party who can act on this, and until now
-    // nobody told them: the booking simply stopped saying "payment on its
-    // way" and started saying nothing. A guest arriving against an expired
-    // QR would have been waved through as prepaid.
-    //
-    // One notice per reservation, not per room: a group's rooms all share
-    // this charge and all flip together in the statement above.
+    log(`charge ${chargeRef} ${state} — ${rows.length} row(s) cancelled, room released`);
     try {
-      /* The WHOLE reservation, not the first row of it.
-
-         A group's rooms all share this charge and all flip together above, so
-         the notice is one per reservation — but it was built from rows[0]
-         alone, which on a 3-room cart told reception to collect one room's
-         share of the money. The sorted set lets the notice add them up and
-         say how many rooms it is talking about.
-
-         `hadSurcharge` is captured here because the UPDATE above has already
-         zeroed it: the notice needs to know whether a fee was actually
-         dropped before it tells the desk the amount is lower than the guest's
-         confirmation email. */
+      // One email of each kind per reservation: a group's rooms share this
+      // charge and were all released together above.
       const ordered = rows.slice().sort((a, b) => (a.group_index || 0) - (b.group_index || 0));
-      sendPaymentFailedEmail(ordered[0], detail || null, {
-        rows: ordered,
-        hadSurcharge: droppedSurcharge > 0,
+      sendBookingReleasedEmails(ordered, detail || null, state, {
+        notifyGuest: ordered.some((r) => r.prior_status !== 'cancelled'),
       });
     } catch (e) {
-      console.error('[reconcile] payment-failed notice', e);
+      console.error('[reconcile] booking-released notice', e);
     }
   }
   return rows.length;
 }
+
+// What the staff console shows as the cancellation reason.
+const RELEASE_REASON = {
+  expired: 'Online payment expired — room released automatically',
+  failed: 'Online payment failed — room released automatically',
+  timeout: `Online payment not completed within ${PAYMENT_HOLD_MINUTES} minutes — room released automatically`,
+};
 
 /* Record what the gateway said about a charge, without touching its status.
 
@@ -305,6 +307,32 @@ async function checkOnce(chargeRef) {
   return false; // still pending, or unknown — keep watching
 }
 
+/* The hold has run out. Asks the gateway one last time and releases the
+   booking only on a definite "still pending" — a lookup that FAILED is not
+   an unpaid charge, and releasing on a network blip would turn a paying
+   guest away. Returns true when nothing further needs watching. */
+async function releaseIfStillPending(chargeRef, verified) {
+  let result = verified;
+  if (!result) {
+    try {
+      result = await payments.verify(chargeRef);
+    } catch (e) {
+      console.error('[reconcile] hold-expiry verify failed for', chargeRef, (e && e.message) || e);
+      return false; // the next sweep tries again
+    }
+  }
+  if (result.paid) { await settle(chargeRef, result); return true; }
+  if (result.state === 'expired' || result.state === 'failed') {
+    await markUnpaid(chargeRef, result.state, result.detail || null);
+    return true;
+  }
+  if (result.state === 'pending') {
+    await markUnpaid(chargeRef, 'timeout', result.detail || null);
+    return true;
+  }
+  return false;
+}
+
 /* Watch one charge until it settles. In-process timers only: nothing is
    persisted, because the sweep below is what covers a restart. Unref'd so a
    pending watch can never hold the process open during a shutdown. */
@@ -318,12 +346,20 @@ function watch(chargeRef) {
       watching.delete(chargeRef);
       return;
     }
-    const delayMs = WATCH_SCHEDULE_MINUTES[step] * 60 * 1000;
+    // The schedule is minutes after the charge was created, so each timer
+    // waits only the gap since the previous check. (It used to wait the
+    // full figure each time, which stretched the "90 minute" watch to ~2h45.)
+    const delayMs = (WATCH_SCHEDULE_MINUTES[step] - (step ? WATCH_SCHEDULE_MINUTES[step - 1] : 0)) * 60 * 1000;
     step += 1;
+    const isLast = step >= WATCH_SCHEDULE_MINUTES.length;
     const timer = setTimeout(async () => {
       let done = false;
       try {
         done = await checkOnce(chargeRef);
+        // Still open at the end of the hold: give up on it, release the room.
+        if (!done && isLast && WATCH_SCHEDULE_MINUTES[step - 1] >= PAYMENT_HOLD_MINUTES) {
+          done = await releaseIfStillPending(chargeRef);
+        }
       } catch (e) {
         console.error('[reconcile] watch', chargeRef, e);
       }
@@ -347,16 +383,19 @@ async function sweep({ maxAgeHours = SWEEP_MAX_AGE_HOURS, reason = 'manual' } = 
   let refs;
   try {
     const { rows } = await db.query(
-      `SELECT DISTINCT payment_charge_id
+      `SELECT payment_charge_id,
+              EXTRACT(EPOCH FROM (NOW() - MIN(created_at))) / 60 AS age_minutes
          FROM guest_bookings
         WHERE payment_status = 'pending'
           AND payment_charge_id IS NOT NULL
           AND payment_provider IS NOT NULL
           AND created_at > NOW() - ($1 || ' hours')::interval
+        GROUP BY payment_charge_id
         LIMIT $2`,
       [String(maxAgeHours), SWEEP_MAX_CHARGES]
     );
-    refs = rows.map((r) => r.payment_charge_id).filter(Boolean);
+    refs = rows.filter((r) => r.payment_charge_id)
+      .map((r) => ({ ref: r.payment_charge_id, ageMinutes: Number(r.age_minutes) || 0 }));
   } catch (e) {
     console.error('[reconcile] sweep query failed', e);
     return { checked: 0, recovered: 0, closed: 0, error: true };
@@ -369,7 +408,7 @@ async function sweep({ maxAgeHours = SWEEP_MAX_AGE_HOURS, reason = 'manual' } = 
   let closed = 0;
   // Sequential on purpose: a handful of charges at most, and this must never
   // become a burst of parallel calls against the gateway or the DB pool.
-  for (const ref of refs) {
+  for (const { ref, ageMinutes } of refs) {
     try {
       const before = await payments.verify(ref);
       if (before.paid) {
@@ -380,6 +419,9 @@ async function sweep({ maxAgeHours = SWEEP_MAX_AGE_HOURS, reason = 'manual' } = 
         }
       } else if (before.state === 'expired' || before.state === 'failed') {
         if (await markUnpaid(ref, before.state, before.detail || null)) closed += 1;
+      } else if (before.state === 'pending' && ageMinutes >= PAYMENT_HOLD_MINUTES) {
+        // Past the hold — a watch lost to a restart would have released it.
+        if (await markUnpaid(ref, 'timeout', before.detail || null)) closed += 1;
       } else {
         // Genuinely still in flight — hand it back to the timer chain so it
         // keeps being watched without waiting for the next sweep.
@@ -411,5 +453,5 @@ module.exports = {
   // checkOnce is exported so the webhook can close out a FAILED charge
   // in seconds instead of waiting for a sweep, and so the ledger can
   // re-ask about one charge on demand.
-  checkOnce, markUnpaid, recordDetail,
+  checkOnce, markUnpaid, recordDetail, releaseIfStillPending, PAYMENT_HOLD_MINUTES,
 };

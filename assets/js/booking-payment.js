@@ -60,11 +60,14 @@
       'bk.pay.qrInstructions': 'Open your banking app and scan this QR code to complete payment.',
       'bk.pay.qrWaiting': 'Waiting for payment confirmation…',
       'bk.pay.redirectTitle': 'Confirming with your bank',
-      'bk.pay.redirectNote': 'You are being taken to your bank’s secure page to approve this payment. Your reservation is already confirmed — please note the confirmation number above.',
+      'bk.pay.redirectNote': 'You are being taken to your bank’s secure page to approve this payment. Your room is held while you do, and the booking is confirmed once the payment goes through — please note the reference above.',
       'bk.pay.confirmingTitle': 'Checking your payment…',
-      'bk.pay.confirmingNote': 'We are confirming this payment with your bank. Your reservation is confirmed either way — if the payment did not go through, you can simply pay at check-in.',
-      'bk.pay.qrCloseNote': "Your reservation is confirmed either way. You can close this and finish paying later via the QR, or pay at check-in instead — we'll email you as soon as your PromptPay payment is confirmed.",
+      'bk.pay.confirmingNote': 'We are confirming this payment with your bank. If it did not go through, the booking will be cancelled, the room released, and we will email you — you have not been charged and can simply book again.',
+      'bk.pay.qrCloseNote': 'Your room is held while you pay. If the payment is not received, the booking is cancelled automatically and the room released — we will email you either way, and your confirmation is sent as soon as your PromptPay payment arrives.',
       'bk.pay.paidOnlineNote': 'You paid {amount} online. Thank you!',
+      'bk.pay.pendingTitle': 'Almost done — complete your payment',
+      'bk.pay.failedTitle': 'Payment not completed',
+      'bk.pay.failedNote': 'Your payment did not go through, so this booking has been cancelled and the room released. You have not been charged. You are welcome to try booking again.',
       'bk.pay.onlinePayNote': "You're paying online now. We'll email your confirmation as soon as payment is processed.",
       'bk.pay.err.cardDeclined': 'Your card was declined. Please try a different card or pay at check-in.',
       'bk.pay.err.cardIncomplete': 'Please fill in all card details.',
@@ -149,11 +152,14 @@
       'bk.pay.qrInstructions': 'เปิดแอปธนาคารของท่านแล้วสแกน QR โค้ดนี้เพื่อชำระเงินให้เสร็จสมบูรณ์',
       'bk.pay.qrWaiting': 'กำลังรอการยืนยันการชำระเงิน…',
       'bk.pay.redirectTitle': 'กำลังยืนยันกับธนาคารของท่าน',
-      'bk.pay.redirectNote': 'ระบบกำลังนำท่านไปยังหน้าเว็บที่ปลอดภัยของธนาคารเพื่ออนุมัติการชำระเงิน การจองของท่านได้รับการยืนยันแล้ว โปรดจดหมายเลขการจองด้านบนไว้',
+      'bk.pay.redirectNote': 'ระบบกำลังพาท่านไปยังหน้าที่ปลอดภัยของธนาคารเพื่ออนุมัติการชำระเงิน เราจะกันห้องไว้ให้ระหว่างนี้ และการจองจะได้รับการยืนยันเมื่อชำระเงินสำเร็จ — โปรดจดหมายเลขอ้างอิงด้านบนไว้',
       'bk.pay.confirmingTitle': 'กำลังตรวจสอบการชำระเงิน…',
-      'bk.pay.confirmingNote': 'ระบบกำลังยืนยันการชำระเงินกับธนาคารของท่าน ไม่ว่าผลจะเป็นอย่างไร การจองของท่านได้รับการยืนยันแล้ว หากการชำระเงินไม่สำเร็จ ท่านสามารถชำระที่เคาน์เตอร์เมื่อเช็คอินได้',
-      'bk.pay.qrCloseNote': 'การจองของท่านได้รับการยืนยันแล้วไม่ว่าผลการชำระเงินจะเป็นอย่างไร ท่านสามารถปิดหน้าต่างนี้แล้วชำระเงินภายหลังผ่าน QR หรือชำระที่หน้าเคาน์เตอร์แทนก็ได้ — เราจะแจ้งให้ท่านทราบทางอีเมลทันทีที่ได้รับการยืนยันการชำระเงินผ่าน PromptPay',
+      'bk.pay.confirmingNote': 'เรากำลังตรวจสอบการชำระเงินนี้กับธนาคารของท่าน หากการชำระเงินไม่สำเร็จ การจองจะถูกยกเลิก ห้องพักจะถูกปล่อยคืน และเราจะแจ้งท่านทางอีเมล — ท่านจะไม่ถูกเรียกเก็บเงิน และสามารถจองใหม่ได้ทันที',
+      'bk.pay.qrCloseNote': 'เราจะกันห้องไว้ให้ระหว่างที่ท่านชำระเงิน หากไม่ได้รับการชำระเงิน การจองจะถูกยกเลิกโดยอัตโนมัติและห้องพักจะถูกปล่อยคืน — เราจะแจ้งท่านทางอีเมลไม่ว่ากรณีใด และจะส่งอีเมลยืนยันการจองทันทีที่ได้รับการชำระเงินผ่าน PromptPay',
       'bk.pay.paidOnlineNote': 'ท่านได้ชำระเงิน {amount} ออนไลน์เรียบร้อยแล้ว ขอบคุณที่ใช้บริการ',
+      'bk.pay.pendingTitle': 'อีกขั้นเดียว — กรุณาชำระเงินให้เสร็จสิ้น',
+      'bk.pay.failedTitle': 'การชำระเงินไม่สำเร็จ',
+      'bk.pay.failedNote': 'การชำระเงินของท่านไม่สำเร็จ การจองนี้จึงถูกยกเลิกและห้องพักถูกปล่อยคืนแล้ว ท่านไม่ถูกเรียกเก็บเงินใด ๆ และสามารถทำการจองใหม่ได้',
       'bk.pay.onlinePayNote': 'ท่านกำลังชำระเงินออนไลน์ เราจะส่งอีเมลยืนยันให้ทันทีที่การชำระเงินเสร็จสมบูรณ์',
       'bk.pay.err.cardDeclined': 'บัตรของท่านถูกปฏิเสธ กรุณาลองใช้บัตรอื่น หรือเลือกชำระเงินที่หน้าเคาน์เตอร์แทน',
       'bk.pay.err.cardIncomplete': 'กรุณากรอกข้อมูลบัตรให้ครบถ้วน',
@@ -233,11 +239,14 @@
       'bk.pay.qrInstructions': '銀行アプリを開き、このQRコードをスキャンしてお支払いを完了してください。',
       'bk.pay.qrWaiting': 'お支払いの確認をお待ちしています…',
       'bk.pay.redirectTitle': '銀行での認証手続き',
-      'bk.pay.redirectNote': 'お支払いを承認するため、ご利用銀行の安全なページへ移動します。ご予約はすでに確定しています。上記の予約番号をお控えください。',
+      'bk.pay.redirectNote': 'お支払いを承認いただくため、銀行の安全なページへ移動します。その間お部屋は確保しており、お支払いが完了した時点でご予約が確定いたします。上記の番号をお控えください。',
       'bk.pay.confirmingTitle': 'お支払いを確認しています…',
-      'bk.pay.confirmingNote': 'ご利用銀行にお支払いを確認しています。いずれの場合もご予約は確定済みです。お支払いが完了しなかった場合は、チェックイン時にお支払いいただけます。',
-      'bk.pay.qrCloseNote': 'ご予約はいずれにしても確定しております。この画面を閉じて後ほどQRコードからお支払いいただくことも、チェックイン時にお支払いいただくことも可能です。プロンプトペイのお支払いが確認され次第メールにてご案内いたします。',
+      'bk.pay.confirmingNote': 'ただいま銀行にお支払いを確認しております。お支払いが完了しなかった場合はご予約を取り消してお部屋を解放し、メールにてお知らせいたします。料金は発生しておりませんので、改めてご予約いただけます。',
+      'bk.pay.qrCloseNote': 'お支払いの間、お部屋は確保しております。お支払いが確認できなかった場合、ご予約は自動的に取り消され、お部屋は解放されます。いずれの場合もメールでお知らせし、プロンプトペイのお支払いが確認され次第、予約確認メールをお送りいたします。',
       'bk.pay.paidOnlineNote': '{amount} をオンラインでお支払いいただきました。誠にありがとうございます。',
+      'bk.pay.pendingTitle': 'あと少しです — お支払いを完了してください',
+      'bk.pay.failedTitle': 'お支払いが完了しませんでした',
+      'bk.pay.failedNote': 'お支払いが完了しなかったため、このご予約は取り消され、お部屋は解放されました。料金は発生しておりません。改めてご予約いただけます。',
       'bk.pay.onlinePayNote': 'ただいまオンラインでお支払い手続き中です。お支払い完了後、確認メールをお送りいたします。',
       'bk.pay.err.cardDeclined': 'カードが決済できませんでした。別のカードをお試しいただくか、チェックイン時のお支払いをお選びください。',
       'bk.pay.err.cardIncomplete': 'カード情報をすべてご入力ください。',
@@ -317,11 +326,14 @@
       'bk.pay.qrInstructions': '请打开您的银行应用程序扫描此二维码以完成付款。',
       'bk.pay.qrWaiting': '正在等待付款确认…',
       'bk.pay.redirectTitle': '正在与您的银行确认',
-      'bk.pay.redirectNote': '正在跳转至银行安全页面以完成付款验证。您的预订已确认，请记下上方的确认号。',
+      'bk.pay.redirectNote': '正在将您转至银行的安全页面以批准此笔付款。在此期间我们会为您保留房间，付款成功后预订即确认——请记下上方的编号。',
       'bk.pay.confirmingTitle': '正在核实您的付款…',
-      'bk.pay.confirmingNote': '我们正在向银行核实这笔付款。无论结果如何，您的预订均已确认；如付款未成功，您可在入住时付款。',
-      'bk.pay.qrCloseNote': '无论付款结果如何，您的预订均已确认。您可以关闭此窗口稍后通过二维码完成付款，或改为入住时付款——PromptPay付款确认后我们将通过邮件通知您。',
+      'bk.pay.confirmingNote': '我们正在向您的银行确认此笔付款。如付款未成功，预订将被取消、房间将被释放，我们会以邮件通知您——您不会被扣款，可直接重新预订。',
+      'bk.pay.qrCloseNote': '在您付款期间我们会为您保留房间。如未收到付款，预订将自动取消并释放房间——无论结果如何我们都会以邮件通知您，收到PromptPay付款后将立即发送预订确认邮件。',
       'bk.pay.paidOnlineNote': '您已在线支付 {amount}，感谢您！',
+      'bk.pay.pendingTitle': '即将完成——请完成付款',
+      'bk.pay.failedTitle': '付款未完成',
+      'bk.pay.failedNote': '您的付款未成功，因此本次预订已取消，房间已释放。您未被扣款，欢迎重新预订。',
       'bk.pay.onlinePayNote': '您正在进行在线支付。付款完成后我们将立即发送确认邮件。',
       'bk.pay.err.cardDeclined': '您的卡被拒绝。请尝试其他银行卡，或选择入住时付款。',
       'bk.pay.err.cardIncomplete': '请填写完整的银行卡信息。',
@@ -401,11 +413,14 @@
       'bk.pay.qrInstructions': '請開啟您的銀行應用程式掃描此二維碼以完成付款。',
       'bk.pay.qrWaiting': '正在等待付款確認…',
       'bk.pay.redirectTitle': '正在與您的銀行確認',
-      'bk.pay.redirectNote': '正在跳轉至銀行安全頁面以完成付款驗證。您的預訂已確認，請記下上方的確認號碼。',
+      'bk.pay.redirectNote': '正在將您轉至銀行的安全頁面以批准此筆付款。在此期間我們會為您保留房間，付款成功後預訂即確認——請記下上方的編號。',
       'bk.pay.confirmingTitle': '正在核實您的付款…',
-      'bk.pay.confirmingNote': '我們正在向銀行核實這筆付款。無論結果如何，您的預訂均已確認；如付款未成功，您可在入住時付款。',
-      'bk.pay.qrCloseNote': '無論付款結果如何，您的預訂均已確認。您可以關閉此視窗稍後透過二維碼完成付款，或改為入住時付款——PromptPay付款確認後我們將透過郵件通知您。',
+      'bk.pay.confirmingNote': '我們正在向您的銀行確認此筆付款。如付款未成功，預訂將被取消、房間將被釋放，我們會以郵件通知您——您不會被扣款，可直接重新預訂。',
+      'bk.pay.qrCloseNote': '在您付款期間我們會為您保留房間。如未收到付款，預訂將自動取消並釋放房間——無論結果如何我們都會以郵件通知您，收到PromptPay付款後將立即傳送預訂確認郵件。',
       'bk.pay.paidOnlineNote': '您已線上支付 {amount}，感謝您！',
+      'bk.pay.pendingTitle': '即將完成——請完成付款',
+      'bk.pay.failedTitle': '付款未完成',
+      'bk.pay.failedNote': '您的付款未成功，因此本次預訂已取消，房間已釋放。您未被扣款，歡迎重新預訂。',
       'bk.pay.onlinePayNote': '您正在進行線上支付。付款完成後我們將立即傳送確認郵件。',
       'bk.pay.err.cardDeclined': '您的卡被拒絕。請嘗試其他銀行卡，或選擇入住時付款。',
       'bk.pay.err.cardIncomplete': '請填寫完整的銀行卡資訊。',
@@ -1636,10 +1651,12 @@
   function stopQrPoll() {
     if (qrPollTimer) { clearTimeout(qrPollTimer); qrPollTimer = null; }
   }
-  // The booking itself is already confirmed regardless of payment outcome
-  // (see this file's header comment), so a poll that never resolves isn't a
-  // failure state — it just stops quietly once the modal closes or after a
-  // generous cap, without ever telling the guest their RESERVATION failed.
+  // The room is held while the payment is open. If the gateway reports the
+  // payment failed or expired, the server cancels the booking and releases
+  // the room (paymentReconciler.markUnpaid) and this poll sees
+  // status 'cancelled'. A poll that simply never resolves stops quietly once
+  // the modal closes or after a generous cap — the server still releases the
+  // room and emails the guest.
   function pollPaymentStatus(bookingId, onPaid) {
     stopQrPoll();
     var attempts = 0;
@@ -1649,6 +1666,7 @@
       attempts++;
       window.JPark.api.get('/api/v1/payments/status/' + bookingId).then(function (r) {
         if (r && !r.error && r.paymentStatus === 'paid') { onPaid(); return; }
+        if (r && !r.error && r.status === 'cancelled') { showPaymentFailed(); return; }
         if (attempts < MAX_ATTEMPTS) qrPollTimer = setTimeout(tick, 5000);
       }).catch(function () {
         if (attempts < MAX_ATTEMPTS) qrPollTimer = setTimeout(tick, 5000);
@@ -1736,6 +1754,29 @@
   function setEmailNote(sent) {
     var noteEl = qs('#bkpViewSuccess .bkp-email-sent-note');
     if (noteEl) noteEl.textContent = TR(sent ? 'bk.pay.emailSentNote' : 'bk.pay.emailAfterPaymentNote');
+    // Nor is the booking "confirmed" until then.
+    var titleEl = qs('#bkpViewSuccess h3');
+    if (titleEl) titleEl.textContent = TR(sent ? 'bk.pay.successTitle' : 'bk.pay.pendingTitle');
+  }
+
+  // The payment failed or expired and the server released the room. Strip
+  // everything that only makes sense for a booking that stands (the tick,
+  // the deposit and check-in notes, the bill) and say so plainly.
+  function showPaymentFailed() {
+    stopQrPoll();
+    var view = qs('#bkpViewSuccess');
+    if (!view) return;
+    var titleEl = qs('#bkpViewSuccess h3');
+    if (titleEl) titleEl.textContent = TR('bk.pay.failedTitle');
+    Array.prototype.forEach.call(view.querySelectorAll(
+      '.bkp-success-icon, .bkp-deposit-note, .bkp-checkin-time-note, .bkp-email-sent-note, #bkpSuccessBill, #bkpSuccessBillRows'
+    ), function (n) { n.hidden = true; });
+    var el = qs('#bkpPaymentOutcome');
+    if (el) {
+      el.hidden = false;
+      el.className = 'bkp-payment-outcome bkp-payment-failed';
+      el.innerHTML = '<h4>' + TR('bk.pay.failedTitle') + '</h4><p class="bkp-qr-instructions">' + TR('bk.pay.failedNote') + '</p>';
+    }
   }
 
   function renderPaymentOutcome(el, payment, amount) {
@@ -1750,11 +1791,10 @@
       return;
     }
     // 3-D Secure: the guest's bank wants to authenticate them before the card
-    // is charged, so they leave this site entirely. The RESERVATION is already
-    // confirmed and stored at this point — this is only the payment leg — so
-    // the confirmation number and amount are stashed first and shown again on
-    // return, and a guest who abandons the challenge still has a valid
-    // booking to pay for at check-in.
+    // is charged, so they leave this site entirely. The booking is stored and
+    // the room held at this point, so the reference and amount are stashed
+    // first and shown again on return. A guest who abandons the challenge has
+    // the booking cancelled and the room released by the server.
     if (payment.redirect && payment.redirect.url) {
       el.className = 'bkp-payment-outcome bkp-payment-pending';
       el.innerHTML =
@@ -2382,15 +2422,11 @@
 
   // ── Returning from a 3-D Secure challenge ───────────────────────────────
   // The gateway sends the guest back to booking.html?jpPay=<chargeReference>.
-  // By this point the reservation already exists and is confirmed — the only
-  // open question is whether the payment leg succeeded, and that answer comes
-  // from the gateway's own server-to-server notification, not from anything
-  // in this URL. So the confirmation view is reopened and the same poll the
-  // PromptPay QR uses runs until payment_status flips to 'paid'.
-  //
-  // A guest who abandoned the bank page, or whose payment failed, simply
-  // never sees it flip — and that is a correct, non-alarming outcome: they
-  // keep a valid reservation and pay at check-in.
+  // By this point the booking exists and the room is held — the only open
+  // question is whether the payment succeeded, and that answer comes from the
+  // gateway's own server-to-server notification, not from anything in this
+  // URL. So the view is reopened and the same poll the PromptPay QR uses runs
+  // until the booking is paid, or released because the payment failed.
   function resumeRedirectPayment() {
     var m = /[?&]jpPay=([^&]*)/.exec(window.location.search || '');
     if (!m) return;
@@ -2412,6 +2448,16 @@
     if (!pollKey) return;
 
     build();
+    // A fresh page load: the box is empty, because the result view is
+    // normally drawn by the booking form this guest left behind on the way to
+    // their bank. Without this the guest came back to a dimmed page with
+    // nothing on it — no reference, no payment status.
+    box.innerHTML =
+      '<div class="bkp-head"><span class="bkp-title">J Park Hotel</span>' +
+        '<button type="button" class="bkp-close" aria-label="' + TR('bk.pay.close') + '">&times;</button></div>' +
+      '<div class="bkp-body">' + resultViewsHTML() + '</div>';
+    var closeBtn = qs('.bkp-close');
+    if (closeBtn) closeBtn.addEventListener('click', close);
     overlay.hidden = false;
     lockBodyScroll();
     showSuccess(stashed.ref, { bill: stashed.bill || null }, stashed.amount);
