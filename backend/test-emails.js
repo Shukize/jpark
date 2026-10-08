@@ -40,6 +40,17 @@ require.cache[dbPath] = { id: dbPath, filename: dbPath, loaded: true, exports: f
 process.env.RESEND_API_KEY = '';
 process.env.HOTEL_NOTIFY_EMAIL = 'desk@example.com';
 
+// Every message the route module tries to send, so the tests can assert WHO
+// was mailed and WHEN — not just what a template would look like.
+const outbox = [];
+const mailerPath = require.resolve(path.join(ROOT, 'mailer.js'));
+require.cache[mailerPath] = {
+  id: mailerPath, filename: mailerPath, loaded: true,
+  exports: { sendEmail: async (msg) => { outbox.push(msg); return { ok: true }; }, isConfigured: () => true },
+};
+const flush = () => new Promise((r) => setTimeout(r, 20));
+const toGuest = () => outbox.filter((m) => m.to === 'ann@example.com');
+
 const GB = require(path.join(ROOT, 'routes', 'guestBookings'));
 
 /* A guest name that is also an attack. If any template renders this as markup,
@@ -207,12 +218,21 @@ function assertHasText(name, text) {
   check('cancellation (paid): still invites a billing-error correction',
     /charged in error|charged twice/i.test(m.html));
 
+  // ── Breakfast is spelled out, never a bare Yes/No ─────────────────────
+  m = GB.confirmationEmail(booking({ breakfast: true }));
+  check('confirmation: breakfast reads "Included"', /Breakfast: Included/.test(m.text));
+  m = GB.confirmationEmail(booking({ breakfast: false }));
+  check('confirmation: no breakfast reads "Not included"', /Breakfast: Not included/.test(m.text));
+  check('confirmation: no breakfast never prints a bare "No"', !/Breakfast: No$/m.test(m.text));
+  m = GB.confirmationEmail(booking({ breakfast: true, lang: 'th' }));
+  check('confirmation (th): breakfast included in Thai', m.text.indexOf('รวมอาหารเช้า') !== -1);
+  m = GB.confirmationEmail(booking({ breakfast: false, lang: 'th' }));
+  check('confirmation (th): breakfast not included in Thai', m.text.indexOf('ไม่รวมอาหารเช้า') !== -1);
+  m = GB.hotelNotice(booking({ breakfast: false }));
+  check('hotel notice: breakfast reads "Not included"', /Breakfast: Not included/.test(m.text));
+
   // ── Payment receipts ───────────────────────────────────────────────────
   const paid = booking({ payment_provider: 'omise', payment_method: 'card', payment_status: 'paid', payment_charge_id: 'chrg_test_123' });
-  m = renderCase('payment-confirmed', GB.paymentConfirmedEmail(paid));
-  assertEmailShape('payment confirmed (guest)', m.html);
-  assertHasText('payment confirmed (guest)', m.text);
-  assertPolish('payment confirmed (guest)', m.html);
 
   m = renderCase('payment-confirmed-hotel', GB.paymentConfirmedHotelNotice(paid));
   assertEmailShape('payment confirmed (hotel)', m.html);
@@ -247,10 +267,50 @@ function assertHasText(name, text) {
   m = renderCase('group-cancellation-paid', GB.groupCancellationEmail(paidGroup));
   check('group cancellation (paid): HTML does NOT claim nothing was paid',
     !/nothing to refund/i.test(m.html), 'the exact bug this replaced');
-  m = renderCase('group-payment-confirmed', GB.groupPaymentConfirmedEmail(paidGroup));
-  assertEmailShape('group payment confirmed', m.html);
   m = renderCase('group-payment-confirmed-hotel', GB.groupPaymentConfirmedHotelNotice(paidGroup));
   assertEmailShape('group payment confirmed (hotel)', m.html);
+
+  // ── The guest is confirmed only once they have paid ───────────────────
+  // A PromptPay QR / 3-D Secure booking is filed as pending. The desk hears
+  // about it at once; the guest hears nothing until the money lands.
+  const pendingQr = booking({ payment_provider: 'omise', payment_method: 'promptpay', payment_status: 'pending', payment_charge_id: 'chrg_qr_1' });
+  outbox.length = 0;
+  GB.fireBookingEmails(Object.assign({}, pendingQr, { inserted: true }));
+  await flush();
+  check('pending online payment: NO guest confirmation yet', toGuest().length === 0, outbox.map((x) => x.subject).join(' | '));
+  check('pending online payment: front desk is still told', outbox.some((x) => /New booking/.test(x.subject)));
+
+  outbox.length = 0;
+  await GB.sendPaymentConfirmedEmail(Object.assign({}, pendingQr, { payment_status: 'paid' }));
+  await flush();
+  check('payment lands: guest gets their booking confirmation', toGuest().length === 1 && /booking confirmed/.test(toGuest()[0].subject),
+    toGuest().map((x) => x.subject).join(' | '));
+  check('payment lands: that confirmation says paid', toGuest().length === 1 && /Payment received/.test(toGuest()[0].text));
+  check('payment lands: that confirmation shows breakfast', toGuest().length === 1 && /Breakfast: Included/.test(toGuest()[0].text));
+  check('payment lands: front desk gets the payment notice', outbox.some((x) => /Payment confirmed/.test(x.subject)));
+
+  outbox.length = 0;
+  GB.fireBookingEmails(Object.assign({}, paid, { inserted: true }));
+  await flush();
+  check('card paid at booking: guest confirmed straight away', toGuest().length === 1 && /Payment received/.test(toGuest()[0].text));
+
+  // Same rule for a multi-room booking (one charge covers every room).
+  const pendingGroup = groupRows.map((r) => Object.assign({}, r, {
+    payment_provider: 'omise', payment_method: 'promptpay', payment_status: 'pending', payment_charge_id: 'chrg_grp_q',
+  }));
+  const realQuery = fakeDb.query;
+  fakeDb.query = async () => ({ rows: pendingGroup });
+  outbox.length = 0;
+  await GB.fireGroupBookingEmails('JP-GRP-0001');
+  await flush();
+  fakeDb.query = realQuery;
+  check('group, pending payment: NO guest confirmation yet', toGuest().length === 0);
+  check('group, pending payment: front desk is still told', outbox.some((x) => /New booking/.test(x.subject)));
+  outbox.length = 0;
+  await GB.sendGroupPaymentConfirmedEmail(pendingGroup.map((r) => Object.assign({}, r, { payment_status: 'paid' })));
+  await flush();
+  check('group, payment lands: guest gets the full multi-room confirmation',
+    toGuest().length === 1 && /booking confirmed/.test(toGuest()[0].subject) && /Deluxe/.test(toGuest()[0].text));
 
   // ── A hostile name must not escape through the plain-text side either ──
   check('plain-text bodies carry the name verbatim (no markup to execute there)',

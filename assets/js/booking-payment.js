@@ -86,6 +86,7 @@
       'bk.pay.cancel': 'Cancel', 'bk.pay.close': 'Close',
       'bk.pay.successTitle': 'Booking confirmed!', 'bk.pay.confirmationLabel': 'Confirmation number',
       'bk.pay.emailSentNote': 'A confirmation has been sent to your email, with the deposit note above.',
+      'bk.pay.emailAfterPaymentNote': 'Your confirmation email will be sent as soon as your payment is received.',
       'bk.pay.spamNote': "Don't see it in a few minutes? Please check your spam or junk folder.",
       'bk.pay.checkinTimeNote': 'Check-in from 14:00 ICT · Check-out until 12:00 ICT',
       'bk.pay.done': 'Done',
@@ -169,6 +170,7 @@
       'bk.pay.cancel': 'ยกเลิก', 'bk.pay.close': 'ปิด',
       'bk.pay.successTitle': 'ยืนยันการจองแล้ว!', 'bk.pay.confirmationLabel': 'หมายเลขยืนยัน',
       'bk.pay.emailSentNote': 'เราได้ส่งอีเมลยืนยันพร้อมข้อมูลเงินมัดจำข้างต้นให้ท่านแล้ว',
+      'bk.pay.emailAfterPaymentNote': 'เราจะส่งอีเมลยืนยันการจองให้ท่านทันทีที่ได้รับการชำระเงิน',
       'bk.pay.spamNote': 'หากไม่พบอีเมลภายในไม่กี่นาที กรุณาตรวจสอบโฟลเดอร์สแปมหรือจดหมายขยะ',
       'bk.pay.checkinTimeNote': 'เช็คอินตั้งแต่ 14:00 น. (เวลาไทย) · เช็คเอาท์ภายใน 12:00 น. (เวลาไทย)',
       'bk.pay.done': 'เสร็จสิ้น',
@@ -252,6 +254,7 @@
       'bk.pay.cancel': 'キャンセル', 'bk.pay.close': '閉じる',
       'bk.pay.successTitle': 'ご予約が確定しました！', 'bk.pay.confirmationLabel': '確認番号',
       'bk.pay.emailSentNote': '上記のデポジットのご案内を含む確認メールをお送りしました。',
+      'bk.pay.emailAfterPaymentNote': 'お支払いが確認され次第、予約確認メールをお送りいたします。',
       'bk.pay.spamNote': '数分経ってもメールが届かない場合は、迷惑メールフォルダをご確認ください。',
       'bk.pay.checkinTimeNote': 'チェックインは14:00（タイ時間）から、チェックアウトは12:00（タイ時間）までです',
       'bk.pay.done': '完了',
@@ -335,6 +338,7 @@
       'bk.pay.cancel': '取消', 'bk.pay.close': '关闭',
       'bk.pay.successTitle': '预订成功！', 'bk.pay.confirmationLabel': '确认号',
       'bk.pay.emailSentNote': '包含上述押金说明的确认邮件已发送至您的邮箱。',
+      'bk.pay.emailAfterPaymentNote': '收到您的付款后，我们将立即发送预订确认邮件。',
       'bk.pay.spamNote': '几分钟内没有收到邮件？请检查您的垃圾邮件文件夹。',
       'bk.pay.checkinTimeNote': '入住时间为14:00（泰国时间）起，退房时间为12:00（泰国时间）前',
       'bk.pay.done': '完成',
@@ -418,6 +422,7 @@
       'bk.pay.cancel': '取消', 'bk.pay.close': '關閉',
       'bk.pay.successTitle': '預訂成功！', 'bk.pay.confirmationLabel': '確認號',
       'bk.pay.emailSentNote': '包含上述押金說明的確認郵件已發送至您的郵箱。',
+      'bk.pay.emailAfterPaymentNote': '收到您的付款後，我們將立即傳送預訂確認郵件。',
       'bk.pay.spamNote': '幾分鐘內沒有收到郵件？請檢查您的垃圾郵件資料夾。',
       'bk.pay.checkinTimeNote': '入住時間為14:00（泰國時間）起，退房時間為12:00（泰國時間）前',
       'bk.pay.done': '完成',
@@ -1725,11 +1730,20 @@
      before the browser leaves for the bank. */
   var stashedBill = null;
 
+  /* The server emails the guest's confirmation only once the payment is in
+     (a confirmation means paid), so while a QR or bank check is still open
+     this line must not claim the email has already gone. */
+  function setEmailNote(sent) {
+    var noteEl = qs('#bkpViewSuccess .bkp-email-sent-note');
+    if (noteEl) noteEl.textContent = TR(sent ? 'bk.pay.emailSentNote' : 'bk.pay.emailAfterPaymentNote');
+  }
+
   function renderPaymentOutcome(el, payment, amount) {
     stopQrPoll();
     if (!el) return;
     if (!payment) { el.hidden = true; el.innerHTML = ''; return; }
     el.hidden = false;
+    setEmailNote(!!payment.paid);
     if (payment.paid) {
       el.className = 'bkp-payment-outcome bkp-payment-paid';
       el.innerHTML = '<strong>' + TR('bk.pay.paidOnlineNote').replace('{amount}', money(amount)) + '</strong>';
@@ -1769,6 +1783,7 @@
       pollPaymentStatus(payment.bookingId, function () {
         el.className = 'bkp-payment-outcome bkp-payment-paid';
         el.innerHTML = '<strong>' + TR('bk.pay.paidOnlineNote').replace('{amount}', money(amount)) + '</strong>';
+        setEmailNote(true);
       });
     }
   }
@@ -2404,6 +2419,7 @@
     var el = qs('#bkpPaymentOutcome');
     if (!el) return;
     el.hidden = false;
+    setEmailNote(false);
     el.className = 'bkp-payment-outcome bkp-payment-pending';
     el.innerHTML =
       '<h4>' + TR('bk.pay.confirmingTitle') + '</h4>' +
@@ -2415,6 +2431,7 @@
     pollPaymentStatus(pollKey, function () {
       el.className = 'bkp-payment-outcome bkp-payment-paid';
       el.innerHTML = '<strong>' + TR('bk.pay.paidOnlineNote').replace('{amount}', money(stashed.amount)) + '</strong>';
+      setEmailNote(true);
     });
   }
   resumeRedirectPayment();

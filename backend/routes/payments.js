@@ -654,8 +654,9 @@ router.get('/booking-availability', async (req, res) => {
    payment existed), or pay online now by card/PromptPay via Omise. Holds the
    room via the same overlap/inventory guard either way, then fires the
    standard hotel-notice + guest-confirmation email pair via the shared
-   fireBookingEmails() helper (guestBookings.js) — its copy adapts to whichever
-   payment outcome the booking actually has. Reuses computeTotal() so the
+   fireBookingEmails() helper (guestBookings.js). The guest's confirmation is
+   held back while an online payment is still pending (QR / 3-D Secure) and
+   sent when it settles instead — a confirmation means paid. Reuses computeTotal() so the
    recorded total already reflects any live admin rate overrides; the amount
    charged online is always this server-computed total, never client-supplied. */
 router.post('/reservations', async (req, res) => {
